@@ -1,0 +1,698 @@
+using AILedger.Core.Contracts;
+using AILedger.Core.Domain;
+
+namespace AILedger.Core.Application;
+
+public sealed class CommandHandler : ICommandHandler
+{
+    private readonly ITaskReducer _reducer;
+    private readonly AuthorizationPolicy _authorizationPolicy;
+
+    public CommandHandler()
+        : this(new TaskReducer(), new AuthorizationPolicy())
+    {
+    }
+
+    public CommandHandler(ITaskReducer reducer, AuthorizationPolicy authorizationPolicy)
+    {
+        _reducer = reducer;
+        _authorizationPolicy = authorizationPolicy;
+    }
+
+    public CommandOutcome Handle(GovernedTaskState? state, LedgerCommand command, DateTimeOffset now)
+    {
+        ValidateEnvelope(command);
+        ValidateEnums(command);
+
+        var eventData = state is null
+            ? HandleOpening(command, now)
+            : HandleExisting(state, command, now);
+
+        return ApplyEvents(state, command, eventData, now);
+    }
+
+    private IReadOnlyList<LedgerEventData> HandleOpening(LedgerCommand command, DateTimeOffset now)
+    {
+        if (command is not OpenTaskCommand open)
+        {
+            throw new GovernanceException("A task must be opened before other commands are handled.");
+        }
+
+        RequireId(open.TaskId.Value, nameof(open.TaskId));
+        RequireText(open.Title, nameof(open.Title));
+        RequireText(open.Goal, nameof(open.Goal));
+
+        var operatorRole = new RoleAssignment(
+            open.ActorId,
+            RoleKind.Operator,
+            Enum.GetValues<Capability>(),
+            new Provenance(open.ActorId, now, "task.open"));
+
+        return [new TaskOpened(open.Title.Trim(), open.Goal.Trim()), new RoleAssigned(operatorRole)];
+    }
+
+    private IReadOnlyList<LedgerEventData> HandleExisting(
+        GovernedTaskState state,
+        LedgerCommand command,
+        DateTimeOffset now)
+    {
+        if (command is OpenTaskCommand)
+        {
+            throw new GovernanceException("Task is already open.");
+        }
+
+        _authorizationPolicy.Authorize(state, command);
+
+        return command switch
+        {
+            AssignRoleCommand assign => AssignRole(state, assign, now),
+            AddClaimCommand add => AddClaim(state, add, now),
+            ResolveClaimCommand resolve => ResolveClaim(state, resolve),
+            AddEvidenceCommand add => AddEvidence(state, add, now),
+            ProposeDecisionCommand propose => ProposeDecision(state, propose, now),
+            ResolveDecisionCommand resolve => ResolveDecision(state, resolve),
+            RaiseChallengeCommand raise => RaiseChallenge(state, raise, now),
+            DisposeChallengeCommand dispose => DisposeChallenge(state, dispose),
+            AddWorkItemCommand add => AddWorkItem(state, add),
+            StartRunCommand start => StartRun(state, start, now),
+            CompleteRunCommand complete => CompleteRun(state, complete, now),
+            RequestStageTransitionCommand transition => TransitionStage(state, transition),
+            _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
+        };
+    }
+
+    private static IReadOnlyList<LedgerEventData> AssignRole(
+        GovernedTaskState state,
+        AssignRoleCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.TargetActorId.Value, nameof(command.TargetActorId));
+        if (command.TargetActorId == command.ActorId)
+        {
+            throw new GovernanceException("Actors cannot assign or expand their own authority.");
+        }
+
+        var capabilities = DistinctCapabilities(command.Capabilities);
+        if (command.Role != RoleKind.Operator &&
+            capabilities.Any(capability => capability is Capability.ManageRoles or Capability.ManageScope))
+        {
+            throw new GovernanceException("Only an operator role can receive role-management or scope-management authority.");
+        }
+        var assignment = new RoleAssignment(
+            command.TargetActorId,
+            command.Role,
+            capabilities,
+            new Provenance(command.ActorId, now, "actor.assign-role"));
+
+        return [new RoleAssigned(assignment)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> AddClaim(
+        GovernedTaskState state,
+        AddClaimCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.ClaimId.Value, nameof(command.ClaimId));
+        EnsureNew(state.Claims, command.ClaimId, "claim");
+        RequireText(command.Statement, nameof(command.Statement));
+
+        var claim = new Claim(
+            command.ClaimId,
+            command.Statement.Trim(),
+            ClaimStatus.Open,
+            [],
+            TrimOrNull(command.ConsequenceIfWrong),
+            new Provenance(command.ActorId, now, "claim.add"));
+        return [new ClaimAdded(claim)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> ResolveClaim(
+        GovernedTaskState state,
+        ResolveClaimCommand command)
+    {
+        var claim = Get(state.Claims, command.ClaimId, "claim");
+        EnsureClaimResolution(claim, command.Status);
+        EnsureUnique(command.EvidenceIds, "Evidence IDs");
+        EnsureReferencesExist(state.Evidence, command.EvidenceIds, "evidence");
+
+        if (command.Status is ClaimStatus.Validated or ClaimStatus.Rejected && command.EvidenceIds.Count == 0)
+        {
+            throw new GovernanceException($"A {command.Status.ToString().ToLowerInvariant()} claim requires evidence.");
+        }
+
+        foreach (var evidenceId in command.EvidenceIds)
+        {
+            var evidence = state.Evidence[evidenceId];
+            var hasRequiredDirection = command.Status switch
+            {
+                ClaimStatus.Validated => evidence.Supports.Contains(command.ClaimId),
+                ClaimStatus.Rejected => evidence.Refutes.Contains(command.ClaimId),
+                _ => true
+            };
+
+            if (!hasRequiredDirection)
+            {
+                throw new GovernanceException(
+                    $"Evidence '{evidenceId}' does not {EvidenceDirection(command.Status)} claim '{command.ClaimId}'.");
+            }
+        }
+
+        var events = new List<LedgerEventData>
+        {
+            new ClaimResolved(command.ClaimId, command.Status, command.EvidenceIds.ToArray())
+        };
+
+        if (command.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
+        {
+            AddDependencyInvalidations(state, command.ClaimId, events);
+        }
+
+        return events;
+    }
+
+    private static string EvidenceDirection(ClaimStatus status) => status switch
+    {
+        ClaimStatus.Validated => "support",
+        ClaimStatus.Rejected => "refute",
+        _ => "relate to"
+    };
+
+    private static IReadOnlyList<LedgerEventData> AddEvidence(
+        GovernedTaskState state,
+        AddEvidenceCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.EvidenceId.Value, nameof(command.EvidenceId));
+        EnsureNew(state.Evidence, command.EvidenceId, "evidence");
+        RequireText(command.SourceType, nameof(command.SourceType));
+        RequireText(command.Citation, nameof(command.Citation));
+        RequireText(command.Summary, nameof(command.Summary));
+        EnsureUnique(command.Supports, "Supported claim IDs");
+        EnsureUnique(command.Refutes, "Refuted claim IDs");
+        EnsureReferencesExist(state.Claims, command.Supports, "claim");
+        EnsureReferencesExist(state.Claims, command.Refutes, "claim");
+
+        if (command.Supports.Intersect(command.Refutes).Any())
+        {
+            throw new GovernanceException("The same evidence cannot both support and refute a claim.");
+        }
+
+        var evidence = new Evidence(
+            command.EvidenceId,
+            command.SourceType.Trim(),
+            command.Citation.Trim(),
+            command.Summary.Trim(),
+            command.Supports.ToArray(),
+            command.Refutes.ToArray(),
+            new Provenance(command.ActorId, now, "evidence.add"));
+        return [new EvidenceAdded(evidence)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> ProposeDecision(
+        GovernedTaskState state,
+        ProposeDecisionCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.DecisionId.Value, nameof(command.DecisionId));
+        EnsureNew(state.Decisions, command.DecisionId, "decision");
+        RequireText(command.Statement, nameof(command.Statement));
+        RequireText(command.Rationale, nameof(command.Rationale));
+        EnsureUnique(command.DependsOnClaims, "Dependent claim IDs");
+        EnsureReferencesExist(state.Claims, command.DependsOnClaims, "claim");
+        EnsureDependenciesAreCurrent(state, command.DependsOnClaims);
+
+        if (command.Supersedes is { } supersededId)
+        {
+            if (supersededId == command.DecisionId)
+            {
+                throw new GovernanceException("A decision cannot supersede itself.");
+            }
+
+            var superseded = Get(state.Decisions, supersededId, "decision");
+            if (superseded.Status is DecisionStatus.Superseded or DecisionStatus.Invalidated)
+            {
+                throw new GovernanceException("Only a current decision can be superseded.");
+            }
+        }
+
+        var decision = new Decision(
+            command.DecisionId,
+            command.Statement.Trim(),
+            DecisionStatus.Proposed,
+            command.Rationale.Trim(),
+            command.DependsOnClaims.ToArray(),
+            command.Supersedes,
+            new Provenance(command.ActorId, now, "decision.propose"));
+        return [new DecisionProposed(decision)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> ResolveDecision(
+        GovernedTaskState state,
+        ResolveDecisionCommand command)
+    {
+        var decision = Get(state.Decisions, command.DecisionId, "decision");
+        if (decision.Status != DecisionStatus.Proposed)
+        {
+            throw new GovernanceException("Only a proposed decision can be resolved.");
+        }
+
+
+        EnsureDependenciesAreCurrent(state, decision.DependsOnClaims);
+
+        if (command.Status is not (DecisionStatus.Accepted or DecisionStatus.Superseded))
+        {
+            throw new GovernanceException("A decision may be explicitly accepted or superseded; invalidation is causal.");
+        }
+
+        var events = new List<LedgerEventData> { new DecisionResolved(command.DecisionId, command.Status) };
+        if (command.Status == DecisionStatus.Accepted && decision.Supersedes is { } supersededId)
+        {
+            events.Add(new DecisionResolved(supersededId, DecisionStatus.Superseded));
+        }
+
+        return events;
+    }
+
+    private static IReadOnlyList<LedgerEventData> RaiseChallenge(
+        GovernedTaskState state,
+        RaiseChallengeCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.ChallengeId.Value, nameof(command.ChallengeId));
+        EnsureNew(state.Challenges, command.ChallengeId, "challenge");
+        RequireText(command.TargetType, nameof(command.TargetType));
+        RequireText(command.TargetId, nameof(command.TargetId));
+        RequireText(command.Reason, nameof(command.Reason));
+        EnsureUnique(command.EvidenceIds, "Evidence IDs");
+        EnsureReferencesExist(state.Evidence, command.EvidenceIds, "evidence");
+        EnsureChallengeTargetExists(state, command.TargetType, command.TargetId);
+
+        var challenge = new Challenge(
+            command.ChallengeId,
+            command.TargetType.Trim(),
+            command.TargetId.Trim(),
+            command.Reason.Trim(),
+            ChallengeStatus.Open,
+            command.EvidenceIds.ToArray(),
+            new Provenance(command.ActorId, now, "challenge.raise"));
+        return [new ChallengeRaised(challenge)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> DisposeChallenge(
+        GovernedTaskState state,
+        DisposeChallengeCommand command)
+    {
+        var challenge = Get(state.Challenges, command.ChallengeId, "challenge");
+        if (challenge.Status != ChallengeStatus.Open)
+        {
+            throw new GovernanceException("Only an open challenge can be disposed.");
+        }
+
+        if (command.Status == ChallengeStatus.Open)
+        {
+            throw new GovernanceException("Challenge disposition must be terminal.");
+        }
+
+        return [new ChallengeDisposed(command.ChallengeId, command.Status)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> AddWorkItem(
+        GovernedTaskState state,
+        AddWorkItemCommand command)
+    {
+        RequireId(command.WorkItemId.Value, nameof(command.WorkItemId));
+        EnsureNew(state.WorkItems, command.WorkItemId, "work item");
+        RequireText(command.Title, nameof(command.Title));
+        EnsureUnique(command.DependsOnClaims, "Dependent claim IDs");
+        EnsureReferencesExist(state.Claims, command.DependsOnClaims, "claim");
+        EnsureDependenciesAreCurrent(state, command.DependsOnClaims);
+        EnsureUnique(command.ResourceScope, "Resource scope entries", StringComparer.Ordinal);
+
+        if (command.ResourceScope.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("Resource scope entries cannot be empty.");
+        }
+
+        if (command.ResourceScope.Any(scope => !Path.IsPathFullyQualified(scope.Trim())))
+        {
+            throw new GovernanceException("Resource scope entries must be absolute paths.");
+        }
+
+        if (command.Owner is { } owner && !state.Roles.ContainsKey(owner))
+        {
+            throw new GovernanceException($"Work owner '{owner}' has no assigned role.");
+        }
+
+        var workItem = new WorkItem(
+            command.WorkItemId,
+            command.Title.Trim(),
+            command.Owner,
+            WorkItemStatus.Proposed,
+            command.DependsOnClaims.ToArray(),
+            command.ResourceScope.Select(item => item.Trim()).ToArray());
+        return [new WorkItemAdded(workItem)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> StartRun(
+        GovernedTaskState state,
+        StartRunCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.RunId.Value, nameof(command.RunId));
+        EnsureNew(state.Runs, command.RunId, "run");
+        RequireText(command.Provider, nameof(command.Provider));
+
+        if (command.WorkItemId is { } workItemId)
+        {
+            var workItem = Get(state.WorkItems, workItemId, "work item");
+            EnsureCanStartWork(state, command.ActorId, workItem);
+            EnsureDependenciesAreCurrent(state, workItem.DependsOnClaims);
+            if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Completed)
+            {
+                throw new GovernanceException($"Cannot start a run for work item in status '{workItem.Status}'.");
+            }
+
+            var hasActiveRun = state.Runs.Values.Any(run =>
+                run.WorkItemId == workItemId && run.Status is AgentRunStatus.Pending or AgentRunStatus.Active);
+            if (hasActiveRun)
+            {
+                throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
+            }
+        }
+
+        var run = new AgentRun(
+            command.RunId,
+            command.ActorId,
+            command.WorkItemId,
+            command.Provider.Trim(),
+            TrimOrNull(command.ProviderSessionId),
+            AgentRunStatus.Active,
+            now,
+            null);
+        return [new RunStarted(run)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> CompleteRun(
+        GovernedTaskState state,
+        CompleteRunCommand command,
+        DateTimeOffset now)
+    {
+        var run = Get(state.Runs, command.RunId, "run");
+        EnsureCanCompleteRun(state, command.ActorId, run);
+        if (run.Status is not (AgentRunStatus.Active or AgentRunStatus.Pending))
+        {
+            throw new GovernanceException("Only an active or pending run can be completed.");
+        }
+
+        if (command.Status is AgentRunStatus.Active or AgentRunStatus.Pending)
+        {
+            throw new GovernanceException("Run completion requires a terminal status.");
+        }
+
+        var providerSessionId = TrimOrNull(command.ProviderSessionId) ?? run.ProviderSessionId;
+        if (run.ProviderSessionId is not null && providerSessionId != run.ProviderSessionId)
+        {
+            throw new GovernanceException("Run completion session identity does not match the started run.");
+        }
+
+        return [new RunCompleted(command.RunId, command.Status, providerSessionId, now)];
+    }
+
+    private static void EnsureCanStartWork(
+        GovernedTaskState state,
+        ActorId actorId,
+        WorkItem workItem)
+    {
+        if (workItem.Owner is null || workItem.Owner == actorId || IsOperator(state, actorId))
+        {
+            return;
+        }
+
+        throw new GovernanceException($"Only work owner '{workItem.Owner}' or an operator can start work item '{workItem.Id}'.");
+    }
+
+    private static void EnsureCanCompleteRun(
+        GovernedTaskState state,
+        ActorId actorId,
+        AgentRun run)
+    {
+        if (run.ActorId == actorId || IsOperator(state, actorId))
+        {
+            return;
+        }
+
+        throw new GovernanceException($"Only run actor '{run.ActorId}' or an operator can complete run '{run.Id}'.");
+    }
+
+    private static bool IsOperator(GovernedTaskState state, ActorId actorId) =>
+        state.Roles.TryGetValue(actorId, out var assignment) && assignment.Role == RoleKind.Operator;
+
+    private static IReadOnlyList<LedgerEventData> TransitionStage(
+        GovernedTaskState state,
+        RequestStageTransitionCommand command)
+    {
+        StageTransitionPolicy.EnsureAllowed(state.Stage, command.TargetStage);
+        EnsureStagePrerequisites(state, command.TargetStage);
+        return [new StageTransitioned(state.Stage, command.TargetStage)];
+    }
+
+    private CommandOutcome ApplyEvents(
+        GovernedTaskState? initialState,
+        LedgerCommand command,
+        IReadOnlyList<LedgerEventData> eventData,
+        DateTimeOffset now)
+    {
+        var taskId = initialState?.TaskId ?? ((OpenTaskCommand)command).TaskId;
+        var state = initialState;
+        var events = new List<LedgerEvent>(eventData.Count);
+        LedgerEvent? previous = null;
+
+        for (var index = 0; index < eventData.Count; index++)
+        {
+            var @event = new LedgerEvent(
+                GovernedTaskState.CurrentSchemaVersion,
+                CreateEventId(taskId, state?.Version ?? 0),
+                taskId,
+                command.ActorId,
+                now,
+                previous?.EventId ?? command.CausationId,
+                command.CorrelationId.Trim(),
+                eventData[index]);
+
+            state = _reducer.Apply(state, @event);
+            events.Add(@event);
+            previous = @event;
+        }
+
+        return new CommandOutcome(state!, events);
+    }
+
+    private static EventId CreateEventId(TaskId taskId, long currentVersion) =>
+        new($"{taskId.Value}:{currentVersion + 1:D10}");
+
+    private static void ValidateEnvelope(LedgerCommand command)
+    {
+        RequireId(command.ActorId.Value, nameof(command.ActorId));
+        RequireText(command.CorrelationId, nameof(command.CorrelationId));
+        if (command.CausationId is { } causationId)
+        {
+            RequireId(causationId.Value, nameof(command.CausationId));
+        }
+    }
+
+    private static void ValidateEnums(LedgerCommand command)
+    {
+        switch (command)
+        {
+            case AssignRoleCommand assign:
+                RequireDefined(assign.Role, nameof(assign.Role));
+                foreach (var capability in assign.Capabilities)
+                {
+                    RequireDefined(capability, nameof(assign.Capabilities));
+                }
+                break;
+            case ResolveClaimCommand resolve:
+                RequireDefined(resolve.Status, nameof(resolve.Status));
+                break;
+            case ResolveDecisionCommand resolve:
+                RequireDefined(resolve.Status, nameof(resolve.Status));
+                break;
+            case DisposeChallengeCommand dispose:
+                RequireDefined(dispose.Status, nameof(dispose.Status));
+                break;
+            case CompleteRunCommand complete:
+                RequireDefined(complete.Status, nameof(complete.Status));
+                break;
+            case RequestStageTransitionCommand transition:
+                RequireDefined(transition.TargetStage, nameof(transition.TargetStage));
+                break;
+        }
+    }
+
+    private static void RequireDefined<TEnum>(TEnum value, string field) where TEnum : struct, Enum
+    {
+        if (!Enum.IsDefined(value))
+        {
+            throw new GovernanceException($"'{value}' is not a defined {field} value.");
+        }
+    }
+
+    private static void AddDependencyInvalidations(
+        GovernedTaskState state,
+        ClaimId claimId,
+        ICollection<LedgerEventData> events)
+    {
+        foreach (var decision in state.Decisions.Values
+                     .Where(item => item.DependsOnClaims.Contains(claimId))
+                     .Where(item => item.Status is DecisionStatus.Proposed or DecisionStatus.Accepted)
+                     .OrderBy(item => item.Id.Value, StringComparer.Ordinal))
+        {
+            events.Add(new DecisionInvalidated(decision.Id, claimId));
+        }
+
+        foreach (var workItem in state.WorkItems.Values
+                     .Where(item => item.DependsOnClaims.Contains(claimId))
+                     .Where(item => item.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale))
+                     .OrderBy(item => item.Id.Value, StringComparer.Ordinal))
+        {
+            var status = workItem.Status == WorkItemStatus.Active
+                ? WorkItemStatus.Blocked
+                : WorkItemStatus.Stale;
+            events.Add(new WorkItemInvalidated(workItem.Id, claimId, status));
+        }
+    }
+
+    private static void EnsureDependenciesAreCurrent(
+        GovernedTaskState state,
+        IEnumerable<ClaimId> claimIds)
+    {
+        var invalid = claimIds
+            .Select(claimId => state.Claims[claimId])
+            .FirstOrDefault(claim => claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded);
+        if (invalid is not null)
+        {
+            throw new GovernanceException(
+                $"Dependency claim '{invalid.Id}' is '{invalid.Status}' and cannot support new or actionable work.");
+        }
+    }
+
+    private static void EnsureClaimResolution(Claim claim, ClaimStatus target)
+    {
+        if (target == ClaimStatus.Open)
+        {
+            throw new GovernanceException("Claim resolution cannot set a claim to open.");
+        }
+
+        if (claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
+        {
+            throw new GovernanceException($"Claim in terminal status '{claim.Status}' cannot be resolved again.");
+        }
+
+        if (claim.Status == target)
+        {
+            throw new GovernanceException($"Claim is already '{target}'.");
+        }
+    }
+
+    private static void EnsureStagePrerequisites(GovernedTaskState state, TaskStage target)
+    {
+        if (target == TaskStage.Execution && state.WorkItems.Count == 0)
+        {
+            throw new GovernanceException("Execution requires at least one governed work item.");
+        }
+
+        if (target == TaskStage.Archive)
+        {
+            if (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Pending or AgentRunStatus.Active))
+            {
+                throw new GovernanceException("A task with active runs cannot be archived.");
+            }
+
+            if (state.Challenges.Values.Any(challenge => challenge.Status == ChallengeStatus.Open))
+            {
+                throw new GovernanceException("A task with open challenges cannot be archived.");
+            }
+        }
+    }
+
+    private static void EnsureChallengeTargetExists(GovernedTaskState state, string targetType, string targetId)
+    {
+        var exists = targetType.Trim().ToLowerInvariant() switch
+        {
+            "claim" => state.Claims.Keys.Any(id => id.Value == targetId.Trim()),
+            "decision" => state.Decisions.Keys.Any(id => id.Value == targetId.Trim()),
+            "work" or "workitem" or "work-item" => state.WorkItems.Keys.Any(id => id.Value == targetId.Trim()),
+            _ => throw new GovernanceException($"Unsupported challenge target type '{targetType}'.")
+        };
+
+        if (!exists)
+        {
+            throw new GovernanceException($"Challenge target '{targetType}:{targetId}' does not exist.");
+        }
+    }
+
+    private static IReadOnlyList<Capability> DistinctCapabilities(IReadOnlyList<Capability> capabilities)
+    {
+        EnsureUnique(capabilities, "Capabilities");
+        return capabilities.OrderBy(value => value).ToArray();
+    }
+
+    private static TValue Get<TKey, TValue>(
+        IReadOnlyDictionary<TKey, TValue> values,
+        TKey id,
+        string kind)
+        where TKey : notnull
+    {
+        if (!values.TryGetValue(id, out var value))
+        {
+            throw new GovernanceException($"Unknown {kind} '{id}'.");
+        }
+
+        return value;
+    }
+
+    private static void EnsureNew<TKey, TValue>(
+        IReadOnlyDictionary<TKey, TValue> values,
+        TKey id,
+        string kind)
+        where TKey : notnull
+    {
+        if (values.ContainsKey(id))
+        {
+            throw new GovernanceException($"A {kind} with ID '{id}' already exists.");
+        }
+    }
+
+    private static void EnsureReferencesExist<TKey, TValue>(
+        IReadOnlyDictionary<TKey, TValue> values,
+        IEnumerable<TKey> ids,
+        string kind)
+        where TKey : notnull
+    {
+        foreach (var id in ids)
+        {
+            _ = Get(values, id, kind);
+        }
+    }
+
+    private static void EnsureUnique<T>(IReadOnlyList<T> values, string label, IEqualityComparer<T>? comparer = null)
+    {
+        if (values.Count != values.Distinct(comparer).Count())
+        {
+            throw new GovernanceException($"{label} cannot contain duplicates.");
+        }
+    }
+
+    private static void RequireText(string value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new GovernanceException($"{name} is required.");
+        }
+    }
+
+    private static void RequireId(string value, string name) => RequireText(value, name);
+
+    private static string? TrimOrNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

@@ -1,0 +1,170 @@
+{
+  "taskId": "TASK-20260905-1851",
+  "taskSlug": "build-ledger-2-first-version",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "verification",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "contract",
+      "status": "complete"
+    },
+    {
+      "id": "orchestration",
+      "status": "complete"
+    },
+    {
+      "id": "execution",
+      "status": "complete"
+    },
+    {
+      "id": "verification",
+      "status": "complete"
+    },
+    {
+      "id": "closeout",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pending",
+    "notes": [
+      "Verifier-7 passed before isolated code-reviewer-4; code-reviewer-4 then found six major and one minor finding.",
+      "All seven review findings have local repairs; the integrated suite passes 98 tests with zero failures.",
+      "Post-repair verifier and code-review gates remain pending.",
+      "Because provider child-environment inheritance changed, fresh authenticated Codex and Claude launch/resume evidence is pending explicit user authorization to transmit the generated smoke context."
+    ]
+  },
+  "baseRef": null,
+  "lastUpdated": "2026-09-05T21:21:08Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "provider-cli-launch-contracts",
+        "file": "research/provider-cli-launch-contracts.md",
+        "status": "complete",
+        "triggeredBy": "assumption:A2"
+      }
+    ],
+    "workers": [
+      { "id": "W0", "scopeSummary": "Freeze shared contracts and solution", "status": "complete", "outputRef": "execution_notes.md#w0" },
+      { "id": "W1", "scopeSummary": "Copy and verify cognitive skill snapshot", "status": "complete", "outputRef": "execution_notes.md#w1" },
+      { "id": "W2", "scopeSummary": "Implement core task governance", "status": "complete", "outputRef": "execution_notes.md#w2" },
+      { "id": "W3", "scopeSummary": "Implement storage and projections", "status": "complete", "outputRef": "execution_notes.md#w3" },
+      { "id": "W4", "scopeSummary": "Implement provider adapters", "status": "complete", "outputRef": "execution_notes.md#w4" },
+      { "id": "W5", "scopeSummary": "Implement CLI composition", "status": "complete", "outputRef": "execution_notes.md#w5" },
+      { "id": "W6", "scopeSummary": "Implement independent behavioral tests", "status": "complete", "outputRef": "execution_notes.md#w6" },
+      { "id": "W7", "scopeSummary": "Write operator and architecture documentation", "status": "complete", "outputRef": "execution_notes.md#w7" }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-09-05T18:51:52Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "internal-recon",
+        "completedAt": "2026-09-05T18:56:00Z",
+        "outputs": [
+          "research/internal-recon.md"
+        ]
+      },
+      {
+        "skill": "technical-researcher",
+        "completedAt": "2026-09-05T19:00:58Z",
+        "outputs": [
+          "research/provider-cli-launch-contracts.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T19:40:10Z",
+        "outputs": [
+          "review/verifier-1.md",
+          "assumptions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T19:48:44Z",
+        "outputs": [
+          "review/verifier-2.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T20:12:30Z",
+        "outputs": [
+          "review/verifier-3.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T20:24:11Z",
+        "outputs": [
+          "review/verifier-4.md",
+          "assumptions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T20:37:24Z",
+        "outputs": [
+          "review/verifier-5.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T20:53:12Z",
+        "outputs": [
+          "review/verifier-6.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T21:00:40Z",
+        "outputs": [
+          "review/verifier-7.md",
+          "state.json"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": false,
+    "lessonsRecorded": false,
+    "archivedAt": null
+  }
+}

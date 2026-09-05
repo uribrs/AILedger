@@ -1,0 +1,398 @@
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
+using AILedger.Core.Contracts;
+using AILedger.Core.Domain;
+
+namespace AILedger.Storage;
+
+public sealed class FileGovernedTaskService : IGovernedTaskService
+{
+    public const int DefaultMaximumEventsPerTask = 1_000;
+    public const long DefaultMaximumEventLogBytes = 16 * 1024 * 1024;
+
+    private static readonly UTF8Encoding Utf8WithoutBom = new(false);
+    private readonly TaskWorkspacePathResolver _pathResolver;
+    private readonly ICommandHandler _commandHandler;
+    private readonly ITaskReducer _reducer;
+    private readonly ITaskProjectionWriter _projectionWriter;
+    private readonly TaskWorkspaceLayout _layout;
+    private readonly TaskMutationLock _mutationLock = new();
+    private readonly JsonSerializerOptions _eventJson = LedgerJson.CreateOptions();
+    private readonly JsonSerializerOptions _stateJson = LedgerJson.CreateOptions(indented: true);
+    private readonly int _maximumEventsPerTask;
+    private readonly long _maximumEventLogBytes;
+
+    public FileGovernedTaskService(
+        string workspaceRoot,
+        ICommandHandler commandHandler,
+        ITaskReducer reducer,
+        ITaskProjectionWriter? projectionWriter = null,
+        TaskWorkspaceLayout? layout = null,
+        int maximumEventsPerTask = DefaultMaximumEventsPerTask,
+        long maximumEventLogBytes = DefaultMaximumEventLogBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventsPerTask);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventLogBytes);
+        _pathResolver = new TaskWorkspacePathResolver(workspaceRoot);
+        _commandHandler = commandHandler ?? throw new ArgumentNullException(nameof(commandHandler));
+        _reducer = reducer ?? throw new ArgumentNullException(nameof(reducer));
+        _layout = layout ?? new TaskWorkspaceLayout();
+        _projectionWriter = projectionWriter ?? new MarkdownTaskProjectionWriter(_layout);
+        _maximumEventsPerTask = maximumEventsPerTask;
+        _maximumEventLogBytes = maximumEventLogBytes;
+    }
+
+    public async Task<CommandOutcome> ExecuteAsync(
+        TaskId taskId,
+        LedgerCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        var taskDirectory = _pathResolver.Resolve(taskId);
+        _pathResolver.EnsureTaskDirectory(taskDirectory);
+
+        await using var lease = await _mutationLock.AcquireAsync(
+            Path.Combine(taskDirectory, _layout.LockFileName), cancellationToken).ConfigureAwait(false);
+
+        var currentState = await ReplayAsync(taskId, taskDirectory, cancellationToken).ConfigureAwait(false);
+        var outcome = _commandHandler.Handle(currentState, command, DateTimeOffset.UtcNow);
+        ValidateOutcome(taskId, currentState, outcome);
+        if (outcome.State.Version > _maximumEventsPerTask)
+        {
+            throw new GovernanceException(
+                $"Task '{taskId}' reached the v0.1 limit of {_maximumEventsPerTask} events; archive or migrate it before continuing.");
+        }
+
+        await AppendEventsAsync(taskDirectory, outcome.Events, cancellationToken).ConfigureAwait(false);
+        await TryRepairDerivedStateAsync(taskDirectory, outcome.State).ConfigureAwait(false);
+        return outcome;
+    }
+
+    public async Task<GovernedTaskState?> GetStateAsync(TaskId taskId, CancellationToken cancellationToken)
+    {
+        var taskDirectory = _pathResolver.Resolve(taskId);
+        if (!Directory.Exists(taskDirectory))
+        {
+            return null;
+        }
+
+        await using var lease = await _mutationLock.AcquireAsync(
+            Path.Combine(taskDirectory, _layout.LockFileName), cancellationToken).ConfigureAwait(false);
+
+        var state = await ReplayAsync(taskId, taskDirectory, cancellationToken).ConfigureAwait(false);
+        if (state is null)
+        {
+            return null;
+        }
+
+        if (!await MaterializedStateIsCurrentAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false))
+        {
+            await WriteMaterializedStateAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Projections are disposable views. Rewriting them on every read also repairs a
+        // missing or partially-written projection when state.json itself is current.
+        await _projectionWriter.WriteAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
+
+        return state;
+    }
+
+    public async IAsyncEnumerable<LedgerEvent> GetHistoryAsync(
+        TaskId taskId,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var taskDirectory = _pathResolver.Resolve(taskId);
+        if (!Directory.Exists(taskDirectory))
+        {
+            yield break;
+        }
+
+        List<LedgerEvent> snapshot = [];
+        await using (await _mutationLock.AcquireAsync(
+                         Path.Combine(taskDirectory, _layout.LockFileName), cancellationToken).ConfigureAwait(false))
+        {
+            var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
+            if (File.Exists(eventsPath))
+            {
+                await foreach (var @event in ReadEventsAsync(eventsPath, cancellationToken).ConfigureAwait(false))
+                {
+                    ValidateEventEnvelope(taskId, @event, snapshot.Count);
+                    snapshot.Add(@event);
+                }
+            }
+        }
+
+        foreach (var @event in snapshot)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return @event;
+        }
+    }
+
+    private async Task<GovernedTaskState?> ReplayAsync(
+        TaskId taskId,
+        string taskDirectory,
+        CancellationToken cancellationToken)
+    {
+        var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
+        if (!File.Exists(eventsPath))
+        {
+            return null;
+        }
+
+        GovernedTaskState? state = null;
+        await foreach (var @event in ReadEventsAsync(eventsPath, cancellationToken).ConfigureAwait(false))
+        {
+            ValidateEventEnvelope(taskId, @event, state?.Version ?? 0);
+            state = _reducer.Apply(state, @event);
+        }
+
+        return state;
+    }
+
+    private async IAsyncEnumerable<LedgerEvent> ReadEventsAsync(
+        string eventsPath,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        EnsureEventLogSize(eventsPath);
+        await using var stream = new FileStream(
+            eventsPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var reader = new StreamReader(stream, Utf8WithoutBom, detectEncodingFromByteOrderMarks: true);
+
+        var lineNumber = 0;
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            lineNumber++;
+            if (lineNumber > _maximumEventsPerTask)
+            {
+                throw new InvalidDataException(
+                    $"Event log '{eventsPath}' exceeds the v0.1 limit of {_maximumEventsPerTask} events.");
+            }
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                throw new InvalidDataException($"Blank event at line {lineNumber} in '{eventsPath}'.");
+            }
+
+            LedgerEvent? @event;
+            try
+            {
+                @event = JsonSerializer.Deserialize<LedgerEvent>(line, _eventJson);
+            }
+            catch (JsonException exception)
+            {
+                throw new InvalidDataException(
+                    $"Invalid event JSON at line {lineNumber} in '{eventsPath}'.", exception);
+            }
+
+            yield return @event ?? throw new InvalidDataException(
+                $"Null event at line {lineNumber} in '{eventsPath}'.");
+        }
+    }
+
+    private async Task AppendEventsAsync(
+        string taskDirectory,
+        IReadOnlyList<LedgerEvent> events,
+        CancellationToken cancellationToken)
+    {
+        if (events.Count == 0)
+        {
+            return;
+        }
+
+        var payload = new StringBuilder();
+        foreach (var @event in events)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            payload.Append(JsonSerializer.Serialize(@event, _eventJson)).Append('\n');
+        }
+
+        var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
+        var bytes = Utf8WithoutBom.GetBytes(payload.ToString());
+        var existingLength = File.Exists(eventsPath) ? new FileInfo(eventsPath).Length : 0;
+        if (existingLength + bytes.LongLength > _maximumEventLogBytes)
+        {
+            throw new GovernanceException(
+                $"Task event log would exceed the v0.1 limit of {_maximumEventLogBytes} bytes; archive or migrate it before continuing.");
+        }
+
+        var temporaryPath = $"{eventsPath}.{Guid.NewGuid():N}.append";
+        try
+        {
+            await using (var stream = new FileStream(
+                             temporaryPath,
+                             FileMode.CreateNew,
+                             FileAccess.Write,
+                             FileShare.None,
+                             bufferSize: 4096,
+                             FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                if (File.Exists(eventsPath))
+                {
+                    await using var current = new FileStream(
+                        eventsPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                        bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                    await current.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+                }
+
+                await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, eventsPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    private async Task<bool> MaterializedStateIsCurrentAsync(
+        string taskDirectory,
+        GovernedTaskState replayedState,
+        CancellationToken cancellationToken)
+    {
+        var statePath = Path.Combine(taskDirectory, _layout.StateFileName);
+        if (!File.Exists(statePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            var materializedJson = await File.ReadAllTextAsync(
+                statePath, Utf8WithoutBom, cancellationToken).ConfigureAwait(false);
+            var expectedJson = JsonSerializer.Serialize(replayedState, _stateJson) + "\n";
+            return string.Equals(materializedJson, expectedJson, StringComparison.Ordinal);
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    private Task WriteMaterializedStateAsync(
+        string taskDirectory,
+        GovernedTaskState state,
+        CancellationToken cancellationToken)
+    {
+        var json = JsonSerializer.Serialize(state, _stateJson) + "\n";
+        return MarkdownTaskProjectionWriter.WriteAtomicAsync(
+            Path.Combine(taskDirectory, _layout.StateFileName), json, cancellationToken);
+    }
+
+    private async Task TryRepairDerivedStateAsync(string taskDirectory, GovernedTaskState state)
+    {
+        try
+        {
+            // The event-log rename above is the commit point. Derived views must not
+            // turn that committed command into an ambiguous failure for the caller.
+            await WriteMaterializedStateAsync(taskDirectory, state, CancellationToken.None).ConfigureAwait(false);
+            await _projectionWriter.WriteAsync(taskDirectory, state, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (!IsFatal(exception))
+        {
+            // GetStateAsync deterministically rebuilds every derived artifact.
+        }
+    }
+
+    private static void ValidateOutcome(TaskId taskId, GovernedTaskState? currentState, CommandOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+        if (outcome.State.TaskId != taskId)
+        {
+            throw new InvalidOperationException("The command outcome belongs to a different task.");
+        }
+
+        if (outcome.Events.Count == 0)
+        {
+            throw new InvalidOperationException("A successful command must emit at least one event.");
+        }
+
+        var priorEventCount = currentState?.Version ?? 0;
+        foreach (var @event in outcome.Events)
+        {
+            ValidateEventEnvelope(taskId, @event, priorEventCount);
+            priorEventCount++;
+        }
+
+        var expectedVersion = (currentState?.Version ?? 0) + outcome.Events.Count;
+        if (outcome.State.Version != expectedVersion)
+        {
+            throw new InvalidOperationException(
+                $"The command outcome version {outcome.State.Version} does not match expected version {expectedVersion}.");
+        }
+    }
+
+    private static void EnsureTaskMatches(TaskId taskId, LedgerEvent @event)
+    {
+        if (@event.TaskId != taskId)
+        {
+            throw new InvalidDataException(
+                $"Event '{@event.EventId}' belongs to task '{@event.TaskId}', not '{taskId}'.");
+        }
+    }
+
+    private static void ValidateEventEnvelope(
+        TaskId taskId,
+        LedgerEvent @event,
+        long zeroBasedIndex)
+    {
+        EnsureTaskMatches(taskId, @event);
+        var expected = $"{taskId.Value}:{zeroBasedIndex + 1:D10}";
+        if (!string.Equals(@event.EventId.Value, expected, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Event sequence is invalid at position {zeroBasedIndex + 1}: expected '{expected}', found '{@event.EventId}'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(@event.ActorId.Value) ||
+            string.IsNullOrWhiteSpace(@event.CorrelationId) ||
+            @event.RecordedAt == default)
+        {
+            throw new InvalidDataException($"Event '{@event.EventId}' has invalid provenance metadata.");
+        }
+
+        if (@event.CausationId is { } causationId && !IsPriorEventId(taskId, causationId, zeroBasedIndex))
+        {
+            throw new InvalidDataException(
+                $"Event '{@event.EventId}' references unknown or non-prior cause '{causationId}'.");
+        }
+    }
+
+    private static bool IsPriorEventId(TaskId taskId, EventId eventId, long priorEventCount)
+    {
+        var prefix = $"{taskId.Value}:";
+        if (!eventId.Value.StartsWith(prefix, StringComparison.Ordinal) ||
+            !long.TryParse(eventId.Value.AsSpan(prefix.Length), out var sequence) ||
+            sequence < 1 || sequence > priorEventCount)
+        {
+            return false;
+        }
+
+        return string.Equals(eventId.Value, $"{taskId.Value}:{sequence:D10}", StringComparison.Ordinal);
+    }
+
+    private void EnsureEventLogSize(string eventsPath)
+    {
+        var length = new FileInfo(eventsPath).Length;
+        if (length > _maximumEventLogBytes)
+        {
+            throw new InvalidDataException(
+                $"Event log '{eventsPath}' exceeds the v0.1 limit of {_maximumEventLogBytes} bytes.");
+        }
+    }
+
+    private static bool IsFatal(Exception exception) =>
+        exception is OutOfMemoryException or StackOverflowException or AccessViolationException;
+}
