@@ -39,6 +39,9 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(WorkItemAbandoned), "work.abandoned")]
 [JsonDerivedType(typeof(ClaimDependenciesRepointed), "claim.dependencies-repointed")]
 [JsonDerivedType(typeof(DecisionOverturned), "decision.overturned")]
+[JsonDerivedType(typeof(LessonMinted), "lesson.minted")]
+[JsonDerivedType(typeof(LessonRecalled), "lesson.recalled")]
+[JsonDerivedType(typeof(LessonMarked), "lesson.marked")]
 public abstract record LedgerEventData;
 
 public sealed record TaskOpened(string Title, string Goal) : LedgerEventData;
@@ -67,3 +70,6 @@ public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
 public sealed record WorkItemAbandoned(WorkItemId WorkItemId, string Reason) : LedgerEventData;
 public sealed record ClaimDependenciesRepointed(ClaimId SupersededClaimId, ClaimId ReplacementClaimId) : LedgerEventData;
 public sealed record DecisionOverturned(DecisionId DecisionId, ChallengeId ChallengeId) : LedgerEventData;
+public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
+public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
+public sealed record LessonMarked(LessonMark Mark) : LedgerEventData;

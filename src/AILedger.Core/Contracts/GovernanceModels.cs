@@ -114,6 +114,13 @@ public enum AgentRunStatus
     ProtocolError
 }
 
+public enum LessonSourceKind
+{
+    ValidatedClaim,
+    RejectedAlternative,
+    ResolvedEscalation
+}
+
 public sealed record Provenance(ActorId ActorId, DateTimeOffset RecordedAt, string? Source);
 
 public sealed record RoleAssignment(
@@ -206,6 +213,24 @@ public sealed record Constraint(
     string Source,
     IReadOnlyList<string> Scope,
     ConstraintStatus Status,
+    Provenance Provenance);
+
+public sealed record Lesson(
+    LessonId Id,
+    TaskId SourceTaskId,
+    LessonSourceKind SourceKind,
+    string SourceRecordId,
+    string Statement,
+    string Outcome,
+    IReadOnlyList<string> Citations,
+    Provenance Provenance,
+    LessonId? SupersedesLessonId = null);
+
+public sealed record LessonMark(
+    LessonMarkId Id,
+    LessonSourceKind SourceKind,
+    string SourceRecordId,
+    LessonId? SupersedesLessonId,
     Provenance Provenance);
 
 public sealed record AgentRun(

@@ -16,7 +16,9 @@ public sealed class ContextAssembler : IContextAssembler
             // A discarded approach and an open escalation are only useful if they are
             // seen regardless of which work item is in hand.
             ContextArtifactKind.Escalation,
-            ContextArtifactKind.Alternative
+            ContextArtifactKind.Alternative,
+            ContextArtifactKind.Lesson,
+            ContextArtifactKind.LessonMark
         };
 
     private static readonly IReadOnlySet<ContextArtifactKind> ReviewerExclusions =
@@ -199,6 +201,12 @@ public sealed class ContextAssembler : IContextAssembler
             .Where(escalation => escalation.Status == EscalationStatus.Open)
             .OrderBy(escalation => escalation.Id.Value, StringComparer.Ordinal)
             .Select(ToArtifact));
+        artifacts.AddRange(state.Lessons.Values
+            .OrderBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
+            .Select(ToArtifact));
+        artifacts.AddRange(state.LessonMarks.Values
+            .OrderBy(mark => mark.Id.Value, StringComparer.Ordinal)
+            .Select(ToArtifact));
         if (workItem is not null)
         {
             artifacts.Add(ToArtifact(workItem));
@@ -280,6 +288,27 @@ public sealed class ContextAssembler : IContextAssembler
             workItem.Id.Value,
             $"{workItem.Status}: {workItem.Title}{Environment.NewLine}Scope: {string.Join(", ", workItem.ResourceScope)}",
             workItem.DependsOnClaims.Select(id => id.Value).OrderBy(id => id, StringComparer.Ordinal).ToArray());
+
+    private static ContextArtifact ToArtifact(Lesson lesson) =>
+        new(
+            ContextArtifactKind.Lesson,
+            lesson.Id.Value,
+            $"Learned from {lesson.SourceTaskId}/{lesson.SourceKind}/{lesson.SourceRecordId}: " +
+            $"{lesson.Statement}{Environment.NewLine}Outcome: {lesson.Outcome}" +
+            (lesson.Citations.Count == 0
+                ? string.Empty
+                : $"{Environment.NewLine}Evidence: {string.Join(" | ", lesson.Citations)}"),
+            [lesson.SourceTaskId.Value, lesson.SourceRecordId]);
+
+    private static ContextArtifact ToArtifact(LessonMark mark) =>
+        new(
+            ContextArtifactKind.LessonMark,
+            mark.Id.Value,
+            $"Lesson-bearing: {mark.SourceKind}/{mark.SourceRecordId}" +
+            (mark.SupersedesLessonId is null
+                ? string.Empty
+                : $"{Environment.NewLine}Supersedes: {mark.SupersedesLessonId}"),
+            [mark.SourceRecordId]);
 
     private static IReadOnlySet<string> Skills(params string[] names) =>
         new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);

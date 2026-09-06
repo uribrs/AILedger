@@ -4,12 +4,120 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
+using System.Text;
 using System.Text.Json;
 
 namespace AILedger.Tests.Cli;
 
 public sealed class CliApplicationTests
 {
+    [Fact]
+    public async Task LessonMarkArchiveAndRecallFlowWorksThroughCli()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var application = Create(output, error);
+        var source = new[]
+        {
+            "--root", root.Path, "--task", "2026-09-01_1200-source", "--actor", "operator"
+        };
+        var exits = new List<int>
+        {
+            await application.RunAsync(
+                ["task", "open", .. source, "--title", "Source", "--goal", "Learn"], CancellationToken.None),
+            await application.RunAsync(
+                ["claim", "add", .. source, "--id", "C1", "--statement", "Retries stop after three attempts"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["evidence", "add", .. source, "--id", "E1", "--source-type", "test-run",
+                 "--citation", "RetryTests.Bounded", "--summary", "The retry policy stopped after three attempts",
+                 "--supports", "C1"], CancellationToken.None),
+            await application.RunAsync(
+                ["claim", "resolve", .. source, "--id", "C1", "--status", "validated", "--evidence", "E1"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["lesson", "mark", .. source, "--kind", "validated-claim", "--source", "C1"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["work", "add", .. source, "--id", "W1", "--title", "Source work", "--owner", "operator"],
+                CancellationToken.None)
+        };
+        foreach (var stage in new[]
+                 {
+                     "research", "design", "scope", "ready", "execution", "verification", "review", "learn", "archive"
+                 })
+        {
+            exits.Add(await application.RunAsync(
+                ["stage", "transition", .. source, "--stage", stage], CancellationToken.None));
+        }
+
+        exits.Add(await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "2026-09-02_1200-target", "--actor", "operator",
+             "--title", "Target", "--goal", "Recall"], CancellationToken.None));
+
+        Assert.All(exits, exit => Assert.Equal(0, exit));
+        Assert.Equal(string.Empty, error.ToString());
+        var service = Service(root.Path);
+        var sourceHistory = new List<LedgerEvent>();
+        await foreach (var @event in service.GetHistoryAsync(
+                           new TaskId("2026-09-01_1200-source"), CancellationToken.None))
+        {
+            sourceHistory.Add(@event);
+        }
+
+        var minted = Assert.IsType<LessonMinted>(
+            Assert.Single(sourceHistory, item => item.Data is LessonMinted).Data).Lesson;
+        Assert.Equal(LessonSourceKind.ValidatedClaim, minted.SourceKind);
+        Assert.Equal("C1", minted.SourceRecordId);
+        var targetHistory = new List<LedgerEvent>();
+        await foreach (var @event in service.GetHistoryAsync(
+                           new TaskId("2026-09-02_1200-target"), CancellationToken.None))
+        {
+            targetHistory.Add(@event);
+        }
+
+        var recalledLesson = Assert.IsType<LessonRecalled>(
+            Assert.Single(targetHistory, item => item.Data is LessonRecalled).Data).Lesson;
+        Assert.Equal(minted.Id, recalledLesson.Id);
+        Assert.Equal(minted.Statement, recalledLesson.Statement);
+        Assert.Equal(minted.Citations, recalledLesson.Citations);
+    }
+
+    [Fact]
+    public async Task HistoryFollowStreamsOnlyEventsAfterSinceUntilCancelled()
+    {
+        using var root = new TemporaryDirectory();
+        var common = new[] { "--root", root.Path, "--task", "T1", "--actor", "observer" };
+        await Create(TextWriter.Null, TextWriter.Null).RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        var output = new ThreadSafeStringWriter();
+        var error = new StringWriter();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var follow = Create(output, error).RunAsync(
+            ["history", .. common, "--follow", "--since", "2"], cancellation.Token);
+
+        await Create(TextWriter.Null, TextWriter.Null).RunAsync(
+            ["claim", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--id", "C1", "--statement", "Landed while history was following"], CancellationToken.None);
+        await WaitUntilAsync(
+            () => output.GetText().Contains("claim.added", StringComparison.Ordinal),
+            "history --follow did not print the newly appended event");
+
+        cancellation.Cancel();
+        var exit = await follow;
+        var lines = output.GetText().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        var line = Assert.Single(lines);
+        using var document = JsonDocument.Parse(line);
+        Assert.Equal("claim.added", document.RootElement.GetProperty("data").GetProperty("eventType").GetString());
+        Assert.DoesNotContain("task.opened", output.GetText(), StringComparison.Ordinal);
+        Assert.DoesNotContain("actor.role-assigned", output.GetText(), StringComparison.Ordinal);
+        Assert.Equal(130, exit);
+        Assert.Equal("Cancelled." + Environment.NewLine, error.ToString());
+    }
+
     [Fact]
     public async Task OpenStatusAndHistoryUseDurableServiceBoundary()
     {
@@ -1234,6 +1342,47 @@ public sealed class CliApplicationTests
         Service,
         _ => throw new InvalidOperationException("Provider adapter is not used by this test."),
         new ContextAssembler());
+
+    private static async Task WaitUntilAsync(Func<bool> condition, string failureMessage)
+    {
+        for (var attempt = 0; attempt < 200; attempt++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(10);
+        }
+
+        Assert.Fail(failureMessage);
+    }
+
+    private sealed class ThreadSafeStringWriter : TextWriter
+    {
+        private readonly StringBuilder _buffer = new();
+        private readonly object _gate = new();
+
+        public override Encoding Encoding => Encoding.UTF8;
+
+        public override Task WriteLineAsync(string? value)
+        {
+            lock (_gate)
+            {
+                _buffer.AppendLine(value);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public string GetText()
+        {
+            lock (_gate)
+            {
+                return _buffer.ToString();
+            }
+        }
+    }
 
     private static IGovernedTaskService Service(string root)
     {

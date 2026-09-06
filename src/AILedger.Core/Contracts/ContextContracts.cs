@@ -17,7 +17,9 @@ public enum ContextArtifactKind
     VerifierOutput,
     // Appended: the enum's declaration order is the manifest sort order.
     Escalation,
-    Alternative
+    Alternative,
+    Lesson,
+    LessonMark
 }
 
 public sealed record ContextArtifact(

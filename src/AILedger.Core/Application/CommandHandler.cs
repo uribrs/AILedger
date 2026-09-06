@@ -48,7 +48,21 @@ public sealed class CommandHandler : ICommandHandler
             Enum.GetValues<Capability>(),
             new Provenance(open.ActorId, now, "task.open"));
 
-        return [new TaskOpened(open.Title.Trim(), open.Goal.Trim()), new RoleAssigned(operatorRole)];
+        var events = new List<LedgerEventData>
+        {
+            new TaskOpened(open.Title.Trim(), open.Goal.Trim()),
+            new RoleAssigned(operatorRole)
+        };
+
+        var recalledLessons = open.RecalledLessons ?? [];
+        EnsureUnique(recalledLessons.Select(lesson => lesson.Id).ToArray(), "Recalled lesson IDs");
+        foreach (var lesson in recalledLessons.OrderBy(item => item.Id.Value, StringComparer.Ordinal))
+        {
+            ValidateRecalledLesson(open.TaskId, lesson);
+            events.Add(new LessonRecalled(lesson));
+        }
+
+        return events;
     }
 
     private IReadOnlyList<LedgerEventData> HandleExisting(
@@ -76,10 +90,11 @@ public sealed class CommandHandler : ICommandHandler
             AddWorkItemCommand add => AddWorkItem(state, add),
             StartRunCommand start => StartRun(state, start, now),
             CompleteRunCommand complete => CompleteRun(state, complete, now),
-            RequestStageTransitionCommand transition => TransitionStage(state, transition),
+            RequestStageTransitionCommand transition => TransitionStage(state, transition, now),
             RaiseEscalationCommand raise => RaiseEscalation(state, raise, now),
             ResolveEscalationCommand resolve => ResolveEscalation(state, resolve),
             RecordAlternativeCommand record => RecordAlternative(state, record, now),
+            MarkLessonBearingCommand mark => MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => AddConstraint(state, add, now),
             SupersedeConstraintCommand supersede => SupersedeConstraint(state, supersede),
             CompleteWorkItemCommand complete => CompleteWorkItem(state, complete),
@@ -731,11 +746,135 @@ public sealed class CommandHandler : ICommandHandler
 
     private static IReadOnlyList<LedgerEventData> TransitionStage(
         GovernedTaskState state,
-        RequestStageTransitionCommand command)
+        RequestStageTransitionCommand command,
+        DateTimeOffset now)
     {
         StageTransitionPolicy.EnsureAllowed(state.Stage, command.TargetStage);
         EnsureStagePrerequisites(state, command.TargetStage);
-        return [new StageTransitioned(state.Stage, command.TargetStage)];
+        if (command.TargetStage != TaskStage.Archive)
+        {
+            return [new StageTransitioned(state.Stage, command.TargetStage)];
+        }
+
+        var lessons = MintLessons(state, command.ActorId, now);
+        if (lessons.Count == 0)
+        {
+            throw new GovernanceException(
+                "Archiving requires at least one eligible lesson-bearing mark on a validated claim, " +
+                "rejected alternative, or resolved escalation.");
+        }
+
+        return lessons.Select<Lesson, LedgerEventData>(lesson => new LessonMinted(lesson))
+            .Append(new StageTransitioned(state.Stage, command.TargetStage))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<Lesson> MintLessons(
+        GovernedTaskState state,
+        ActorId actorId,
+        DateTimeOffset now)
+    {
+        var provenance = new Provenance(actorId, now, "stage.archive");
+        var lessons = new List<Lesson>();
+
+        foreach (var mark in state.LessonMarks.Values.OrderBy(item => item.Id.Value, StringComparer.Ordinal))
+        {
+            var lesson = CreateLesson(state, mark, provenance);
+            if (lesson is not null)
+            {
+                lessons.Add(lesson);
+            }
+        }
+
+        return lessons;
+    }
+
+    private static Lesson? CreateLesson(GovernedTaskState state, LessonMark mark, Provenance provenance) =>
+        mark.SourceKind switch
+        {
+            LessonSourceKind.ValidatedClaim when
+                state.Claims.TryGetValue(new ClaimId(mark.SourceRecordId), out var claim) &&
+                claim.Status == ClaimStatus.Validated => new Lesson(
+                    LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
+                    mark.SourceKind, mark.SourceRecordId, claim.Statement, "Validated",
+                    claim.EvidenceIds.Select(id => state.Evidence[id].Citation)
+                        .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                    provenance, mark.SupersedesLessonId),
+            LessonSourceKind.RejectedAlternative when
+                state.Alternatives.TryGetValue(new AlternativeId(mark.SourceRecordId), out var alternative) =>
+                new Lesson(LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
+                    mark.SourceKind, mark.SourceRecordId, alternative.Statement, alternative.RejectionRationale,
+                    [], provenance, mark.SupersedesLessonId),
+            LessonSourceKind.ResolvedEscalation when
+                state.Escalations.TryGetValue(new EscalationId(mark.SourceRecordId), out var escalation) &&
+                escalation.Status == EscalationStatus.Resolved => new Lesson(
+                    LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
+                    mark.SourceKind, mark.SourceRecordId, escalation.Question, escalation.Resolution!,
+                    escalation.AttemptEvidenceIds.Select(id => state.Evidence[id].Citation)
+                        .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                    provenance, mark.SupersedesLessonId),
+            _ => null
+        };
+
+    private static IReadOnlyList<LedgerEventData> MarkLessonBearing(
+        GovernedTaskState state,
+        MarkLessonBearingCommand command,
+        DateTimeOffset now)
+    {
+        RequireDefined(command.SourceKind, nameof(command.SourceKind));
+        RequireId(command.SourceRecordId, nameof(command.SourceRecordId));
+        var markId = LessonMarkIdFor(command.SourceKind, command.SourceRecordId);
+        EnsureNew(state.LessonMarks, markId, "lesson mark");
+
+        var eligible = command.SourceKind switch
+        {
+            LessonSourceKind.ValidatedClaim =>
+                state.Claims.TryGetValue(new ClaimId(command.SourceRecordId), out var claim) &&
+                claim.Status == ClaimStatus.Validated,
+            LessonSourceKind.RejectedAlternative =>
+                state.Alternatives.ContainsKey(new AlternativeId(command.SourceRecordId)),
+            LessonSourceKind.ResolvedEscalation =>
+                state.Escalations.TryGetValue(new EscalationId(command.SourceRecordId), out var escalation) &&
+                escalation.Status == EscalationStatus.Resolved,
+            _ => false
+        };
+        if (!eligible)
+        {
+            throw new GovernanceException("A lesson mark must name an eligible source record.");
+        }
+
+        if (command.SupersedesLessonId is { } superseded)
+        {
+            _ = Get(state.Lessons, superseded, "superseded lesson");
+            if (state.LessonMarks.Values.Any(mark => mark.SupersedesLessonId == superseded))
+            {
+                throw new GovernanceException($"Lesson '{superseded}' is already superseded by another mark.");
+            }
+        }
+
+        return [new LessonMarked(new LessonMark(
+            markId, command.SourceKind, command.SourceRecordId.Trim(), command.SupersedesLessonId,
+            new Provenance(command.ActorId, now, "lesson.mark")))];
+    }
+
+    private static LessonMarkId LessonMarkIdFor(LessonSourceKind kind, string sourceRecordId) =>
+        new($"{kind.ToString().ToLowerInvariant()}:{sourceRecordId.Trim()}");
+
+    private static LessonId LessonIdFor(TaskId taskId, LessonSourceKind kind, string sourceRecordId) =>
+        new($"{taskId.Value}:{kind.ToString().ToLowerInvariant()}:{sourceRecordId}");
+
+    private static void ValidateRecalledLesson(TaskId openedTaskId, Lesson lesson)
+    {
+        RequireId(lesson.Id.Value, nameof(lesson.Id));
+        RequireId(lesson.SourceTaskId.Value, nameof(lesson.SourceTaskId));
+        RequireDefined(lesson.SourceKind, nameof(lesson.SourceKind));
+        RequireId(lesson.SourceRecordId, nameof(lesson.SourceRecordId));
+        RequireText(lesson.Statement, nameof(lesson.Statement));
+        RequireText(lesson.Outcome, nameof(lesson.Outcome));
+        if (lesson.SourceTaskId == openedTaskId)
+        {
+            throw new GovernanceException("A task cannot recall a lesson from itself while it is being opened.");
+        }
     }
 
     private static IReadOnlyList<LedgerEventData> RaiseEscalation(
@@ -1205,6 +1344,9 @@ public sealed class CommandHandler : ICommandHandler
                 break;
             case ResolveEscalationCommand resolve:
                 RequireDefined(resolve.Status, nameof(resolve.Status));
+                break;
+            case MarkLessonBearingCommand mark:
+                RequireDefined(mark.SourceKind, nameof(mark.SourceKind));
                 break;
         }
     }

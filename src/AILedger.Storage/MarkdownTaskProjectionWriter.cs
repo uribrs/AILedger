@@ -118,6 +118,21 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
                 .OrderBy(pair => pair.Key.Value, StringComparer.Ordinal),
             pair => $"- `{Clean(pair.Key.Value)}` — {Clean(pair.Value.TargetType)} `{Clean(pair.Value.TargetId)}`: {Clean(pair.Value.Reason)}");
 
+        builder.AppendLine().AppendLine("## Lessons").AppendLine();
+        AppendItems(builder, state.Lessons.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
+            $"- `{Clean(pair.Key.Value)}` — {pair.Value.SourceKind} from `{Clean(pair.Value.SourceTaskId.Value)}`/" +
+            $"`{Clean(pair.Value.SourceRecordId)}`: {Clean(pair.Value.Statement)} Outcome: {Clean(pair.Value.Outcome)}" +
+            (pair.Value.SupersedesLessonId is null
+                ? string.Empty
+                : $" Supersedes: `{Clean(pair.Value.SupersedesLessonId.Value.Value)}`"));
+
+        builder.AppendLine().AppendLine("## Lesson Marks").AppendLine();
+        AppendItems(builder, state.LessonMarks.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
+            $"- `{Clean(pair.Key.Value)}` — {pair.Value.SourceKind} `{Clean(pair.Value.SourceRecordId)}`" +
+            (pair.Value.SupersedesLessonId is null
+                ? string.Empty
+                : $" supersedes `{Clean(pair.Value.SupersedesLessonId.Value.Value)}`"));
+
         return NormalizeEnding(builder);
     }
 

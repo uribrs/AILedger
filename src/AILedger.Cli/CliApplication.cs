@@ -13,6 +13,9 @@ public sealed class CliApplication
     private const int TerminalPersistenceAttempts = 3;
     private static readonly TimeSpan TerminalPersistenceDeadline = TimeSpan.FromSeconds(65);
     private static readonly TimeSpan TerminalPersistenceRetryDelay = TimeSpan.FromMilliseconds(100);
+    // How long a governed agent's work can sit in the log before the feed shows it. Short enough to
+    // read as live, long enough that polling a small file costs nothing against a writing agent.
+    private static readonly TimeSpan FollowPollInterval = TimeSpan.FromMilliseconds(250);
 
     private readonly TextWriter _output;
     private readonly TextWriter _error;
@@ -217,6 +220,12 @@ public sealed class CliApplication
                     input.Required("statement"), input.Required("rejected-because"),
                     OptionalId(input.Optional("replaced-by"), value => new DecisionId(value))), cancellationToken).ConfigureAwait(false);
                 break;
+            case "lesson mark":
+                await ExecuteAsync(service, input, new MarkLessonBearingCommand(
+                    Actor(input), Cause(input), Correlation(input),
+                    EnumValue<LessonSourceKind>(input, "kind"), input.Required("source"),
+                    OptionalId(input.Optional("supersedes"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
+                break;
             case "constraint add":
                 await ExecuteAsync(service, input, new AddConstraintCommand(
                     Actor(input), Cause(input), Correlation(input), new ConstraintId(input.Required("id")),
@@ -343,19 +352,58 @@ public sealed class CliApplication
         await WriteJsonAsync(state).ConfigureAwait(false);
     }
 
+    // Without --follow this prints the log and returns, as it always has. With it, the process stays
+    // and prints each event as it is appended, so an operator watching several governed agents sees
+    // their work land in one feed instead of re-running the command to find out.
     private async Task WriteHistoryAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
     {
-        var found = false;
-        await foreach (var @event in service.GetHistoryAsync(Task(input), cancellationToken).ConfigureAwait(false))
+        var taskId = Task(input);
+        var cursor = SinceVersion(input.Optional("since"));
+        var version = await WriteEventsAfterAsync(service, taskId, cursor, cancellationToken).ConfigureAwait(false);
+        // An empty log is a task that was never opened. Said now rather than followed in silence: a
+        // feed that prints nothing because the task ID is a typo looks exactly like a quiet task.
+        if (version == 0)
         {
-            found = true;
-            await _output.WriteLineAsync(JsonSerializer.Serialize(@event, LedgerJson.CreateOptions())).ConfigureAwait(false);
+            throw new CliUsageException($"Task '{taskId}' was not found.");
         }
 
-        if (!found)
+        if (!input.Flag("follow"))
         {
-            throw new CliUsageException($"Task '{Task(input)}' was not found.");
+            return;
         }
+
+        cursor = Math.Max(cursor, version);
+        while (true)
+        {
+            await System.Threading.Tasks.Task.Delay(FollowPollInterval, cancellationToken).ConfigureAwait(false);
+            version = await WriteEventsAfterAsync(service, taskId, cursor, cancellationToken).ConfigureAwait(false);
+            cursor = Math.Max(cursor, version);
+        }
+    }
+
+    // The log is re-read through the service on every poll rather than tailed by byte offset, because
+    // GetHistoryAsync reads it under the task's mutation lock and validates each envelope. A feed that
+    // read the file itself could print a half-written line, or an event the kernel refuses on replay.
+    private async Task<long> WriteEventsAfterAsync(
+        IGovernedTaskService service,
+        TaskId taskId,
+        long cursor,
+        CancellationToken cancellationToken)
+    {
+        var options = LedgerJson.CreateOptions();
+        var version = 0L;
+        await foreach (var @event in service.GetHistoryAsync(taskId, cancellationToken).ConfigureAwait(false))
+        {
+            // An event's position in the log is the task version it produced, so counting them is
+            // what makes --since a version and not an offset the caller has to translate.
+            version++;
+            if (version > cursor)
+            {
+                await _output.WriteLineAsync(JsonSerializer.Serialize(@event, options)).ConfigureAwait(false);
+            }
+        }
+
+        return version;
     }
 
     private async Task BuildContextAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
@@ -673,8 +721,8 @@ public sealed class CliApplication
             ["who"] = Options("root", "task", "actor"),
             ["status"] = Options("root", "task", "actor"),
             ["task status"] = Options("root", "task", "actor"),
-            ["history"] = Options("root", "task", "actor"),
-            ["task history"] = Options("root", "task", "actor"),
+            ["history"] = Options("root", "task", "actor", "follow", "since"),
+            ["task history"] = Options("root", "task", "actor", "follow", "since"),
             ["actor attach"] = Options(
                 "root", "task", "actor", "target", "role", "capability", "cause", "correlation"),
             ["context build"] = Options("root", "task", "actor", "work", "cognitive-root", "output"),
@@ -706,6 +754,8 @@ public sealed class CliApplication
             ["alternative record"] = Options(
                 "root", "task", "actor", "id", "statement", "rejected-because", "replaced-by",
                 "cause", "correlation"),
+            ["lesson mark"] = Options(
+                "root", "task", "actor", "kind", "source", "supersedes", "cause", "correlation"),
             ["constraint add"] = Options(
                 "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
             ["constraint supersede"] = Options(
@@ -799,6 +849,12 @@ public sealed class CliApplication
         Enum.IsDefined(parsed)
             ? parsed
             : throw new CliUsageException($"'{value}' is not a valid {typeof(T).Name}.");
+    // Zero is the whole log, which is what history has always printed, so it is also the default.
+    private static long SinceVersion(string? value) =>
+        value is null ? 0
+            : long.TryParse(value, out var parsed) && parsed >= 0
+                ? parsed
+                : throw new CliUsageException("Since must be a task version of zero or more.");
     private static int PositiveInt(string? value, int fallback) =>
         value is null ? fallback : int.TryParse(value, out var parsed) && parsed > 0
             ? parsed
@@ -813,7 +869,7 @@ public sealed class CliApplication
         task open          --task ID --actor ID --title TEXT --goal TEXT
         status             --task ID
         who                --task ID   (actors, roles, live runs, occupied areas)
-        history            --task ID
+        history            --task ID [--follow] [--since VERSION]
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
         claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
@@ -838,6 +894,8 @@ public sealed class CliApplication
         escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
         alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
                            [--replaced-by DECISION]
+        lesson mark        --task ID --actor ID --kind validated-claim|rejected-alternative|
+                           resolved-escalation --source ID [--supersedes LESSON]
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
@@ -866,6 +924,19 @@ public sealed class CliApplication
 
         work abandon releases an item that will never be completed, and hands its directory areas
         back for another work item to claim.
+
+        lesson mark declares that one record is worth carrying into later tasks. Archiving mints a
+        lesson only from marked sources, so a task with no marks teaches the next one nothing.
+        --source names the record: a validated claim, a rejected alternative, or a resolved
+        escalation. --supersedes names the lesson this one replaces, which keeps the older lesson out
+        of a later task's recall without deleting it. Only an operator or a lead may mark: a mark
+        decides what every later task inherits, which is scope authority rather than execution.
+
+        history --follow keeps printing, one JSON line per event, as each event is appended, until it
+        is interrupted. It is how an operator watches several governed agents work in one feed rather
+        than re-running the command to find out what landed. --since VERSION suppresses everything up
+        to that task version, so a feed can resume where a previous one stopped without repeating it;
+        the version an event produced is its position in the log, which status reports as "version".
         """;
 
     private sealed class ProviderRunFailedException(string message) : Exception(message);

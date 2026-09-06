@@ -21,6 +21,10 @@ public sealed record GovernedTaskState
     public IReadOnlyDictionary<EscalationId, Escalation> Escalations { get; init; } = new Dictionary<EscalationId, Escalation>();
     public IReadOnlyDictionary<AlternativeId, Alternative> Alternatives { get; init; } = new Dictionary<AlternativeId, Alternative>();
     public IReadOnlyDictionary<ConstraintId, Constraint> Constraints { get; init; } = new Dictionary<ConstraintId, Constraint>();
+    // Lessons are copied into the opening history of the next task, so its context remains
+    // self-contained even if the source task is later moved or archived elsewhere.
+    public IReadOnlyDictionary<LessonId, Lesson> Lessons { get; init; } = new Dictionary<LessonId, Lesson>();
+    public IReadOnlyDictionary<LessonMarkId, LessonMark> LessonMarks { get; init; } = new Dictionary<LessonMarkId, LessonMark>();
     internal ActorId? PendingOpeningActor { get; init; }
 }
 

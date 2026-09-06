@@ -37,6 +37,9 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemAbandoned abandoned => AbandonWorkItem(Require(state), abandoned),
             ClaimDependenciesRepointed repointed => RepointDependencies(Require(state), repointed),
             DecisionOverturned overturned => OverturnDecision(Require(state), overturned),
+            LessonMinted minted => AddLesson(Require(state), minted.Lesson),
+            LessonRecalled recalled => AddLesson(Require(state), recalled.Lesson),
+            LessonMarked marked => AddLessonMark(Require(state), marked.Mark),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -108,6 +111,12 @@ public sealed class TaskReducer : ITaskReducer
         var decision = state.Decisions[resolved.DecisionId] with { Status = resolved.Status };
         return state with { Decisions = Set(state.Decisions, resolved.DecisionId, decision) };
     }
+
+    private static GovernedTaskState AddLesson(GovernedTaskState state, Lesson lesson) =>
+        state with { Lessons = Set(state.Lessons, lesson.Id, lesson) };
+
+    private static GovernedTaskState AddLessonMark(GovernedTaskState state, LessonMark mark) =>
+        state with { LessonMarks = Set(state.LessonMarks, mark.Id, mark) };
 
     private static GovernedTaskState InvalidateDecision(GovernedTaskState state, DecisionInvalidated invalidated)
     {

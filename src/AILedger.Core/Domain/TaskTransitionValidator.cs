@@ -90,6 +90,15 @@ internal static class TaskTransitionValidator
             case DecisionOverturned overturned:
                 ValidateDecisionOverturned(Require(state), @event, overturned);
                 break;
+            case LessonMinted minted:
+                ValidateLessonMinted(Require(state), @event, minted.Lesson);
+                break;
+            case LessonRecalled recalled:
+                ValidateLessonRecalled(Require(state), @event, recalled.Lesson);
+                break;
+            case LessonMarked marked:
+                ValidateLessonMarked(Require(state), @event, marked.Mark);
+                break;
             default:
                 throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.");
         }
@@ -112,6 +121,193 @@ internal static class TaskTransitionValidator
         RequireText(opened.Title, nameof(opened.Title));
         RequireText(opened.Goal, nameof(opened.Goal));
     }
+
+    private static void ValidateLessonMinted(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        Lesson lesson)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.RequestTransition);
+        if (state.Stage != TaskStage.Learn)
+        {
+            throw new GovernanceException("Lessons can only be minted while closing a task from the Learn stage.");
+        }
+
+        ValidateLessonShape(lesson);
+        if (lesson.SourceTaskId != state.TaskId)
+        {
+            throw new GovernanceException("A minted lesson must name the task that is minting it.");
+        }
+
+        if (state.Lessons.ContainsKey(lesson.Id))
+        {
+            throw new GovernanceException($"Lesson '{lesson.Id}' is already present in the task.");
+        }
+
+        var sourceMatches = lesson.SourceKind switch
+        {
+            LessonSourceKind.ValidatedClaim =>
+                state.Claims.TryGetValue(new ClaimId(lesson.SourceRecordId), out var claim) &&
+                claim.Status == ClaimStatus.Validated && claim.Statement == lesson.Statement,
+            LessonSourceKind.RejectedAlternative =>
+                state.Alternatives.TryGetValue(new AlternativeId(lesson.SourceRecordId), out var alternative) &&
+                alternative.Statement == lesson.Statement && alternative.RejectionRationale == lesson.Outcome,
+            LessonSourceKind.ResolvedEscalation =>
+                state.Escalations.TryGetValue(new EscalationId(lesson.SourceRecordId), out var escalation) &&
+                escalation.Status == EscalationStatus.Resolved && escalation.Question == lesson.Statement &&
+                escalation.Resolution == lesson.Outcome,
+            _ => false
+        };
+        var expectedId = $"{state.TaskId.Value}:{lesson.SourceKind.ToString().ToLowerInvariant()}:{lesson.SourceRecordId}";
+        if (!sourceMatches || lesson.Id.Value != expectedId)
+        {
+            throw new GovernanceException("A minted lesson must faithfully represent a lesson-bearing source record.");
+        }
+
+        // Histories written before selective minting contain LessonMinted with no preceding mark.
+        // Once a history contains marks, every minted lesson must faithfully carry its mark.
+        if (state.LessonMarks.Count != 0)
+        {
+            var markId = LessonMarkIdFor(lesson.SourceKind, lesson.SourceRecordId);
+            if (!state.LessonMarks.TryGetValue(markId, out var mark) ||
+                mark.SupersedesLessonId != lesson.SupersedesLessonId)
+            {
+                throw new GovernanceException("A minted lesson must match its lesson-bearing mark.");
+            }
+        }
+
+        var expectedCitations = lesson.SourceKind switch
+        {
+            LessonSourceKind.ValidatedClaim => state.Claims[new ClaimId(lesson.SourceRecordId)].EvidenceIds
+                .Select(id => state.Evidence[id].Citation),
+            LessonSourceKind.ResolvedEscalation => state.Escalations[new EscalationId(lesson.SourceRecordId)]
+                .AttemptEvidenceIds.Select(id => state.Evidence[id].Citation),
+            _ => []
+        };
+        if (!lesson.Citations.SequenceEqual(
+                expectedCitations.Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal),
+                StringComparer.Ordinal))
+        {
+            throw new GovernanceException("A minted lesson must retain the citations of its source record.");
+        }
+
+        ValidateProvenance(@event, lesson.Provenance, "stage.archive");
+    }
+
+    private static void ValidateLessonMarked(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        LessonMark mark)
+    {
+        var assignment = Get(state.Roles, @event.ActorId, "actor role");
+        if (assignment.Role is not (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead))
+        {
+            throw new GovernanceException("Only an operator or lead can mark a source lesson-bearing.");
+        }
+
+        RequireDefined(mark.SourceKind, nameof(mark.SourceKind));
+        RequireId(mark.SourceRecordId, nameof(mark.SourceRecordId));
+        var expectedId = LessonMarkIdFor(mark.SourceKind, mark.SourceRecordId);
+        if (mark.Id != expectedId)
+        {
+            throw new GovernanceException("A lesson mark identifier must match its source record.");
+        }
+        EnsureNew(state.LessonMarks, mark.Id, "lesson mark");
+
+        var eligible = mark.SourceKind switch
+        {
+            LessonSourceKind.ValidatedClaim =>
+                state.Claims.TryGetValue(new ClaimId(mark.SourceRecordId), out var claim) &&
+                claim.Status == ClaimStatus.Validated,
+            LessonSourceKind.RejectedAlternative =>
+                state.Alternatives.ContainsKey(new AlternativeId(mark.SourceRecordId)),
+            LessonSourceKind.ResolvedEscalation =>
+                state.Escalations.TryGetValue(new EscalationId(mark.SourceRecordId), out var escalation) &&
+                escalation.Status == EscalationStatus.Resolved,
+            _ => false
+        };
+        if (!eligible)
+        {
+            throw new GovernanceException("A lesson mark must name an eligible source record.");
+        }
+
+        if (mark.SupersedesLessonId is { } superseded)
+        {
+            _ = Get(state.Lessons, superseded, "superseded lesson");
+            if (state.LessonMarks.Values.Any(existing => existing.SupersedesLessonId == superseded))
+            {
+                throw new GovernanceException($"Lesson '{superseded}' is already superseded by another mark.");
+            }
+        }
+
+        ValidateProvenance(@event, mark.Provenance, "lesson.mark");
+    }
+
+    private static void ValidateLessonRecalled(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        Lesson lesson)
+    {
+        // Recall events are part of task opening. The preceding opening role is the authority;
+        // the lesson's provenance intentionally remains that of the source task.
+        if (state.Version < 2 || state.Stage != TaskStage.Discovery || state.Roles.Count != 1 ||
+            state.Claims.Count != 0 || state.Evidence.Count != 0 || state.Decisions.Count != 0 ||
+            state.Challenges.Count != 0 || state.WorkItems.Count != 0 || state.Runs.Count != 0 ||
+            state.Escalations.Count != 0 || state.Alternatives.Count != 0 || state.Constraints.Count != 0 ||
+            !state.Roles.TryGetValue(@event.ActorId, out var assignment) || assignment.Role != RoleKind.Operator)
+        {
+            throw new GovernanceException("Lessons can only be recalled into a newly opened task.");
+        }
+
+        ValidateLessonShape(lesson);
+        var expectedId = $"{lesson.SourceTaskId.Value}:{lesson.SourceKind.ToString().ToLowerInvariant()}:{lesson.SourceRecordId}";
+        if (lesson.Id.Value != expectedId)
+        {
+            throw new GovernanceException("A recalled lesson identifier must match its source record.");
+        }
+        if (lesson.SourceTaskId == state.TaskId)
+        {
+            throw new GovernanceException("A task cannot recall its own lesson.");
+        }
+
+        if (state.Lessons.ContainsKey(lesson.Id))
+        {
+            throw new GovernanceException($"Lesson '{lesson.Id}' is already present in the task.");
+        }
+
+
+        if (lesson.Provenance.RecordedAt == default || string.IsNullOrWhiteSpace(lesson.Provenance.ActorId.Value) ||
+            !string.Equals(lesson.Provenance.Source, "stage.archive", StringComparison.Ordinal))
+        {
+            throw new GovernanceException("A recalled lesson must retain valid close-out provenance.");
+        }
+    }
+
+    private static void ValidateLessonShape(Lesson lesson)
+    {
+        RequireId(lesson.Id.Value, nameof(lesson.Id));
+        RequireId(lesson.SourceTaskId.Value, nameof(lesson.SourceTaskId));
+        RequireDefined(lesson.SourceKind, nameof(lesson.SourceKind));
+        RequireId(lesson.SourceRecordId, nameof(lesson.SourceRecordId));
+        RequireText(lesson.Statement, nameof(lesson.Statement));
+        RequireText(lesson.Outcome, nameof(lesson.Outcome));
+        EnsureUnique(lesson.Citations, "Lesson citations", StringComparer.Ordinal);
+        if (lesson.Citations.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("A lesson cannot carry an empty citation.");
+        }
+        if (lesson.SupersedesLessonId is { } supersedes)
+        {
+            RequireId(supersedes.Value, nameof(lesson.SupersedesLessonId));
+            if (supersedes == lesson.Id)
+            {
+                throw new GovernanceException("A lesson cannot supersede itself.");
+            }
+        }
+    }
+
+    private static LessonMarkId LessonMarkIdFor(LessonSourceKind kind, string sourceRecordId) =>
+        new($"{kind.ToString().ToLowerInvariant()}:{sourceRecordId}");
 
     private static void ValidateRoleAssigned(
         GovernedTaskState state,
@@ -627,6 +823,9 @@ internal static class TaskTransitionValidator
 
         StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
         EnsureStagePrerequisites(state, transitioned.Current);
+        // C3 (lesson-closeout-replay-compatibility): CommandHandler requires and emits lessons for
+        // a new Learn -> Archive command. Replay deliberately does not require a preceding lesson:
+        // every archive history written before lesson events existed has none.
     }
 
     private static void ValidateEscalationRaised(GovernedTaskState state, LedgerEvent @event, Escalation escalation)

@@ -2,6 +2,11 @@ namespace AILedger.Cli;
 
 internal sealed class CommandLine
 {
+    // Options that are present or absent rather than set to something. Every other option consumes
+    // the argument after it, so a bare '--follow' would otherwise be refused for missing a value.
+    private static readonly IReadOnlySet<string> ValuelessOptions =
+        new HashSet<string>(["follow"], StringComparer.OrdinalIgnoreCase);
+
     private readonly Dictionary<string, List<string>> _options = new(StringComparer.OrdinalIgnoreCase);
 
     private CommandLine(IReadOnlyList<string> command) => Command = command;
@@ -34,9 +39,11 @@ internal sealed class CommandLine
 
             var separator = value.IndexOf('=');
             var name = separator < 0 ? value[2..] : value[2..separator];
-            var optionValue = separator < 0
-                ? ReadFollowingValue(arguments, ref index, name)
-                : value[(separator + 1)..];
+            var optionValue = separator >= 0
+                ? value[(separator + 1)..]
+                : ValuelessOptions.Contains(name)
+                    ? bool.TrueString
+                    : ReadFollowingValue(arguments, ref index, name);
             parsed.Add(name, optionValue);
         }
 
@@ -58,6 +65,11 @@ internal sealed class CommandLine
         _options.TryGetValue(name, out var values) ? values : [];
 
     public bool Has(string name) => _options.ContainsKey(name);
+
+    // A valueless option is true by its presence. '--follow=false' is the one way to say otherwise,
+    // so a script can build the argument list without branching on whether to include the option.
+    public bool Flag(string name) =>
+        Optional(name) is { } value && !string.Equals(value, bool.FalseString, StringComparison.OrdinalIgnoreCase);
 
     public void EnsureOnlyAllowedOptions(string command, IReadOnlySet<string> allowedOptions)
     {
