@@ -34,6 +34,8 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemCompleted completed => SetWorkItemStatus(Require(state), completed.WorkItemId, WorkItemStatus.Completed, null),
             WorkItemBlocked blocked => SetWorkItemStatus(Require(state), blocked.WorkItemId, WorkItemStatus.Blocked, blocked.Reason),
             WorkItemUnblocked unblocked => SetWorkItemStatus(Require(state), unblocked.WorkItemId, WorkItemStatus.Paused, null),
+            ClaimDependenciesRepointed repointed => RepointDependencies(Require(state), repointed),
+            DecisionOverturned overturned => OverturnDecision(Require(state), overturned),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -83,10 +85,18 @@ public sealed class TaskReducer : ITaskReducer
 
     private static GovernedTaskState ResolveClaim(GovernedTaskState state, ClaimResolved resolved)
     {
-        var claim = state.Claims[resolved.ClaimId] with
+        var current = state.Claims[resolved.ClaimId];
+        // R3 (claim-evidence-overwrite): evidence accumulates. A challenge rejecting a claim cites
+        // only refuting evidence, and must not erase the supporting evidence already on record.
+        var evidence = current.EvidenceIds
+            .Concat(resolved.EvidenceIds)
+            .Distinct()
+            .ToArray();
+        var claim = current with
         {
             Status = resolved.Status,
-            EvidenceIds = resolved.EvidenceIds.ToArray()
+            EvidenceIds = evidence,
+            SupersededByClaimId = resolved.SupersededByClaimId ?? current.SupersededByClaimId
         };
 
         return state with { Claims = Set(state.Claims, resolved.ClaimId, claim) };
@@ -170,6 +180,45 @@ public sealed class TaskReducer : ITaskReducer
         };
 
         return state with { Escalations = Set(state.Escalations, resolved.EscalationId, escalation) };
+    }
+
+    private static GovernedTaskState RepointDependencies(GovernedTaskState state, ClaimDependenciesRepointed repointed)
+    {
+        var decisions = state.Decisions;
+        // A terminal record's dependency list is the audit trail of what it was actually built on,
+        // so a refinement leaves it alone. This is deliberately *not* the same set the correction
+        // path selects: correction still stales a Completed dependent, refinement does not touch it.
+        foreach (var decision in state.Decisions.Values
+                     .Where(item => item.DependsOnClaims.Contains(repointed.SupersededClaimId))
+                     .Where(item => item.Status is DecisionStatus.Proposed or DecisionStatus.Accepted))
+        {
+            decisions = Set(decisions, decision.Id, decision with
+            {
+                DependsOnClaims = Replace(decision.DependsOnClaims, repointed.SupersededClaimId, repointed.ReplacementClaimId)
+            });
+        }
+
+        var workItems = state.WorkItems;
+        foreach (var workItem in state.WorkItems.Values
+                     .Where(item => item.DependsOnClaims.Contains(repointed.SupersededClaimId))
+                     .Where(item => item.Status is not (WorkItemStatus.Stale or WorkItemStatus.Completed)))
+        {
+            workItems = Set(workItems, workItem.Id, workItem with
+            {
+                DependsOnClaims = Replace(workItem.DependsOnClaims, repointed.SupersededClaimId, repointed.ReplacementClaimId)
+            });
+        }
+
+        return state with { Decisions = decisions, WorkItems = workItems };
+    }
+
+    private static IReadOnlyList<ClaimId> Replace(IReadOnlyList<ClaimId> claims, ClaimId from, ClaimId to) =>
+        claims.Select(claimId => claimId == from ? to : claimId).Distinct().ToArray();
+
+    private static GovernedTaskState OverturnDecision(GovernedTaskState state, DecisionOverturned overturned)
+    {
+        var decision = state.Decisions[overturned.DecisionId] with { Status = DecisionStatus.Invalidated };
+        return state with { Decisions = Set(state.Decisions, overturned.DecisionId, decision) };
     }
 
     private static GovernedTaskState SupersedeConstraint(GovernedTaskState state, ConstraintSuperseded superseded)

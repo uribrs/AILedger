@@ -36,12 +36,14 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(WorkItemCompleted), "work.completed")]
 [JsonDerivedType(typeof(WorkItemBlocked), "work.blocked")]
 [JsonDerivedType(typeof(WorkItemUnblocked), "work.unblocked")]
+[JsonDerivedType(typeof(ClaimDependenciesRepointed), "claim.dependencies-repointed")]
+[JsonDerivedType(typeof(DecisionOverturned), "decision.overturned")]
 public abstract record LedgerEventData;
 
 public sealed record TaskOpened(string Title, string Goal) : LedgerEventData;
 public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
 public sealed record ClaimAdded(Claim Claim) : LedgerEventData;
-public sealed record ClaimResolved(ClaimId ClaimId, ClaimStatus Status, IReadOnlyList<EvidenceId> EvidenceIds) : LedgerEventData;
+public sealed record ClaimResolved(ClaimId ClaimId, ClaimStatus Status, IReadOnlyList<EvidenceId> EvidenceIds, ClaimId? SupersededByClaimId = null, SupersessionOutcome? Outcome = null) : LedgerEventData;
 public sealed record EvidenceAdded(Evidence Evidence) : LedgerEventData;
 public sealed record DecisionProposed(Decision Decision) : LedgerEventData;
 public sealed record DecisionResolved(DecisionId DecisionId, DecisionStatus Status) : LedgerEventData;
@@ -61,3 +63,5 @@ public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEve
 public sealed record WorkItemCompleted(WorkItemId WorkItemId) : LedgerEventData;
 public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
 public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
+public sealed record ClaimDependenciesRepointed(ClaimId SupersededClaimId, ClaimId ReplacementClaimId) : LedgerEventData;
+public sealed record DecisionOverturned(DecisionId DecisionId, ChallengeId ChallengeId) : LedgerEventData;

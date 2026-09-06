@@ -41,17 +41,25 @@ public sealed class InvalidationTests
     }
 
     [Fact]
-    public void SupersedingOpenClaimMarksInactiveDependentWorkStale()
+    public void SupersedingByAnUnvalidatedClaimIsACorrectionAndMarksDependentWorkStale()
     {
         var task = new TestTask();
         var claimId = new ClaimId("C1");
+        var replacementId = new ClaimId("C2");
         var workItemId = new WorkItemId("W1");
         task.Apply(new AddClaimCommand(task.OperatorId, null, task.NextCorrelation(), claimId, "Old assumption", null));
+        task.Apply(new AddClaimCommand(task.OperatorId, null, task.NextCorrelation(), replacementId, "Sharper assumption", null));
         task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId, "Work", null, [claimId], [Path.GetFullPath("src")]));
 
-        task.Apply(new ResolveClaimCommand(task.OperatorId, null, task.NextCorrelation(), claimId, ClaimStatus.Superseded, []));
+        // The replacement is only Open, so the refinement path is not earned.
+        var outcome = task.Apply(new ResolveClaimCommand(
+            task.OperatorId, null, task.NextCorrelation(), claimId, ClaimStatus.Superseded, [], replacementId));
 
+        var resolved = Assert.IsType<ClaimResolved>(outcome.Events[0].Data);
+        Assert.Equal(SupersessionOutcome.Correction, resolved.Outcome);
+        Assert.Equal(replacementId, task.State.Claims[claimId].SupersededByClaimId);
         Assert.Equal(WorkItemStatus.Stale, task.State.WorkItems[workItemId].Status);
+        Assert.Equal([claimId], task.State.WorkItems[workItemId].DependsOnClaims);
     }
 
     [Fact]

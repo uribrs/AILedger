@@ -95,7 +95,6 @@ public enum ChallengeStatus
 public enum WorkItemStatus
 {
     Proposed,
-    Ready,
     Active,
     Paused,
     Blocked,
@@ -105,7 +104,6 @@ public enum WorkItemStatus
 
 public enum AgentRunStatus
 {
-    Pending,
     Active,
     Completed,
     Failed,
@@ -121,13 +119,23 @@ public sealed record RoleAssignment(
     IReadOnlyList<Capability> Capabilities,
     Provenance AssignedBy);
 
+// Superseding is not one act. A refinement sharpens a claim and its dependents stay
+// valid; a correction narrows or contradicts it and they do not. The kernel derives
+// which from state, never from a flag set by the actor doing the superseding.
+public enum SupersessionOutcome
+{
+    Correction,
+    Refinement
+}
+
 public sealed record Claim(
     ClaimId Id,
     string Statement,
     ClaimStatus Status,
     IReadOnlyList<EvidenceId> EvidenceIds,
     string? ConsequenceIfWrong,
-    Provenance Provenance);
+    Provenance Provenance,
+    ClaimId? SupersededByClaimId = null);
 
 public sealed record Evidence(
     EvidenceId Id,

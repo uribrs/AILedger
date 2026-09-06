@@ -118,7 +118,10 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
             var consequence = string.IsNullOrWhiteSpace(pair.Value.ConsequenceIfWrong)
                 ? string.Empty
                 : $" Consequence if wrong: {Clean(pair.Value.ConsequenceIfWrong)}";
-            return $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Status}** — {Clean(pair.Value.Statement)} Evidence: {evidence}.{consequence}";
+            var replacement = pair.Value.SupersededByClaimId is { } replacementId
+                ? $" Superseded by `{Clean(replacementId.Value)}`."
+                : string.Empty;
+            return $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Status}** — {Clean(pair.Value.Statement)} Evidence: {evidence}.{consequence}{replacement}";
         });
 
         return NormalizeEnding(builder);

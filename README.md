@@ -62,4 +62,4 @@ The original design dossiers remain at the repository root as design inputs. The
 
 ## Verification status
 
-The recorded implementation run reports 140 automated tests passing. After child-environment isolation was introduced, authenticated, non-destructive new-session and exact-session-resume smoke tests passed on 2026-09-05 with Codex CLI `0.150.0-alpha.8` (`CR4`/`CR5`) and Claude Code `2.1.261` (`CL8`/`CL9`). Other CLI versions remain guarded by runtime capability probes rather than assumed compatible.
+The recorded implementation run reports 155 automated tests passing. After child-environment isolation was introduced, authenticated, non-destructive new-session and exact-session-resume smoke tests passed on 2026-09-05 with Codex CLI `0.150.0-alpha.8` (`CR4`/`CR5`) and Claude Code `2.1.261` (`CL8`/`CL9`). Other CLI versions remain guarded by runtime capability probes rather than assumed compatible.

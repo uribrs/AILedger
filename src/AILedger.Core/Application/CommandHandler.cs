@@ -165,17 +165,74 @@ public sealed class CommandHandler : ICommandHandler
             }
         }
 
+        var replacement = EnsureSupersessionReplacement(state, command);
+        var outcome = replacement is null ? (SupersessionOutcome?)null : DeriveSupersession(state, claim, replacement);
+
         var events = new List<LedgerEventData>
         {
-            new ClaimResolved(command.ClaimId, command.Status, command.EvidenceIds.ToArray())
+            new ClaimResolved(command.ClaimId, command.Status, command.EvidenceIds.ToArray(),
+                command.SupersededByClaimId, outcome)
         };
 
-        if (command.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
+        if (outcome == SupersessionOutcome.Refinement)
+        {
+            // The replacement was validated and nothing refutes the original, so dependent work
+            // is still sound. Move it onto the replacement rather than invalidating it.
+            events.Add(new ClaimDependenciesRepointed(command.ClaimId, replacement!.Id));
+        }
+        else if (command.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
         {
             AddDependencyInvalidations(state, command.ClaimId, events);
         }
 
         return events;
+    }
+
+    private static Claim? EnsureSupersessionReplacement(GovernedTaskState state, ResolveClaimCommand command)
+    {
+        if (command.Status != ClaimStatus.Superseded)
+        {
+            if (command.SupersededByClaimId is not null)
+            {
+                throw new GovernanceException(
+                    $"A '{command.Status}' resolution cannot name a superseding claim.");
+            }
+
+            return null;
+        }
+
+        if (command.SupersededByClaimId is not { } replacementId)
+        {
+            throw new GovernanceException("Superseding a claim requires naming the claim that replaces it.");
+        }
+
+        if (replacementId == command.ClaimId)
+        {
+            throw new GovernanceException("A claim cannot supersede itself.");
+        }
+
+        var replacement = Get(state.Claims, replacementId, "claim");
+        if (replacement.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
+        {
+            throw new GovernanceException(
+                $"Replacement claim '{replacementId}' is '{replacement.Status}' and cannot replace another claim.");
+        }
+
+        return replacement;
+    }
+
+    // The actor resolving a claim is usually an agent, so this is derived from state and never
+    // declared. Correction is the default; refinement has to be earned.
+    private static SupersessionOutcome DeriveSupersession(
+        GovernedTaskState state,
+        Claim superseded,
+        Claim replacement)
+    {
+        var replacementIsValidated = replacement.Status == ClaimStatus.Validated;
+        var somethingRefutesTheOriginal = state.Evidence.Values.Any(item => item.Refutes.Contains(superseded.Id));
+        return replacementIsValidated && !somethingRefutesTheOriginal
+            ? SupersessionOutcome.Refinement
+            : SupersessionOutcome.Correction;
     }
 
     private static string EvidenceDirection(ClaimStatus status) => status switch
@@ -327,7 +384,102 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Challenge disposition must be terminal.");
         }
 
-        return [new ChallengeDisposed(command.ChallengeId, command.Status)];
+        var events = new List<LedgerEventData> { new ChallengeDisposed(command.ChallengeId, command.Status) };
+        if (command.Status == ChallengeStatus.Supported)
+        {
+            AddChallengeConsequence(state, command, challenge, events);
+        }
+
+        return events;
+    }
+
+    // An upheld challenge has to change something, or the protocol is advisory. The consequence
+    // is whatever the target kind already has machinery for.
+    private static void AddChallengeConsequence(
+        GovernedTaskState state,
+        DisposeChallengeCommand command,
+        Challenge challenge,
+        ICollection<LedgerEventData> events)
+    {
+        var targetId = challenge.TargetId.Trim();
+
+        // Supporting a challenge is not an unevidenced route to overturning anything. The claim
+        // arm below additionally checks direction, which the model only expresses for claims.
+        if (challenge.EvidenceIds.Count == 0)
+        {
+            throw new GovernanceException(
+                $"Challenge '{challenge.Id}' carries no evidence and cannot be supported.");
+        }
+
+        switch (challenge.TargetType.Trim().ToLowerInvariant())
+        {
+            case "claim":
+            {
+                var claim = Get(state.Claims, new ClaimId(targetId), "claim");
+                if (claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
+                {
+                    throw new GovernanceException(
+                        $"Claim '{claim.Id}' is already '{claim.Status}'; supporting this challenge would change nothing.");
+                }
+
+                // R1 (challenge-capability-replay-trap): the emitted ClaimResolved is authorised at
+                // replay against ResolveClaim, so demand it here or the task becomes unreplayable.
+                RequireConsequenceCapability(state, command.ActorId, Capability.ResolveClaim);
+                var refuting = challenge.EvidenceIds
+                    .Where(id => state.Evidence[id].Refutes.Contains(claim.Id))
+                    .ToArray();
+                if (refuting.Length != challenge.EvidenceIds.Count || refuting.Length == 0)
+                {
+                    throw new GovernanceException(
+                        $"A challenge against claim '{claim.Id}' can only be supported when every piece of its evidence refutes that claim.");
+                }
+
+                events.Add(new ClaimResolved(claim.Id, ClaimStatus.Rejected, refuting));
+                AddDependencyInvalidations(state, claim.Id, events);
+                return;
+            }
+
+            case "decision":
+            {
+                var decision = Get(state.Decisions, new DecisionId(targetId), "decision");
+                if (decision.Status is not (DecisionStatus.Proposed or DecisionStatus.Accepted))
+                {
+                    throw new GovernanceException(
+                        $"Decision '{decision.Id}' is already '{decision.Status}'; supporting this challenge would change nothing.");
+                }
+
+                RequireConsequenceCapability(state, command.ActorId, Capability.ResolveDecision);
+                events.Add(new DecisionOverturned(decision.Id, command.ChallengeId));
+                return;
+            }
+
+            case "work" or "workitem" or "work-item":
+            {
+                var workItem = Get(state.WorkItems, new WorkItemId(targetId), "work item");
+                if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Completed)
+                {
+                    throw new GovernanceException(
+                        $"Work item '{workItem.Id}' is already '{workItem.Status}'; supporting this challenge would change nothing.");
+                }
+
+                RequireConsequenceCapability(state, command.ActorId, Capability.ManageWork);
+                events.Add(new WorkItemBlocked(
+                    workItem.Id, $"Challenge '{command.ChallengeId}' was supported.", null));
+                return;
+            }
+
+            default:
+                throw new GovernanceException($"Unsupported challenge target type '{challenge.TargetType}'.");
+        }
+    }
+
+    private static void RequireConsequenceCapability(GovernedTaskState state, ActorId actorId, Capability capability)
+    {
+        if (!state.Roles[actorId].Capabilities.Contains(capability))
+        {
+            throw new GovernanceException(
+                $"Supporting this challenge emits a '{capability}' transition, which actor '{actorId}' lacks.");
+        }
     }
 
     private static IReadOnlyList<LedgerEventData> AddWorkItem(
@@ -387,7 +539,7 @@ public sealed class CommandHandler : ICommandHandler
             }
 
             var hasActiveRun = state.Runs.Values.Any(run =>
-                run.WorkItemId == workItemId && run.Status is AgentRunStatus.Pending or AgentRunStatus.Active);
+                run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active);
             if (hasActiveRun)
             {
                 throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
@@ -413,12 +565,12 @@ public sealed class CommandHandler : ICommandHandler
     {
         var run = Get(state.Runs, command.RunId, "run");
         EnsureCanCompleteRun(state, command.ActorId, run);
-        if (run.Status is not (AgentRunStatus.Active or AgentRunStatus.Pending))
+        if (run.Status is not AgentRunStatus.Active)
         {
-            throw new GovernanceException("Only an active or pending run can be completed.");
+            throw new GovernanceException("Only an active run can be completed.");
         }
 
-        if (command.Status is AgentRunStatus.Active or AgentRunStatus.Pending)
+        if (command.Status is AgentRunStatus.Active)
         {
             throw new GovernanceException("Run completion requires a terminal status.");
         }
@@ -711,7 +863,7 @@ public sealed class CommandHandler : ICommandHandler
 
     private static bool HasOpenRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values.Any(run =>
-            run.WorkItemId == workItemId && run.Status is AgentRunStatus.Pending or AgentRunStatus.Active);
+            run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active);
 
     private static bool HasOpenEscalation(GovernedTaskState state, WorkItemId workItemId) =>
         state.Escalations.Values.Any(escalation =>
@@ -873,7 +1025,7 @@ public sealed class CommandHandler : ICommandHandler
 
         if (target == TaskStage.Archive)
         {
-            if (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Pending or AgentRunStatus.Active))
+            if (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Active))
             {
                 throw new GovernanceException("A task with active runs cannot be archived.");
             }

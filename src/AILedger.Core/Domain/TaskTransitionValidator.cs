@@ -81,6 +81,12 @@ internal static class TaskTransitionValidator
             case WorkItemUnblocked unblocked:
                 ValidateWorkItemUnblocked(Require(state), @event, unblocked);
                 break;
+            case ClaimDependenciesRepointed repointed:
+                ValidateClaimDependenciesRepointed(Require(state), @event, repointed);
+                break;
+            case DecisionOverturned overturned:
+                ValidateDecisionOverturned(Require(state), @event, overturned);
+                break;
             default:
                 throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.");
         }
@@ -207,6 +213,52 @@ internal static class TaskTransitionValidator
                 throw new GovernanceException(
                     $"Evidence '{evidenceId}' does not support the requested '{resolved.Status}' claim transition.");
             }
+        }
+
+        // Mirrors CommandHandler.EnsureSupersessionReplacement and DeriveSupersession. The outcome
+        // is carried on the event, and re-derived here so a forged one is refused.
+        if (resolved.Status != ClaimStatus.Superseded)
+        {
+            if (resolved.SupersededByClaimId is not null || resolved.Outcome is not null)
+            {
+                throw new GovernanceException(
+                    $"A '{resolved.Status}' resolution cannot name a superseding claim or outcome.");
+            }
+
+            return;
+        }
+
+        if (resolved.SupersededByClaimId is not { } replacementId)
+        {
+            throw new GovernanceException("Superseding a claim requires naming the claim that replaces it.");
+        }
+
+        if (replacementId == resolved.ClaimId)
+        {
+            throw new GovernanceException("A claim cannot supersede itself.");
+        }
+
+        var replacement = Get(state.Claims, replacementId, "claim");
+        if (replacement.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
+        {
+            throw new GovernanceException(
+                $"Replacement claim '{replacementId}' is '{replacement.Status}' and cannot replace another claim.");
+        }
+
+        if (resolved.Outcome is not { } outcome)
+        {
+            throw new GovernanceException("A supersession must record whether it was a refinement or a correction.");
+        }
+
+        RequireDefined(outcome, nameof(resolved.Outcome));
+        var expected = replacement.Status == ClaimStatus.Validated &&
+                       !state.Evidence.Values.Any(item => item.Refutes.Contains(resolved.ClaimId))
+            ? SupersessionOutcome.Refinement
+            : SupersessionOutcome.Correction;
+        if (outcome != expected)
+        {
+            throw new GovernanceException(
+                $"Supersession outcome '{outcome}' does not match the state-derived outcome '{expected}'.");
         }
     }
 
@@ -447,7 +499,7 @@ internal static class TaskTransitionValidator
         }
 
         if (state.Runs.Values.Any(current =>
-                current.WorkItemId == workItemId && current.Status is AgentRunStatus.Pending or AgentRunStatus.Active))
+                current.WorkItemId == workItemId && current.Status is AgentRunStatus.Active))
         {
             throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
         }
@@ -466,10 +518,10 @@ internal static class TaskTransitionValidator
             throw new GovernanceException($"Only run actor '{run.ActorId}' or an operator can complete run '{run.Id}'.");
         }
 
-        if (run.Status is not (AgentRunStatus.Active or AgentRunStatus.Pending) ||
-            completed.Status is AgentRunStatus.Active or AgentRunStatus.Pending)
+        if (run.Status is not AgentRunStatus.Active ||
+            completed.Status is AgentRunStatus.Active)
         {
-            throw new GovernanceException("Only an active or pending run can transition to a terminal status.");
+            throw new GovernanceException("Only an active run can transition to a terminal status.");
         }
 
         if (completed.EndedAt != @event.RecordedAt || completed.EndedAt < run.StartedAt)
@@ -667,7 +719,7 @@ internal static class TaskTransitionValidator
 
         if (state.Runs.Values.Any(run =>
                 run.WorkItemId == completed.WorkItemId &&
-                run.Status is AgentRunStatus.Pending or AgentRunStatus.Active))
+                run.Status is AgentRunStatus.Active))
         {
             throw new GovernanceException("Work item cannot be completed while a run is still active.");
         }
@@ -721,6 +773,60 @@ internal static class TaskTransitionValidator
         {
             throw new GovernanceException(
                 "A work item depending on a rejected or superseded claim cannot be unblocked.");
+        }
+    }
+
+    private static void ValidateClaimDependenciesRepointed(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        ClaimDependenciesRepointed repointed)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.ResolveClaim);
+        var superseded = Get(state.Claims, repointed.SupersededClaimId, "claim");
+        var replacement = Get(state.Claims, repointed.ReplacementClaimId, "claim");
+        if (superseded.Status != ClaimStatus.Superseded)
+        {
+            throw new GovernanceException("Dependencies are only re-pointed away from a superseded claim.");
+        }
+
+        if (superseded.SupersededByClaimId != replacement.Id)
+        {
+            throw new GovernanceException("Dependencies can only be re-pointed at the claim that superseded them.");
+        }
+
+        // Mirrors DeriveSupersession: only an earned refinement re-points instead of invalidating.
+        if (replacement.Status != ClaimStatus.Validated ||
+            state.Evidence.Values.Any(item => item.Refutes.Contains(superseded.Id)))
+        {
+            throw new GovernanceException(
+                "Dependencies are only re-pointed when the replacement is validated and nothing refutes the original.");
+        }
+    }
+
+    private static void ValidateDecisionOverturned(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        DecisionOverturned overturned)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.ResolveDecision);
+        var decision = Get(state.Decisions, overturned.DecisionId, "decision");
+        if (decision.Status is not (DecisionStatus.Proposed or DecisionStatus.Accepted))
+        {
+            throw new GovernanceException($"Only a current decision can be overturned; this one is '{decision.Status}'.");
+        }
+
+        var challenge = Get(state.Challenges, overturned.ChallengeId, "challenge");
+        if (challenge.Status != ChallengeStatus.Supported ||
+            !string.Equals(challenge.TargetId.Trim(), decision.Id.Value, StringComparison.Ordinal))
+        {
+            throw new GovernanceException("A decision is only overturned by a supported challenge against it.");
+        }
+
+        // Mirrors the evidence bar in CommandHandler.AddChallengeConsequence.
+        if (challenge.EvidenceIds.Count == 0)
+        {
+            throw new GovernanceException(
+                $"Challenge '{challenge.Id}' carries no evidence and cannot overturn a decision.");
         }
     }
 
@@ -813,7 +919,7 @@ internal static class TaskTransitionValidator
         }
 
         if (target == TaskStage.Archive &&
-            (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Pending or AgentRunStatus.Active) ||
+            (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Active) ||
              state.Challenges.Values.Any(challenge => challenge.Status == ChallengeStatus.Open)))
         {
             throw new GovernanceException("A task with active runs or open challenges cannot be archived.");

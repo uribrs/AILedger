@@ -97,6 +97,54 @@ public sealed class NewCommandReplayTests
         Assert.Empty(replayed.Constraints);
     }
 
+    // R4 (refinement-repoint-replay-parity): the refinement derivation lives in both rule copies.
+    // This drives both supersession outcomes and a supported challenge through the real store,
+    // then reads state back from a fresh service so the replay copy has to agree.
+    [Fact]
+    public async Task R4_SupersessionAndChallengeConsequencesReplayThroughTheFileStore()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("supersession-task");
+        var actor = new ActorId("operator");
+        var scope = Path.GetFullPath(root.Path);
+        var writer = Service(root.Path);
+
+        await Run(writer, taskId, new OpenTaskCommand(actor, null, "s1", taskId, "Task", "Goal"));
+        await Run(writer, taskId, new AddClaimCommand(actor, null, "s2", new ClaimId("C1"), "The API is stable", null));
+        await Run(writer, taskId, new AddClaimCommand(actor, null, "s3", new ClaimId("C2"), "The API is stable below 200 rps", null));
+        await Run(writer, taskId, new AddEvidenceCommand(actor, null, "s4", new EvidenceId("E2"), "probe", "cite", "supports C2", [new ClaimId("C2")], []));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "s5", new WorkItemId("W1"), "Build it", actor, [new ClaimId("C1")], [scope]));
+        await Run(writer, taskId, new ResolveClaimCommand(actor, null, "s6", new ClaimId("C2"), ClaimStatus.Validated, [new EvidenceId("E2")]));
+        // Earned refinement: C2 is validated and nothing refutes C1.
+        await Run(writer, taskId, new ResolveClaimCommand(actor, null, "s7", new ClaimId("C1"), ClaimStatus.Superseded, [], new ClaimId("C2")));
+
+        // A correction on a second chain, driven by refuting evidence.
+        await Run(writer, taskId, new AddClaimCommand(actor, null, "s8", new ClaimId("C3"), "Old belief", null));
+        await Run(writer, taskId, new AddClaimCommand(actor, null, "s9", new ClaimId("C4"), "Replacement belief", null));
+        await Run(writer, taskId, new AddEvidenceCommand(actor, null, "s10", new EvidenceId("E3"), "probe", "cite", "refutes C3", [], [new ClaimId("C3")]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "s11", new WorkItemId("W2"), "Other work", actor, [new ClaimId("C3")], [scope]));
+        await Run(writer, taskId, new ResolveClaimCommand(actor, null, "s12", new ClaimId("C3"), ClaimStatus.Superseded, [], new ClaimId("C4")));
+
+        // A supported challenge against a decision, whose consequence is a distinct event type.
+        await Run(writer, taskId, new ProposeDecisionCommand(actor, null, "s13", new DecisionId("D1"), "Use it", "Because C2", [new ClaimId("C2")], null));
+        await Run(writer, taskId, new AddEvidenceCommand(actor, null, "s13b", new EvidenceId("E4"), "probe", "cite", "the decision does not hold", [], []));
+        await Run(writer, taskId, new RaiseChallengeCommand(actor, null, "s14", new ChallengeId("CH1"), "decision", "D1", "It does not hold", [new EvidenceId("E4")]));
+        await Run(writer, taskId, new DisposeChallengeCommand(actor, null, "s15", new ChallengeId("CH1"), ChallengeStatus.Supported));
+
+        var replayed = await Service(root.Path).GetStateAsync(taskId, CancellationToken.None);
+
+        Assert.NotNull(replayed);
+        Assert.Equal(new ClaimId("C2"), replayed.Claims[new ClaimId("C1")].SupersededByClaimId);
+        Assert.Equal([new ClaimId("C2")], replayed.WorkItems[new WorkItemId("W1")].DependsOnClaims);
+        Assert.Equal(WorkItemStatus.Proposed, replayed.WorkItems[new WorkItemId("W1")].Status);
+        Assert.Equal([new ClaimId("C3")], replayed.WorkItems[new WorkItemId("W2")].DependsOnClaims);
+        Assert.Equal(WorkItemStatus.Stale, replayed.WorkItems[new WorkItemId("W2")].Status);
+        Assert.Equal(DecisionStatus.Invalidated, replayed.Decisions[new DecisionId("D1")].Status);
+
+        var assumptions = await File.ReadAllTextAsync(Path.Combine(root.Path, taskId.Value, "assumptions.md"));
+        Assert.Contains("Superseded by `C2`", assumptions, StringComparison.Ordinal);
+    }
+
     private static FileGovernedTaskService Service(string root)
     {
         var reducer = new TaskReducer();

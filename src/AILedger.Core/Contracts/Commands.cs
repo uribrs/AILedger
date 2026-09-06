@@ -56,7 +56,8 @@ public sealed record ResolveClaimCommand(
     string CorrelationId,
     ClaimId ClaimId,
     ClaimStatus Status,
-    IReadOnlyList<EvidenceId> EvidenceIds) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    IReadOnlyList<EvidenceId> EvidenceIds,
+    ClaimId? SupersededByClaimId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AddEvidenceCommand(
     ActorId ActorId,

@@ -107,6 +107,7 @@ actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capabil
 context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
 claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
 claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
+                   [--superseded-by CLAIM]   (required when --status superseded)
 evidence add       --task ID --actor ID --id ID --source-type TYPE --citation TEXT --summary TEXT
                    [--supports CLAIM] [--refutes CLAIM]
 decision propose   --task ID --actor ID --id ID --statement TEXT --rationale TEXT
@@ -149,6 +150,41 @@ dotnet run --project src/AILedger.Cli -- work unblock \
 `work unblock` returns a blocked item to `Paused` and clears its reason. It is refused when the item
 depends on a claim that is now rejected or superseded: a rejected claim is terminal, so the repair for
 invalidated work is a replacement work item on a current claim, not clearing the block.
+
+## Superseding a claim
+
+A supersession must name its replacement, and the kernel decides what happens to dependent work from
+state — never from a flag you or an agent sets:
+
+```bash
+dotnet run --project src/AILedger.Cli -- claim resolve \
+  --task task-123 --actor codex-plan --id C1 --status superseded --superseded-by C2
+```
+
+- **Refinement** — the replacement is already `validated` and no evidence refutes the original.
+  Dependent decisions and work items are re-pointed at the replacement and keep running.
+- **Correction** — anything else. Dependents invalidate exactly as they would on a rejection.
+
+The refinement path is the one that has to be earned, because the actor superseding a claim is
+usually an agent. To take it, validate the replacement first. If something on record refutes the
+original claim, it is a correction whatever else is true.
+
+## Supporting a challenge
+
+`challenge dispose --status supported` now causes a state change chosen by the challenge's target:
+
+| Target | Consequence |
+|---|---|
+| `decision` | The decision is overturned and becomes `Invalidated`. |
+| `work` | The work item is blocked, with a reason naming the challenge. |
+| `claim` | The claim is rejected using the challenge's own evidence, and its dependents invalidate. |
+
+No challenge can be supported without evidence, whatever its target. A claim challenge additionally
+requires **every** piece of its evidence to refute that claim — direction is only checkable for claims,
+because the model records `supports`/`refutes` against claims and nothing else. Supporting a challenge
+is not a second, unevidenced route to overturning anything. A challenge whose consequence
+has already happened is refused rather than silently doing nothing. Supporting a challenge also
+requires the capability its consequence needs, not merely `DisposeChallenge`.
 
 ## Escalations, alternatives, and constraints
 

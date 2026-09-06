@@ -150,7 +150,8 @@ public sealed class CliApplication
                 await ExecuteAsync(service, input, new ResolveClaimCommand(
                     Actor(input), Cause(input), Correlation(input), new ClaimId(input.Required("id")),
                     EnumValue<ClaimStatus>(input, "status"),
-                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray()), cancellationToken).ConfigureAwait(false);
+                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray(),
+                    OptionalId(input.Optional("superseded-by"), value => new ClaimId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "evidence add":
                 await ExecuteAsync(service, input, new AddEvidenceCommand(
@@ -604,7 +605,7 @@ public sealed class CliApplication
             ["claim add"] = Options(
                 "root", "task", "actor", "id", "statement", "consequence", "cause", "correlation"),
             ["claim resolve"] = Options(
-                "root", "task", "actor", "id", "status", "evidence", "cause", "correlation"),
+                "root", "task", "actor", "id", "status", "evidence", "superseded-by", "cause", "correlation"),
             ["evidence add"] = Options(
                 "root", "task", "actor", "id", "source-type", "citation", "summary", "supports", "refutes",
                 "cause", "correlation"),
@@ -710,6 +711,7 @@ public sealed class CliApplication
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
         claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
         claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
+                           [--superseded-by CLAIM]   (required when --status superseded)
         evidence add       --task ID --actor ID --id ID --source-type TYPE --citation TEXT --summary TEXT
                            [--supports CLAIM] [--refutes CLAIM]
         decision propose   --task ID --actor ID --id ID --statement TEXT --rationale TEXT
