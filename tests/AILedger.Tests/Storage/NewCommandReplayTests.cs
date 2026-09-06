@@ -18,13 +18,13 @@ public sealed class NewCommandReplayTests
         using var root = new TemporaryDirectory();
         var taskId = new TaskId("replay-task");
         var actor = new ActorId("operator");
-        var scope = Path.GetFullPath(root.Path);
+        string Area(string name) => Directory.CreateDirectory(Path.Combine(root.Path, name)).FullName;
         var writer = Service(root.Path);
 
         await Run(writer, taskId, new OpenTaskCommand(actor, null, "c1", taskId, "Task", "Goal"));
-        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c2", new WorkItemId("W1"), "Blocked work", actor, [], [scope]));
-        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c3", new WorkItemId("W2"), "Finished work", actor, [], [scope]));
-        await Run(writer, taskId, new AddConstraintCommand(actor, null, "c4", new ConstraintId("K1"), "Stay local", "dossier", [scope]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c2", new WorkItemId("W1"), "Blocked work", actor, [], [Area("w1")]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c3", new WorkItemId("W2"), "Finished work", actor, [], [Area("w2")]));
+        await Run(writer, taskId, new AddConstraintCommand(actor, null, "c4", new ConstraintId("K1"), "Stay local", "dossier", [Area("k1")]));
         await Run(writer, taskId, new AddConstraintCommand(actor, null, "c5", new ConstraintId("K2"), "Old rule", "draft", []));
         await Run(writer, taskId, new SupersedeConstraintCommand(actor, null, "c6", new ConstraintId("K2")));
         await Run(writer, taskId, new AddEvidenceCommand(actor, null, "c7", new EvidenceId("E1"), "local-probe", "grep -r", "No answer in the repository", [], []));
@@ -33,7 +33,7 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new RaiseEscalationCommand(actor, null, "c10", new EscalationId("X2"), EscalationKind.BusinessDecision, "Ship now or harden first?", new WorkItemId("W1"), ["ship", "harden"], "ship", []));
         await Run(writer, taskId, new RecordAlternativeCommand(actor, null, "c11", new AlternativeId("ALT1"), "Use a database", "Files stay inspectable", null));
         await Run(writer, taskId, new BlockWorkItemCommand(actor, null, "c12", new WorkItemId("W1"), "Waiting on the operator", new EscalationId("X2")));
-        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c12b", new WorkItemId("W3"), "Unblocked work", actor, [], [scope]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c12b", new WorkItemId("W3"), "Unblocked work", actor, [], [Area("w3")]));
         await Run(writer, taskId, new BlockWorkItemCommand(actor, null, "c12c", new WorkItemId("W3"), "Paused by the operator", null));
         await Run(writer, taskId, new UnblockWorkItemCommand(actor, null, "c12d", new WorkItemId("W3")));
 
@@ -106,14 +106,14 @@ public sealed class NewCommandReplayTests
         using var root = new TemporaryDirectory();
         var taskId = new TaskId("supersession-task");
         var actor = new ActorId("operator");
-        var scope = Path.GetFullPath(root.Path);
+        string Area(string name) => Directory.CreateDirectory(Path.Combine(root.Path, name)).FullName;
         var writer = Service(root.Path);
 
         await Run(writer, taskId, new OpenTaskCommand(actor, null, "s1", taskId, "Task", "Goal"));
         await Run(writer, taskId, new AddClaimCommand(actor, null, "s2", new ClaimId("C1"), "The API is stable", null));
         await Run(writer, taskId, new AddClaimCommand(actor, null, "s3", new ClaimId("C2"), "The API is stable below 200 rps", null));
         await Run(writer, taskId, new AddEvidenceCommand(actor, null, "s4", new EvidenceId("E2"), "probe", "cite", "supports C2", [new ClaimId("C2")], []));
-        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "s5", new WorkItemId("W1"), "Build it", actor, [new ClaimId("C1")], [scope]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "s5", new WorkItemId("W1"), "Build it", actor, [new ClaimId("C1")], [Area("w1")]));
         await Run(writer, taskId, new ResolveClaimCommand(actor, null, "s6", new ClaimId("C2"), ClaimStatus.Validated, [new EvidenceId("E2")]));
         // Earned refinement: C2 is validated and nothing refutes C1.
         await Run(writer, taskId, new ResolveClaimCommand(actor, null, "s7", new ClaimId("C1"), ClaimStatus.Superseded, [], new ClaimId("C2")));
@@ -122,7 +122,7 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new AddClaimCommand(actor, null, "s8", new ClaimId("C3"), "Old belief", null));
         await Run(writer, taskId, new AddClaimCommand(actor, null, "s9", new ClaimId("C4"), "Replacement belief", null));
         await Run(writer, taskId, new AddEvidenceCommand(actor, null, "s10", new EvidenceId("E3"), "probe", "cite", "refutes C3", [], [new ClaimId("C3")]));
-        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "s11", new WorkItemId("W2"), "Other work", actor, [new ClaimId("C3")], [scope]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "s11", new WorkItemId("W2"), "Other work", actor, [new ClaimId("C3")], [Area("w2")]));
         await Run(writer, taskId, new ResolveClaimCommand(actor, null, "s12", new ClaimId("C3"), ClaimStatus.Superseded, [], new ClaimId("C4")));
 
         // A supported challenge against a decision, whose consequence is a distinct event type.

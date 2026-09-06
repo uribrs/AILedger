@@ -44,6 +44,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
     public async Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
     {
         ValidateRequest(request);
+        EnsurePreconditions(request);
         var version = await ProbeVersionAsync(request.ExecutablePath, cancellationToken).ConfigureAwait(false);
         await ProbeCapabilitiesAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -63,7 +64,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             request.ExecutablePath,
             request.WorkingDirectory,
             arguments,
-            request.StandardInput,
+            ComposeStandardInput(request),
             request.Environment,
             request.Timeout);
 
@@ -157,6 +158,14 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
     protected abstract ProviderEvent ParseEvent(long sequence, string json);
     protected abstract string? ReadFinalOutput(ProviderEvent providerEvent);
     protected virtual bool RequirePreassignedSessionMatch => false;
+
+    /// <summary>Claude carries the briefing in its prompt argument; Codex prepends it to stdin.</summary>
+    protected virtual string ComposeStandardInput(AgentLaunchRequest request) => request.StandardInput;
+
+    /// <summary>Provider-specific launch preconditions, checked before any process is spawned.</summary>
+    protected virtual void EnsurePreconditions(AgentLaunchRequest request)
+    {
+    }
 
     protected sealed record CapabilityProbe(IReadOnlyList<string> Arguments, IReadOnlyList<string> RequiredTokens);
 

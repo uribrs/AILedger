@@ -20,6 +20,10 @@ public sealed record AgentLaunchRequest(
     string Provider,
     string ExecutablePath,
     string WorkingDirectory,
+    // The agent has to reach the CLI to record truth, so it must be told where the ledger lives
+    // and how to invoke the CLI from its own working directory, which is not the Ledger repository.
+    string LedgerRoot,
+    string LedgerCommandLine,
     string StandardInput,
     string? ProviderSessionId,
     PermissionProfile PermissionProfile,

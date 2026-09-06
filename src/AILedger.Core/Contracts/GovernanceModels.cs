@@ -209,4 +209,8 @@ public sealed record AgentRun(
     string? ProviderSessionId,
     AgentRunStatus Status,
     DateTimeOffset StartedAt,
-    DateTimeOffset? EndedAt);
+    DateTimeOffset? EndedAt,
+    // Which cognition actually ran. A score or a lesson earned against one model and CLI version
+    // says nothing about another, and the adapter knew both and used to discard them.
+    string? Model = null,
+    string? ProviderVersion = null);

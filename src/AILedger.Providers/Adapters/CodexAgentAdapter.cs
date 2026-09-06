@@ -13,6 +13,28 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
         new(["exec", "resume", "--help"], ["SESSION_ID", "--json"])
     ];
 
+    // Codex refuses to run outside a git work tree unless --skip-git-repo-check is passed, and
+    // that flag exists to be a deliberate choice rather than an adapter default. Governed work
+    // should be in a repository anyway, so this is checked as a precondition and reported before
+    // launch — the same reason the capability probes run first.
+    protected override void EnsurePreconditions(AgentLaunchRequest request)
+    {
+        for (var directory = new DirectoryInfo(request.WorkingDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (Directory.Exists(Path.Combine(directory.FullName, ".git")) ||
+                File.Exists(Path.Combine(directory.FullName, ".git")))
+            {
+                return;
+            }
+        }
+
+        throw new AgentAdapterException(
+            $"Codex refuses to run outside a git work tree, and '{request.WorkingDirectory}' is not inside one. " +
+            "Govern work that lives in a repository, or initialise one for this scope.");
+    }
+
     protected override IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId)
     {
         var arguments = new List<string> { "exec", "--strict-config", "--sandbox", "workspace-write", "--cd", request.WorkingDirectory };
@@ -33,6 +55,10 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
         arguments.Add("-");
         return arguments;
     }
+
+    // Codex takes its prompt from stdin, so the briefing leads and the manifest follows it.
+    protected override string ComposeStandardInput(AgentLaunchRequest request) =>
+        GovernedExecutionBriefing.For(request, request.LedgerRoot) + Environment.NewLine + request.StandardInput;
 
     protected override ProviderEvent ParseEvent(long sequence, string json) => ProviderProtocol.ParseCodex(sequence, json);
 

@@ -504,6 +504,8 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Resource scope entries must be absolute paths.");
         }
 
+        EnsureScopeIsNotAlreadyOccupied(state, command.WorkItemId, command.ResourceScope);
+
         if (command.Owner is { } owner && !state.Roles.ContainsKey(owner))
         {
             throw new GovernanceException($"Work owner '{owner}' has no assigned role.");
@@ -554,7 +556,9 @@ public sealed class CommandHandler : ICommandHandler
             TrimOrNull(command.ProviderSessionId),
             AgentRunStatus.Active,
             now,
-            null);
+            null,
+            TrimOrNull(command.Model),
+            TrimOrNull(command.ProviderVersion));
         return [new RunStarted(run)];
     }
 
@@ -579,6 +583,17 @@ public sealed class CommandHandler : ICommandHandler
         if (run.ProviderSessionId is not null && providerSessionId != run.ProviderSessionId)
         {
             throw new GovernanceException("Run completion session identity does not match the started run.");
+        }
+
+        // A run recorded as completed is a run someone may later resume, and resume requires the
+        // exact provider session. The identity lives only in the adapter until completion records
+        // it, so a completion without one loses it silently. Terminal failures are exempt: a run
+        // that died before its session existed genuinely has no identity to record.
+        if (command.Status is AgentRunStatus.Completed && providerSessionId is null)
+        {
+            throw new GovernanceException(
+                $"Run '{command.RunId}' cannot be recorded as completed without a provider session identity; " +
+                "a completed run must stay resumable.");
         }
 
         return [new RunCompleted(command.RunId, command.Status, providerSessionId, now)];
@@ -982,6 +997,45 @@ public sealed class CommandHandler : ICommandHandler
                 : WorkItemStatus.Stale;
             events.Add(new WorkItemInvalidated(workItem.Id, claimId, status));
         }
+    }
+
+    // Disjoint work items were only ever disjoint by assertion. An area is occupied while the work
+    // item holding it is still live, so a second actor cannot claim it and redo the same work.
+    private static void EnsureScopeIsNotAlreadyOccupied(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        IReadOnlyList<string> requestedScope)
+    {
+        foreach (var existing in state.WorkItems.Values
+                     .Where(item => item.Id != workItemId)
+                     .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale))
+                     .OrderBy(item => item.Id.Value, StringComparer.Ordinal))
+        {
+            foreach (var held in existing.ResourceScope)
+            {
+                var clash = requestedScope.FirstOrDefault(requested => PathsOverlap(requested.Trim(), held));
+                if (clash is not null)
+                {
+                    throw new GovernanceException(
+                        $"Scope '{clash}' overlaps '{held}', already held by work item '{existing.Id}' in status " +
+                        $"'{existing.Status}'. Complete or supersede that item, or narrow this scope.");
+                }
+            }
+        }
+    }
+
+    private static bool PathsOverlap(string first, string second) =>
+        IsSameOrInside(first, second) || IsSameOrInside(second, first);
+
+    private static bool IsSameOrInside(string candidate, string container)
+    {
+        if (string.Equals(candidate, container, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var prefix = container.EndsWith(Path.DirectorySeparatorChar) ? container : container + Path.DirectorySeparatorChar;
+        return candidate.StartsWith(prefix, StringComparison.Ordinal);
     }
 
     private static void EnsureDependenciesAreCurrent(

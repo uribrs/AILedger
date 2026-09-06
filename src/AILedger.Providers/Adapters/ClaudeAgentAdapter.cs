@@ -7,7 +7,7 @@ namespace AILedger.Providers.Adapters;
 public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdapterBase(processRunner)
 {
     private const int MaximumInputBytes = 10 * 1024 * 1024;
-    private const string BootstrapPrompt = "Use the complete governed AILedger context supplied on stdin.";
+
 
     public override string Provider => "claude";
 
@@ -29,7 +29,7 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
         sessionId ??= Guid.NewGuid().ToString();
         var arguments = new List<string>
         {
-            "-p", BootstrapPrompt,
+            "-p", GovernedExecutionBriefing.For(request, request.LedgerRoot),
             "--output-format", "stream-json",
             "--verbose",
             "--forward-subagent-text",

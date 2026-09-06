@@ -82,25 +82,34 @@ public sealed class CliApplicationTests
         Assert.True(Directory.Exists(scope));
     }
 
+    // Self-hosting: a governed agent has to record claims and escalations while it works, and a
+    // workspace sandbox only lets it write inside its own workspace. A scope that contains the
+    // Ledger root is therefore allowed; a tampered log is caught by replay, not by this check.
     [Fact]
-    public async Task WorkScopeCannotContainAuthoritativeLedgerRoot()
+    public async Task WorkScopeMayContainTheLedgerRootSoAGovernedAgentCanRecordTruth()
     {
         using var root = new TemporaryDirectory();
+        var ledgerRoot = Directory.CreateDirectory(Path.Combine(root.Path, ".ailedger", "tasks")).FullName;
         var error = new StringWriter();
         var application = Create(TextWriter.Null, error);
         await application.RunAsync(
-            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            ["task", "open", "--root", ledgerRoot, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
 
         var exit = await application.RunAsync(
-            ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
+            ["work", "add", "--root", ledgerRoot, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", root.Path],
             CancellationToken.None);
 
-        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
-        Assert.Equal(1, exit);
-        Assert.Contains("contains the authoritative Ledger root", error.ToString(), StringComparison.Ordinal);
-        Assert.Empty(state!.WorkItems);
+        var state = await Service(ledgerRoot).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, error.ToString());
+        // The stored scope is canonicalised, which on macOS resolves /var to /private/var, so
+        // identity is asserted by what the directory contains rather than by string equality.
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        await File.WriteAllTextAsync(Path.Combine(root.Path, "sentinel"), "same-directory");
+        Assert.True(File.Exists(Path.Combine(scope, "sentinel")));
+        Assert.True(Directory.Exists(Path.Combine(scope, ".ailedger", "tasks")));
     }
 
     [Theory]

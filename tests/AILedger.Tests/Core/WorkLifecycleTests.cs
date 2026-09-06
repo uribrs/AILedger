@@ -140,6 +140,25 @@ public sealed class WorkLifecycleTests
         Assert.Equal(WorkItemStatus.Blocked, task.State.WorkItems[workItemId].Status);
     }
 
+    // The first live governed run closed its own run with no session id, erasing the identity that
+    // exact-session resume depends on. A completed run must stay resumable; a failed one need not.
+    [Fact]
+    public void ARunCannotBeRecordedAsCompletedWithoutASessionIdentity()
+    {
+        var task = Prepare(out var workItemId);
+        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "claude", null));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, null)));
+        Assert.Contains("must stay resumable", error.Message, StringComparison.Ordinal);
+        Assert.Equal(AgentRunStatus.Active, task.State.Runs[new RunId("R1")].Status);
+
+        // A run that died before its session existed has no identity to record.
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Failed, null));
+        Assert.Equal(AgentRunStatus.Failed, task.State.Runs[new RunId("R1")].Status);
+    }
+
     private static TestTask Prepare(out WorkItemId workItemId)
     {
         var task = new TestTask();

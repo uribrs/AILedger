@@ -430,6 +430,13 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("Resource scope entries must be non-empty absolute paths.");
         }
 
+        // Scope occupancy is deliberately NOT checked here. It is a coordination rule about who may
+        // claim an area next, not a structural invariant of the event, and the replay validator has
+        // to accept every history that was ever legal. Adding it here made an existing log
+        // unreadable: work items recorded before the rule existed held overlapping areas legally,
+        // and re-validating their creation events failed. Command-time rules may tighten over time;
+        // replay-time rules may not.
+
         if (workItem.Owner is { } owner && !state.Roles.ContainsKey(owner))
         {
             throw new GovernanceException($"Work owner '{owner}' has no assigned role.");
@@ -522,6 +529,13 @@ internal static class TaskTransitionValidator
             completed.Status is AgentRunStatus.Active)
         {
             throw new GovernanceException("Only an active run can transition to a terminal status.");
+        }
+
+        // Mirrors CommandHandler.CompleteRun: a completed run must stay resumable.
+        if (completed.Status is AgentRunStatus.Completed && completed.ProviderSessionId is null)
+        {
+            throw new GovernanceException(
+                "A run recorded as completed must carry a provider session identity.");
         }
 
         if (completed.EndedAt != @event.RecordedAt || completed.EndedAt < run.StartedAt)

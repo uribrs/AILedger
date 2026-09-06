@@ -121,7 +121,9 @@ public sealed record StartRunCommand(
     RunId RunId,
     WorkItemId? WorkItemId,
     string Provider,
-    string? ProviderSessionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? ProviderSessionId,
+    string? Model = null,
+    string? ProviderVersion = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record CompleteRunCommand(
     ActorId ActorId,

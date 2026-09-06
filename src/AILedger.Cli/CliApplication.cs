@@ -127,6 +127,9 @@ public sealed class CliApplication
                     Actor(input), Cause(input), Correlation(input), Task(input),
                     input.Required("title"), input.Required("goal")), cancellationToken).ConfigureAwait(false);
                 break;
+            case "who":
+                await WriteWhoAsync(service, input, cancellationToken).ConfigureAwait(false);
+                break;
             case "status":
             case "task status":
                 await WriteStateAsync(service, input, cancellationToken).ConfigureAwait(false);
@@ -284,6 +287,44 @@ public sealed class CliApplication
             cancellationToken).ConfigureAwait(false);
     }
 
+    // One answer to "who is working on this, as what, with which model".
+    private async Task WriteWhoAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
+    {
+        var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
+        var rows = state.Roles.Values
+            .OrderBy(assignment => assignment.Role)
+            .ThenBy(assignment => assignment.ActorId.Value, StringComparer.Ordinal)
+            .Select(assignment =>
+            {
+                var live = state.Runs.Values
+                    .Where(run => run.ActorId == assignment.ActorId && run.Status == AgentRunStatus.Active)
+                    .OrderBy(run => run.Id.Value, StringComparer.Ordinal)
+                    .FirstOrDefault();
+                return new
+                {
+                    Actor = assignment.ActorId.Value,
+                    Role = assignment.Role.ToString(),
+                    Status = live is null ? "idle" : "working",
+                    Run = live?.Id.Value,
+                    WorkItem = live?.WorkItemId?.Value,
+                    Provider = live?.Provider,
+                    live?.Model,
+                    live?.ProviderVersion,
+                    Session = live?.ProviderSessionId,
+                    Since = live?.StartedAt
+                };
+            })
+            .ToArray();
+
+        var occupied = state.WorkItems.Values
+            .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale))
+            .OrderBy(item => item.Id.Value, StringComparer.Ordinal)
+            .Select(item => new { WorkItem = item.Id.Value, item.Status, Owner = item.Owner?.Value, Areas = item.ResourceScope })
+            .ToArray();
+
+        await WriteJsonAsync(new { state.TaskId, Actors = rows, OccupiedAreas = occupied }).ConfigureAwait(false);
+    }
+
     private async Task WriteStateAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
     {
         var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
@@ -345,9 +386,17 @@ public sealed class CliApplication
             throw new CliUsageException("Provider resume requires '--session' with the exact provider session ID.");
         }
 
-        var start = CreateStartRun(input, provider, sessionId);
         var launchState = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
-        var grants = ResolveProviderGrants(launchState, Actor(input), start.WorkItemId, input, ledgerRoot);
+        var requestedWorkItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
+        // Authority and scope are settled before an adapter is resolved or any process spawned: a
+        // request that will be refused should cost neither.
+        var grants = ResolveProviderGrants(launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
+        var adapter = _adapterFactory(provider);
+        var executable = ExecutableResolver.Resolve(provider, input.Optional("executable"));
+        // Probed before the run is recorded, so the ledger knows which cognition ran even if the
+        // launch later fails. What ran should never be known only in memory.
+        var providerVersion = await adapter.ProbeVersionAsync(executable, cancellationToken).ConfigureAwait(false);
+        var start = CreateStartRun(input, provider, sessionId, providerVersion);
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
         AgentRunResult result;
@@ -356,14 +405,14 @@ public sealed class CliApplication
             var manifest = await CreateContextAsync(service, input, cancellationToken).ConfigureAwait(false);
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), Actor(input), start.WorkItemId, mode, provider,
-                ExecutableResolver.Resolve(provider, input.Optional("executable")),
-                grants.WorkingDirectory,
+                executable,
+                grants.WorkingDirectory, ledgerRoot, ResolveLedgerCommandLine(),
                 JsonSerializer.Serialize(manifest, _json), sessionId, PermissionProfile.WorkspaceGoverned,
                 input.Optional("model"), input.Optional("output-schema"),
                 grants.AdditionalDirectories,
                 new Dictionary<string, string>(),
                 TimeSpan.FromSeconds(PositiveInt(input.Optional("timeout-seconds"), 1800)));
-            result = await _adapterFactory(provider).RunAsync(request, cancellationToken).ConfigureAwait(false);
+            result = await adapter.RunAsync(request, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception launchException)
         {
@@ -510,7 +559,13 @@ public sealed class CliApplication
             }
         }
 
-        return new ProviderGrants(workingDirectory, additionalDirectories);
+        // The ledger is a governed channel, not work product, so it is granted separately from the
+        // work item's scope. Without this, an agent could only record truth when the ledger happened
+        // to sit inside its own scope — which two concurrent agents on disjoint scopes can never
+        // both satisfy, making concurrency and self-hosting mutually exclusive.
+        return new ProviderGrants(
+            workingDirectory,
+            [.. additionalDirectories, ResolveExistingDirectory(ledgerRoot)]);
     }
 
     private static string ResolveExistingDirectory(string path)
@@ -557,14 +612,13 @@ public sealed class CliApplication
             .Select(ResolveExistingDirectory)
             .Distinct(PathComparer)
             .ToArray();
-        var containingDirectory = canonicalProviderDirectories.FirstOrDefault(
-            directory => IsContainedPath(directory, canonicalLedgerRoot));
-        if (containingDirectory is not null)
-        {
-            throw new GovernanceException(
-                $"Provider directory '{containingDirectory}' contains the authoritative Ledger root '{canonicalLedgerRoot}'.");
-        }
-
+        // A provider directory that *contains* the Ledger root is the self-hosting case: a governed
+        // agent has to be able to record claims, evidence and escalations while it works, and under
+        // a workspace sandbox it can only write inside its own workspace. The protection against a
+        // tampered log is not this check — it is replay: FileGovernedTaskService re-validates event
+        // sequence and causation, and TaskTransitionValidator re-checks payload provenance, so a
+        // forged history fails closed. Truncation is the residual risk, detected separately by
+        // comparing the replayed version against the materialised state.
         var containedDirectory = canonicalProviderDirectories.FirstOrDefault(
             directory => IsContainedPath(canonicalLedgerRoot, directory));
         if (containedDirectory is not null)
@@ -595,6 +649,7 @@ public sealed class CliApplication
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
         {
             ["task open"] = Options("root", "task", "actor", "title", "goal", "cause", "correlation"),
+            ["who"] = Options("root", "task", "actor"),
             ["status"] = Options("root", "task", "actor"),
             ["task status"] = Options("root", "task", "actor"),
             ["history"] = Options("root", "task", "actor"),
@@ -675,15 +730,36 @@ public sealed class CliApplication
         await service.GetStateAsync(taskId, cancellationToken).ConfigureAwait(false)
         ?? throw new CliUsageException($"Task '{taskId}' was not found.");
 
-    private static StartRunCommand CreateStartRun(CommandLine input, string? provider = null, string? sessionId = null) =>
+    private static StartRunCommand CreateStartRun(
+        CommandLine input,
+        string? provider = null,
+        string? sessionId = null,
+        string? providerVersion = null) =>
         new(
             Actor(input), Cause(input), Correlation(input), new RunId(input.Required("run")),
             OptionalId(input.Optional("work"), value => new WorkItemId(value)),
-            provider ?? input.Required("provider"), sessionId ?? input.Optional("session"));
+            provider ?? input.Required("provider"), sessionId ?? input.Optional("session"),
+            input.Optional("model"), providerVersion);
 
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     private static TaskId Task(CommandLine input) => new(input.Required("task"));
     private static EventId? Cause(CommandLine input) => OptionalId(input.Optional("cause"), value => new EventId(value));
+    // A launched agent runs inside its own work scope, never the Ledger repository, so a relative
+    // "--project src/AILedger.Cli" would not resolve. Hand it this process's own absolute entry point.
+    private static string ResolveLedgerCommandLine()
+    {
+        var assembly = Path.Combine(AppContext.BaseDirectory, "AILedger.Cli.dll");
+        var host = Environment.ProcessPath;
+        if (host is null)
+        {
+            return $"dotnet \"{assembly}\"";
+        }
+
+        return Path.GetFileNameWithoutExtension(host).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+            ? $"\"{host}\" \"{assembly}\""
+            : $"\"{host}\"";
+    }
+
     private static string Correlation(CommandLine input) => input.CorrelationId;
     private static T? OptionalId<T>(string? value, Func<string, T> factory) where T : struct =>
         string.IsNullOrWhiteSpace(value) ? null : factory(value);
@@ -706,6 +782,7 @@ public sealed class CliApplication
 
         task open          --task ID --actor ID --title TEXT --goal TEXT
         status             --task ID
+        who                --task ID   (actors, roles, live runs, occupied areas)
         history            --task ID
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
