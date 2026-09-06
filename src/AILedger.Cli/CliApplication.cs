@@ -10,6 +10,10 @@ namespace AILedger.Cli;
 
 public sealed class CliApplication
 {
+    private const int TerminalPersistenceAttempts = 3;
+    private static readonly TimeSpan TerminalPersistenceDeadline = TimeSpan.FromSeconds(65);
+    private static readonly TimeSpan TerminalPersistenceRetryDelay = TimeSpan.FromMilliseconds(100);
+
     private readonly TextWriter _output;
     private readonly TextWriter _error;
     private readonly Func<string, IGovernedTaskService> _serviceFactory;
@@ -301,7 +305,8 @@ public sealed class CliApplication
         var start = CreateStartRun(input, provider, sessionId);
         var launchState = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
         var grants = ResolveProviderGrants(launchState, Actor(input), start.WorkItemId, input, ledgerRoot);
-        await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
+        var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
+        var startedEventId = started.Events[^1].EventId;
         AgentRunResult result;
         try
         {
@@ -325,7 +330,7 @@ public sealed class CliApplication
                     ? AgentRunStatus.Cancelled
                     : AgentRunStatus.Failed;
                 await CompleteRunWithFreshTokenAsync(
-                    service, input, start.RunId, sessionId, status).ConfigureAwait(false);
+                    service, input, start.RunId, sessionId, status, startedEventId).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
             {
@@ -337,9 +342,31 @@ public sealed class CliApplication
             throw;
         }
 
-        await CompleteRunWithFreshTokenAsync(
-            service, input, start.RunId, result.ProviderSessionId, result.Status).ConfigureAwait(false);
+        Exception? completionFailure = null;
+        try
+        {
+            await CompleteRunWithFreshTokenAsync(
+                service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            completionFailure = exception;
+        }
+
         await WriteJsonAsync(result).ConfigureAwait(false);
+        if (completionFailure is not null)
+        {
+            throw new IOException(
+                $"Provider run '{result.RunId}' returned a terminal result, but its Ledger run could not be closed. " +
+                "The provider result was written to standard output for recovery.",
+                completionFailure);
+        }
+
+        if (result.Status == AgentRunStatus.Cancelled && cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+
         if (result.Status != AgentRunStatus.Completed)
         {
             throw new ProviderRunFailedException(
@@ -352,12 +379,26 @@ public sealed class CliApplication
         CommandLine input,
         RunId runId,
         string? sessionId,
-        AgentRunStatus status)
+        AgentRunStatus status,
+        EventId causationId)
     {
-        using var completion = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await service.ExecuteAsync(Task(input), new CompleteRunCommand(
-            Actor(input), null, Correlation(input), runId, status, sessionId),
-            completion.Token).ConfigureAwait(false);
+        using var completion = new CancellationTokenSource(TerminalPersistenceDeadline);
+        var command = new CompleteRunCommand(
+            Actor(input), causationId, Correlation(input), runId, status, sessionId);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await service.ExecuteAsync(Task(input), command, completion.Token).ConfigureAwait(false);
+                return;
+            }
+            catch (IOException) when (attempt < TerminalPersistenceAttempts && !completion.IsCancellationRequested)
+            {
+                await System.Threading.Tasks.Task.Delay(
+                    TerminalPersistenceRetryDelay, completion.Token).ConfigureAwait(false);
+            }
+        }
     }
 
     private static ProviderGrants ResolveProviderGrants(
@@ -469,12 +510,24 @@ public sealed class CliApplication
         IEnumerable<string> providerDirectories)
     {
         var canonicalLedgerRoot = ResolveExistingDirectory(ledgerRoot);
-        var containingDirectory = providerDirectories.FirstOrDefault(
+        var canonicalProviderDirectories = providerDirectories
+            .Select(ResolveExistingDirectory)
+            .Distinct(PathComparer)
+            .ToArray();
+        var containingDirectory = canonicalProviderDirectories.FirstOrDefault(
             directory => IsContainedPath(directory, canonicalLedgerRoot));
         if (containingDirectory is not null)
         {
             throw new GovernanceException(
                 $"Provider directory '{containingDirectory}' contains the authoritative Ledger root '{canonicalLedgerRoot}'.");
+        }
+
+        var containedDirectory = canonicalProviderDirectories.FirstOrDefault(
+            directory => IsContainedPath(canonicalLedgerRoot, directory));
+        if (containedDirectory is not null)
+        {
+            throw new GovernanceException(
+                $"Provider directory '{containedDirectory}' is inside the authoritative Ledger root '{canonicalLedgerRoot}'.");
         }
     }
 
@@ -572,7 +625,7 @@ public sealed class CliApplication
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     private static TaskId Task(CommandLine input) => new(input.Required("task"));
     private static EventId? Cause(CommandLine input) => OptionalId(input.Optional("cause"), value => new EventId(value));
-    private static string Correlation(CommandLine input) => input.Optional("correlation") ?? Guid.NewGuid().ToString("N");
+    private static string Correlation(CommandLine input) => input.CorrelationId;
     private static T? OptionalId<T>(string? value, Func<string, T> factory) where T : struct =>
         string.IsNullOrWhiteSpace(value) ? null : factory(value);
     private static T EnumValue<T>(CommandLine input, string name) where T : struct, Enum => ParseEnum<T>(input.Required(name));

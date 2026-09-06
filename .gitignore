@@ -5,5 +5,5 @@ obj/
 .vs/
 .vscode/
 TestResults/
-ledger-data/
+.ailedger/
 *.user

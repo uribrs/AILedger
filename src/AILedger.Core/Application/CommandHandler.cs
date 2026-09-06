@@ -267,6 +267,12 @@ public sealed class CommandHandler : ICommandHandler
         var events = new List<LedgerEventData> { new DecisionResolved(command.DecisionId, command.Status) };
         if (command.Status == DecisionStatus.Accepted && decision.Supersedes is { } supersededId)
         {
+            var predecessor = Get(state.Decisions, supersededId, "decision");
+            if (predecessor.Status is DecisionStatus.Superseded or DecisionStatus.Invalidated)
+            {
+                throw new GovernanceException("A replacement can only be accepted while its predecessor is current.");
+            }
+
             events.Add(new DecisionResolved(supersededId, DecisionStatus.Superseded));
         }
 

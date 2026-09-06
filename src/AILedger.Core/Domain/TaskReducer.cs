@@ -7,11 +7,12 @@ public sealed class TaskReducer : ITaskReducer
     public GovernedTaskState Apply(GovernedTaskState? state, LedgerEvent @event)
     {
         ValidateEnvelope(state, @event);
+        TaskTransitionValidator.Validate(state, @event);
 
         var next = @event.Data switch
         {
             TaskOpened opened => OpenTask(@event, opened),
-            RoleAssigned assigned => Require(state) with { Roles = Set(Require(state).Roles, assigned.Assignment.ActorId, assigned.Assignment) },
+            RoleAssigned assigned => AssignRole(Require(state), assigned.Assignment),
             ClaimAdded added => Require(state) with { Claims = Set(Require(state).Claims, added.Claim.Id, added.Claim) },
             ClaimResolved resolved => ResolveClaim(Require(state), resolved),
             EvidenceAdded added => Require(state) with { Evidence = Set(Require(state).Evidence, added.Evidence.Id, added.Evidence) },
@@ -54,12 +55,23 @@ public sealed class TaskReducer : ITaskReducer
         }
     }
 
-    private static GovernedTaskState OpenTask(LedgerEvent @event, TaskOpened opened) => new()
+    private static GovernedTaskState OpenTask(LedgerEvent @event, TaskOpened opened)
     {
-        TaskId = @event.TaskId,
-        Title = opened.Title,
-        Goal = opened.Goal
-    };
+        return new GovernedTaskState
+        {
+            TaskId = @event.TaskId,
+            Title = opened.Title,
+            Goal = opened.Goal,
+            PendingOpeningActor = @event.ActorId
+        };
+    }
+
+    private static GovernedTaskState AssignRole(GovernedTaskState state, RoleAssignment assignment) =>
+        state with
+        {
+            Roles = Set(state.Roles, assignment.ActorId, assignment),
+            PendingOpeningActor = null
+        };
 
     private static GovernedTaskState ResolveClaim(GovernedTaskState state, ClaimResolved resolved)
     {

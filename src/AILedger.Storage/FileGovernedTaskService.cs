@@ -86,14 +86,23 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             return null;
         }
 
-        if (!await MaterializedStateIsCurrentAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false))
+        try
         {
-            await WriteMaterializedStateAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
-        }
+            if (!await MaterializedStateIsCurrentAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false))
+            {
+                await WriteMaterializedStateAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
+            }
 
-        // Projections are disposable views. Rewriting them on every read also repairs a
-        // missing or partially-written projection when state.json itself is current.
-        await _projectionWriter.WriteAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
+            // Projections are disposable views. Rewriting them on every read also repairs a
+            // missing or partially-written projection when state.json itself is current.
+            await _projectionWriter.WriteAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (!IsFatal(exception) &&
+                                          !(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            // Authoritative replay succeeded. A presentation repair must not make that
+            // state unavailable; a later read or explicit filesystem repair can retry it.
+        }
 
         return state;
     }
@@ -145,7 +154,16 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         await foreach (var @event in ReadEventsAsync(eventsPath, cancellationToken).ConfigureAwait(false))
         {
             ValidateEventEnvelope(taskId, @event, state?.Version ?? 0);
-            state = _reducer.Apply(state, @event);
+            try
+            {
+                state = _reducer.Apply(state, @event);
+            }
+            catch (GovernanceException exception)
+            {
+                throw new InvalidDataException(
+                    $"Event '{@event.EventId}' violates domain transition rules: {exception.Message}",
+                    exception);
+            }
         }
 
         return state;

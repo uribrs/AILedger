@@ -123,4 +123,16 @@
 - Enforced a bounded v0.1 ledger of 1,000 events and 16 MiB so full-history replacement/replay cannot be presented as unbounded storage.
 - Added command-specific option allowlists so safety-relevant typos fail before service creation or mutation.
 - Added Core, CLI, storage, protocol, redaction, environment-isolation, and cleanup tests. `dotnet test AILedger.sln --no-restore -m:1 --disable-build-servers` passed: 98 passed, 0 failed; `git diff --check` passed.
-- A fresh authenticated provider smoke was requested because the child environment changed. The host approval gate rejected transmission of the generated governed context without explicit user authorization, so post-change live Codex/Claude evidence remains pending.
+- After explicit user authorization, the post-change authenticated provider smokes passed through the production CLI. Codex launch `CR4` and exact resume `CR5` returned `LEDGER_SMOKE_OK` with session `01a07375-3862-7c42-aad0-cb4113590724`. Claude launch `CL8` completed durably and exact resume `CL9` returned `LEDGER_SMOKE_OK` with session `2dc75a4b-ba31-4d3b-a397-a1c09fa25cad`; its stream reported no MCP servers, slash commands, or skills.
+- The first Codex fixture attempt `CR3` failed safely because the disposable work directory was not yet a Git repository; Ledger persisted the failed terminal state before the fixture was corrected.
+- The user authorized the first repository commit. Commit `ad012ff` was created on `main`; the initial HTTPS push lacked host credentials, after which the user pushed it directly and local `main` matched `origin/main`.
+
+## Code-review repair 5
+
+- Made Ledger roots and provider-writable directories disjoint in both containment directions after canonical and symbolic-link resolution, covering scoped and unscoped launches.
+- Preserved learned Codex and preassigned Claude session IDs in partial cancellation results; cancellation now persists and emits that result before returning exit 130.
+- Added bounded, lock-compatible terminal-persistence retries and guaranteed result/session output when final closure still fails.
+- Added a shared semantic event-transition validator used by normal reduction and replay, rejecting impossible bootstrap authority, provenance, references, enums, and lifecycle changes.
+- Revalidated decision predecessors when accepting replacements so invalidated or already-superseded decisions cannot be overwritten by competing successors.
+- Decoupled successful authoritative reads from best-effort materialized-state and Markdown projection repair.
+- Added containment/symlink, interruption, retry exhaustion, semantic tampering, replacement race, and projection-failure tests. The integrated suite passed 121 tests with zero failures; `git diff --check` passed.

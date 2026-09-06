@@ -17,6 +17,7 @@ public sealed record GovernedTaskState
     public IReadOnlyDictionary<ChallengeId, Challenge> Challenges { get; init; } = new Dictionary<ChallengeId, Challenge>();
     public IReadOnlyDictionary<WorkItemId, WorkItem> WorkItems { get; init; } = new Dictionary<WorkItemId, WorkItem>();
     public IReadOnlyDictionary<RunId, AgentRun> Runs { get; init; } = new Dictionary<RunId, AgentRun>();
+    internal ActorId? PendingOpeningActor { get; init; }
 }
 
 public sealed record CommandOutcome(

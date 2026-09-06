@@ -107,16 +107,25 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                 },
                 cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return CreateFailure(
+                request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
+                AgentRunStatus.Cancelled, "Provider run was cancelled.");
+        }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             var now = DateTimeOffset.UtcNow;
-            return CreateFailure(request, sessionId, version, arguments, now, now, -1, events, errors, AgentRunStatus.Cancelled, "Provider run timed out.");
+            return CreateFailure(
+                request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
+                AgentRunStatus.Cancelled, "Provider run timed out.");
         }
         catch (InvalidDataException exception)
         {
             var now = DateTimeOffset.UtcNow;
             return CreateFailure(
-                request, sessionId, version, arguments, now, now, -1, events, errors,
+                request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
                 AgentRunStatus.ProtocolError, exception.Message);
         }
 
@@ -253,6 +262,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         DateTimeOffset startedAt,
         DateTimeOffset endedAt,
         int exitCode,
+        string? finalOutput,
         IReadOnlyList<ProviderEvent> events,
         IReadOnlyList<string> errors,
         AgentRunStatus status,
@@ -265,7 +275,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             startedAt,
             endedAt,
             exitCode,
-            null,
+            finalOutput,
             events.ToArray(),
             string.Join(Environment.NewLine, errors),
             version,

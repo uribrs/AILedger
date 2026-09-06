@@ -103,6 +103,135 @@ public sealed class CliApplicationTests
         Assert.Empty(state!.WorkItems);
     }
 
+    [Theory]
+    [InlineData("T1")]
+    [InlineData("T2")]
+    [InlineData("scratch/child")]
+    public async Task WorkScopeCannotBeInsideAuthoritativeLedgerRoot(string relativeScope)
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        if (relativeScope == "T2")
+        {
+            await application.RunAsync(
+                ["task", "open", "--root", root.Path, "--task", "T2", "--actor", "operator", "--title", "Sibling", "--goal", "Goal"],
+                CancellationToken.None);
+        }
+
+        var scope = Directory.CreateDirectory(Path.Combine(root.Path, relativeScope)).FullName;
+        var exit = await application.RunAsync(
+            ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", scope],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains("inside the authoritative Ledger root", error.ToString(), StringComparison.Ordinal);
+        Assert.Empty(state!.WorkItems);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("T1")]
+    [InlineData("T2")]
+    [InlineData("scratch/child")]
+    public async Task WorkScopeSymlinkCannotResolveInsideAuthoritativeLedgerRoot(string relativeTarget)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        if (relativeTarget == "T2")
+        {
+            await application.RunAsync(
+                ["task", "open", "--root", root.Path, "--task", "T2", "--actor", "operator", "--title", "Sibling", "--goal", "Goal"],
+                CancellationToken.None);
+        }
+
+        var target = string.IsNullOrEmpty(relativeTarget)
+            ? root.Path
+            : Directory.CreateDirectory(Path.Combine(root.Path, relativeTarget)).FullName;
+        var link = Path.Combine(providerRoot.Path, "ledger-link");
+        Directory.CreateSymbolicLink(link, target);
+
+        var exit = await application.RunAsync(
+            ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", link],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains("authoritative Ledger root", error.ToString(), StringComparison.Ordinal);
+        Assert.Empty(state!.WorkItems);
+    }
+
+    [Fact]
+    public async Task ScopedProviderLaunchRejectsPersistedLedgerDirectoryScope()
+    {
+        using var root = new TemporaryDirectory();
+        var application = new CliApplication(
+            TextWriter.Null,
+            TextWriter.Null,
+            Service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed),
+            new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T2", "--actor", "operator", "--title", "Sibling", "--goal", "Goal"],
+            CancellationToken.None);
+        await Service(root.Path).ExecuteAsync(new TaskId("T1"), new AddWorkItemCommand(
+            new ActorId("operator"), null, "seed", new WorkItemId("W1"), "Legacy work",
+            new ActorId("operator"), [], [Path.Combine(root.Path, "T2")]), CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.DoesNotContain(new RunId("R1"), state!.Runs.Keys);
+    }
+
+    [Fact]
+    public async Task UnscopedProviderLaunchRejectsWorkingDirectoryInsideLedgerRoot()
+    {
+        using var root = new TemporaryDirectory();
+        var application = new CliApplication(
+            TextWriter.Null,
+            TextWriter.Null,
+            Service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed),
+            new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", Path.Combine(root.Path, "T1"), "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.DoesNotContain(new RunId("R1"), state!.Runs.Keys);
+    }
+
     [Fact]
     public async Task UsageFailureReturnsTwoAndWritesConciseError()
     {
@@ -121,7 +250,8 @@ public sealed class CliApplicationTests
     public async Task MisspelledProviderWorkOptionIsRejectedBeforeRunStarts(string mode)
     {
         using var root = new TemporaryDirectory();
-        var work = Directory.CreateDirectory(Path.Combine(root.Path, "provider-work")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
         var error = new StringWriter();
         var application = new CliApplication(
             TextWriter.Null,
@@ -176,8 +306,9 @@ public sealed class CliApplicationTests
     public async Task RepeatedListOptionsRemainAccepted()
     {
         using var root = new TemporaryDirectory();
-        var firstScope = Directory.CreateDirectory(Path.Combine(root.Path, "first")).FullName;
-        var secondScope = Directory.CreateDirectory(Path.Combine(root.Path, "second")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var firstScope = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "first")).FullName;
+        var secondScope = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "second")).FullName;
         var application = Create(TextWriter.Null, TextWriter.Null);
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
@@ -244,10 +375,11 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
-    public async Task CancelledProviderLaunchClosesPersistedRunWithFreshToken()
+    public async Task CancelledProviderLaunchPersistsAndOutputsLearnedSessionBeforeReturningCancellation()
     {
         using var root = new TemporaryDirectory();
-        var work = Directory.CreateDirectory(Path.Combine(root.Path, "provider-work")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
         using var cancellation = new CancellationTokenSource();
         var output = new StringWriter();
         var error = new StringWriter();
@@ -273,13 +405,16 @@ public sealed class CliApplicationTests
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
         Assert.True(exit == 130, $"Expected cancellation exit 130, got {exit}: {error}");
         Assert.Equal(AgentRunStatus.Cancelled, state?.Runs[new RunId("R1")].Status);
+        Assert.Equal("cancelled-session", state?.Runs[new RunId("R1")].ProviderSessionId);
+        Assert.Contains("\"providerSessionId\": \"cancelled-session\"", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task CancellationAfterSuccessfulProviderReturnStillPersistsTerminalRun()
     {
         using var root = new TemporaryDirectory();
-        var work = Directory.CreateDirectory(Path.Combine(root.Path, "provider-work")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
         using var cancellation = new CancellationTokenSource();
         var application = new CliApplication(
             TextWriter.Null,
@@ -304,6 +439,70 @@ public sealed class CliApplicationTests
         Assert.Equal(0, exit);
         Assert.Equal(AgentRunStatus.Completed, state?.Runs[new RunId("R1")].Status);
         Assert.Equal(WorkItemStatus.Completed, state?.WorkItems[new WorkItemId("W1")].Status);
+    }
+
+    [Fact]
+    public async Task SuccessfulProviderResultRetriesInjectedLockFailureBeforeReturning()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var output = new StringWriter();
+        var service = new CompletionFailureService(Service(root.Path), failuresBeforeSuccess: 1);
+        var application = new CliApplication(
+            output,
+            TextWriter.Null,
+            _ => service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed),
+            new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        output.GetStringBuilder().Clear();
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", work, "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, exit);
+        Assert.Equal(2, service.CompletionAttempts);
+        Assert.Equal(AgentRunStatus.Completed, state?.Runs[new RunId("R1")].Status);
+        Assert.Contains("\"providerSessionId\": \"session-1\"", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TerminalProviderResultIsOutputWhenPersistenceRetriesAreExhausted()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var service = new CompletionFailureService(Service(root.Path), failuresBeforeSuccess: int.MaxValue);
+        var application = new CliApplication(
+            output,
+            error,
+            _ => service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed),
+            new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        output.GetStringBuilder().Clear();
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", work, "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Equal(3, service.CompletionAttempts);
+        Assert.Equal(AgentRunStatus.Active, state?.Runs[new RunId("R1")].Status);
+        Assert.Contains("\"providerSessionId\": \"session-1\"", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("written to standard output for recovery", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -333,7 +532,8 @@ public sealed class CliApplicationTests
     public async Task TerminalProviderFailureReturnsNonZeroAfterDurableClose(AgentRunStatus status)
     {
         using var root = new TemporaryDirectory();
-        var work = Directory.CreateDirectory(Path.Combine(root.Path, "provider-work")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
         var application = new CliApplication(
             TextWriter.Null,
             TextWriter.Null,
@@ -358,8 +558,9 @@ public sealed class CliApplicationTests
     public async Task RunManagerCannotGrantProviderDirectoryOutsideGovernedScope()
     {
         using var root = new TemporaryDirectory();
-        var allowed = Directory.CreateDirectory(Path.Combine(root.Path, "work")).FullName;
-        var sibling = Directory.CreateDirectory(Path.Combine(root.Path, "work-other")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var allowed = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "work")).FullName;
+        var sibling = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "work-other")).FullName;
         var application = Create(TextWriter.Null, TextWriter.Null);
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
@@ -390,8 +591,9 @@ public sealed class CliApplicationTests
         }
 
         using var root = new TemporaryDirectory();
-        var allowed = Directory.CreateDirectory(Path.Combine(root.Path, "allowed")).FullName;
-        var outside = Directory.CreateDirectory(Path.Combine(root.Path, "outside")).FullName;
+        using var providerRoot = new TemporaryDirectory();
+        var allowed = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "allowed")).FullName;
+        var outside = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "outside")).FullName;
         var link = Path.Combine(allowed, "escape-link");
         Directory.CreateSymbolicLink(link, outside);
         var application = Create(TextWriter.Null, TextWriter.Null);
@@ -413,6 +615,43 @@ public sealed class CliApplicationTests
         Assert.Equal(1, exit);
         Assert.DoesNotContain(new RunId("R1"),
             (await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None))!.Runs.Keys);
+    }
+
+    [Fact]
+    public async Task ProviderLaunchCorrelatesAndCausallyLinksItsRunEvents()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var application = new CliApplication(
+            TextWriter.Null,
+            TextWriter.Null,
+            Service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed),
+            new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", work, "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var events = new List<LedgerEvent>();
+        await foreach (var @event in Service(root.Path).GetHistoryAsync(new TaskId("T1"), CancellationToken.None))
+        {
+            events.Add(@event);
+        }
+
+        var started = events.Single(item => item.Data is RunStarted);
+        var completed = events.Single(item => item.Data is RunCompleted);
+        Assert.Equal(0, exit);
+        // One CLI invocation is one logical operation: shared correlation, and the
+        // completion cites the start it closes.
+        Assert.Equal(started.CorrelationId, completed.CorrelationId);
+        Assert.Equal(started.EventId, completed.CausationId);
+        Assert.NotEqual(events[0].CorrelationId, started.CorrelationId);
     }
 
     private static CliApplication Create(TextWriter output, TextWriter error) => new(
@@ -454,7 +693,10 @@ public sealed class CliApplicationTests
         public Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
         {
             cancellation.Cancel();
-            throw new OperationCanceledException(cancellationToken);
+            return Task.FromResult(new AgentRunResult(
+                request.RunId, Provider, "cancelled-session", AgentRunStatus.Cancelled,
+                DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1), -1, null, [], string.Empty,
+                "test", [], false, "Provider run was cancelled."));
         }
     }
 
@@ -487,5 +729,33 @@ public sealed class CliApplicationTests
                 request.RunId, Provider, "session-1", status,
                 DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1),
                 status == AgentRunStatus.Failed ? 1 : 0, null, [], string.Empty, "test", [], false, "failed"));
+    }
+
+    private sealed class CompletionFailureService(
+        IGovernedTaskService inner,
+        int failuresBeforeSuccess) : IGovernedTaskService
+    {
+        public int CompletionAttempts { get; private set; }
+
+        public Task<CommandOutcome> ExecuteAsync(
+            TaskId taskId,
+            LedgerCommand command,
+            CancellationToken cancellationToken)
+        {
+            if (command is CompleteRunCommand && ++CompletionAttempts <= failuresBeforeSuccess)
+            {
+                throw new IOException("Injected pre-commit task mutation lock failure.");
+            }
+
+            return inner.ExecuteAsync(taskId, command, cancellationToken);
+        }
+
+        public Task<GovernedTaskState?> GetStateAsync(TaskId taskId, CancellationToken cancellationToken) =>
+            inner.GetStateAsync(taskId, cancellationToken);
+
+        public IAsyncEnumerable<LedgerEvent> GetHistoryAsync(
+            TaskId taskId,
+            CancellationToken cancellationToken) =>
+            inner.GetHistoryAsync(taskId, cancellationToken);
     }
 }
