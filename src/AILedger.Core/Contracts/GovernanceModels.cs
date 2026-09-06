@@ -40,7 +40,32 @@ public enum Capability
     ManageWork,
     ManageRuns,
     RequestTransition,
-    BuildContext
+    BuildContext,
+    RaiseEscalation,
+    ResolveEscalation,
+    RecordAlternative,
+    ManageConstraints
+}
+
+// Only two things may interrupt the operator: a tradeoff no amount of research
+// settles, and a question the code and the sources cannot answer.
+public enum EscalationKind
+{
+    BusinessDecision,
+    TrueUnknown
+}
+
+public enum EscalationStatus
+{
+    Open,
+    Resolved,
+    Withdrawn
+}
+
+public enum ConstraintStatus
+{
+    Active,
+    Superseded
 }
 
 public enum ClaimStatus
@@ -137,7 +162,36 @@ public sealed record WorkItem(
     ActorId? Owner,
     WorkItemStatus Status,
     IReadOnlyList<ClaimId> DependsOnClaims,
-    IReadOnlyList<string> ResourceScope);
+    IReadOnlyList<string> ResourceScope,
+    string? BlockReason = null);
+
+public sealed record Escalation(
+    EscalationId Id,
+    EscalationKind Kind,
+    string Question,
+    EscalationStatus Status,
+    WorkItemId? WorkItemId,
+    IReadOnlyList<string> Options,
+    string? Recommendation,
+    IReadOnlyList<EvidenceId> AttemptEvidenceIds,
+    string? Resolution,
+    ActorId? ResolvedBy,
+    Provenance Provenance);
+
+public sealed record Alternative(
+    AlternativeId Id,
+    string Statement,
+    string RejectionRationale,
+    DecisionId? ReplacedByDecisionId,
+    Provenance Provenance);
+
+public sealed record Constraint(
+    ConstraintId Id,
+    string Statement,
+    string Source,
+    IReadOnlyList<string> Scope,
+    ConstraintStatus Status,
+    Provenance Provenance);
 
 public sealed record AgentRun(
     RunId Id,

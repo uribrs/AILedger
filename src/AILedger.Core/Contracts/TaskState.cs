@@ -17,6 +17,10 @@ public sealed record GovernedTaskState
     public IReadOnlyDictionary<ChallengeId, Challenge> Challenges { get; init; } = new Dictionary<ChallengeId, Challenge>();
     public IReadOnlyDictionary<WorkItemId, WorkItem> WorkItems { get; init; } = new Dictionary<WorkItemId, WorkItem>();
     public IReadOnlyDictionary<RunId, AgentRun> Runs { get; init; } = new Dictionary<RunId, AgentRun>();
+    // Appended, never reordered: state.json is byte-compared against a fresh replay.
+    public IReadOnlyDictionary<EscalationId, Escalation> Escalations { get; init; } = new Dictionary<EscalationId, Escalation>();
+    public IReadOnlyDictionary<AlternativeId, Alternative> Alternatives { get; init; } = new Dictionary<AlternativeId, Alternative>();
+    public IReadOnlyDictionary<ConstraintId, Constraint> Constraints { get; init; } = new Dictionary<ConstraintId, Constraint>();
     internal ActorId? PendingOpeningActor { get; init; }
 }
 

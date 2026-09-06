@@ -117,6 +117,16 @@ challenge raise    --task ID --actor ID --id ID --target-type TYPE --target-id I
 challenge dispose  --task ID --actor ID --id ID --status supported|rejected|withdrawn
 work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
                    [--depends-on CLAIM] [--scope PATH]
+work complete      --task ID --actor ID --id ID
+work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
+work unblock       --task ID --actor ID --id ID
+escalation raise   --task ID --actor ID --id ID --kind business-decision|true-unknown
+                   --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
+escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
+alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
+                   [--replaced-by DECISION]
+constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
+constraint supersede --task ID --actor ID --id ID
 run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
 run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
 stage transition   --task ID --actor ID --stage STAGE
@@ -126,13 +136,67 @@ provider resume    --task ID --actor ID --run ID --provider codex|claude --sessi
 
 Provider options are `--work ID`, `--executable PATH`, `--working-directory PATH`, `--model NAME`, `--timeout-seconds N`, repeated `--add-dir PATH`, `--cognitive-root PATH`, and `--output-schema VALUE`. Global `--root PATH`, optional `--cause EVENT_ID`, and optional `--correlation ID` may appear with commands. Enum values are case-insensitive and accept hyphenated forms such as `planning-lead`.
 
+Blocking is reversible, invalidation is not:
+
+```bash
+dotnet run --project src/AILedger.Cli -- work block \
+  --task task-123 --actor operator --id W1 --reason "Waiting on X1" --escalation X1
+
+dotnet run --project src/AILedger.Cli -- work unblock \
+  --task task-123 --actor operator --id W1
+```
+
+`work unblock` returns a blocked item to `Paused` and clears its reason. It is refused when the item
+depends on a claim that is now rejected or superseded: a rejected claim is terminal, so the repair for
+invalidated work is a replacement work item on a current claim, not clearing the block.
+
+## Escalations, alternatives, and constraints
+
+Only two things should ever reach the operator, and the kernel refuses anything that is neither.
+
+- `--kind business-decision` is a tradeoff with no technically correct answer. It requires at least
+  two distinct `--option` values and a `--recommend` naming one of them. The operator chooses; the
+  leads do not hand over an open question they were able to answer themselves.
+- `--kind true-unknown` is a question the code and the sources cannot settle. It requires at least
+  one `--evidence` ID recording the attempt that failed to answer it.
+
+Only an operator resolves an escalation, and `--status resolved` requires `--resolution`. A work item
+with an open escalation on it cannot be completed, so an unanswered escalation genuinely stops work
+rather than being advisory.
+
+```bash
+dotnet run --project src/AILedger.Cli -- escalation raise \
+  --task task-123 --actor claude-impl --id X1 --kind business-decision --work W1 \
+  --question "Retry budget: fail fast or exhaust the window?" \
+  --option "fail-fast" --option "exhaust-window" --recommend "fail-fast"
+
+dotnet run --project src/AILedger.Cli -- escalation resolve \
+  --task task-123 --actor operator --id X1 --status resolved --resolution "fail-fast"
+```
+
+Record an approach you discarded so a later actor cannot re-propose it:
+
+```bash
+dotnet run --project src/AILedger.Cli -- alternative record \
+  --task task-123 --actor codex-plan --id ALT1 \
+  --statement "Poll the vendor API on a timer" \
+  --rejected-because "The vendor rate-limits below the polling interval we would need"
+```
+
+Recorded alternatives and active constraints are always eligible for assembled context, regardless of
+which work item is selected — a discarded approach is only useful if the next actor sees it.
+Constraints are operator-governed: `constraint add` and `constraint supersede` require the operator
+role, and a superseded constraint leaves context.
+
 ## Role defaults
 
 - `Operator`: every capability.
-- `PlanningLead`: add/resolve claims, add evidence, propose decisions, raise challenges, manage runs, request transitions, and build context.
-- `ImplementationLead`: add claims/evidence, propose decisions, raise challenges, manage runs, request transitions, and build context.
-- `Researcher`, `Worker`, `Verifier`, `CodeReviewer`: add claims/evidence, raise challenges, and build context.
+- `PlanningLead`: add/resolve claims, add evidence, propose decisions, raise challenges and escalations, record alternatives, manage runs, request transitions, and build context.
+- `ImplementationLead`: add claims/evidence, propose decisions, raise challenges and escalations, record alternatives, manage runs, request transitions, and build context.
+- `Researcher`, `Worker`, `Verifier`, `CodeReviewer`: add claims/evidence, raise challenges and escalations, and build context.
 
+Resolving an escalation and governing constraints require the operator role, not merely a capability;
+`RoleDefaults.EnsureSafe` refuses to hand `ResolveEscalation` or `ManageConstraints` to a non-operator.
 Only a suitably authorized actor can resolve decisions or challenges or create governed work. The initial operator has those capabilities.
 
 ## Provider operation
@@ -149,7 +213,17 @@ dotnet run --project src/AILedger.Cli -- provider launch \
   --timeout-seconds 1800
 ```
 
-The result JSON contains the provider session ID. A successfully completed run also completes its work item, so create a new continuation item before resuming that exact provider session:
+The result JSON contains the provider session ID. A successfully completed run leaves its work item
+`Paused`, not `Completed`: a provider process exiting zero is a finished process, not a claim that the
+work is done. Assert completion explicitly when you are satisfied with the result:
+
+```bash
+dotnet run --project src/AILedger.Cli -- work complete \
+  --task task-123 --actor operator --id W1
+```
+
+A paused work item can also take another run directly. To resume that exact provider session against
+new scope, create a continuation item first:
 
 ```bash
 dotnet run --project src/AILedger.Cli -- work add \
@@ -185,9 +259,9 @@ Each safe task ID becomes one directory:
 <ledger-root>/<task-id>/
 ├── events.jsonl       authoritative append-only history
 ├── state.json         materialized machine-readable state
-├── task.md            roles, work, runs, and open challenges
+├── task.md            roles, work, runs, constraints, escalations, and open challenges
 ├── assumptions.md     claims and evidence references
-├── decisions.md       decision status, rationale, and dependencies
+├── decisions.md       decision status, rationale, dependencies, and rejected alternatives
 └── .writer.lock       per-task mutation lock
 ```
 

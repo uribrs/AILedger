@@ -77,6 +77,14 @@ public sealed class CommandHandler : ICommandHandler
             StartRunCommand start => StartRun(state, start, now),
             CompleteRunCommand complete => CompleteRun(state, complete, now),
             RequestStageTransitionCommand transition => TransitionStage(state, transition),
+            RaiseEscalationCommand raise => RaiseEscalation(state, raise, now),
+            ResolveEscalationCommand resolve => ResolveEscalation(state, resolve),
+            RecordAlternativeCommand record => RecordAlternative(state, record, now),
+            AddConstraintCommand add => AddConstraint(state, add, now),
+            SupersedeConstraintCommand supersede => SupersedeConstraint(state, supersede),
+            CompleteWorkItemCommand complete => CompleteWorkItem(state, complete),
+            BlockWorkItemCommand block => BlockWorkItem(state, block),
+            UnblockWorkItemCommand unblock => UnblockWorkItem(state, unblock),
             _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
         };
     }
@@ -462,6 +470,253 @@ public sealed class CommandHandler : ICommandHandler
         return [new StageTransitioned(state.Stage, command.TargetStage)];
     }
 
+    private static IReadOnlyList<LedgerEventData> RaiseEscalation(
+        GovernedTaskState state,
+        RaiseEscalationCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.EscalationId.Value, nameof(command.EscalationId));
+        EnsureNew(state.Escalations, command.EscalationId, "escalation");
+        RequireText(command.Question, nameof(command.Question));
+
+        if (command.WorkItemId is { } workItemId)
+        {
+            _ = Get(state.WorkItems, workItemId, "work item");
+        }
+
+        var options = command.Options.Select(option => option.Trim()).ToArray();
+        var recommendation = TrimOrNull(command.Recommendation);
+        if (options.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("An escalation cannot carry an empty option.");
+        }
+
+        EnsureUnique(options, "Options", StringComparer.Ordinal);
+        EnsureUnique(command.AttemptEvidenceIds, "Attempt evidence IDs");
+        EnsureReferencesExist(state.Evidence, command.AttemptEvidenceIds, "evidence");
+
+        // The two kinds exist to keep everything else off the operator's desk, so each
+        // one has to carry the payload that proves it earned the interruption.
+        switch (command.Kind)
+        {
+            case EscalationKind.BusinessDecision:
+                if (options.Length < 2)
+                {
+                    throw new GovernanceException(
+                        "A business decision requires at least two options for the operator to choose between.");
+                }
+
+                if (recommendation is null)
+                {
+                    throw new GovernanceException("A business decision requires a recommendation.");
+                }
+
+                if (!options.Contains(recommendation, StringComparer.Ordinal))
+                {
+                    throw new GovernanceException("A business decision recommendation must name one of its options.");
+                }
+
+                break;
+            case EscalationKind.TrueUnknown:
+                if (command.AttemptEvidenceIds.Count == 0)
+                {
+                    throw new GovernanceException(
+                        "A true unknown requires evidence of the attempt that failed to answer it.");
+                }
+
+                break;
+            default:
+                throw new GovernanceException($"Unsupported escalation kind '{command.Kind}'.");
+        }
+
+        var escalation = new Escalation(
+            command.EscalationId,
+            command.Kind,
+            command.Question.Trim(),
+            EscalationStatus.Open,
+            command.WorkItemId,
+            options,
+            recommendation,
+            command.AttemptEvidenceIds.ToArray(),
+            null,
+            null,
+            new Provenance(command.ActorId, now, "escalation.raise"));
+        return [new EscalationRaised(escalation)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> ResolveEscalation(
+        GovernedTaskState state,
+        ResolveEscalationCommand command)
+    {
+        var escalation = Get(state.Escalations, command.EscalationId, "escalation");
+        if (escalation.Status != EscalationStatus.Open)
+        {
+            throw new GovernanceException("Only an open escalation can be resolved.");
+        }
+
+        if (command.Status == EscalationStatus.Open)
+        {
+            throw new GovernanceException("Escalation resolution must be terminal.");
+        }
+
+        var resolution = TrimOrNull(command.Resolution);
+        if (command.Status == EscalationStatus.Resolved && resolution is null)
+        {
+            throw new GovernanceException("Resolving an escalation requires the operator's answer.");
+        }
+
+        return [new EscalationResolved(command.EscalationId, command.Status, resolution, command.ActorId)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> RecordAlternative(
+        GovernedTaskState state,
+        RecordAlternativeCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.AlternativeId.Value, nameof(command.AlternativeId));
+        EnsureNew(state.Alternatives, command.AlternativeId, "alternative");
+        RequireText(command.Statement, nameof(command.Statement));
+        RequireText(command.RejectionRationale, nameof(command.RejectionRationale));
+
+        if (command.ReplacedByDecisionId is { } decisionId)
+        {
+            _ = Get(state.Decisions, decisionId, "decision");
+        }
+
+        var alternative = new Alternative(
+            command.AlternativeId,
+            command.Statement.Trim(),
+            command.RejectionRationale.Trim(),
+            command.ReplacedByDecisionId,
+            new Provenance(command.ActorId, now, "alternative.record"));
+        return [new AlternativeRecorded(alternative)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> AddConstraint(
+        GovernedTaskState state,
+        AddConstraintCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.ConstraintId.Value, nameof(command.ConstraintId));
+        EnsureNew(state.Constraints, command.ConstraintId, "constraint");
+        RequireText(command.Statement, nameof(command.Statement));
+        RequireText(command.Source, nameof(command.Source));
+        EnsureUnique(command.Scope, "Constraint scope entries", StringComparer.Ordinal);
+
+        if (command.Scope.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("Constraint scope entries cannot be empty.");
+        }
+
+        var constraint = new Constraint(
+            command.ConstraintId,
+            command.Statement.Trim(),
+            command.Source.Trim(),
+            command.Scope.Select(entry => entry.Trim()).ToArray(),
+            ConstraintStatus.Active,
+            new Provenance(command.ActorId, now, "constraint.add"));
+        return [new ConstraintAdded(constraint)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> SupersedeConstraint(
+        GovernedTaskState state,
+        SupersedeConstraintCommand command)
+    {
+        var constraint = Get(state.Constraints, command.ConstraintId, "constraint");
+        if (constraint.Status != ConstraintStatus.Active)
+        {
+            throw new GovernanceException("Only an active constraint can be superseded.");
+        }
+
+        return [new ConstraintSuperseded(command.ConstraintId)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> CompleteWorkItem(
+        GovernedTaskState state,
+        CompleteWorkItemCommand command)
+    {
+        var workItem = Get(state.WorkItems, command.WorkItemId, "work item");
+        if (workItem.Status is WorkItemStatus.Completed)
+        {
+            throw new GovernanceException("Work item is already completed.");
+        }
+
+        if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale)
+        {
+            throw new GovernanceException(
+                $"Work item in status '{workItem.Status}' cannot be completed before it is repaired.");
+        }
+
+        // A provider exiting zero is not the same claim as the work being done, so the
+        // run has to be closed before anyone can assert completion.
+        if (HasOpenRun(state, command.WorkItemId))
+        {
+            throw new GovernanceException("Work item cannot be completed while a run is still active.");
+        }
+
+        if (HasOpenEscalation(state, command.WorkItemId))
+        {
+            throw new GovernanceException("Work item cannot be completed while an escalation on it is open.");
+        }
+
+        return [new WorkItemCompleted(command.WorkItemId)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> BlockWorkItem(
+        GovernedTaskState state,
+        BlockWorkItemCommand command)
+    {
+        var workItem = Get(state.WorkItems, command.WorkItemId, "work item");
+        RequireText(command.Reason, nameof(command.Reason));
+        if (workItem.Status is WorkItemStatus.Completed)
+        {
+            throw new GovernanceException("A completed work item cannot be blocked.");
+        }
+
+        if (command.EscalationId is { } escalationId)
+        {
+            var escalation = Get(state.Escalations, escalationId, "escalation");
+            if (escalation.Status != EscalationStatus.Open)
+            {
+                throw new GovernanceException("A work item can only be blocked on an open escalation.");
+            }
+        }
+
+        return [new WorkItemBlocked(command.WorkItemId, command.Reason.Trim(), command.EscalationId)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> UnblockWorkItem(
+        GovernedTaskState state,
+        UnblockWorkItemCommand command)
+    {
+        var workItem = Get(state.WorkItems, command.WorkItemId, "work item");
+        if (workItem.Status != WorkItemStatus.Blocked)
+        {
+            throw new GovernanceException($"Only a blocked work item can be unblocked; this one is '{workItem.Status}'.");
+        }
+
+        // Unblocking must not undo causal invalidation. A rejected claim is terminal, so work
+        // resting on one is repaired by a replacement item, not by clearing the block.
+        if (workItem.DependsOnClaims
+            .Select(claimId => state.Claims[claimId])
+            .FirstOrDefault(claim => claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded) is { } invalid)
+        {
+            throw new GovernanceException(
+                $"Work item depends on '{invalid.Status.ToString().ToLowerInvariant()}' claim '{invalid.Id}'. " +
+                "Add a replacement work item on a current claim instead of unblocking this one.");
+        }
+
+        return [new WorkItemUnblocked(command.WorkItemId)];
+    }
+
+    private static bool HasOpenRun(GovernedTaskState state, WorkItemId workItemId) =>
+        state.Runs.Values.Any(run =>
+            run.WorkItemId == workItemId && run.Status is AgentRunStatus.Pending or AgentRunStatus.Active);
+
+    private static bool HasOpenEscalation(GovernedTaskState state, WorkItemId workItemId) =>
+        state.Escalations.Values.Any(escalation =>
+            escalation.WorkItemId == workItemId && escalation.Status == EscalationStatus.Open);
+
     private CommandOutcome ApplyEvents(
         GovernedTaskState? initialState,
         LedgerCommand command,
@@ -532,6 +787,12 @@ public sealed class CommandHandler : ICommandHandler
             case RequestStageTransitionCommand transition:
                 RequireDefined(transition.TargetStage, nameof(transition.TargetStage));
                 break;
+            case RaiseEscalationCommand raise:
+                RequireDefined(raise.Kind, nameof(raise.Kind));
+                break;
+            case ResolveEscalationCommand resolve:
+                RequireDefined(resolve.Status, nameof(resolve.Status));
+                break;
         }
     }
 
@@ -558,7 +819,10 @@ public sealed class CommandHandler : ICommandHandler
 
         foreach (var workItem in state.WorkItems.Values
                      .Where(item => item.DependsOnClaims.Contains(claimId))
-                     .Where(item => item.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale))
+                     // R3 (workitem-blocked-conflation): an operator `work block` sets the same
+                     // Blocked member as invalidation does. Skipping Blocked here would mean a
+                     // manually blocked item never goes Stale when its claim is later rejected.
+                     .Where(item => item.Status is not WorkItemStatus.Stale)
                      .OrderBy(item => item.Id.Value, StringComparer.Ordinal))
         {
             var status = workItem.Status == WorkItemStatus.Active

@@ -438,7 +438,9 @@ public sealed class CliApplicationTests
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
         Assert.Equal(0, exit);
         Assert.Equal(AgentRunStatus.Completed, state?.Runs[new RunId("R1")].Status);
-        Assert.Equal(WorkItemStatus.Completed, state?.WorkItems[new WorkItemId("W1")].Status);
+        // R5 (hidden-workitem-assertion): a provider exiting zero pauses its work item.
+        // Completion is asserted through work.complete, never inferred from a process exit.
+        Assert.Equal(WorkItemStatus.Paused, state?.WorkItems[new WorkItemId("W1")].Status);
     }
 
     [Fact]

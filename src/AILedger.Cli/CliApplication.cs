@@ -193,6 +193,48 @@ public sealed class CliApplication
                     input.Required("title"), OptionalId(input.Optional("owner"), value => new ActorId(value)),
                     input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes), cancellationToken).ConfigureAwait(false);
                 break;
+            case "escalation raise":
+                await ExecuteAsync(service, input, new RaiseEscalationCommand(
+                    Actor(input), Cause(input), Correlation(input), new EscalationId(input.Required("id")),
+                    EnumValue<EscalationKind>(input, "kind"), input.Required("question"),
+                    OptionalId(input.Optional("work"), value => new WorkItemId(value)),
+                    input.Many("option"), input.Optional("recommend"),
+                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray()), cancellationToken).ConfigureAwait(false);
+                break;
+            case "escalation resolve":
+                await ExecuteAsync(service, input, new ResolveEscalationCommand(
+                    Actor(input), Cause(input), Correlation(input), new EscalationId(input.Required("id")),
+                    EnumValue<EscalationStatus>(input, "status"), input.Optional("resolution")), cancellationToken).ConfigureAwait(false);
+                break;
+            case "alternative record":
+                await ExecuteAsync(service, input, new RecordAlternativeCommand(
+                    Actor(input), Cause(input), Correlation(input), new AlternativeId(input.Required("id")),
+                    input.Required("statement"), input.Required("rejected-because"),
+                    OptionalId(input.Optional("replaced-by"), value => new DecisionId(value))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "constraint add":
+                await ExecuteAsync(service, input, new AddConstraintCommand(
+                    Actor(input), Cause(input), Correlation(input), new ConstraintId(input.Required("id")),
+                    input.Required("statement"), input.Required("source"), input.Many("scope")), cancellationToken).ConfigureAwait(false);
+                break;
+            case "constraint supersede":
+                await ExecuteAsync(service, input, new SupersedeConstraintCommand(
+                    Actor(input), Cause(input), Correlation(input), new ConstraintId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work complete":
+                await ExecuteAsync(service, input, new CompleteWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work block":
+                await ExecuteAsync(service, input, new BlockWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
+                    input.Required("reason"),
+                    OptionalId(input.Optional("escalation"), value => new EscalationId(value))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work unblock":
+                await ExecuteAsync(service, input, new UnblockWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
             case "run start":
                 await ExecuteAsync(service, input, CreateStartRun(input), cancellationToken).ConfigureAwait(false);
                 break;
@@ -578,6 +620,22 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["work add"] = Options(
                 "root", "task", "actor", "id", "title", "owner", "depends-on", "scope", "cause", "correlation"),
+            ["escalation raise"] = Options(
+                "root", "task", "actor", "id", "kind", "question", "work", "option", "recommend", "evidence",
+                "cause", "correlation"),
+            ["escalation resolve"] = Options(
+                "root", "task", "actor", "id", "status", "resolution", "cause", "correlation"),
+            ["alternative record"] = Options(
+                "root", "task", "actor", "id", "statement", "rejected-because", "replaced-by",
+                "cause", "correlation"),
+            ["constraint add"] = Options(
+                "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
+            ["constraint supersede"] = Options(
+                "root", "task", "actor", "id", "cause", "correlation"),
+            ["work complete"] = Options("root", "task", "actor", "id", "cause", "correlation"),
+            ["work block"] = Options(
+                "root", "task", "actor", "id", "reason", "escalation", "cause", "correlation"),
+            ["work unblock"] = Options("root", "task", "actor", "id", "cause", "correlation"),
             ["run start"] = Options(
                 "root", "task", "actor", "run", "work", "provider", "session", "cause", "correlation"),
             ["run complete"] = Options(
@@ -662,6 +720,16 @@ public sealed class CliApplication
         challenge dispose  --task ID --actor ID --id ID --status supported|rejected|withdrawn
         work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
                            [--depends-on CLAIM] [--scope PATH]
+        work complete      --task ID --actor ID --id ID
+        work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
+        work unblock       --task ID --actor ID --id ID
+        escalation raise   --task ID --actor ID --id ID --kind business-decision|true-unknown
+                           --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
+        escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
+        alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
+                           [--replaced-by DECISION]
+        constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
+        constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
         run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
         stage transition   --task ID --actor ID --stage STAGE

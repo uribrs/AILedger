@@ -59,6 +59,29 @@ public sealed class ContextIsolationTests
     }
 
     [Fact]
+    public void CodeReviewerNeverSeesAnOpenEscalationButStillSeesRejectedAlternatives()
+    {
+        var task = new TestTask();
+        var reviewer = new ActorId("reviewer");
+        task.Assign(reviewer, RoleKind.CodeReviewer, Capability.BuildContext);
+        task.Apply(new RaiseEscalationCommand(
+            task.OperatorId, null, task.NextCorrelation(), new EscalationId("X1"),
+            EscalationKind.BusinessDecision, "Ship now or harden first?", null,
+            ["ship", "harden"], "ship", []));
+        task.Apply(new RecordAlternativeCommand(
+            task.OperatorId, null, task.NextCorrelation(), new AlternativeId("ALT1"),
+            "Use a database", "Files stay inspectable", null));
+
+        var manifest = new ContextAssembler().Build(task.State, reviewer, null, [], DateTimeOffset.UnixEpoch);
+
+        // An escalation carries the leads' recommendation, which is intent, not code.
+        Assert.DoesNotContain(manifest.Artifacts, item => item.Kind == ContextArtifactKind.Escalation);
+        Assert.DoesNotContain(manifest.Artifacts, item => item.Content.Contains("Recommended", StringComparison.Ordinal));
+        Assert.Contains(manifest.Artifacts,
+            item => item.Kind == ContextArtifactKind.Alternative && item.Id == "ALT1");
+    }
+
+    [Fact]
     public void ContextRequiresAssignedRoleAndCapability()
     {
         var task = new TestTask();

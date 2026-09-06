@@ -26,6 +26,14 @@ public sealed class TaskReducer : ITaskReducer
             RunStarted started => StartRun(Require(state), started),
             RunCompleted completed => CompleteRun(Require(state), completed),
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
+            EscalationRaised raised => Require(state) with { Escalations = Set(Require(state).Escalations, raised.Escalation.Id, raised.Escalation) },
+            EscalationResolved resolved => ResolveEscalation(Require(state), resolved),
+            AlternativeRecorded recorded => Require(state) with { Alternatives = Set(Require(state).Alternatives, recorded.Alternative.Id, recorded.Alternative) },
+            ConstraintAdded added => Require(state) with { Constraints = Set(Require(state).Constraints, added.Constraint.Id, added.Constraint) },
+            ConstraintSuperseded superseded => SupersedeConstraint(Require(state), superseded),
+            WorkItemCompleted completed => SetWorkItemStatus(Require(state), completed.WorkItemId, WorkItemStatus.Completed, null),
+            WorkItemBlocked blocked => SetWorkItemStatus(Require(state), blocked.WorkItemId, WorkItemStatus.Blocked, blocked.Reason),
+            WorkItemUnblocked unblocked => SetWorkItemStatus(Require(state), unblocked.WorkItemId, WorkItemStatus.Paused, null),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -139,10 +147,9 @@ public sealed class TaskReducer : ITaskReducer
             var currentWorkItem = state.WorkItems[workItemId];
             if (currentWorkItem.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale))
             {
-                var status = completed.Status == AgentRunStatus.Completed
-                    ? WorkItemStatus.Completed
-                    : WorkItemStatus.Paused;
-                workItems = Set(workItems, workItemId, currentWorkItem with { Status = status });
+                // A terminated provider process is not a claim that the work is done.
+                // Completion is asserted explicitly through work.complete.
+                workItems = Set(workItems, workItemId, currentWorkItem with { Status = WorkItemStatus.Paused });
             }
         }
 
@@ -151,6 +158,34 @@ public sealed class TaskReducer : ITaskReducer
             Runs = Set(state.Runs, completed.RunId, run),
             WorkItems = workItems
         };
+    }
+
+    private static GovernedTaskState ResolveEscalation(GovernedTaskState state, EscalationResolved resolved)
+    {
+        var escalation = state.Escalations[resolved.EscalationId] with
+        {
+            Status = resolved.Status,
+            Resolution = resolved.Resolution,
+            ResolvedBy = resolved.ResolvedBy
+        };
+
+        return state with { Escalations = Set(state.Escalations, resolved.EscalationId, escalation) };
+    }
+
+    private static GovernedTaskState SupersedeConstraint(GovernedTaskState state, ConstraintSuperseded superseded)
+    {
+        var constraint = state.Constraints[superseded.ConstraintId] with { Status = ConstraintStatus.Superseded };
+        return state with { Constraints = Set(state.Constraints, superseded.ConstraintId, constraint) };
+    }
+
+    private static GovernedTaskState SetWorkItemStatus(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        WorkItemStatus status,
+        string? blockReason)
+    {
+        var workItem = state.WorkItems[workItemId] with { Status = status, BlockReason = blockReason };
+        return state with { WorkItems = Set(state.WorkItems, workItemId, workItem) };
     }
 
     private static GovernedTaskState TransitionStage(GovernedTaskState state, StageTransitioned transitioned)

@@ -14,7 +14,10 @@ public enum ContextArtifactKind
     UserRequest,
     PromptContract,
     OrchestrationPlan,
-    VerifierOutput
+    VerifierOutput,
+    // Appended: the enum's declaration order is the manifest sort order.
+    Escalation,
+    Alternative
 }
 
 public sealed record ContextArtifact(

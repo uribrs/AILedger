@@ -16,6 +16,14 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(StartRunCommand), "run.start")]
 [JsonDerivedType(typeof(CompleteRunCommand), "run.complete")]
 [JsonDerivedType(typeof(RequestStageTransitionCommand), "stage.transition")]
+[JsonDerivedType(typeof(RaiseEscalationCommand), "escalation.raise")]
+[JsonDerivedType(typeof(ResolveEscalationCommand), "escalation.resolve")]
+[JsonDerivedType(typeof(RecordAlternativeCommand), "alternative.record")]
+[JsonDerivedType(typeof(AddConstraintCommand), "constraint.add")]
+[JsonDerivedType(typeof(SupersedeConstraintCommand), "constraint.supersede")]
+[JsonDerivedType(typeof(CompleteWorkItemCommand), "work.complete")]
+[JsonDerivedType(typeof(BlockWorkItemCommand), "work.block")]
+[JsonDerivedType(typeof(UnblockWorkItemCommand), "work.unblock")]
 public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);
 
 public sealed record OpenTaskCommand(
@@ -127,3 +135,67 @@ public sealed record RequestStageTransitionCommand(
     EventId? CausationId,
     string CorrelationId,
     TaskStage TargetStage) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record RaiseEscalationCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    EscalationId EscalationId,
+    EscalationKind Kind,
+    string Question,
+    WorkItemId? WorkItemId,
+    IReadOnlyList<string> Options,
+    string? Recommendation,
+    IReadOnlyList<EvidenceId> AttemptEvidenceIds) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record ResolveEscalationCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    EscalationId EscalationId,
+    EscalationStatus Status,
+    string? Resolution) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record RecordAlternativeCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    AlternativeId AlternativeId,
+    string Statement,
+    string RejectionRationale,
+    DecisionId? ReplacedByDecisionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record AddConstraintCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    ConstraintId ConstraintId,
+    string Statement,
+    string Source,
+    IReadOnlyList<string> Scope) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record SupersedeConstraintCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    ConstraintId ConstraintId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record CompleteWorkItemCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    WorkItemId WorkItemId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record BlockWorkItemCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    WorkItemId WorkItemId,
+    string Reason,
+    EscalationId? EscalationId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record UnblockWorkItemCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    WorkItemId WorkItemId) : LedgerCommand(ActorId, CausationId, CorrelationId);

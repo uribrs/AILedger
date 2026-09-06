@@ -28,6 +28,14 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(RunStarted), "run.started")]
 [JsonDerivedType(typeof(RunCompleted), "run.completed")]
 [JsonDerivedType(typeof(StageTransitioned), "stage.transitioned")]
+[JsonDerivedType(typeof(EscalationRaised), "escalation.raised")]
+[JsonDerivedType(typeof(EscalationResolved), "escalation.resolved")]
+[JsonDerivedType(typeof(AlternativeRecorded), "alternative.recorded")]
+[JsonDerivedType(typeof(ConstraintAdded), "constraint.added")]
+[JsonDerivedType(typeof(ConstraintSuperseded), "constraint.superseded")]
+[JsonDerivedType(typeof(WorkItemCompleted), "work.completed")]
+[JsonDerivedType(typeof(WorkItemBlocked), "work.blocked")]
+[JsonDerivedType(typeof(WorkItemUnblocked), "work.unblocked")]
 public abstract record LedgerEventData;
 
 public sealed record TaskOpened(string Title, string Goal) : LedgerEventData;
@@ -45,3 +53,11 @@ public sealed record WorkItemInvalidated(WorkItemId WorkItemId, ClaimId Rejected
 public sealed record RunStarted(AgentRun Run) : LedgerEventData;
 public sealed record RunCompleted(RunId RunId, AgentRunStatus Status, string? ProviderSessionId, DateTimeOffset EndedAt) : LedgerEventData;
 public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
+public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
+public sealed record EscalationResolved(EscalationId EscalationId, EscalationStatus Status, string? Resolution, ActorId ResolvedBy) : LedgerEventData;
+public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
+public sealed record ConstraintAdded(Constraint Constraint) : LedgerEventData;
+public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEventData;
+public sealed record WorkItemCompleted(WorkItemId WorkItemId) : LedgerEventData;
+public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
+public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;

@@ -38,20 +38,24 @@ There is no background coordinator in v0.1. Starting both providers means issuin
 | Claims need evidence before factual resolution. | `Validated` and `Rejected` claim resolutions require existing evidence IDs. Evidence records whether it supports or refutes existing claims. |
 | Bad assumptions must affect downstream work. | Rejecting or superseding a claim emits invalidation events for dependent current decisions and work; active work becomes `Blocked`, other dependent work becomes `Stale`; later commands cannot create/start new dependents, and run completion cannot erase `Blocked`/`Stale`. |
 | Roles receive only appropriate context. | Context assembly requires an assigned role plus `BuildContext`, filters skills by canonical role, scopes task artifacts to a work item, and orders output deterministically. |
-| Code review must remain independent. | Code-reviewer context excludes the user request, prompt contract, orchestration plan, and verifier output, and selects the code-reviewer skill rather than orchestration skills. |
+| Code review must remain independent. | Code-reviewer context excludes the user request, prompt contract, orchestration plan, verifier output, and open escalations, and selects the code-reviewer skill rather than orchestration skills. |
 | Execution should have one governed orchestration tree. | At most one `Pending` or `Active` run may exist for a given work item. The storage lock makes concurrent check-and-start atomic across processes. Different work items may run concurrently. |
 | Resume must continue the intended provider session. | Resume requires an exact session ID. Provider output must report the expected session identity. |
 | Interrupted work should remain recoverable. | Caller cancellation returns a partial terminal result carrying any learned or preassigned provider session; Ledger closes the run with a fresh token before preserving cancellation exit semantics. Terminal persistence uses a lock-compatible deadline and bounded retries, and the result is still emitted if closure ultimately fails. |
 | Provider output is not success merely because it is parseable. | Success requires exit code zero, a successful terminal JSONL event, and a valid session identity; malformed streams and protocol mismatches become terminal failures. |
 | Provider output must not exhaust the host process. | The process reader rejects lines over 1,048,576 characters and streams over 8,388,608 characters; the adapter also caps combined retained output at 8,388,608 characters and turns overflow into a protocol error. |
 | Provider processes receive least ambient authority. | Child environments start from a small operational allowlist plus explicit invocation variables; retained stdout JSON, final output, and stderr redact explicit secret values. Provider authentication through local configuration remains a host trust dependency. |
+| Only the operator's own decisions interrupt the operator. | An escalation must declare `BusinessDecision` — at least two distinct options plus a recommendation naming one — or `TrueUnknown` — at least one evidence record standing as proof of the attempt that failed. The kernel refuses either kind without its payload, and only an operator resolves one. |
+| A rejected approach must not be silently re-proposed. | Alternatives are recorded with a required rejection rationale and an optional link to the decision that replaced them. They are always eligible for assembled context, so work-item narrowing cannot hide them. |
+| Governed constraints are operator-controlled and current. | Constraints are task state with `Active`/`Superseded` status; adding or superseding one requires the operator role, and only active constraints enter context. |
+| Finished work is asserted, not inferred. | A completed provider run moves its work item to `Paused`. `work complete` is an explicit governed command, refused while a run is active or an escalation on the item is open. `work block` records a reason and may cite the escalation it waits on, and `work unblock` returns it to `Paused` — but never for an item whose claim was rejected, so unblocking cannot undo causal invalidation. |
 | Lifecycle changes are governed. | A finite transition policy permits forward movement and selected repair/research loops. Execution requires a work item; archive rejects active runs or open challenges. |
 
 The cognitive text has intentionally not been rewritten in v0.1. The six skills and governing `RULES.md` are a byte-for-byte snapshot recorded in `cognitive/manifest.json`. Future revisions can replace portions of prose with mechanisms, but each replacement should preserve the rule's intent, tests, provenance, and an explicit mapping such as the table above.
 
 ## Context behavior
 
-Every manifest includes task identity/version, actor, role, optional work item, capabilities, selected artifacts, stop conditions, and assembly time. Rules, relevant skills, task goals, constraints, and stop conditions are always eligible; other task facts are narrowed to the selected work item's dependency graph.
+Every manifest includes task identity/version, actor, role, optional work item, capabilities, selected artifacts, stop conditions, and assembly time. Rules, relevant skills, task goals, constraints, stop conditions, recorded alternatives, and open escalations are always eligible; other task facts are narrowed to the selected work item's dependency graph. Constraints and alternatives are unnarrowed deliberately: a governing rule and a discarded approach are only useful if the next actor sees them whatever work item is in hand. Open escalations are the exception to that eligibility for one role — a code reviewer never receives them, because an escalation carries the leads' recommendation and a blind review must not learn the answer the team wants.
 
 Canonical skill selection is:
 
@@ -78,5 +82,12 @@ v0.1 does not implement:
 - automatic translation of a textual rule into code or removal of superseded skill text;
 - authenticated actor identities, a trusted mutation broker, or cryptographic tamper evidence against processes running as the same OS user;
 - unbounded task histories: v0.1 caps each task at 1,000 events and a 16 MiB event log because atomic full-history commits and replay are deliberately optimized for small local ledgers.
+
+Every rule above is expressed twice: once in `CommandHandler` at command time, and again in
+`TaskTransitionValidator`, which re-validates each event during replay. The two copies must be changed
+together — `tests/AILedger.Tests/Storage/NewCommandReplayTests.cs` commits every command through the
+real file store and replays it in a fresh service to prove they agree, and
+`tests/AILedger.Tests/Core/EventRegistrationTests.cs` proves no event type is missing from the
+validator's switch. An unregistered event type would make a task permanently unreadable.
 
 `Archive` currently means a governed lifecycle stage only. It does not move, compress, freeze, or delete task files.

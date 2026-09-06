@@ -85,6 +85,21 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
         AppendItems(builder, state.Runs.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
             $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Status}** — {Clean(pair.Value.Provider)} / `{Clean(pair.Value.ActorId.Value)}`");
 
+        builder.AppendLine().AppendLine("## Active Constraints").AppendLine();
+        AppendItems(builder,
+            state.Constraints.Where(pair => pair.Value.Status == ConstraintStatus.Active)
+                .OrderBy(pair => pair.Key.Value, StringComparer.Ordinal),
+            pair => $"- `{Clean(pair.Key.Value)}` — {Clean(pair.Value.Statement)} (source: {Clean(pair.Value.Source)})");
+
+        builder.AppendLine().AppendLine("## Open Escalations").AppendLine();
+        AppendItems(builder,
+            state.Escalations.Where(pair => pair.Value.Status == EscalationStatus.Open)
+                .OrderBy(pair => pair.Key.Value, StringComparer.Ordinal),
+            pair => $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Kind}** — {Clean(pair.Value.Question)}" +
+                    (pair.Value.Recommendation is null
+                        ? string.Empty
+                        : $" Recommended: {Clean(pair.Value.Recommendation)}"));
+
         builder.AppendLine().AppendLine("## Open Challenges").AppendLine();
         AppendItems(builder,
             state.Challenges.Where(pair => pair.Value.Status == ChallengeStatus.Open)
@@ -117,6 +132,16 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
             var dependencies = Join(pair.Value.DependsOnClaims.Select(id => $"`{Clean(id.Value)}`"));
             return $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Status}** — {Clean(pair.Value.Statement)} " +
                    $"Rationale: {Clean(pair.Value.Rationale)} Depends on: {dependencies}.";
+        });
+
+        builder.AppendLine().AppendLine("## Rejected Alternatives").AppendLine();
+        AppendItems(builder, state.Alternatives.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
+        {
+            var replacement = pair.Value.ReplacedByDecisionId is { } decisionId
+                ? $" Replaced by `{Clean(decisionId.Value)}`."
+                : string.Empty;
+            return $"- `{Clean(pair.Key.Value)}` — {Clean(pair.Value.Statement)} " +
+                   $"Rejected because: {Clean(pair.Value.RejectionRationale)}.{replacement}";
         });
 
         return NormalizeEnding(builder);
