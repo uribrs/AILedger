@@ -195,7 +195,8 @@ public sealed class CliApplication
                 await ExecuteAsync(service, input, new AddWorkItemCommand(
                     Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
                     input.Required("title"), OptionalId(input.Optional("owner"), value => new ActorId(value)),
-                    input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes), cancellationToken).ConfigureAwait(false);
+                    input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes,
+                    OptionalId(input.Optional("not-split-because"), value => new AlternativeId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "escalation raise":
                 await ExecuteAsync(service, input, new RaiseEscalationCommand(
@@ -227,7 +228,8 @@ public sealed class CliApplication
                 break;
             case "work complete":
                 await ExecuteAsync(service, input, new CompleteWorkItemCommand(
-                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
+                    input.Optional("without-verification")), cancellationToken).ConfigureAwait(false);
                 break;
             case "work block":
                 await ExecuteAsync(service, input, new BlockWorkItemCommand(
@@ -238,6 +240,11 @@ public sealed class CliApplication
             case "work unblock":
                 await ExecuteAsync(service, input, new UnblockWorkItemCommand(
                     Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work abandon":
+                await ExecuteAsync(service, input, new AbandonWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
+                    input.Required("reason")), cancellationToken).ConfigureAwait(false);
                 break;
             case "run start":
                 await ExecuteAsync(service, input, CreateStartRun(input), cancellationToken).ConfigureAwait(false);
@@ -317,7 +324,12 @@ public sealed class CliApplication
             .ToArray();
 
         var occupied = state.WorkItems.Values
-            .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale))
+            // Which statuses release an area is this rule written twice: the second copy is the
+            // filter in CommandHandler.EnsureScopeIsNotAlreadyOccupied. They must change together.
+            // Apart, `who` shows an operator an area as taken that `work add` hands to someone else
+            // in the next command, or the reverse.
+            .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale
+                or WorkItemStatus.Abandoned))
             .OrderBy(item => item.Id.Value, StringComparer.Ordinal)
             .Select(item => new { WorkItem = item.Id.Value, item.Status, Owner = item.Owner?.Value, Areas = item.ResourceScope })
             .ToArray();
@@ -348,7 +360,7 @@ public sealed class CliApplication
 
     private async Task BuildContextAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
     {
-        var manifest = await CreateContextAsync(service, input, cancellationToken).ConfigureAwait(false);
+        var manifest = await CreateContextAsync(service, input, Actor(input), cancellationToken).ConfigureAwait(false);
         var json = JsonSerializer.Serialize(manifest, _json) + Environment.NewLine;
         var outputPath = input.Optional("output");
         if (outputPath is null)
@@ -364,12 +376,13 @@ public sealed class CliApplication
     private async Task<ContextManifest> CreateContextAsync(
         IGovernedTaskService service,
         CommandLine input,
+        ActorId actorId,
         CancellationToken cancellationToken)
     {
         var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
         var artifacts = await _artifactLoader.LoadAsync(input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
         var workItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
-        return _contextAssembler.Build(state, Actor(input), workItem, artifacts, DateTimeOffset.UtcNow);
+        return _contextAssembler.Build(state, actorId, workItem, artifacts, DateTimeOffset.UtcNow);
     }
 
     private async Task LaunchProviderAsync(
@@ -406,9 +419,12 @@ public sealed class CliApplication
         AgentRunResult result;
         try
         {
-            var manifest = await CreateContextAsync(service, input, cancellationToken).ConfigureAwait(false);
+            // The manifest is filtered by the subject's role, not the dispatcher's. An operator who
+            // dispatches a code reviewer must not hand it an operator's view of the task.
+            var manifest = await CreateContextAsync(
+                service, input, SubjectOrActor(input), cancellationToken).ConfigureAwait(false);
             var request = new AgentLaunchRequest(
-                start.RunId, Task(input), Actor(input), start.WorkItemId, mode, provider,
+                start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,
                 grants.WorkingDirectory, ledgerRoot, ResolveLedgerCommandLine(),
                 JsonSerializer.Serialize(manifest, _json), sessionId, PermissionProfile.WorkspaceGoverned,
@@ -680,7 +696,8 @@ public sealed class CliApplication
             ["challenge dispose"] = Options(
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["work add"] = Options(
-                "root", "task", "actor", "id", "title", "owner", "depends-on", "scope", "cause", "correlation"),
+                "root", "task", "actor", "id", "title", "owner", "depends-on", "scope",
+                "not-split-because", "cause", "correlation"),
             ["escalation raise"] = Options(
                 "root", "task", "actor", "id", "kind", "question", "work", "option", "recommend", "evidence",
                 "cause", "correlation"),
@@ -693,12 +710,14 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
             ["constraint supersede"] = Options(
                 "root", "task", "actor", "id", "cause", "correlation"),
-            ["work complete"] = Options("root", "task", "actor", "id", "cause", "correlation"),
+            ["work complete"] = Options(
+                "root", "task", "actor", "id", "without-verification", "cause", "correlation"),
             ["work block"] = Options(
                 "root", "task", "actor", "id", "reason", "escalation", "cause", "correlation"),
             ["work unblock"] = Options("root", "task", "actor", "id", "cause", "correlation"),
+            ["work abandon"] = Options("root", "task", "actor", "id", "reason", "cause", "correlation"),
             ["run start"] = Options(
-                "root", "task", "actor", "run", "work", "provider", "session", "cause", "correlation"),
+                "root", "task", "actor", "subject", "run", "work", "provider", "session", "cause", "correlation"),
             ["run complete"] = Options(
                 "root", "task", "actor", "run", "status", "session", "cause", "correlation"),
             ["stage transition"] = Options(
@@ -708,7 +727,7 @@ public sealed class CliApplication
         };
 
     private static IReadOnlySet<string> ProviderOptions() => Options(
-        "root", "task", "actor", "run", "work", "provider", "session", "executable", "working-directory",
+        "root", "task", "actor", "subject", "run", "work", "provider", "session", "executable", "working-directory",
         "model", "timeout-seconds", "add-dir", "cognitive-root", "output-schema", "cause", "correlation");
 
     private static IReadOnlySet<string> Options(params string[] names) =>
@@ -745,9 +764,14 @@ public sealed class CliApplication
             Actor(input), Cause(input), Correlation(input), new RunId(input.Required("run")),
             OptionalId(input.Optional("work"), value => new WorkItemId(value)),
             provider ?? input.Required("provider"), sessionId ?? input.Optional("session"),
-            input.Optional("model"), providerVersion, launchTokenHash);
+            input.Optional("model"), providerVersion, launchTokenHash, Subject(input));
 
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
+    // Who the run is for. Absent, an actor starts its own run and nothing changes.
+    private static ActorId? Subject(CommandLine input) =>
+        OptionalId(input.Optional("subject"), value => new ActorId(value));
+    // The actor whose role filters the manifest and whose provenance the run carries.
+    private static ActorId SubjectOrActor(CommandLine input) => Subject(input) ?? Actor(input);
     private static TaskId Task(CommandLine input) => new(input.Required("task"));
     private static EventId? Cause(CommandLine input) => OptionalId(input.Optional("cause"), value => new EventId(value));
     // A launched agent runs inside its own work scope, never the Ledger repository, so a relative
@@ -804,10 +828,11 @@ public sealed class CliApplication
                            [--evidence ID]
         challenge dispose  --task ID --actor ID --id ID --status supported|rejected|withdrawn
         work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
-                           [--depends-on CLAIM] [--scope PATH]
-        work complete      --task ID --actor ID --id ID
+                           [--depends-on CLAIM] [--scope PATH] [--not-split-because ALT-ID]
+        work complete      --task ID --actor ID --id ID [--without-verification REASON]
         work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
         work unblock       --task ID --actor ID --id ID
+        work abandon       --task ID --actor ID --id ID --reason TEXT
         escalation raise   --task ID --actor ID --id ID --kind business-decision|true-unknown
                            --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
         escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
@@ -816,13 +841,31 @@ public sealed class CliApplication
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
+                           [--subject ID]
         run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
         stage transition   --task ID --actor ID --stage STAGE
         provider launch    --task ID --actor ID --run ID --provider codex|claude [provider options]
         provider resume    --task ID --actor ID --run ID --provider codex|claude --session EXACT_ID [provider options]
 
-        Provider options: --work ID --executable PATH --working-directory PATH --model NAME
+        Provider options: --work ID --subject ID --executable PATH --working-directory PATH --model NAME
                           --timeout-seconds N --add-dir PATH --cognitive-root PATH --output-schema VALUE
+
+        --subject dispatches a run for another actor: only an operator may pass it, and the run is
+        authorised by --actor while the subject does the work, receives the manifest filtered by its
+        own role, and owns the run's provenance. It is how a role that holds no run authority — a
+        researcher, worker, verifier or code reviewer — is launched at all.
+
+        A work item is completed only after two runs have completed against it: one whose subject
+        held a working role, and one whose subject was a verifier. --without-verification REASON is
+        the operator's override for both, and the reason goes in the log.
+
+        --not-split-because names an existing alternative explaining why a work item claims more
+        than one --scope area instead of being split into separate items. It is required only for a
+        multi-area item: holding two areas is one agent taking what two could have held, and the
+        kernel refuses to let that choice go unrecorded rather than judging whether it was right.
+
+        work abandon releases an item that will never be completed, and hands its directory areas
+        back for another work item to claim.
         """;
 
     private sealed class ProviderRunFailedException(string message) : Exception(message);

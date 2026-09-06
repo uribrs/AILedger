@@ -36,6 +36,7 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(WorkItemCompleted), "work.completed")]
 [JsonDerivedType(typeof(WorkItemBlocked), "work.blocked")]
 [JsonDerivedType(typeof(WorkItemUnblocked), "work.unblocked")]
+[JsonDerivedType(typeof(WorkItemAbandoned), "work.abandoned")]
 [JsonDerivedType(typeof(ClaimDependenciesRepointed), "claim.dependencies-repointed")]
 [JsonDerivedType(typeof(DecisionOverturned), "decision.overturned")]
 public abstract record LedgerEventData;
@@ -60,8 +61,9 @@ public sealed record EscalationResolved(EscalationId EscalationId, EscalationSta
 public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
 public sealed record ConstraintAdded(Constraint Constraint) : LedgerEventData;
 public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEventData;
-public sealed record WorkItemCompleted(WorkItemId WorkItemId) : LedgerEventData;
+public sealed record WorkItemCompleted(WorkItemId WorkItemId, string? WithoutVerificationReason = null) : LedgerEventData;
 public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
 public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
+public sealed record WorkItemAbandoned(WorkItemId WorkItemId, string Reason) : LedgerEventData;
 public sealed record ClaimDependenciesRepointed(ClaimId SupersededClaimId, ClaimId ReplacementClaimId) : LedgerEventData;
 public sealed record DecisionOverturned(DecisionId DecisionId, ChallengeId ChallengeId) : LedgerEventData;

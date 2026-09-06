@@ -34,6 +34,7 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemCompleted completed => SetWorkItemStatus(Require(state), completed.WorkItemId, WorkItemStatus.Completed, null),
             WorkItemBlocked blocked => SetWorkItemStatus(Require(state), blocked.WorkItemId, WorkItemStatus.Blocked, blocked.Reason),
             WorkItemUnblocked unblocked => SetWorkItemStatus(Require(state), unblocked.WorkItemId, WorkItemStatus.Paused, null),
+            WorkItemAbandoned abandoned => AbandonWorkItem(Require(state), abandoned),
             ClaimDependenciesRepointed repointed => RepointDependencies(Require(state), repointed),
             DecisionOverturned overturned => OverturnDecision(Require(state), overturned),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
@@ -155,7 +156,11 @@ public sealed class TaskReducer : ITaskReducer
         if (run.WorkItemId is { } workItemId)
         {
             var currentWorkItem = state.WorkItems[workItemId];
-            if (currentWorkItem.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale))
+            // Abandoned joins them because Paused is a live status: flipping a released item back to
+            // Paused would take its directory area back. Safe on old histories — no event recorded
+            // before work.abandoned existed can produce this status.
+            if (currentWorkItem.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale
+                or WorkItemStatus.Abandoned))
             {
                 // A terminated provider process is not a claim that the work is done.
                 // Completion is asserted explicitly through work.complete.
@@ -201,7 +206,8 @@ public sealed class TaskReducer : ITaskReducer
         var workItems = state.WorkItems;
         foreach (var workItem in state.WorkItems.Values
                      .Where(item => item.DependsOnClaims.Contains(repointed.SupersededClaimId))
-                     .Where(item => item.Status is not (WorkItemStatus.Stale or WorkItemStatus.Completed)))
+                     .Where(item => item.Status is not (WorkItemStatus.Stale or WorkItemStatus.Completed
+                         or WorkItemStatus.Abandoned)))
         {
             workItems = Set(workItems, workItem.Id, workItem with
             {
@@ -225,6 +231,18 @@ public sealed class TaskReducer : ITaskReducer
     {
         var constraint = state.Constraints[superseded.ConstraintId] with { Status = ConstraintStatus.Superseded };
         return state with { Constraints = Set(state.Constraints, superseded.ConstraintId, constraint) };
+    }
+
+    // Kept apart from SetWorkItemStatus because the reason has to survive: why an area was given up
+    // is the only thing left of the work once the item stops being touched.
+    private static GovernedTaskState AbandonWorkItem(GovernedTaskState state, WorkItemAbandoned abandoned)
+    {
+        var workItem = state.WorkItems[abandoned.WorkItemId] with
+        {
+            Status = WorkItemStatus.Abandoned,
+            AbandonReason = abandoned.Reason
+        };
+        return state with { WorkItems = Set(state.WorkItems, abandoned.WorkItemId, workItem) };
     }
 
     private static GovernedTaskState SetWorkItemStatus(

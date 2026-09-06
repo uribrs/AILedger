@@ -24,6 +24,7 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(CompleteWorkItemCommand), "work.complete")]
 [JsonDerivedType(typeof(BlockWorkItemCommand), "work.block")]
 [JsonDerivedType(typeof(UnblockWorkItemCommand), "work.unblock")]
+[JsonDerivedType(typeof(AbandonWorkItemCommand), "work.abandon")]
 public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);
 
 public sealed record OpenTaskCommand(
@@ -112,7 +113,10 @@ public sealed record AddWorkItemCommand(
     string Title,
     ActorId? Owner,
     IReadOnlyList<ClaimId> DependsOnClaims,
-    IReadOnlyList<string> ResourceScope) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    IReadOnlyList<string> ResourceScope,
+    // The recorded alternative saying why more than one area was kept in a single work item.
+    // Required only when the item claims more than one; a one-area item needs no defence.
+    AlternativeId? NotSplitJustification = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record StartRunCommand(
     ActorId ActorId,
@@ -124,7 +128,10 @@ public sealed record StartRunCommand(
     string? ProviderSessionId,
     string? Model = null,
     string? ProviderVersion = null,
-    string? LaunchTokenHash = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? LaunchTokenHash = null,
+    // The actor the run is for, when an operator dispatches on its behalf. ActorId stays the
+    // authorising actor; the subject does the work and owns the run's provenance.
+    ActorId? SubjectActorId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record CompleteRunCommand(
     ActorId ActorId,
@@ -190,7 +197,10 @@ public sealed record CompleteWorkItemCommand(
     ActorId ActorId,
     EventId? CausationId,
     string CorrelationId,
-    WorkItemId WorkItemId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    WorkItemId WorkItemId,
+    // Why this item is being completed with no verifier run behind it. Only an operator may pass
+    // it, and passing it puts the waiver in the log rather than leaving it unrecorded.
+    string? WithoutVerificationReason = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record BlockWorkItemCommand(
     ActorId ActorId,
@@ -205,3 +215,10 @@ public sealed record UnblockWorkItemCommand(
     EventId? CausationId,
     string CorrelationId,
     WorkItemId WorkItemId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record AbandonWorkItemCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    WorkItemId WorkItemId,
+    string Reason) : LedgerCommand(ActorId, CausationId, CorrelationId);

@@ -31,7 +31,10 @@ public sealed class ScopeOccupancyTests
         var task = new TestTask();
         var area = Path.GetFullPath("src/AILedger.Core");
         Add(task, "W1", area);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1")));
+        // Completion is only scaffolding here — the subject is the area being released — so the
+        // operator waives the verifier pass instead of staging one.
+        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(),
+            new WorkItemId("W1"), "This test is about scope release, not verification"));
 
         Add(task, "W2", area);
 
@@ -85,6 +88,38 @@ public sealed class ScopeOccupancyTests
 
         Assert.Equal(2, state.WorkItems.Count);
         Assert.Equal([repo], state.WorkItems[new WorkItemId("W2")].ResourceScope);
+    }
+
+    // The same principle, caught a second time on a different rule: a run completed before the
+    // "must stay resumable" rule existed carries no session identity, and replay must still
+    // accept it. Enforcing that rule on the replay side made a live task unreadable.
+    [Fact]
+    public void ReplayAcceptsACompletedRunRecordedBeforeTheSessionIdentityRule()
+    {
+        var taskId = new TaskId("legacy-run");
+        var actor = new ActorId("operator");
+        var reducer = new TaskReducer();
+        var recordedAt = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
+
+        GovernedTaskState? state = null;
+        LedgerEvent Next(LedgerEventData data) => new(
+            GovernedTaskState.CurrentSchemaVersion,
+            new EventId($"{taskId.Value}:{(state?.Version ?? 0) + 1:D10}"),
+            taskId, actor, recordedAt, null, "replay", data);
+
+        state = reducer.Apply(state, Next(new TaskOpened("Legacy", "Goal")));
+        state = reducer.Apply(state, Next(new RoleAssigned(new RoleAssignment(
+            actor, RoleKind.Operator, Enum.GetValues<Capability>(),
+            new Provenance(actor, recordedAt, "task.open")))));
+        state = reducer.Apply(state, Next(new RunStarted(new AgentRun(
+            new RunId("R1"), actor, null, "codex", null, AgentRunStatus.Active, recordedAt, null))));
+
+        // No session identity, and no launch token: exactly the shape recorded before either rule.
+        state = reducer.Apply(state, Next(new RunCompleted(
+            new RunId("R1"), AgentRunStatus.Completed, null, recordedAt)));
+
+        Assert.Equal(AgentRunStatus.Completed, state.Runs[new RunId("R1")].Status);
+        Assert.Null(state.Runs[new RunId("R1")].ProviderSessionId);
     }
 
     private static void Add(TestTask task, string id, string scope) =>

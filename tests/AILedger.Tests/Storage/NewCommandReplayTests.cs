@@ -18,6 +18,9 @@ public sealed class NewCommandReplayTests
         using var root = new TemporaryDirectory();
         var taskId = new TaskId("replay-task");
         var actor = new ActorId("operator");
+        var reviewer = new ActorId("reviewer");
+        var verifier = new ActorId("verifier");
+        var worker = new ActorId("worker");
         string Area(string name) => Directory.CreateDirectory(Path.Combine(root.Path, name)).FullName;
         var writer = Service(root.Path);
 
@@ -44,7 +47,38 @@ public sealed class NewCommandReplayTests
         var afterRun = await Service(root.Path).GetStateAsync(taskId, CancellationToken.None);
         Assert.Equal(WorkItemStatus.Paused, afterRun?.WorkItems[new WorkItemId("W2")].Status);
 
+        // Dispatch: the operator authorises, the reviewer is the run's subject. The rule is written
+        // twice, so this has to survive a real commit and a real replay, not just the handler.
+        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14a", reviewer, RoleKind.CodeReviewer, [Capability.BuildContext]));
+        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14a2", verifier, RoleKind.Verifier, [Capability.BuildContext]));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c14b", new WorkItemId("W4"), "Reviewed work", actor, [], [Area("w4")]));
+        // A reviewer only starts after a verifier has finished with the item, so the sequence has
+        // to hold through a real commit and a real replay, not only inside the handler.
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c14b2", new RunId("RV0"), new WorkItemId("W4"), "codex", null, null, null, null, verifier));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14b3", new RunId("RV0"), AgentRunStatus.Completed, "session-v0"));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c14c", new RunId("R2"), new WorkItemId("W4"), "claude", null, null, null, null, reviewer));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14d", new RunId("R2"), AgentRunStatus.Completed, "session-2"));
+
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c14e", new RunId("RV1"), new WorkItemId("W2"), "codex", null, null, null, null, verifier));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14f", new RunId("RV1"), AgentRunStatus.Completed, "session-3"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c15", new WorkItemId("W2")));
+
+        // F2: a released area really is free again, proven by a second work item taking it after a
+        // real commit rather than by asking the handler what it thinks.
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c16", new WorkItemId("W5"), "Wrong split", actor, [], [Area("shared")]));
+        await Run(writer, taskId, new AbandonWorkItemCommand(actor, null, "c17", new WorkItemId("W5"), "The split was wrong"));
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c18", new WorkItemId("W6"), "Better split", actor, [], [Area("shared")]));
+        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c18a", worker, RoleKind.Worker, [Capability.BuildContext]));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c18b", new RunId("RW1"), new WorkItemId("W6"), "codex", null, null, null, null, worker));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c18c", new RunId("RW1"), AgentRunStatus.Completed, "session-w1"));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c19", new RunId("RV2"), new WorkItemId("W6"), "codex", null, null, null, null, verifier));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c20", new RunId("RV2"), AgentRunStatus.Completed, "session-4"));
+        await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c21", new WorkItemId("W6")));
+
+        // The waived completion: its reason is a new field on an existing event, so it has to
+        // serialise, come back, and pass the replay copy of the rules.
+        await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c22", new WorkItemId("W7"), "Unverifiable work", actor, [], [Area("w7")]));
+        await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c23", new WorkItemId("W7"), "No verifier is attached to this task"));
 
         // A separate service instance models a separate process: nothing but events.jsonl carries over.
         var replayed = await Service(root.Path).GetStateAsync(taskId, CancellationToken.None);
@@ -62,6 +96,27 @@ public sealed class NewCommandReplayTests
         Assert.Equal(WorkItemStatus.Completed, replayed.WorkItems[new WorkItemId("W2")].Status);
         Assert.Equal(WorkItemStatus.Paused, replayed.WorkItems[new WorkItemId("W3")].Status);
         Assert.Null(replayed.WorkItems[new WorkItemId("W3")].BlockReason);
+        // The dispatched run survives replay with both identities intact, and the subject still
+        // holds no run authority of its own.
+        Assert.Equal(reviewer, replayed.Runs[new RunId("R2")].ActorId);
+        Assert.Equal(actor, replayed.Runs[new RunId("R2")].LaunchedBy);
+        Assert.Null(replayed.Runs[new RunId("R1")].LaunchedBy);
+        Assert.DoesNotContain(Capability.ManageRuns, replayed.Roles[reviewer].Capabilities);
+        // Each run carries the role it ran under, dispatched or not, and that is what the
+        // completion gate reads back after a replay.
+        Assert.Equal(RoleKind.Verifier, replayed.Runs[new RunId("RV1")].SubjectRole);
+        Assert.Equal(RoleKind.CodeReviewer, replayed.Runs[new RunId("R2")].SubjectRole);
+        Assert.Equal(RoleKind.Operator, replayed.Runs[new RunId("R1")].SubjectRole);
+        Assert.Equal(WorkItemStatus.Abandoned, replayed.WorkItems[new WorkItemId("W5")].Status);
+        Assert.Equal("The split was wrong", replayed.WorkItems[new WorkItemId("W5")].AbandonReason);
+        Assert.Equal(WorkItemStatus.Completed, replayed.WorkItems[new WorkItemId("W6")].Status);
+        Assert.Equal(WorkItemStatus.Completed, replayed.WorkItems[new WorkItemId("W7")].Status);
+
+        // The waiver reason is not projected into state, so the log itself is the only place it can
+        // be read back — and it is the only record that a completion skipped verification.
+        var events = await File.ReadAllTextAsync(Path.Combine(root.Path, taskId.Value, "events.jsonl"));
+        Assert.Contains("work.abandoned", events, StringComparison.Ordinal);
+        Assert.Contains("No verifier is attached to this task", events, StringComparison.Ordinal);
 
         var projection = await File.ReadAllTextAsync(Path.Combine(root.Path, taskId.Value, "task.md"));
         Assert.Contains("Stay local", projection, StringComparison.Ordinal);
