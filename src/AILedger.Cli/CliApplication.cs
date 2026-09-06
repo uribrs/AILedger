@@ -396,7 +396,11 @@ public sealed class CliApplication
         // Probed before the run is recorded, so the ledger knows which cognition ran even if the
         // launch later fails. What ran should never be known only in memory.
         var providerVersion = await adapter.ProbeVersionAsync(executable, cancellationToken).ConfigureAwait(false);
-        var start = CreateStartRun(input, provider, sessionId, providerVersion);
+        // Held only here, for this run's lifetime. Only its hash is recorded, and it never reaches
+        // the manifest, the briefing or the child's environment.
+        var launchToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var start = CreateStartRun(input, provider, sessionId, providerVersion,
+            CommandHandler.HashLaunchToken(launchToken));
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
         AgentRunResult result;
@@ -422,7 +426,7 @@ public sealed class CliApplication
                     ? AgentRunStatus.Cancelled
                     : AgentRunStatus.Failed;
                 await CompleteRunWithFreshTokenAsync(
-                    service, input, start.RunId, sessionId, status, startedEventId).ConfigureAwait(false);
+                    service, input, start.RunId, sessionId, status, startedEventId, launchToken).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
             {
@@ -438,7 +442,7 @@ public sealed class CliApplication
         try
         {
             await CompleteRunWithFreshTokenAsync(
-                service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId).ConfigureAwait(false);
+                service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -472,11 +476,12 @@ public sealed class CliApplication
         RunId runId,
         string? sessionId,
         AgentRunStatus status,
-        EventId causationId)
+        EventId causationId,
+        string launchToken)
     {
         using var completion = new CancellationTokenSource(TerminalPersistenceDeadline);
         var command = new CompleteRunCommand(
-            Actor(input), causationId, Correlation(input), runId, status, sessionId);
+            Actor(input), causationId, Correlation(input), runId, status, sessionId, launchToken);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -734,12 +739,13 @@ public sealed class CliApplication
         CommandLine input,
         string? provider = null,
         string? sessionId = null,
-        string? providerVersion = null) =>
+        string? providerVersion = null,
+        string? launchTokenHash = null) =>
         new(
             Actor(input), Cause(input), Correlation(input), new RunId(input.Required("run")),
             OptionalId(input.Optional("work"), value => new WorkItemId(value)),
             provider ?? input.Required("provider"), sessionId ?? input.Optional("session"),
-            input.Optional("model"), providerVersion);
+            input.Optional("model"), providerVersion, launchTokenHash);
 
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     private static TaskId Task(CommandLine input) => new(input.Required("task"));

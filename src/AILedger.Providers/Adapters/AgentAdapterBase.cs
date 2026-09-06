@@ -60,12 +60,19 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         var expectedSessionId = request.Mode == AgentLaunchMode.Resume || RequirePreassignedSessionMatch
             ? sessionId
             : null;
+        using var launchScope = OpenLaunchScope(request);
+        var environment = new Dictionary<string, string>(request.Environment, StringComparer.Ordinal);
+        foreach (var variable in launchScope.Environment)
+        {
+            environment[variable.Key] = variable.Value;
+        }
+
         var invocation = new ProcessInvocation(
             request.ExecutablePath,
             request.WorkingDirectory,
             arguments,
             ComposeStandardInput(request),
-            request.Environment,
+            environment,
             request.Timeout);
 
         ProcessExit exit;
@@ -166,6 +173,15 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
     protected virtual void EnsurePreconditions(AgentLaunchRequest request)
     {
     }
+
+    /// <summary>
+    /// Per-launch isolation from the operator's own installed configuration. Ledger serves the
+    /// role's skills through the context manifest, so a governed agent must not also inherit the
+    /// ambient copies installed for interactive use — they are a second, silently diverging source
+    /// of the same rules.
+    /// </summary>
+    protected virtual ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request) =>
+        ProviderLaunchScope.None;
 
     protected sealed record CapabilityProbe(IReadOnlyList<string> Arguments, IReadOnlyList<string> RequiredTokens);
 

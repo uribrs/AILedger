@@ -558,7 +558,8 @@ public sealed class CommandHandler : ICommandHandler
             now,
             null,
             TrimOrNull(command.Model),
-            TrimOrNull(command.ProviderVersion));
+            TrimOrNull(command.ProviderVersion),
+            TrimOrNull(command.LaunchTokenHash));
         return [new RunStarted(run)];
     }
 
@@ -596,7 +597,8 @@ public sealed class CommandHandler : ICommandHandler
                 "a completed run must stay resumable.");
         }
 
-        return [new RunCompleted(command.RunId, command.Status, providerSessionId, now)];
+        var launcherAuthorized = EnsureLauncherAuthorizedCompletion(state, command, run);
+        return [new RunCompleted(command.RunId, command.Status, providerSessionId, now, launcherAuthorized)];
     }
 
     private static void EnsureCanStartWork(
@@ -611,6 +613,44 @@ public sealed class CommandHandler : ICommandHandler
 
         throw new GovernanceException($"Only work owner '{workItem.Owner}' or an operator can start work item '{workItem.Id}'.");
     }
+
+    // A launched agent shares the run's actor identity, so identity cannot distinguish it from the
+    // process that launched it. The launcher's secret can. Three live agents closed their own runs
+    // despite a briefing telling them not to, which is why this is a rule rather than a sentence.
+    private static bool EnsureLauncherAuthorizedCompletion(
+        GovernedTaskState state,
+        CompleteRunCommand command,
+        AgentRun run)
+    {
+        if (run.LaunchTokenHash is not { } expectedHash)
+        {
+            return false;
+        }
+
+        if (TrimOrNull(command.LaunchToken) is { } token &&
+            string.Equals(HashLaunchToken(token), expectedHash, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // Escape hatch for an orphan: the launching process died and its secret went with it. An
+        // operator may close the run, but only as a failure — a run nobody watched finish must
+        // never be laundered into a success.
+        if (IsOperator(state, command.ActorId) &&
+            command.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled)
+        {
+            return false;
+        }
+
+        throw new GovernanceException(
+            $"Run '{run.Id}' was started by a provider launch and is closed by that launcher. " +
+            "An agent running inside it cannot complete it. An operator may close an orphaned run " +
+            "as failed or cancelled.");
+    }
+
+    public static string HashLaunchToken(string token) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(token)));
 
     private static void EnsureCanCompleteRun(
         GovernedTaskState state,

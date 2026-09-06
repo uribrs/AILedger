@@ -1,3 +1,4 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
@@ -157,6 +158,46 @@ public sealed class WorkLifecycleTests
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Failed, null));
         Assert.Equal(AgentRunStatus.Failed, task.State.Runs[new RunId("R1")].Status);
+    }
+
+    // Three live agents closed their own runs despite a briefing forbidding it. A launched agent
+    // shares the run's actor identity, so only a secret the launcher holds can tell them apart.
+    [Fact]
+    public void AnAgentInsideALauncherManagedRunCannotCompleteIt()
+    {
+        var task = Prepare(out var workItemId);
+        var token = "launcher-secret";
+        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"),
+            workItemId, "claude", null, null, "2.1.261", CommandHandler.HashLaunchToken(token)));
+
+        // The agent knows its own actor and session, and neither is enough.
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1")));
+        Assert.Contains("closed by that launcher", error.Message, StringComparison.Ordinal);
+        Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1", "guessed")));
+        Assert.Equal(AgentRunStatus.Active, task.State.Runs[new RunId("R1")].Status);
+
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1", token));
+        Assert.Equal(AgentRunStatus.Completed, task.State.Runs[new RunId("R1")].Status);
+    }
+
+    // The launching process can die and take its secret with it. An operator may then close the
+    // orphan, but only as a failure: a run nobody watched finish is not a success.
+    [Fact]
+    public void AnOrphanedLauncherManagedRunMayBeClosedByAnOperatorOnlyAsAFailure()
+    {
+        var task = Prepare(out var workItemId);
+        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"),
+            workItemId, "claude", null, null, "2.1.261", CommandHandler.HashLaunchToken("lost")));
+
+        Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1")));
+
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Cancelled, null));
+        Assert.Equal(AgentRunStatus.Cancelled, task.State.Runs[new RunId("R1")].Status);
     }
 
     private static TestTask Prepare(out WorkItemId workItemId)

@@ -531,6 +531,21 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("Only an active run can transition to a terminal status.");
         }
 
+        // Mirrors CommandHandler.EnsureLauncherAuthorizedCompletion. The launcher's secret is
+        // deliberately absent from the log, so replay checks the shape rather than the secret: a
+        // launcher-managed run is either closed with launcher authority, or closed by an operator
+        // as a failure.
+        if (run.LaunchTokenHash is not null && !completed.LauncherAuthorized)
+        {
+            if (completed.Status is not (AgentRunStatus.Failed or AgentRunStatus.Cancelled))
+            {
+                throw new GovernanceException(
+                    "A launcher-managed run can only reach a successful terminal status through its launcher.");
+            }
+
+            RequireAuthority(state, @event.ActorId, Capability.ManageRuns, operatorRequired: true);
+        }
+
         // Mirrors CommandHandler.CompleteRun: a completed run must stay resumable.
         if (completed.Status is AgentRunStatus.Completed && completed.ProviderSessionId is null)
         {
