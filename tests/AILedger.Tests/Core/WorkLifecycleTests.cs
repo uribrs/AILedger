@@ -31,6 +31,7 @@ public sealed class WorkLifecycleTests
         // A provider exiting zero is a finished process, not finished work.
         Assert.Equal(WorkItemStatus.Paused, task.State.WorkItems[workItemId].Status);
 
+        task.RecordVerifierPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
@@ -48,6 +49,7 @@ public sealed class WorkLifecycleTests
 
         task.Apply(new ResolveEscalationCommand(
             task.OperatorId, null, task.NextCorrelation(), new EscalationId("X1"), EscalationStatus.Resolved, "a"));
+        task.RecordRequiredRuns(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
 
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
@@ -111,9 +113,10 @@ public sealed class WorkLifecycleTests
         Assert.Equal(WorkItemStatus.Paused, workItem.Status);
         Assert.Null(workItem.BlockReason);
 
-        // The exit is real: the item takes a run and then completes.
+        // The exit is real: the item takes a run, is verified, and then completes.
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
         task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1"));
+        task.RecordVerifierPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }

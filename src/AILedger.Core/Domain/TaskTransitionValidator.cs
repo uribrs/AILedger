@@ -81,6 +81,9 @@ internal static class TaskTransitionValidator
             case WorkItemUnblocked unblocked:
                 ValidateWorkItemUnblocked(Require(state), @event, unblocked);
                 break;
+            case WorkItemAbandoned abandoned:
+                ValidateWorkItemAbandoned(Require(state), @event, abandoned);
+                break;
             case ClaimDependenciesRepointed repointed:
                 ValidateClaimDependenciesRepointed(Require(state), @event, repointed);
                 break;
@@ -436,6 +439,16 @@ internal static class TaskTransitionValidator
         // unreadable: work items recorded before the rule existed held overlapping areas legally,
         // and re-validating their creation events failed. Command-time rules may tighten over time;
         // replay-time rules may not.
+        //
+        // For the same reason, replay does not require a multi-area item to carry a
+        // NotSplitJustification. That rule keys on the ABSENCE of one, and W10 in the live ledger
+        // holds two areas with none — it was recorded before the rule existed. Requiring it here
+        // would reject that event and destroy the log. Only the shape below is checked, because it
+        // keys on the field being PRESENT, which no older event can be.
+        if (workItem.NotSplitJustification is { } justificationId)
+        {
+            _ = Get(state.Alternatives, justificationId, "alternative");
+        }
 
         if (workItem.Owner is { } owner && !state.Roles.ContainsKey(owner))
         {
@@ -482,10 +495,32 @@ internal static class TaskTransitionValidator
         RequireId(run.Id.Value, nameof(run.Id));
         RequireText(run.Provider, nameof(run.Provider));
         RequireDefined(run.Status, nameof(run.Status));
-        if (run.ActorId != @event.ActorId || run.Status != AgentRunStatus.Active ||
+        // Checked only when present, because null is the legitimate shape of every run recorded
+        // before SubjectRole existed. An undefined member is a different matter: it reaches state
+        // and renders as its raw number, so a forged role has to fail here.
+        if (run.SubjectRole is { } subjectRole)
+        {
+            RequireDefined(subjectRole, nameof(run.SubjectRole));
+        }
+
+        // Mirrors CommandHandler.StartRun. LaunchedBy is set only when an operator dispatched the
+        // run for another actor, so a run recorded before dispatch existed carries null here and
+        // this reads exactly as it always did: the run belongs to the event actor. Replay accepts
+        // every history that was ever legal; the new rule can only bite on the new shape.
+        var dispatcherActorId = run.LaunchedBy ?? run.ActorId;
+        if (dispatcherActorId != @event.ActorId || run.Status != AgentRunStatus.Active ||
             run.StartedAt != @event.RecordedAt || run.EndedAt is not null)
         {
-            throw new GovernanceException("A started run must belong to the event actor and begin active at the event timestamp.");
+            throw new GovernanceException(
+                "A started run must be authorised by the event actor and begin active at the event timestamp.");
+        }
+
+        if (run.LaunchedBy is not null)
+        {
+            RequireAuthority(state, @event.ActorId, Capability.ManageRuns, operatorRequired: true);
+            // The subject does the work and owns the run's provenance, so it must be a real actor
+            // in this task. It deliberately needs no run authority of its own.
+            Get(state.Roles, run.ActorId, "actor role");
         }
 
         if (run.WorkItemId is not { } workItemId)
@@ -500,7 +535,11 @@ internal static class TaskTransitionValidator
             throw new GovernanceException($"Only work owner '{owner}' or an operator can start work item '{workItem.Id}'.");
         }
 
-        if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Completed)
+        // Mirrors CommandHandler.StartRun. Adding Abandoned tightens replay, which is normally the
+        // forbidden direction — it is safe only because the status cannot exist in any history
+        // written before work.abandoned did, so no log that was legal when written now fails.
+        if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or
+            WorkItemStatus.Completed or WorkItemStatus.Abandoned)
         {
             throw new GovernanceException($"Cannot start a run for work item in status '{workItem.Status}'.");
         }
@@ -510,6 +549,12 @@ internal static class TaskTransitionValidator
         {
             throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
         }
+
+        // The rule that a code reviewer only starts after a verifier run that ended after the
+        // latest working run is likewise command-time only. It reads SubjectRole on every run
+        // involved, and SubjectRole is null on every run recorded before that field existed, so
+        // replay cannot tell an out-of-order review from an ordinary old run — and must not guess.
+        // Nothing here may require SubjectRole to be present.
     }
 
     private static void ValidateRunCompleted(
@@ -546,12 +591,14 @@ internal static class TaskTransitionValidator
             RequireAuthority(state, @event.ActorId, Capability.ManageRuns, operatorRequired: true);
         }
 
-        // Mirrors CommandHandler.CompleteRun: a completed run must stay resumable.
-        if (completed.Status is AgentRunStatus.Completed && completed.ProviderSessionId is null)
-        {
-            throw new GovernanceException(
-                "A run recorded as completed must carry a provider session identity.");
-        }
+        // "A completed run must stay resumable" is deliberately NOT checked here. Replay must
+        // accept every history that was ever legal, and runs completed before that rule existed
+        // carry no session identity. Enforcing it here made a live task permanently unreadable —
+        // for the second time, after the same mistake with scope occupancy. The distinction is
+        // the same one every time: command-time rules may tighten, replay-time rules may not.
+        //
+        // The launcher-authority check above is safe by construction rather than by exemption:
+        // it only applies when the run carries a LaunchTokenHash, which no pre-rule run does.
 
         if (completed.EndedAt != @event.RecordedAt || completed.EndedAt < run.StartedAt)
         {
@@ -740,6 +787,15 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("Work item is already completed.");
         }
 
+        // Mirrors CommandHandler.CompleteWorkItem, including its separation from the repair
+        // refusal below: an abandoned item is not damaged, so "repair it first" would misdescribe
+        // it. Safe by construction — no history predating work.abandoned carries this status.
+        if (workItem.Status is WorkItemStatus.Abandoned)
+        {
+            throw new GovernanceException(
+                "An abandoned work item cannot be completed. Add a new work item instead of reviving this one.");
+        }
+
         if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale)
         {
             throw new GovernanceException(
@@ -758,6 +814,40 @@ internal static class TaskTransitionValidator
         {
             throw new GovernanceException("Work item cannot be completed while an escalation on it is open.");
         }
+
+        // Mirrors the two waiver rules in CommandHandler.CompleteWorkItem. Both key on the PRESENCE
+        // of WithoutVerificationReason, which is null on every event recorded before the field
+        // existed, so neither can bite on a history that was legal when it was written. This is
+        // deliberately not "a completion must carry a waiver": it only constrains the waiver when
+        // one is there.
+        if (completed.WithoutVerificationReason is { } waiver)
+        {
+            if (string.IsNullOrWhiteSpace(waiver))
+            {
+                throw new GovernanceException(
+                    "Waiving the required runs needs a reason; a blank waiver records nothing.");
+            }
+
+            if (!IsOperator(state, @event.ActorId))
+            {
+                throw new GovernanceException("Only an operator can complete work without the required runs.");
+            }
+        }
+
+        // Neither required run — the verifier's, nor a working role's — is checked here, and nor is
+        // the order they ran in. Every work item already completed in this ledger was completed
+        // with no run of any kind, so enforcing any of it at replay would reject a history that was
+        // legal when it was written and make those tasks unreadable. The ordering rule is doubly
+        // unenforceable here: it compares EndedAt against the latest working run, and an old run
+        // carries no SubjectRole, so replay cannot tell which runs were working runs at all. This is the third time the same distinction has had to be drawn, after
+        // scope occupancy and run session identity: command-time rules may tighten, replay-time
+        // rules may not.
+        //
+        // Unlike those two, the rule cannot be made safe by construction: it keys on the ABSENCE of
+        // a run, and absence is exactly what every old history has. What replay does check is the
+        // waiver above — that a reason is there and that an operator recorded it — because that
+        // keys on the PRESENCE of a new field. Whether anyone ever worked or verified the item is
+        // still never re-derived here: the event records what an operator decided, replay accepts it.
     }
 
     private static void ValidateWorkItemBlocked(
@@ -768,9 +858,18 @@ internal static class TaskTransitionValidator
         RequireAuthority(state, @event.ActorId, Capability.ManageWork);
         var workItem = Get(state.WorkItems, blocked.WorkItemId, "work item");
         RequireText(blocked.Reason, nameof(blocked.Reason));
-        if (workItem.Status is WorkItemStatus.Completed)
+        // Mirrors CommandHandler.BlockWorkItem: Blocked is a live status holding the item's area,
+        // so a released item must not re-enter it. Abandoned is safe by construction — no history
+        // predating work.abandoned carries that status.
+        //
+        // Stale is deliberately NOT included here, and this is the one place the two copies of the
+        // rule differ. BlockWorkItem refused only Completed for the whole of this kernel's life, so
+        // an operator blocking a stale item was legal, and some log somewhere records one. Adding
+        // Stale here would reject that event and lose the task. Unlike Abandoned, this status is
+        // old, so the tightening is not safe by construction and stays command-time only.
+        if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Abandoned)
         {
-            throw new GovernanceException("A completed work item cannot be blocked.");
+            throw new GovernanceException("A completed or abandoned work item cannot be blocked.");
         }
 
         if (blocked.EscalationId is { } escalationId)
@@ -803,6 +902,38 @@ internal static class TaskTransitionValidator
             throw new GovernanceException(
                 "A work item depending on a rejected or superseded claim cannot be unblocked.");
         }
+    }
+
+    private static void ValidateWorkItemAbandoned(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        WorkItemAbandoned abandoned)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.ManageWork, operatorRequired: true);
+        var workItem = Get(state.WorkItems, abandoned.WorkItemId, "work item");
+        RequireText(abandoned.Reason, nameof(abandoned.Reason));
+        // Mirrors CommandHandler.AbandonWorkItem, Stale included. Every rule on this event is safe
+        // at replay whatever it keys on, because the event type itself is new: no history contains
+        // a work.abandoned at all, so none can be rejected by tightening its rules.
+        if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Stale)
+        {
+            throw new GovernanceException("A completed or stale work item cannot be abandoned.");
+        }
+
+        // Abandoning is terminal in the same way completing is, so a second abandonment is refused
+        // rather than tolerated as idempotent.
+        if (workItem.Status is WorkItemStatus.Abandoned)
+        {
+            throw new GovernanceException("Work item is already abandoned.");
+        }
+
+        // Two command-time refusals are deliberately not repeated here: while a run on the item is
+        // active, and while an escalation on it is open. Both are coordination rules about what may
+        // happen next, like scope occupancy, rather than structural facts about the event. Both
+        // could be enforced here safely — the event type is new — but this method deliberately
+        // validates only the shape of the record, and adding one of the two and not the other would
+        // be the arbitrary choice. ValidateWorkItemCompleted does check its equivalents, because
+        // those rules predate it and every completion in every log already satisfies them.
     }
 
     private static void ValidateClaimDependenciesRepointed(

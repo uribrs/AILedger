@@ -84,7 +84,10 @@ public sealed class ClaimSupersessionTests
         var doneId = new WorkItemId("W-done");
         task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), doneId,
             "Already finished", task.OperatorId, [new ClaimId("C1")], [Path.GetFullPath("src")]));
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), doneId));
+        // Completion is only scaffolding here — the subject is what refinement does to a terminal
+        // dependent — so the operator waives the verifier pass instead of staging one.
+        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), doneId,
+            "This test is about claim refinement, not verification"));
         task.Apply(new ResolveClaimCommand(task.OperatorId, null, task.NextCorrelation(),
             new ClaimId("C2"), ClaimStatus.Validated, [new EvidenceId("E2")]));
 

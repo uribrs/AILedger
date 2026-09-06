@@ -37,4 +37,38 @@ internal sealed class TestTask
             actorId,
             role,
             capabilities));
+
+    // A work item can no longer be completed until a verifier has passed over it. Tests that pin
+    // some other rule still have to get past that gate, so they record the pass the way the kernel
+    // does: an operator dispatches a run to an actor holding the verifier role, and closes it.
+    public RunId RecordVerifierPass(WorkItemId workItemId, string runId = "RV") =>
+        RecordPass(workItemId, runId, new ActorId("verifier"), RoleKind.Verifier);
+
+    // Completion also requires a completed run by a role that does the work, so an item nobody ever
+    // worked on cannot be declared finished. Staged the same way, under a worker.
+    public RunId RecordWorkingPass(WorkItemId workItemId, string runId = "RW") =>
+        RecordPass(workItemId, runId, new ActorId("worker"), RoleKind.Worker);
+
+    // Both runs a completion needs. Tests whose subject is some other rule call this and stop
+    // caring how many gates completion has grown; only the tests that pin a gate stage one alone.
+    public void RecordRequiredRuns(WorkItemId workItemId)
+    {
+        RecordWorkingPass(workItemId);
+        RecordVerifierPass(workItemId);
+    }
+
+    private RunId RecordPass(WorkItemId workItemId, string runId, ActorId subject, RoleKind role)
+    {
+        if (!State.Roles.ContainsKey(subject))
+        {
+            Assign(subject, role, Capability.BuildContext);
+        }
+
+        var run = new RunId(runId);
+        Apply(new StartRunCommand(
+            OperatorId, null, NextCorrelation(), run, workItemId, "codex", null, null, null, null, subject));
+        Apply(new CompleteRunCommand(
+            OperatorId, null, NextCorrelation(), run, AgentRunStatus.Completed, $"session-{runId}"));
+        return run;
+    }
 }

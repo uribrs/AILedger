@@ -99,7 +99,10 @@ public enum WorkItemStatus
     Paused,
     Blocked,
     Stale,
-    Completed
+    Completed,
+    // Work is released as well as finished. A dead end that can never be completed used to hold its
+    // directory area forever, so nothing else could claim it.
+    Abandoned
 }
 
 public enum AgentRunStatus
@@ -171,7 +174,11 @@ public sealed record WorkItem(
     WorkItemStatus Status,
     IReadOnlyList<ClaimId> DependsOnClaims,
     IReadOnlyList<string> ResourceScope,
-    string? BlockReason = null);
+    string? BlockReason = null,
+    string? AbandonReason = null,
+    // Carried onto the item so the justification for holding several areas lands in the log. Kept
+    // only on the command, the decision the kernel demanded would be checked and then thrown away.
+    AlternativeId? NotSplitJustification = null);
 
 public sealed record Escalation(
     EscalationId Id,
@@ -217,4 +224,12 @@ public sealed record AgentRun(
     // A run launched by the kernel is closed by the launcher, not by the agent inside it. The
     // launcher holds a secret for the run's lifetime and only its hash is recorded, so the agent
     // — which shares the run's actor identity — cannot authorise its own completion.
-    string? LaunchTokenHash = null);
+    string? LaunchTokenHash = null,
+    // Who authorised this run, when that is not the actor doing the work. A role that must not hold
+    // run authority — verifier, code reviewer — can only run if someone else dispatches for it, and
+    // the ledger has to say who. Null is the ordinary case: the actor started its own run.
+    ActorId? LaunchedBy = null,
+    // The role the subject held when the run started. A role assignment can change afterwards, so
+    // asking "was this work verified" of the current assignment answers a different question than
+    // the one being asked. Null on every run recorded before this field existed.
+    RoleKind? SubjectRole = null);

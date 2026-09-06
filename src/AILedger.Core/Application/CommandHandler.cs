@@ -85,6 +85,7 @@ public sealed class CommandHandler : ICommandHandler
             CompleteWorkItemCommand complete => CompleteWorkItem(state, complete),
             BlockWorkItemCommand block => BlockWorkItem(state, block),
             UnblockWorkItemCommand unblock => UnblockWorkItem(state, unblock),
+            AbandonWorkItemCommand abandon => AbandonWorkItem(state, abandon),
             _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
         };
     }
@@ -456,7 +457,8 @@ public sealed class CommandHandler : ICommandHandler
             case "work" or "workitem" or "work-item":
             {
                 var workItem = Get(state.WorkItems, new WorkItemId(targetId), "work item");
-                if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Completed)
+                if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or
+                    WorkItemStatus.Completed or WorkItemStatus.Abandoned)
                 {
                     throw new GovernanceException(
                         $"Work item '{workItem.Id}' is already '{workItem.Status}'; supporting this challenge would change nothing.");
@@ -504,6 +506,21 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Resource scope entries must be absolute paths.");
         }
 
+        // Two disjoint areas in one work item is one agent holding what two could have held. The
+        // kernel cannot judge whether the split was right — that needs to know the work — but it can
+        // refuse to let the choice not to split go unrecorded and unattributed.
+        if (command.ResourceScope.Count > 1)
+        {
+            if (command.NotSplitJustification is not { } justificationId)
+            {
+                throw new GovernanceException(
+                    $"Work item '{command.WorkItemId}' claims more than one area. Record why they were not " +
+                    "split into separate work items, and name that alternative.");
+            }
+
+            _ = Get(state.Alternatives, justificationId, "alternative");
+        }
+
         EnsureScopeIsNotAlreadyOccupied(state, command.WorkItemId, command.ResourceScope);
 
         if (command.Owner is { } owner && !state.Roles.ContainsKey(owner))
@@ -517,7 +534,8 @@ public sealed class CommandHandler : ICommandHandler
             command.Owner,
             WorkItemStatus.Proposed,
             command.DependsOnClaims.ToArray(),
-            command.ResourceScope.Select(item => item.Trim()).ToArray());
+            command.ResourceScope.Select(item => item.Trim()).ToArray(),
+            NotSplitJustification: command.NotSplitJustification);
         return [new WorkItemAdded(workItem)];
     }
 
@@ -530,12 +548,41 @@ public sealed class CommandHandler : ICommandHandler
         EnsureNew(state.Runs, command.RunId, "run");
         RequireText(command.Provider, nameof(command.Provider));
 
+        // A run is authorised by one actor and worked by another only when an operator dispatches
+        // it. Starting the run under the working actor is what made the roles that hold no run
+        // authority — researcher, worker, verifier, code reviewer — impossible to launch at all.
+        // Dispatch separates the two without handing those roles authority they must not have.
+        var subjectActorId = command.SubjectActorId ?? command.ActorId;
+        ActorId? launchedBy = subjectActorId == command.ActorId ? null : command.ActorId;
+        if (launchedBy is not null)
+        {
+            if (!IsOperator(state, command.ActorId))
+            {
+                throw new GovernanceException(
+                    $"Only an operator can start a run on another actor's behalf; '{command.ActorId}' cannot " +
+                    $"dispatch for '{subjectActorId}'.");
+            }
+
+            if (!state.Roles.ContainsKey(subjectActorId))
+            {
+                throw new GovernanceException($"Run subject '{subjectActorId}' has no assigned role.");
+            }
+        }
+
+        // Which role the subject holds now, recorded on the run. Role assignments change, so asking
+        // the current assignment whether a past run was a verifier's answers a different question.
+        var subjectRole = state.Roles[subjectActorId].Role;
+
         if (command.WorkItemId is { } workItemId)
         {
             var workItem = Get(state.WorkItems, workItemId, "work item");
             EnsureCanStartWork(state, command.ActorId, workItem);
             EnsureDependenciesAreCurrent(state, workItem.DependsOnClaims);
-            if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Completed)
+            // Abandoned belongs here for the same reason Completed does, and for one more: starting
+            // a run moves the item to Active, which would take back a directory area that has
+            // already been handed to another work item.
+            if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or
+                WorkItemStatus.Completed or WorkItemStatus.Abandoned)
             {
                 throw new GovernanceException($"Cannot start a run for work item in status '{workItem.Status}'.");
             }
@@ -546,11 +593,23 @@ public sealed class CommandHandler : ICommandHandler
             {
                 throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
             }
+
+            // A code reviewer reading unverified work reviews something nobody has established
+            // is finished, and its findings then compete with the verifier's instead of following
+            // them. The ordering is the whole point of having two passes, so a verifier run that
+            // ended before the latest work does not open the gate either — it read a different,
+            // earlier work item than the one the reviewer would be looking at.
+            if (subjectRole == RoleKind.CodeReviewer && !HasVerifierRunAfterLatestWork(state, workItemId))
+            {
+                throw new GovernanceException(
+                    $"A code reviewer can only start on work item '{workItemId}' after a verifier run has " +
+                    "completed against the latest work done on it.");
+            }
         }
 
         var run = new AgentRun(
             command.RunId,
-            command.ActorId,
+            subjectActorId,
             command.WorkItemId,
             command.Provider.Trim(),
             TrimOrNull(command.ProviderSessionId),
@@ -559,7 +618,9 @@ public sealed class CommandHandler : ICommandHandler
             null,
             TrimOrNull(command.Model),
             TrimOrNull(command.ProviderVersion),
-            TrimOrNull(command.LaunchTokenHash));
+            TrimOrNull(command.LaunchTokenHash),
+            launchedBy,
+            subjectRole);
         return [new RunStarted(run)];
     }
 
@@ -848,6 +909,14 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Work item is already completed.");
         }
 
+        // Kept out of the "repair it first" refusal below: an abandoned item is not damaged and
+        // there is nothing to repair. It was given up, and giving up is as terminal as finishing.
+        if (workItem.Status is WorkItemStatus.Abandoned)
+        {
+            throw new GovernanceException(
+                "An abandoned work item cannot be completed. Add a new work item instead of reviving this one.");
+        }
+
         if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale)
         {
             throw new GovernanceException(
@@ -866,7 +935,95 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Work item cannot be completed while an escalation on it is open.");
         }
 
-        return [new WorkItemCompleted(command.WorkItemId)];
+        // The actor that did the work asserting the work is done is the same actor grading its own
+        // homework, and a provider exiting zero says nothing either. Something adversarial has to
+        // have looked at it. An operator may still overrule that, but only on the record.
+        var waiver = TrimOrNull(command.WithoutVerificationReason);
+        if (command.WithoutVerificationReason is not null && waiver is null)
+        {
+            throw new GovernanceException(
+                "Waiving the required runs needs a reason; a blank waiver records nothing.");
+        }
+
+        if (waiver is null)
+        {
+            // A work item completed with no run at all means the kernel never saw who did the work,
+            // or whether anyone did. Every work item completed in this task so far is that shape,
+            // which is exactly how the gap went unnoticed for as long as it did.
+            if (!HasCompletedWorkingRun(state, command.WorkItemId))
+            {
+                throw new GovernanceException(
+                    $"Work item '{command.WorkItemId}' has no completed run by a working role and cannot be " +
+                    "completed. An operator may complete it without one by recording why.");
+            }
+
+            if (!HasCompletedVerifierRun(state, command.WorkItemId))
+            {
+                throw new GovernanceException(
+                    $"Work item '{command.WorkItemId}' has no completed verifier run and cannot be completed. " +
+                    "An operator may complete it without one by recording why.");
+            }
+
+            // Separate from the check above so the refusal says which of the two failed. Having
+            // been verified at some point and having been verified as finished are different
+            // claims, and only the second one is worth anything.
+            if (!HasVerifierRunAfterLatestWork(state, command.WorkItemId))
+            {
+                throw new GovernanceException(
+                    $"Work item '{command.WorkItemId}' was verified before its latest working run finished, " +
+                    "so no verifier run has seen the finished work. Verify it again, or an operator may " +
+                    "complete it without doing so by recording why.");
+            }
+        }
+        else if (!IsOperator(state, command.ActorId))
+        {
+            throw new GovernanceException("Only an operator can complete work without the required runs.");
+        }
+
+        return [new WorkItemCompleted(command.WorkItemId, waiver)];
+    }
+
+    // Work is released as well as finished. An item that turned out to be a dead end could not be
+    // completed and could not be given up either, so it held its directory area against everyone
+    // else for the rest of the task.
+    private static IReadOnlyList<LedgerEventData> AbandonWorkItem(
+        GovernedTaskState state,
+        AbandonWorkItemCommand command)
+    {
+        var workItem = Get(state.WorkItems, command.WorkItemId, "work item");
+        RequireText(command.Reason, nameof(command.Reason));
+        // Stale is here for a reason of its own: an already abandoned item that a later claim
+        // rejection moved to Stale could be abandoned a second time, and the second reason
+        // overwrote the first. The record of why an area was given up is the only thing left of
+        // the work, so nothing may quietly replace it.
+        if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Stale)
+        {
+            throw new GovernanceException("A completed or stale work item cannot be abandoned.");
+        }
+
+        if (workItem.Status is WorkItemStatus.Abandoned)
+        {
+            throw new GovernanceException("Work item is already abandoned.");
+        }
+
+        // Same reason completion waits for the run to close: releasing the area under a live agent
+        // would hand it to a second one while the first is still writing in it.
+        if (HasOpenRun(state, command.WorkItemId))
+        {
+            throw new GovernanceException("Work item cannot be abandoned while a run is still active.");
+        }
+
+        // Abandoning is as terminal as completing, so it carries completion's escalation rule too.
+        // An open escalation against an item nobody will ever work on is a question the log says is
+        // still live and that nothing will ever answer: archive checks only active runs and open
+        // challenges, so it would sit there forever. The operator holds both commands, and
+        // withdrawing the escalation first says out loud that the question stopped mattering.
+        if (HasOpenEscalation(state, command.WorkItemId))
+        {
+            throw new GovernanceException("Work item cannot be abandoned while an escalation on it is open.");
+        }
+
+        return [new WorkItemAbandoned(command.WorkItemId, command.Reason.Trim())];
     }
 
     private static IReadOnlyList<LedgerEventData> BlockWorkItem(
@@ -875,9 +1032,15 @@ public sealed class CommandHandler : ICommandHandler
     {
         var workItem = Get(state.WorkItems, command.WorkItemId, "work item");
         RequireText(command.Reason, nameof(command.Reason));
-        if (workItem.Status is WorkItemStatus.Completed)
+        // Blocked is a live status that holds the item's area, so blocking a released item takes
+        // that area back from whoever has since been given it. Stale belongs here with the other
+        // two: it was the way back in, because a rejected claim moves a Completed or Abandoned item
+        // to Stale and blocking it from there revived it on top of its successor. Refusing it also
+        // fixes an older trap — a stale item that got blocked could never be unblocked, since
+        // UnblockWorkItem refuses an item whose claim is rejected, so it held its area forever.
+        if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale)
         {
-            throw new GovernanceException("A completed work item cannot be blocked.");
+            throw new GovernanceException("A completed, abandoned or stale work item cannot be blocked.");
         }
 
         if (command.EscalationId is { } escalationId)
@@ -919,6 +1082,49 @@ public sealed class CommandHandler : ICommandHandler
     private static bool HasOpenRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active);
+
+    // Every role that is not judging the work is doing it. Naming the two judging roles rather than
+    // listing the working ones means a role added later counts as work by default, which is the
+    // safe direction: a new role failing to satisfy this would block completion for no good reason.
+    // A null SubjectRole does not count — it predates the field, so the kernel did not see the role
+    // and cannot now claim it did.
+    private static bool HasCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
+        state.Runs.Values.Any(run =>
+            run.WorkItemId == workItemId &&
+            run.Status is AgentRunStatus.Completed &&
+            run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer));
+
+    // The run has to have reached Completed, not merely ended: a verifier whose run failed or was
+    // cancelled looked at nothing, and reading the actor's present role instead of the role the run
+    // recorded would let a later re-assignment turn any old run into a verification.
+    private static bool HasCompletedVerifierRun(GovernedTaskState state, WorkItemId workItemId) =>
+        state.Runs.Values.Any(run =>
+            run.WorkItemId == workItemId &&
+            run.Status is AgentRunStatus.Completed &&
+            run.SubjectRole is RoleKind.Verifier);
+
+    // The LATEST completed working run, not the earliest. Work done after a verification was not
+    // covered by it, so the verifier has to have finished after the last thing it was meant to
+    // check. Comparing against the earliest would let an agent verify, keep working, and complete.
+    private static DateTimeOffset? LatestCompletedWorkingRunEnd(GovernedTaskState state, WorkItemId workItemId) =>
+        state.Runs.Values
+            .Where(run => run.WorkItemId == workItemId &&
+                          run.Status is AgentRunStatus.Completed &&
+                          run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer))
+            .Max(run => run.EndedAt);
+
+    // Existence was never the question the gate meant to ask. A verifier run that ended before the
+    // work did read an unfinished work item and proves nothing about the finished one. Equal
+    // timestamps pass, matching how run completion already compares EndedAt against StartedAt.
+    private static bool HasVerifierRunAfterLatestWork(GovernedTaskState state, WorkItemId workItemId)
+    {
+        var workedAt = LatestCompletedWorkingRunEnd(state, workItemId);
+        return state.Runs.Values.Any(run =>
+            run.WorkItemId == workItemId &&
+            run.Status is AgentRunStatus.Completed &&
+            run.SubjectRole is RoleKind.Verifier &&
+            (workedAt is null || run.EndedAt >= workedAt));
+    }
 
     private static bool HasOpenEscalation(GovernedTaskState state, WorkItemId workItemId) =>
         state.Escalations.Values.Any(escalation =>
@@ -1048,7 +1254,12 @@ public sealed class CommandHandler : ICommandHandler
     {
         foreach (var existing in state.WorkItems.Values
                      .Where(item => item.Id != workItemId)
-                     .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale))
+                     // Which statuses release an area is this rule written twice: the second copy is
+                     // the `occupied` query in CliApplication.WriteWhoAsync. They must change
+                     // together. Apart, `who` shows an operator an area as taken that `work add`
+                     // hands to someone else in the next command, or the reverse.
+                     .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale
+                         or WorkItemStatus.Abandoned))
                      .OrderBy(item => item.Id.Value, StringComparer.Ordinal))
         {
             foreach (var held in existing.ResourceScope)

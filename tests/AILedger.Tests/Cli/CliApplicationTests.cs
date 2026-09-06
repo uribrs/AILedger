@@ -323,9 +323,19 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
 
+        // A work item claiming two areas now has to name the alternative explaining why it was not
+        // split in two. That is a separate rule; this test is still about the parser accepting a
+        // repeated option, so the alternative is recorded and the two --scope values stay.
+        await application.RunAsync(
+            ["alternative", "record", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--id", "ALT1", "--statement", "Split the two areas into separate work items",
+             "--rejected-because", "The two areas only ever change together"],
+            CancellationToken.None);
+
         var exit = await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
-             "--id", "W1", "--title", "Work", "--scope", firstScope, "--scope", secondScope],
+             "--id", "W1", "--title", "Work", "--scope", firstScope, "--scope", secondScope,
+             "--not-split-because", "ALT1"],
             CancellationToken.None);
 
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
@@ -663,6 +673,559 @@ public sealed class CliApplicationTests
         Assert.Equal(started.CorrelationId, completed.CorrelationId);
         Assert.Equal(started.EventId, completed.CausationId);
         Assert.NotEqual(events[0].CorrelationId, started.CorrelationId);
+    }
+
+    // A code reviewer holds no run authority, so before dispatch existed it could not be launched
+    // at all. The operator authorises the run; the reviewer receives it, and receives a manifest
+    // filtered by its own role rather than the operator's.
+    [Fact]
+    public async Task OperatorDispatchesACodeReviewerAndTheManifestStaysTheReviewers()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var capture = new CapturingAdapter();
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--actor", "operator", "--target", "reviewer",
+             "--role", "code-reviewer"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--actor", "operator", "--id", "W1", "--title", "Review it",
+             "--owner", "operator", "--scope", work], CancellationToken.None);
+        // An open escalation carries the team's recommendation, so a blind review must not see it.
+        await application.RunAsync(
+            ["escalation", "raise", .. common, "--actor", "operator", "--id", "X1",
+             "--kind", "business-decision", "--question", "Ship now or harden first?",
+             "--option", "ship", "--option", "harden", "--recommend", "ship"], CancellationToken.None);
+        // A reviewer cannot start on a work item a verifier has not finished with, so the pass is
+        // recorded first. What this test is about begins at the launch below.
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
+             "--role", "verifier"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
+             "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--actor", "operator", "--run", "RV", "--status", "completed",
+             "--session", "verifier-session"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--actor", "operator", "--subject", "reviewer",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var run = state!.Runs[new RunId("R1")];
+        Assert.Equal(0, exit);
+        Assert.Equal(new ActorId("reviewer"), run.ActorId);
+        Assert.Equal(new ActorId("operator"), run.LaunchedBy);
+        Assert.DoesNotContain(Capability.ManageRuns, state.Roles[new ActorId("reviewer")].Capabilities);
+
+        var request = Assert.Single(capture.Requests);
+        Assert.Equal(new ActorId("reviewer"), request.ActorId);
+        var manifest = JsonSerializer.Deserialize<ContextManifest>(
+            request.StandardInput, ManifestJson)!;
+        Assert.Equal(RoleKind.CodeReviewer, manifest.Role);
+        ContextArtifactKind[] forbidden =
+        [
+            ContextArtifactKind.UserRequest,
+            ContextArtifactKind.PromptContract,
+            ContextArtifactKind.OrchestrationPlan,
+            ContextArtifactKind.VerifierOutput,
+            ContextArtifactKind.Escalation
+        ];
+        Assert.DoesNotContain(manifest.Artifacts, artifact => forbidden.Contains(artifact.Kind));
+        Assert.Contains(manifest.Artifacts, artifact =>
+            artifact.Kind == ContextArtifactKind.Skill && artifact.Id.Contains("code-reviewer", StringComparison.Ordinal));
+        Assert.DoesNotContain(manifest.Artifacts, artifact =>
+            artifact.Kind == ContextArtifactKind.Skill && artifact.Id.Contains("workflow-coordinator", StringComparison.Ordinal));
+    }
+
+    // The control for the test above: the same task launched without a subject does carry the open
+    // escalation, so the reviewer's manifest is short because of its role, not because the task is.
+    [Fact]
+    public async Task AnUndispatchedLaunchStillCarriesTheOpenEscalation()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var capture = new CapturingAdapter();
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--actor", "operator", "--id", "W1", "--title", "Review it",
+             "--owner", "operator", "--scope", work], CancellationToken.None);
+        await application.RunAsync(
+            ["escalation", "raise", .. common, "--actor", "operator", "--id", "X1",
+             "--kind", "business-decision", "--question", "Ship now or harden first?",
+             "--option", "ship", "--option", "harden", "--recommend", "ship"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--actor", "operator",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var manifest = JsonSerializer.Deserialize<ContextManifest>(
+            Assert.Single(capture.Requests).StandardInput, ManifestJson)!;
+        Assert.Equal(0, exit);
+        Assert.Contains(manifest.Artifacts, artifact => artifact.Kind == ContextArtifactKind.Escalation);
+    }
+
+    [Fact]
+    public async Task ANonOperatorCannotDispatchAProviderRunForAnotherActor()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var capture = new CapturingAdapter();
+        var error = new StringWriter();
+        var application = new CliApplication(
+            TextWriter.Null, error, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--actor", "operator", "--target", "lead",
+             "--role", "implementation-lead"], CancellationToken.None);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--actor", "operator", "--target", "reviewer",
+             "--role", "code-reviewer"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--actor", "operator", "--id", "W1", "--title", "Work",
+             "--owner", "lead", "--scope", work], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--actor", "lead", "--subject", "reviewer",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.DoesNotContain(new RunId("R1"), state!.Runs.Keys);
+        Assert.Empty(capture.Requests);
+        Assert.Contains("on another actor's behalf", error.ToString(), StringComparison.Ordinal);
+    }
+
+    // Dispatch must not loosen the launcher rule. A dispatched subject shares the run's actor
+    // identity, so it is stopped twice over: a role with no run authority cannot even reach the
+    // command, and a role that has run authority is still refused because it holds no launch token.
+    [Theory]
+    [InlineData("code-reviewer", "lacks capability")]
+    [InlineData("implementation-lead", "closed by that launcher")]
+    public async Task ADispatchedSubjectStillCannotCompleteItsOwnRun(string role, string expectedRefusal)
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => new SelfCompletingAdapter(root.Path),
+            new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--actor", "operator", "--target", "subject", "--role", role],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--actor", "operator", "--id", "W1", "--title", "Do it",
+             "--owner", "operator", "--scope", work], CancellationToken.None);
+        // One of the two roles under test is the code reviewer, which cannot start until a verifier
+        // has finished with the item. The pass is recorded for both so the theory stays symmetric.
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
+             "--role", "verifier"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
+             "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--actor", "operator", "--run", "RV", "--status", "completed",
+             "--session", "verifier-session"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--actor", "operator", "--subject", "subject",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var run = state!.Runs[new RunId("R1")];
+        // The agent's attempt from inside the run was refused; the launcher's close is the one that
+        // landed, and it carries the session identity the agent's attempt would have overwritten.
+        Assert.Equal(0, exit);
+        Assert.Equal(AgentRunStatus.Completed, run.Status);
+        Assert.Equal("session-1", run.ProviderSessionId);
+        Assert.Equal(new ActorId("subject"), run.ActorId);
+        Assert.NotNull(SelfCompletingAdapter.LastAttemptError);
+        Assert.Contains(expectedRefusal, SelfCompletingAdapter.LastAttemptError!, StringComparison.Ordinal);
+    }
+
+    // F2 at the surface the operator actually types. Releasing an area is only useful if the next
+    // work item can take it, so the test asserts the reuse rather than the status alone.
+    [Fact]
+    public async Task WorkAbandonReleasesTheAreaForABetterSplit()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+
+        var abandonExit = await application.RunAsync(
+            ["work", "abandon", .. common, "--id", "W1", "--reason", "The split was wrong"],
+            CancellationToken.None);
+        var reuseExit = await application.RunAsync(
+            ["work", "add", .. common, "--id", "W2", "--title", "Better split", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, abandonExit);
+        Assert.Equal(0, reuseExit);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(WorkItemStatus.Abandoned, state!.WorkItems[new WorkItemId("W1")].Status);
+        Assert.Equal("The split was wrong", state.WorkItems[new WorkItemId("W1")].AbandonReason);
+        Assert.Equal(WorkItemStatus.Proposed, state.WorkItems[new WorkItemId("W2")].Status);
+    }
+
+    // The statuses that release a work item's area are written out twice with no shared predicate:
+    // once in the occupancy check behind `work add`, once in the `who` projection's occupied query.
+    // If the two lists ever drift, `who` calls an area free that `work add` refuses, or — the way
+    // round that costs real work — `who` calls an area held after `work add` has already handed the
+    // same directory to a second agent. Asserting either fact alone still passes while they
+    // disagree, so both are asserted here, in one test, against one abandonment.
+    [Fact]
+    public async Task AbandoningReleasesAnAreaInBothTheWhoProjectionAndTheOccupancyCheck()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var error = new StringWriter();
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await Create(TextWriter.Null, error).RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await Create(TextWriter.Null, error).RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+        // The stored scope is canonicalised — on macOS /var resolves to /private/var — so what is
+        // matched against the projection is what the ledger holds, not what was typed.
+        var added = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var canonicalArea = Assert.Single(added!.WorkItems[new WorkItemId("W1")].ResourceScope);
+
+        var whileHeld = new StringWriter();
+        await Create(whileHeld, error).RunAsync(["who", .. common], CancellationToken.None);
+        await Create(TextWriter.Null, error).RunAsync(
+            ["work", "abandon", .. common, "--id", "W1", "--reason", "The split was wrong"],
+            CancellationToken.None);
+        var afterRelease = new StringWriter();
+        await Create(afterRelease, error).RunAsync(["who", .. common], CancellationToken.None);
+
+        // Only now is the area claimed again, so the projection above was read while it was free.
+        var reuseExit = await Create(TextWriter.Null, error).RunAsync(
+            ["work", "add", .. common, "--id", "W2", "--title", "Better split", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+
+        // The control. Without it, an absence proves nothing: a `who` that never named areas at all
+        // would satisfy the second assertion on its own.
+        Assert.Contains(canonicalArea, whileHeld.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(canonicalArea, afterRelease.ToString(), StringComparison.Ordinal);
+        Assert.Equal(0, reuseExit);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    // The whole defect, end to end, at the surface the operator uses. An abandoned item releases
+    // its area; a second item takes it; then rejecting the claim the first depended on moves it
+    // from Abandoned to Stale — and blocking a stale item used to be accepted, leaving two live
+    // work items holding one directory. The exit code is only half the evidence: the area has to
+    // still read as held by exactly one item, in `who` and in what a third `work add` is told.
+    [Fact]
+    public async Task AnAreaReleasedByAbandonmentIsNotRetakenWhenTheItemGoesStale()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "The API is stable"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
+             "--depends-on", "C1", "--scope", area], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "abandon", .. common, "--id", "W1", "--reason", "The split was wrong"],
+            CancellationToken.None);
+        var reuseExit = await application.RunAsync(
+            ["work", "add", .. common, "--id", "W2", "--title", "Better split", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+
+        // The claim W1 was built on is refuted, which invalidates W1 and moves it to Stale.
+        await application.RunAsync(
+            ["evidence", "add", .. common, "--id", "E1", "--source-type", "probe", "--citation", "cite",
+             "--summary", "refutes C1", "--refutes", "C1"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "resolve", .. common, "--id", "C1", "--status", "rejected", "--evidence", "E1"],
+            CancellationToken.None);
+        var staleState = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var canonicalArea = Assert.Single(staleState!.WorkItems[new WorkItemId("W2")].ResourceScope);
+
+        var blockExit = await application.RunAsync(
+            ["work", "block", .. common, "--id", "W1", "--reason", "Reopening it"], CancellationToken.None);
+        // The other way back in, and the one that would also rewrite the record: abandoning again
+        // would replace the reason the operator actually acted on with a later, different one.
+        var abandonAgainExit = await application.RunAsync(
+            ["work", "abandon", .. common, "--id", "W1", "--reason", "A different reason"],
+            CancellationToken.None);
+
+        var who = new StringWriter();
+        await Create(who, TextWriter.Null).RunAsync(["who", .. common], CancellationToken.None);
+        var thirdAdd = new StringWriter();
+        var thirdExit = await Create(TextWriter.Null, thirdAdd).RunAsync(
+            ["work", "add", .. common, "--id", "W3", "--title", "A third claimant", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, reuseExit);
+        Assert.Equal(1, blockExit);
+        Assert.Equal(1, abandonAgainExit);
+        Assert.Equal("The split was wrong", state!.WorkItems[new WorkItemId("W1")].AbandonReason);
+        Assert.Equal(WorkItemStatus.Stale, state.WorkItems[new WorkItemId("W1")].Status);
+        Assert.Equal(WorkItemStatus.Proposed, state.WorkItems[new WorkItemId("W2")].Status);
+        // One holder, not two: the area is named once in `who`, and the item turned away is told
+        // which single work item holds it.
+        Assert.Equal(1, Occurrences(who.ToString(), canonicalArea));
+        Assert.Equal(1, thirdExit);
+        Assert.Contains("already held by work item 'W2'", thirdAdd.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("'W1'", thirdAdd.ToString(), StringComparison.Ordinal);
+    }
+
+    private static int Occurrences(string text, string value)
+    {
+        var count = 0;
+        for (var index = text.IndexOf(value, StringComparison.Ordinal); index >= 0;
+             index = text.IndexOf(value, index + value.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    // F3b at the operator's surface. The refusal has to arrive as an exit code and a sentence that
+    // says what to do next, because the operator's next move is to write the alternative down.
+    [Fact]
+    public async Task WorkAddRefusesASecondAreaUntilAnAlternativeExplainsTheNonSplit()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var first = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "first")).FullName;
+        var second = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "second")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        var refusedExit = await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Two areas", "--owner", "operator",
+             "--scope", first, "--scope", second], CancellationToken.None);
+
+        await application.RunAsync(
+            ["alternative", "record", .. common, "--id", "ALT1",
+             "--statement", "Split the two areas into separate work items",
+             "--rejected-because", "The two areas only ever change together"], CancellationToken.None);
+        var acceptedExit = await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Two areas", "--owner", "operator",
+             "--scope", first, "--scope", second, "--not-split-because", "ALT1"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, refusedExit);
+        Assert.Contains("more than one area", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(0, acceptedExit);
+        Assert.Equal(new AlternativeId("ALT1"), state!.WorkItems[new WorkItemId("W1")].NotSplitJustification);
+    }
+
+    // F3a at the same surface, and the gate the operator hits first: nothing has run at all.
+    [Fact]
+    public async Task WorkCompleteIsRefusedUntilSomeoneHasActuallyWorkedOnTheItem()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Untouched work", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["work", "complete", .. common, "--id", "W1"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains("no completed run", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(WorkItemStatus.Proposed, state!.WorkItems[new WorkItemId("W1")].Status);
+    }
+
+    // F1 at the same surface: the gate is refused with an exit code and a message the operator can
+    // act on, and the waiver is the only way past it without a verifier.
+    [Fact]
+    public async Task WorkCompleteIsRefusedWithoutAVerifierRunUntilTheOperatorWaivesIt()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Unverifiable work", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+        // The work itself was done, so the refusal below is about the verifier pass and nothing else.
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "start", .. common, "--subject", "worker", "--run", "RW", "--work", "W1",
+             "--provider", "codex", "--session", "worker-session"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--run", "RW", "--status", "completed",
+             "--session", "worker-session"], CancellationToken.None);
+
+        var refusedExit = await application.RunAsync(
+            ["work", "complete", .. common, "--id", "W1"], CancellationToken.None);
+        var waivedExit = await application.RunAsync(
+            ["work", "complete", .. common, "--id", "W1",
+             "--without-verification", "No verifier is attached to this task"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, refusedExit);
+        Assert.Contains("verifier run", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(0, waivedExit);
+        Assert.Equal(WorkItemStatus.Completed, state!.WorkItems[new WorkItemId("W1")].Status);
+    }
+
+    // The path the pipeline is meant to take, driven end to end: an operator dispatches a run to a
+    // verifier, closes it, and only then does the completion go through.
+    [Fact]
+    public async Task AVerifierRunRecordedThroughTheCliUnlocksCompletion()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Verified work", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+        // The work itself was done, so the refusal below is about the verifier pass and nothing else.
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "start", .. common, "--subject", "worker", "--run", "RW", "--work", "W1",
+             "--provider", "codex", "--session", "worker-session"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--run", "RW", "--status", "completed",
+             "--session", "worker-session"], CancellationToken.None);
+
+        await application.RunAsync(
+            ["run", "start", .. common, "--subject", "verifier", "--run", "RV", "--work", "W1",
+             "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--run", "RV", "--status", "completed",
+             "--session", "verifier-session"], CancellationToken.None);
+        var completeExit = await application.RunAsync(
+            ["work", "complete", .. common, "--id", "W1"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, completeExit);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(RoleKind.Verifier, state!.Runs[new RunId("RV")].SubjectRole);
+        Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
+    }
+
+    // The manifest reaches the agent as the CLI wrote it, so it is read back the same way.
+    private static readonly JsonSerializerOptions ManifestJson = LedgerJson.CreateOptions();
+
+    private sealed class CapturingAdapter : IAgentAdapter
+    {
+        public List<AgentLaunchRequest> Requests { get; } = [];
+
+        public string Provider => "codex";
+
+        public Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken) =>
+            Task.FromResult("test");
+
+        public Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new AgentRunResult(
+                request.RunId, Provider, "session-1", AgentRunStatus.Completed,
+                DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1), 0, "done", [], string.Empty,
+                "test", [], false, null));
+        }
+    }
+
+    // Stands in for the live agents that closed their own runs despite being told not to: it tries
+    // the completion from inside the run, using the subject identity it was launched under.
+    private sealed class SelfCompletingAdapter(string ledgerRoot) : IAgentAdapter
+    {
+        public static string? LastAttemptError { get; private set; }
+
+        public string Provider => "codex";
+
+        public Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken) =>
+            Task.FromResult("test");
+
+        public async Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
+        {
+            LastAttemptError = null;
+            try
+            {
+                await Service(ledgerRoot).ExecuteAsync(
+                    request.TaskId,
+                    new CompleteRunCommand(
+                        request.ActorId, null, "agent-inside-run", request.RunId,
+                        AgentRunStatus.Completed, "agent-session"),
+                    cancellationToken);
+            }
+            catch (GovernanceException exception)
+            {
+                LastAttemptError = exception.Message;
+            }
+
+            return new AgentRunResult(
+                request.RunId, Provider, "session-1", AgentRunStatus.Completed,
+                DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1), 0, "done", [], string.Empty,
+                "test", [], false, null);
+        }
     }
 
     private static CliApplication Create(TextWriter output, TextWriter error) => new(

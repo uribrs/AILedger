@@ -22,6 +22,13 @@ public sealed class AuthorizationPolicy
             throw new GovernanceException("Only an operator can define governed resource scope.");
         }
 
+        // Abandoning hands a directory area back for someone else to claim, which is the same
+        // scope decision as handing it out in the first place.
+        if (command is AbandonWorkItemCommand && assignment.Role != RoleKind.Operator)
+        {
+            throw new GovernanceException("Only an operator can abandon governed work.");
+        }
+
         // An escalation exists to reach the operator, so only the operator closes one.
         if (command is ResolveEscalationCommand && assignment.Role != RoleKind.Operator)
         {
@@ -61,7 +68,8 @@ public sealed class AuthorizationPolicy
         ResolveEscalationCommand => [Capability.ResolveEscalation],
         RecordAlternativeCommand => [Capability.RecordAlternative],
         AddConstraintCommand or SupersedeConstraintCommand => [Capability.ManageConstraints],
-        CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand => [Capability.ManageWork],
+        CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand
+            or AbandonWorkItemCommand => [Capability.ManageWork],
         OpenTaskCommand => [],
         _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
     };
