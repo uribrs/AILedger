@@ -42,7 +42,7 @@ dotnet run --project src/AILedger.Cli -- actor attach \
 dotnet run --project src/AILedger.Cli -- status --task demo-1
 ```
 
-By default task workspaces are written under the platform-local application-data directory at `AILedger/tasks`. Use `--root PATH` on every invocation to select another root, and keep the Ledger root outside provider work scopes.
+By default task workspaces are written under the platform-local application-data directory at `AILedger/tasks`. Use `--root PATH` on every invocation to select another root. The Ledger root and every provider-writable directory must be fully disjoint; neither may contain the other.
 
 v0.1 is a cooperative single-user tool: actor IDs are audited attribution, not authenticated identities against other processes running as the same OS account. Each local task is capped at 1,000 events and a 16 MiB event log while persistence uses atomic full-history replacement and replay. See the architecture and operator guides for the exact trust and scaling boundaries.
 
@@ -62,4 +62,4 @@ The original design dossiers remain at the repository root as design inputs. The
 
 ## Verification status
 
-The recorded implementation run reports 98 automated tests passing. Authenticated, non-destructive new-session and exact-session-resume smoke tests passed on 2026-09-05 with Codex CLI `0.150.0-alpha.8` and Claude Code `2.1.261`; these predate the child-environment allowlist and are not evidence for that revised launch path. Other CLI versions remain guarded by runtime capability probes rather than assumed compatible.
+The recorded implementation run reports 155 automated tests passing. After child-environment isolation was introduced, authenticated, non-destructive new-session and exact-session-resume smoke tests passed on 2026-09-05 with Codex CLI `0.150.0-alpha.8` (`CR4`/`CR5`) and Claude Code `2.1.261` (`CL8`/`CL9`). Other CLI versions remain guarded by runtime capability probes rather than assumed compatible.

@@ -8,6 +8,16 @@ internal sealed class CommandLine
 
     public IReadOnlyList<string> Command { get; }
 
+    // One invocation is one logical operation, so every event it emits shares a
+    // correlation ID. Computed once; a provider launch would otherwise correlate
+    // its run.started and run.completed events differently.
+    public string CorrelationId =>
+        _correlationId ??= Optional("correlation") is { } supplied && !string.IsNullOrWhiteSpace(supplied)
+            ? supplied
+            : Guid.NewGuid().ToString("N");
+
+    private string? _correlationId;
+
     public static CommandLine Parse(IReadOnlyList<string> arguments)
     {
         var command = new List<string>();

@@ -16,7 +16,7 @@ Use the CLI through the project:
 dotnet run --project src/AILedger.Cli -- --help
 ```
 
-Examples below omit `--root`. Its default is the platform-local application-data directory under `AILedger/tasks`; when using another root, pass the same `--root PATH` to every command. Keep that root outside every provider work scope.
+Examples below omit `--root`. Its default is the platform-local application-data directory under `AILedger/tasks`; when using another root, pass the same `--root PATH` to every command. Keep that root fully disjoint from every provider work scope: neither may contain the other.
 
 ## Cognitive snapshot and manifest verification
 
@@ -107,6 +107,7 @@ actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capabil
 context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
 claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
 claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
+                   [--superseded-by CLAIM]   (required when --status superseded)
 evidence add       --task ID --actor ID --id ID --source-type TYPE --citation TEXT --summary TEXT
                    [--supports CLAIM] [--refutes CLAIM]
 decision propose   --task ID --actor ID --id ID --statement TEXT --rationale TEXT
@@ -117,6 +118,16 @@ challenge raise    --task ID --actor ID --id ID --target-type TYPE --target-id I
 challenge dispose  --task ID --actor ID --id ID --status supported|rejected|withdrawn
 work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
                    [--depends-on CLAIM] [--scope PATH]
+work complete      --task ID --actor ID --id ID
+work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
+work unblock       --task ID --actor ID --id ID
+escalation raise   --task ID --actor ID --id ID --kind business-decision|true-unknown
+                   --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
+escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
+alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
+                   [--replaced-by DECISION]
+constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
+constraint supersede --task ID --actor ID --id ID
 run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
 run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
 stage transition   --task ID --actor ID --stage STAGE
@@ -126,20 +137,109 @@ provider resume    --task ID --actor ID --run ID --provider codex|claude --sessi
 
 Provider options are `--work ID`, `--executable PATH`, `--working-directory PATH`, `--model NAME`, `--timeout-seconds N`, repeated `--add-dir PATH`, `--cognitive-root PATH`, and `--output-schema VALUE`. Global `--root PATH`, optional `--cause EVENT_ID`, and optional `--correlation ID` may appear with commands. Enum values are case-insensitive and accept hyphenated forms such as `planning-lead`.
 
+Blocking is reversible, invalidation is not:
+
+```bash
+dotnet run --project src/AILedger.Cli -- work block \
+  --task task-123 --actor operator --id W1 --reason "Waiting on X1" --escalation X1
+
+dotnet run --project src/AILedger.Cli -- work unblock \
+  --task task-123 --actor operator --id W1
+```
+
+`work unblock` returns a blocked item to `Paused` and clears its reason. It is refused when the item
+depends on a claim that is now rejected or superseded: a rejected claim is terminal, so the repair for
+invalidated work is a replacement work item on a current claim, not clearing the block.
+
+## Superseding a claim
+
+A supersession must name its replacement, and the kernel decides what happens to dependent work from
+state — never from a flag you or an agent sets:
+
+```bash
+dotnet run --project src/AILedger.Cli -- claim resolve \
+  --task task-123 --actor codex-plan --id C1 --status superseded --superseded-by C2
+```
+
+- **Refinement** — the replacement is already `validated` and no evidence refutes the original.
+  Dependent decisions and work items are re-pointed at the replacement and keep running.
+- **Correction** — anything else. Dependents invalidate exactly as they would on a rejection.
+
+The refinement path is the one that has to be earned, because the actor superseding a claim is
+usually an agent. To take it, validate the replacement first. If something on record refutes the
+original claim, it is a correction whatever else is true.
+
+## Supporting a challenge
+
+`challenge dispose --status supported` now causes a state change chosen by the challenge's target:
+
+| Target | Consequence |
+|---|---|
+| `decision` | The decision is overturned and becomes `Invalidated`. |
+| `work` | The work item is blocked, with a reason naming the challenge. |
+| `claim` | The claim is rejected using the challenge's own evidence, and its dependents invalidate. |
+
+No challenge can be supported without evidence, whatever its target. A claim challenge additionally
+requires **every** piece of its evidence to refute that claim — direction is only checkable for claims,
+because the model records `supports`/`refutes` against claims and nothing else. Supporting a challenge
+is not a second, unevidenced route to overturning anything. A challenge whose consequence
+has already happened is refused rather than silently doing nothing. Supporting a challenge also
+requires the capability its consequence needs, not merely `DisposeChallenge`.
+
+## Escalations, alternatives, and constraints
+
+Only two things should ever reach the operator, and the kernel refuses anything that is neither.
+
+- `--kind business-decision` is a tradeoff with no technically correct answer. It requires at least
+  two distinct `--option` values and a `--recommend` naming one of them. The operator chooses; the
+  leads do not hand over an open question they were able to answer themselves.
+- `--kind true-unknown` is a question the code and the sources cannot settle. It requires at least
+  one `--evidence` ID recording the attempt that failed to answer it.
+
+Only an operator resolves an escalation, and `--status resolved` requires `--resolution`. A work item
+with an open escalation on it cannot be completed, so an unanswered escalation genuinely stops work
+rather than being advisory.
+
+```bash
+dotnet run --project src/AILedger.Cli -- escalation raise \
+  --task task-123 --actor claude-impl --id X1 --kind business-decision --work W1 \
+  --question "Retry budget: fail fast or exhaust the window?" \
+  --option "fail-fast" --option "exhaust-window" --recommend "fail-fast"
+
+dotnet run --project src/AILedger.Cli -- escalation resolve \
+  --task task-123 --actor operator --id X1 --status resolved --resolution "fail-fast"
+```
+
+Record an approach you discarded so a later actor cannot re-propose it:
+
+```bash
+dotnet run --project src/AILedger.Cli -- alternative record \
+  --task task-123 --actor codex-plan --id ALT1 \
+  --statement "Poll the vendor API on a timer" \
+  --rejected-because "The vendor rate-limits below the polling interval we would need"
+```
+
+Recorded alternatives and active constraints are always eligible for assembled context, regardless of
+which work item is selected — a discarded approach is only useful if the next actor sees it.
+Constraints are operator-governed: `constraint add` and `constraint supersede` require the operator
+role, and a superseded constraint leaves context.
+
 ## Role defaults
 
 - `Operator`: every capability.
-- `PlanningLead`: add/resolve claims, add evidence, propose decisions, raise challenges, manage runs, request transitions, and build context.
-- `ImplementationLead`: add claims/evidence, propose decisions, raise challenges, manage runs, request transitions, and build context.
-- `Researcher`, `Worker`, `Verifier`, `CodeReviewer`: add claims/evidence, raise challenges, and build context.
+- `PlanningLead`: add/resolve claims, add evidence, propose decisions, raise challenges and escalations, record alternatives, manage runs, request transitions, and build context.
+- `ImplementationLead`: add claims/evidence, propose decisions, raise challenges and escalations, record alternatives, manage runs, request transitions, and build context.
+- `Researcher`, `Worker`, `Verifier`, `CodeReviewer`: add claims/evidence, raise challenges and escalations, and build context.
 
+Resolving an escalation and governing constraints require the operator role, not merely a capability;
+`RoleDefaults.EnsureSafe` refuses to hand `ResolveEscalation` or `ManageConstraints` to a non-operator.
 Only a suitably authorized actor can resolve decisions or challenges or create governed work. The initial operator has those capabilities.
 
 ## Provider operation
 
 The provider executable must be on `PATH`, or supplied as an absolute/relative `--executable PATH` that resolves to a file. The CLI probes `--version` and `--help` before every launch and fails before execution if required capabilities are absent.
 
-The provider must already be authenticated through its local configuration or OS credential store. Provider child processes receive a small operating environment allowlist rather than all of AILedger's ambient variables; unrelated API keys, CI variables, and proxy credentials are not inherited. v0.1's CLI does not expose explicit provider environment injection, so an installation that authenticates only through an environment variable needs a trusted wrapper or a future secret-input mechanism. The implementation was smoke-tested with authenticated new sessions and exact-session resumes using Codex CLI `0.150.0-alpha.8` and Claude Code `2.1.261` on 2026-09-05, before the environment allowlist was introduced. Repeat those non-destructive checks after this change or after upgrading either CLI; capability probes reject missing flags but cannot prove protocol compatibility by themselves.
+The provider must already be authenticated through its local configuration or OS credential store. Provider child processes receive a small operating environment allowlist rather than all of AILedger's ambient variables; unrelated API keys, CI variables, and proxy credentials are not inherited. v0.1's CLI does not expose explicit provider environment injection, so an installation that authenticates only through an environment variable needs a trusted wrapper or a future secret-input mechanism. After the allowlist was introduced, the implementation passed authenticated new-session and exact-session-resume smokes using Codex CLI `0.150.0-alpha.8` (`CR4`/`CR5`) and Claude Code `2.1.261` (`CL8`/`CL9`) on 2026-09-05. Repeat those non-destructive checks after upgrading either CLI; capability probes reject missing flags but cannot prove protocol compatibility by themselves.
 
 Launch one actor on one governed work item:
 
@@ -149,7 +249,17 @@ dotnet run --project src/AILedger.Cli -- provider launch \
   --timeout-seconds 1800
 ```
 
-The result JSON contains the provider session ID. A successfully completed run also completes its work item, so create a new continuation item before resuming that exact provider session:
+The result JSON contains the provider session ID. A successfully completed run leaves its work item
+`Paused`, not `Completed`: a provider process exiting zero is a finished process, not a claim that the
+work is done. Assert completion explicitly when you are satisfied with the result:
+
+```bash
+dotnet run --project src/AILedger.Cli -- work complete \
+  --task task-123 --actor operator --id W1
+```
+
+A paused work item can also take another run directly. To resume that exact provider session against
+new scope, create a continuation item first:
 
 ```bash
 dotnet run --project src/AILedger.Cli -- work add \
@@ -163,7 +273,7 @@ dotnet run --project src/AILedger.Cli -- provider resume \
 
 Do not guess, use a provider's "latest" session, or reuse a run ID. A resume without `--session` is rejected. Codex discovers the new session from its stream; Claude receives a preassigned session ID. Both resume paths require the stream's session identity to match.
 
-Each provider command records the run as active before launching. A setup/adapter error normally records it as failed; a completed process records `Completed`, `Failed`, `Cancelled`, or `ProtocolError` according to its exit and JSONL protocol. Ctrl+C/SIGTERM cancellation uses a fresh bounded cleanup token to record `Cancelled` after stopping the child. The default timeout is 1,800 seconds. A host crash or forced termination that prevents the completion write can still leave an active run behind. Inspect `status`, establish what happened to the provider process, then close it explicitly with `run complete --status failed|cancelled --session ID` using an actor with `ManageRuns`. There is no background orphan-run recovery.
+Each provider command records the run as active before launching. A setup/adapter error normally records it as failed; a completed process records `Completed`, `Failed`, `Cancelled`, or `ProtocolError` according to its exit and JSONL protocol. Ctrl+C/SIGTERM cancellation returns a partial result carrying any provider session already learned or preassigned, then uses a fresh bounded completion token to persist `Cancelled` before returning exit 130. Terminal persistence waits long enough to cover the storage lock deadline and retries safe pre-commit I/O failures. If closure still fails, the complete provider result is written to stdout before the CLI reports the recovery error, allowing an operator to reconcile with `run complete`. A host crash or forced termination before that output can still leave an active run behind. There is no background orphan-run recovery.
 
 Provider commands return process exit code `0` only for a `Completed` run. A durably recorded `Failed`, `Cancelled`, or `ProtocolError` result is printed as JSON and returns exit code `3`; usage errors return `2`, other handled operational errors return `1`, and caller cancellation returns `130`.
 
@@ -171,7 +281,7 @@ Provider output is bounded: a line over 1,048,576 characters, either stream over
 
 Explicit invocation secrets are redacted from retained stdout JSON, final output, and stderr. Redaction is a last-resort output safeguard, not a substitute for avoiding secrets in prompts or provider responses.
 
-For a work item, only one pending/active run is allowed. To involve Codex and Claude concurrently, create disjoint work items with explicit owners and directory scopes. At work creation, the CLI resolves every scope from that invocation's directory, follows symbolic links, and stores a canonical absolute path; later launches never reinterpret it against their own current directory. The provider working directory defaults to the first stored scope; an explicit `--working-directory` and every `--add-dir` must exist and resolve inside one of the work item's scopes, including after symbolic-link resolution. A non-operator may launch only work it owns. Only an operator may launch without a work item. v0.1 does not detect overlap between different work items, so the operator must still make those scopes disjoint where concurrency matters.
+For a work item, only one pending/active run is allowed. To involve Codex and Claude concurrently, create disjoint work items with explicit owners and directory scopes. At work creation, the CLI resolves every scope from that invocation's directory, follows symbolic links, and stores a canonical absolute path; later launches never reinterpret it against their own current directory. The provider working directory defaults to the first stored scope; an explicit `--working-directory` and every `--add-dir` must exist and resolve inside one of the work item's scopes, including after symbolic-link resolution. The Ledger root and all provider-writable directories are rejected if either contains the other, including through symbolic links. A non-operator may launch only work it owns. Only an operator may launch without a work item. v0.1 does not detect overlap between different work items, so the operator must still make those scopes disjoint where concurrency matters.
 
 Codex is launched with strict configuration and `workspace-write` sandboxing. Claude is launched non-interactively with sandboxing required, unsandboxed commands denied, permission prompts disabled, ambient MCP servers excluded, and ambient slash-command skills disabled. Ledger supplies the verified role skills in its context manifest instead. These are provider controls, not independent host enforcement by Ledger.
 
@@ -185,9 +295,9 @@ Each safe task ID becomes one directory:
 <ledger-root>/<task-id>/
 ├── events.jsonl       authoritative append-only history
 ├── state.json         materialized machine-readable state
-├── task.md            roles, work, runs, and open challenges
+├── task.md            roles, work, runs, constraints, escalations, and open challenges
 ├── assumptions.md     claims and evidence references
-├── decisions.md       decision status, rationale, and dependencies
+├── decisions.md       decision status, rationale, dependencies, and rejected alternatives
 └── .writer.lock       per-task mutation lock
 ```
 
@@ -197,7 +307,7 @@ Cross-process lock acquisition is bounded to 30 seconds so persistent filesystem
 
 To keep this deliberately simple full-replay/full-replacement store within predictable operating bounds, v0.1 rejects a mutation that would take a task past 1,000 events or a 16 MiB event log. Archive or migrate the task before that point. These are enforced limits, not tuning guidance; a later snapshot-plus-tail store can lift them without pretending the current O(n) per-command storage path scales indefinitely.
 
-On `status`, the event log is replayed and event identity/order is validated. If `state.json` is missing, malformed as text, or differs from replayed state, AILedger replaces it. All Markdown projections are regenerated on reads, so a missing or partially updated view heals even when `state.json` is current. Derived-view write failure after the event-log commit does not turn a committed command into an ambiguous failure; the next read retries repair. Corrupt or blank event-log lines fail closed with a line number; never hand-edit `events.jsonl`.
+On `status`, the event log is replayed and event identity/order plus every domain transition are validated. Invalid authority, provenance, references, initial bootstrap, enums, or lifecycle transitions fail closed. If `state.json` is missing, malformed as text, or differs from replayed state, AILedger attempts to replace it. All Markdown projections are regenerated on reads, so a missing or partially updated view heals even when `state.json` is current. Because these files are disposable, a repair failure does not hide successfully replayed authoritative state; later reads can retry. Corrupt or blank event-log lines fail closed with a line number; never hand-edit `events.jsonl`.
 
 Back up or copy the entire task directory while no writer holds the task lock. Recovery begins with `events.jsonl`; `state.json` and Markdown files are disposable projections. There is no database, remote replication, archive mover, or TTL cleanup in v0.1.
 

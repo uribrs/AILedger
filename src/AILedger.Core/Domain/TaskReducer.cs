@@ -7,11 +7,12 @@ public sealed class TaskReducer : ITaskReducer
     public GovernedTaskState Apply(GovernedTaskState? state, LedgerEvent @event)
     {
         ValidateEnvelope(state, @event);
+        TaskTransitionValidator.Validate(state, @event);
 
         var next = @event.Data switch
         {
             TaskOpened opened => OpenTask(@event, opened),
-            RoleAssigned assigned => Require(state) with { Roles = Set(Require(state).Roles, assigned.Assignment.ActorId, assigned.Assignment) },
+            RoleAssigned assigned => AssignRole(Require(state), assigned.Assignment),
             ClaimAdded added => Require(state) with { Claims = Set(Require(state).Claims, added.Claim.Id, added.Claim) },
             ClaimResolved resolved => ResolveClaim(Require(state), resolved),
             EvidenceAdded added => Require(state) with { Evidence = Set(Require(state).Evidence, added.Evidence.Id, added.Evidence) },
@@ -25,6 +26,16 @@ public sealed class TaskReducer : ITaskReducer
             RunStarted started => StartRun(Require(state), started),
             RunCompleted completed => CompleteRun(Require(state), completed),
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
+            EscalationRaised raised => Require(state) with { Escalations = Set(Require(state).Escalations, raised.Escalation.Id, raised.Escalation) },
+            EscalationResolved resolved => ResolveEscalation(Require(state), resolved),
+            AlternativeRecorded recorded => Require(state) with { Alternatives = Set(Require(state).Alternatives, recorded.Alternative.Id, recorded.Alternative) },
+            ConstraintAdded added => Require(state) with { Constraints = Set(Require(state).Constraints, added.Constraint.Id, added.Constraint) },
+            ConstraintSuperseded superseded => SupersedeConstraint(Require(state), superseded),
+            WorkItemCompleted completed => SetWorkItemStatus(Require(state), completed.WorkItemId, WorkItemStatus.Completed, null),
+            WorkItemBlocked blocked => SetWorkItemStatus(Require(state), blocked.WorkItemId, WorkItemStatus.Blocked, blocked.Reason),
+            WorkItemUnblocked unblocked => SetWorkItemStatus(Require(state), unblocked.WorkItemId, WorkItemStatus.Paused, null),
+            ClaimDependenciesRepointed repointed => RepointDependencies(Require(state), repointed),
+            DecisionOverturned overturned => OverturnDecision(Require(state), overturned),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -54,19 +65,38 @@ public sealed class TaskReducer : ITaskReducer
         }
     }
 
-    private static GovernedTaskState OpenTask(LedgerEvent @event, TaskOpened opened) => new()
+    private static GovernedTaskState OpenTask(LedgerEvent @event, TaskOpened opened)
     {
-        TaskId = @event.TaskId,
-        Title = opened.Title,
-        Goal = opened.Goal
-    };
+        return new GovernedTaskState
+        {
+            TaskId = @event.TaskId,
+            Title = opened.Title,
+            Goal = opened.Goal,
+            PendingOpeningActor = @event.ActorId
+        };
+    }
+
+    private static GovernedTaskState AssignRole(GovernedTaskState state, RoleAssignment assignment) =>
+        state with
+        {
+            Roles = Set(state.Roles, assignment.ActorId, assignment),
+            PendingOpeningActor = null
+        };
 
     private static GovernedTaskState ResolveClaim(GovernedTaskState state, ClaimResolved resolved)
     {
-        var claim = state.Claims[resolved.ClaimId] with
+        var current = state.Claims[resolved.ClaimId];
+        // R3 (claim-evidence-overwrite): evidence accumulates. A challenge rejecting a claim cites
+        // only refuting evidence, and must not erase the supporting evidence already on record.
+        var evidence = current.EvidenceIds
+            .Concat(resolved.EvidenceIds)
+            .Distinct()
+            .ToArray();
+        var claim = current with
         {
             Status = resolved.Status,
-            EvidenceIds = resolved.EvidenceIds.ToArray()
+            EvidenceIds = evidence,
+            SupersededByClaimId = resolved.SupersededByClaimId ?? current.SupersededByClaimId
         };
 
         return state with { Claims = Set(state.Claims, resolved.ClaimId, claim) };
@@ -127,10 +157,9 @@ public sealed class TaskReducer : ITaskReducer
             var currentWorkItem = state.WorkItems[workItemId];
             if (currentWorkItem.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale))
             {
-                var status = completed.Status == AgentRunStatus.Completed
-                    ? WorkItemStatus.Completed
-                    : WorkItemStatus.Paused;
-                workItems = Set(workItems, workItemId, currentWorkItem with { Status = status });
+                // A terminated provider process is not a claim that the work is done.
+                // Completion is asserted explicitly through work.complete.
+                workItems = Set(workItems, workItemId, currentWorkItem with { Status = WorkItemStatus.Paused });
             }
         }
 
@@ -139,6 +168,73 @@ public sealed class TaskReducer : ITaskReducer
             Runs = Set(state.Runs, completed.RunId, run),
             WorkItems = workItems
         };
+    }
+
+    private static GovernedTaskState ResolveEscalation(GovernedTaskState state, EscalationResolved resolved)
+    {
+        var escalation = state.Escalations[resolved.EscalationId] with
+        {
+            Status = resolved.Status,
+            Resolution = resolved.Resolution,
+            ResolvedBy = resolved.ResolvedBy
+        };
+
+        return state with { Escalations = Set(state.Escalations, resolved.EscalationId, escalation) };
+    }
+
+    private static GovernedTaskState RepointDependencies(GovernedTaskState state, ClaimDependenciesRepointed repointed)
+    {
+        var decisions = state.Decisions;
+        // A terminal record's dependency list is the audit trail of what it was actually built on,
+        // so a refinement leaves it alone. This is deliberately *not* the same set the correction
+        // path selects: correction still stales a Completed dependent, refinement does not touch it.
+        foreach (var decision in state.Decisions.Values
+                     .Where(item => item.DependsOnClaims.Contains(repointed.SupersededClaimId))
+                     .Where(item => item.Status is DecisionStatus.Proposed or DecisionStatus.Accepted))
+        {
+            decisions = Set(decisions, decision.Id, decision with
+            {
+                DependsOnClaims = Replace(decision.DependsOnClaims, repointed.SupersededClaimId, repointed.ReplacementClaimId)
+            });
+        }
+
+        var workItems = state.WorkItems;
+        foreach (var workItem in state.WorkItems.Values
+                     .Where(item => item.DependsOnClaims.Contains(repointed.SupersededClaimId))
+                     .Where(item => item.Status is not (WorkItemStatus.Stale or WorkItemStatus.Completed)))
+        {
+            workItems = Set(workItems, workItem.Id, workItem with
+            {
+                DependsOnClaims = Replace(workItem.DependsOnClaims, repointed.SupersededClaimId, repointed.ReplacementClaimId)
+            });
+        }
+
+        return state with { Decisions = decisions, WorkItems = workItems };
+    }
+
+    private static IReadOnlyList<ClaimId> Replace(IReadOnlyList<ClaimId> claims, ClaimId from, ClaimId to) =>
+        claims.Select(claimId => claimId == from ? to : claimId).Distinct().ToArray();
+
+    private static GovernedTaskState OverturnDecision(GovernedTaskState state, DecisionOverturned overturned)
+    {
+        var decision = state.Decisions[overturned.DecisionId] with { Status = DecisionStatus.Invalidated };
+        return state with { Decisions = Set(state.Decisions, overturned.DecisionId, decision) };
+    }
+
+    private static GovernedTaskState SupersedeConstraint(GovernedTaskState state, ConstraintSuperseded superseded)
+    {
+        var constraint = state.Constraints[superseded.ConstraintId] with { Status = ConstraintStatus.Superseded };
+        return state with { Constraints = Set(state.Constraints, superseded.ConstraintId, constraint) };
+    }
+
+    private static GovernedTaskState SetWorkItemStatus(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        WorkItemStatus status,
+        string? blockReason)
+    {
+        var workItem = state.WorkItems[workItemId] with { Status = status, BlockReason = blockReason };
+        return state with { WorkItems = Set(state.WorkItems, workItemId, workItem) };
     }
 
     private static GovernedTaskState TransitionStage(GovernedTaskState state, StageTransitioned transitioned)

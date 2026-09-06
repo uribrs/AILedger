@@ -22,6 +22,17 @@ public sealed class AuthorizationPolicy
             throw new GovernanceException("Only an operator can define governed resource scope.");
         }
 
+        // An escalation exists to reach the operator, so only the operator closes one.
+        if (command is ResolveEscalationCommand && assignment.Role != RoleKind.Operator)
+        {
+            throw new GovernanceException("Only an operator can resolve an escalation.");
+        }
+
+        if (command is AddConstraintCommand or SupersedeConstraintCommand && assignment.Role != RoleKind.Operator)
+        {
+            throw new GovernanceException("Only an operator can govern task constraints.");
+        }
+
         foreach (var capability in RequiredCapabilities(command))
         {
             if (!assignment.Capabilities.Contains(capability))
@@ -46,6 +57,11 @@ public sealed class AuthorizationPolicy
         AddWorkItemCommand => [Capability.ManageWork, Capability.ManageScope],
         StartRunCommand or CompleteRunCommand => [Capability.ManageRuns],
         RequestStageTransitionCommand => [Capability.RequestTransition],
+        RaiseEscalationCommand => [Capability.RaiseEscalation],
+        ResolveEscalationCommand => [Capability.ResolveEscalation],
+        RecordAlternativeCommand => [Capability.RecordAlternative],
+        AddConstraintCommand or SupersedeConstraintCommand => [Capability.ManageConstraints],
+        CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand => [Capability.ManageWork],
         OpenTaskCommand => [],
         _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
     };

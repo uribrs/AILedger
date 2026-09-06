@@ -3,7 +3,7 @@
   "taskSlug": "build-ledger-2-first-version",
   "status": "draft",
   "complexityTier": "full",
-  "currentPhase": "verification",
+  "currentPhase": "review",
   "requiredFiles": {
     "task.md": "complete",
     "prompt_contract.md": "complete",
@@ -43,14 +43,15 @@
   "verification": {
     "status": "pending",
     "notes": [
-      "Verifier-7 passed before isolated code-reviewer-4; code-reviewer-4 then found six major and one minor finding.",
-      "All seven review findings have local repairs; the integrated suite passes 98 tests with zero failures.",
-      "Post-repair verifier and code-review gates remain pending.",
-      "Because provider child-environment inheritance changed, fresh authenticated Codex and Claude launch/resume evidence is pending explicit user authorization to transmit the generated smoke context."
+      "Verifier-8 passed before code-reviewer-5; code-reviewer-5 then found one blocker, four major findings, and one minor finding.",
+      "All six code-reviewer-5 findings have local repairs; the integrated suite passes 121 tests with zero failures and git diff checks pass.",
+      "Post-repair verifier and fresh isolated code-review gates remain pending.",
+      "Post-environment-isolation authenticated Codex CR4/CR5 and Claude CL8/CL9 launch/exact-resume evidence remains applicable to the unchanged successful provider path.",
+      "Initial commit ad012ff exists on main and matches origin/main; current repair changes are not yet committed."
     ]
   },
   "baseRef": null,
-  "lastUpdated": "2026-09-05T21:21:08Z",
+  "lastUpdated": "2026-09-05T21:52:12Z",
   "workflow": {
     "executionPath": "decompose",
     "orchestrationPlanFile": "orchestration_plan.md",
@@ -158,6 +159,15 @@
         "completedAt": "2026-09-05T21:00:40Z",
         "outputs": [
           "review/verifier-7.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator-verifier",
+        "completedAt": "2026-09-05T21:30:59Z",
+        "outputs": [
+          "review/verifier-8.md",
+          "assumptions.md",
           "state.json"
         ]
       }

@@ -50,11 +50,6 @@ internal sealed class CognitiveArtifactLoader
         }
 
         artifacts.Add(new ContextArtifact(
-            ContextArtifactKind.Constraint,
-            "operator-authority",
-            "Only the operator may assign roles or change governed resource scope.",
-            []));
-        artifacts.Add(new ContextArtifact(
             ContextArtifactKind.StopCondition,
             "governance-stop",
             "Stop when proceeding would exceed assigned capabilities, alter scope, or bypass required independent verification.",

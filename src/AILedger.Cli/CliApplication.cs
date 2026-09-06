@@ -10,6 +10,10 @@ namespace AILedger.Cli;
 
 public sealed class CliApplication
 {
+    private const int TerminalPersistenceAttempts = 3;
+    private static readonly TimeSpan TerminalPersistenceDeadline = TimeSpan.FromSeconds(65);
+    private static readonly TimeSpan TerminalPersistenceRetryDelay = TimeSpan.FromMilliseconds(100);
+
     private readonly TextWriter _output;
     private readonly TextWriter _error;
     private readonly Func<string, IGovernedTaskService> _serviceFactory;
@@ -146,7 +150,8 @@ public sealed class CliApplication
                 await ExecuteAsync(service, input, new ResolveClaimCommand(
                     Actor(input), Cause(input), Correlation(input), new ClaimId(input.Required("id")),
                     EnumValue<ClaimStatus>(input, "status"),
-                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray()), cancellationToken).ConfigureAwait(false);
+                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray(),
+                    OptionalId(input.Optional("superseded-by"), value => new ClaimId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "evidence add":
                 await ExecuteAsync(service, input, new AddEvidenceCommand(
@@ -188,6 +193,48 @@ public sealed class CliApplication
                     Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
                     input.Required("title"), OptionalId(input.Optional("owner"), value => new ActorId(value)),
                     input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes), cancellationToken).ConfigureAwait(false);
+                break;
+            case "escalation raise":
+                await ExecuteAsync(service, input, new RaiseEscalationCommand(
+                    Actor(input), Cause(input), Correlation(input), new EscalationId(input.Required("id")),
+                    EnumValue<EscalationKind>(input, "kind"), input.Required("question"),
+                    OptionalId(input.Optional("work"), value => new WorkItemId(value)),
+                    input.Many("option"), input.Optional("recommend"),
+                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray()), cancellationToken).ConfigureAwait(false);
+                break;
+            case "escalation resolve":
+                await ExecuteAsync(service, input, new ResolveEscalationCommand(
+                    Actor(input), Cause(input), Correlation(input), new EscalationId(input.Required("id")),
+                    EnumValue<EscalationStatus>(input, "status"), input.Optional("resolution")), cancellationToken).ConfigureAwait(false);
+                break;
+            case "alternative record":
+                await ExecuteAsync(service, input, new RecordAlternativeCommand(
+                    Actor(input), Cause(input), Correlation(input), new AlternativeId(input.Required("id")),
+                    input.Required("statement"), input.Required("rejected-because"),
+                    OptionalId(input.Optional("replaced-by"), value => new DecisionId(value))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "constraint add":
+                await ExecuteAsync(service, input, new AddConstraintCommand(
+                    Actor(input), Cause(input), Correlation(input), new ConstraintId(input.Required("id")),
+                    input.Required("statement"), input.Required("source"), input.Many("scope")), cancellationToken).ConfigureAwait(false);
+                break;
+            case "constraint supersede":
+                await ExecuteAsync(service, input, new SupersedeConstraintCommand(
+                    Actor(input), Cause(input), Correlation(input), new ConstraintId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work complete":
+                await ExecuteAsync(service, input, new CompleteWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work block":
+                await ExecuteAsync(service, input, new BlockWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
+                    input.Required("reason"),
+                    OptionalId(input.Optional("escalation"), value => new EscalationId(value))), cancellationToken).ConfigureAwait(false);
+                break;
+            case "work unblock":
+                await ExecuteAsync(service, input, new UnblockWorkItemCommand(
+                    Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
                 break;
             case "run start":
                 await ExecuteAsync(service, input, CreateStartRun(input), cancellationToken).ConfigureAwait(false);
@@ -301,7 +348,8 @@ public sealed class CliApplication
         var start = CreateStartRun(input, provider, sessionId);
         var launchState = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
         var grants = ResolveProviderGrants(launchState, Actor(input), start.WorkItemId, input, ledgerRoot);
-        await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
+        var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
+        var startedEventId = started.Events[^1].EventId;
         AgentRunResult result;
         try
         {
@@ -325,7 +373,7 @@ public sealed class CliApplication
                     ? AgentRunStatus.Cancelled
                     : AgentRunStatus.Failed;
                 await CompleteRunWithFreshTokenAsync(
-                    service, input, start.RunId, sessionId, status).ConfigureAwait(false);
+                    service, input, start.RunId, sessionId, status, startedEventId).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
             {
@@ -337,9 +385,31 @@ public sealed class CliApplication
             throw;
         }
 
-        await CompleteRunWithFreshTokenAsync(
-            service, input, start.RunId, result.ProviderSessionId, result.Status).ConfigureAwait(false);
+        Exception? completionFailure = null;
+        try
+        {
+            await CompleteRunWithFreshTokenAsync(
+                service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            completionFailure = exception;
+        }
+
         await WriteJsonAsync(result).ConfigureAwait(false);
+        if (completionFailure is not null)
+        {
+            throw new IOException(
+                $"Provider run '{result.RunId}' returned a terminal result, but its Ledger run could not be closed. " +
+                "The provider result was written to standard output for recovery.",
+                completionFailure);
+        }
+
+        if (result.Status == AgentRunStatus.Cancelled && cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+
         if (result.Status != AgentRunStatus.Completed)
         {
             throw new ProviderRunFailedException(
@@ -352,12 +422,26 @@ public sealed class CliApplication
         CommandLine input,
         RunId runId,
         string? sessionId,
-        AgentRunStatus status)
+        AgentRunStatus status,
+        EventId causationId)
     {
-        using var completion = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await service.ExecuteAsync(Task(input), new CompleteRunCommand(
-            Actor(input), null, Correlation(input), runId, status, sessionId),
-            completion.Token).ConfigureAwait(false);
+        using var completion = new CancellationTokenSource(TerminalPersistenceDeadline);
+        var command = new CompleteRunCommand(
+            Actor(input), causationId, Correlation(input), runId, status, sessionId);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await service.ExecuteAsync(Task(input), command, completion.Token).ConfigureAwait(false);
+                return;
+            }
+            catch (IOException) when (attempt < TerminalPersistenceAttempts && !completion.IsCancellationRequested)
+            {
+                await System.Threading.Tasks.Task.Delay(
+                    TerminalPersistenceRetryDelay, completion.Token).ConfigureAwait(false);
+            }
+        }
     }
 
     private static ProviderGrants ResolveProviderGrants(
@@ -469,12 +553,24 @@ public sealed class CliApplication
         IEnumerable<string> providerDirectories)
     {
         var canonicalLedgerRoot = ResolveExistingDirectory(ledgerRoot);
-        var containingDirectory = providerDirectories.FirstOrDefault(
+        var canonicalProviderDirectories = providerDirectories
+            .Select(ResolveExistingDirectory)
+            .Distinct(PathComparer)
+            .ToArray();
+        var containingDirectory = canonicalProviderDirectories.FirstOrDefault(
             directory => IsContainedPath(directory, canonicalLedgerRoot));
         if (containingDirectory is not null)
         {
             throw new GovernanceException(
                 $"Provider directory '{containingDirectory}' contains the authoritative Ledger root '{canonicalLedgerRoot}'.");
+        }
+
+        var containedDirectory = canonicalProviderDirectories.FirstOrDefault(
+            directory => IsContainedPath(canonicalLedgerRoot, directory));
+        if (containedDirectory is not null)
+        {
+            throw new GovernanceException(
+                $"Provider directory '{containedDirectory}' is inside the authoritative Ledger root '{canonicalLedgerRoot}'.");
         }
     }
 
@@ -509,7 +605,7 @@ public sealed class CliApplication
             ["claim add"] = Options(
                 "root", "task", "actor", "id", "statement", "consequence", "cause", "correlation"),
             ["claim resolve"] = Options(
-                "root", "task", "actor", "id", "status", "evidence", "cause", "correlation"),
+                "root", "task", "actor", "id", "status", "evidence", "superseded-by", "cause", "correlation"),
             ["evidence add"] = Options(
                 "root", "task", "actor", "id", "source-type", "citation", "summary", "supports", "refutes",
                 "cause", "correlation"),
@@ -525,6 +621,22 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["work add"] = Options(
                 "root", "task", "actor", "id", "title", "owner", "depends-on", "scope", "cause", "correlation"),
+            ["escalation raise"] = Options(
+                "root", "task", "actor", "id", "kind", "question", "work", "option", "recommend", "evidence",
+                "cause", "correlation"),
+            ["escalation resolve"] = Options(
+                "root", "task", "actor", "id", "status", "resolution", "cause", "correlation"),
+            ["alternative record"] = Options(
+                "root", "task", "actor", "id", "statement", "rejected-because", "replaced-by",
+                "cause", "correlation"),
+            ["constraint add"] = Options(
+                "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
+            ["constraint supersede"] = Options(
+                "root", "task", "actor", "id", "cause", "correlation"),
+            ["work complete"] = Options("root", "task", "actor", "id", "cause", "correlation"),
+            ["work block"] = Options(
+                "root", "task", "actor", "id", "reason", "escalation", "cause", "correlation"),
+            ["work unblock"] = Options("root", "task", "actor", "id", "cause", "correlation"),
             ["run start"] = Options(
                 "root", "task", "actor", "run", "work", "provider", "session", "cause", "correlation"),
             ["run complete"] = Options(
@@ -572,7 +684,7 @@ public sealed class CliApplication
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     private static TaskId Task(CommandLine input) => new(input.Required("task"));
     private static EventId? Cause(CommandLine input) => OptionalId(input.Optional("cause"), value => new EventId(value));
-    private static string Correlation(CommandLine input) => input.Optional("correlation") ?? Guid.NewGuid().ToString("N");
+    private static string Correlation(CommandLine input) => input.CorrelationId;
     private static T? OptionalId<T>(string? value, Func<string, T> factory) where T : struct =>
         string.IsNullOrWhiteSpace(value) ? null : factory(value);
     private static T EnumValue<T>(CommandLine input, string name) where T : struct, Enum => ParseEnum<T>(input.Required(name));
@@ -599,6 +711,7 @@ public sealed class CliApplication
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
         claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
         claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
+                           [--superseded-by CLAIM]   (required when --status superseded)
         evidence add       --task ID --actor ID --id ID --source-type TYPE --citation TEXT --summary TEXT
                            [--supports CLAIM] [--refutes CLAIM]
         decision propose   --task ID --actor ID --id ID --statement TEXT --rationale TEXT
@@ -609,6 +722,16 @@ public sealed class CliApplication
         challenge dispose  --task ID --actor ID --id ID --status supported|rejected|withdrawn
         work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
                            [--depends-on CLAIM] [--scope PATH]
+        work complete      --task ID --actor ID --id ID
+        work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
+        work unblock       --task ID --actor ID --id ID
+        escalation raise   --task ID --actor ID --id ID --kind business-decision|true-unknown
+                           --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
+        escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
+        alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
+                           [--replaced-by DECISION]
+        constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
+        constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
         run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
         stage transition   --task ID --actor ID --stage STAGE

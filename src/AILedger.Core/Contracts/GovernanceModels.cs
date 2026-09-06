@@ -40,7 +40,32 @@ public enum Capability
     ManageWork,
     ManageRuns,
     RequestTransition,
-    BuildContext
+    BuildContext,
+    RaiseEscalation,
+    ResolveEscalation,
+    RecordAlternative,
+    ManageConstraints
+}
+
+// Only two things may interrupt the operator: a tradeoff no amount of research
+// settles, and a question the code and the sources cannot answer.
+public enum EscalationKind
+{
+    BusinessDecision,
+    TrueUnknown
+}
+
+public enum EscalationStatus
+{
+    Open,
+    Resolved,
+    Withdrawn
+}
+
+public enum ConstraintStatus
+{
+    Active,
+    Superseded
 }
 
 public enum ClaimStatus
@@ -70,7 +95,6 @@ public enum ChallengeStatus
 public enum WorkItemStatus
 {
     Proposed,
-    Ready,
     Active,
     Paused,
     Blocked,
@@ -80,7 +104,6 @@ public enum WorkItemStatus
 
 public enum AgentRunStatus
 {
-    Pending,
     Active,
     Completed,
     Failed,
@@ -96,13 +119,23 @@ public sealed record RoleAssignment(
     IReadOnlyList<Capability> Capabilities,
     Provenance AssignedBy);
 
+// Superseding is not one act. A refinement sharpens a claim and its dependents stay
+// valid; a correction narrows or contradicts it and they do not. The kernel derives
+// which from state, never from a flag set by the actor doing the superseding.
+public enum SupersessionOutcome
+{
+    Correction,
+    Refinement
+}
+
 public sealed record Claim(
     ClaimId Id,
     string Statement,
     ClaimStatus Status,
     IReadOnlyList<EvidenceId> EvidenceIds,
     string? ConsequenceIfWrong,
-    Provenance Provenance);
+    Provenance Provenance,
+    ClaimId? SupersededByClaimId = null);
 
 public sealed record Evidence(
     EvidenceId Id,
@@ -137,7 +170,36 @@ public sealed record WorkItem(
     ActorId? Owner,
     WorkItemStatus Status,
     IReadOnlyList<ClaimId> DependsOnClaims,
-    IReadOnlyList<string> ResourceScope);
+    IReadOnlyList<string> ResourceScope,
+    string? BlockReason = null);
+
+public sealed record Escalation(
+    EscalationId Id,
+    EscalationKind Kind,
+    string Question,
+    EscalationStatus Status,
+    WorkItemId? WorkItemId,
+    IReadOnlyList<string> Options,
+    string? Recommendation,
+    IReadOnlyList<EvidenceId> AttemptEvidenceIds,
+    string? Resolution,
+    ActorId? ResolvedBy,
+    Provenance Provenance);
+
+public sealed record Alternative(
+    AlternativeId Id,
+    string Statement,
+    string RejectionRationale,
+    DecisionId? ReplacedByDecisionId,
+    Provenance Provenance);
+
+public sealed record Constraint(
+    ConstraintId Id,
+    string Statement,
+    string Source,
+    IReadOnlyList<string> Scope,
+    ConstraintStatus Status,
+    Provenance Provenance);
 
 public sealed record AgentRun(
     RunId Id,

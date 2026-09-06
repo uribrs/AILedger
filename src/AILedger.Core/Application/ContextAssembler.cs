@@ -12,7 +12,11 @@ public sealed class ContextAssembler : IContextAssembler
             ContextArtifactKind.Skill,
             ContextArtifactKind.TaskGoal,
             ContextArtifactKind.Constraint,
-            ContextArtifactKind.StopCondition
+            ContextArtifactKind.StopCondition,
+            // A discarded approach and an open escalation are only useful if they are
+            // seen regardless of which work item is in hand.
+            ContextArtifactKind.Escalation,
+            ContextArtifactKind.Alternative
         };
 
     private static readonly IReadOnlySet<ContextArtifactKind> ReviewerExclusions =
@@ -21,7 +25,11 @@ public sealed class ContextAssembler : IContextAssembler
             ContextArtifactKind.UserRequest,
             ContextArtifactKind.PromptContract,
             ContextArtifactKind.OrchestrationPlan,
-            ContextArtifactKind.VerifierOutput
+            ContextArtifactKind.VerifierOutput,
+            // An open escalation carries the leads' recommendation, which is intent. A blind
+            // review must not learn what the team wants the answer to be. Alternatives stay:
+            // a discarded approach is design history, like a Decision, not a verdict.
+            ContextArtifactKind.Escalation
         };
 
     private static readonly IReadOnlyDictionary<RoleKind, IReadOnlySet<string>> CanonicalRoleSkills =
@@ -180,6 +188,17 @@ public sealed class ContextAssembler : IContextAssembler
         artifacts.AddRange(claims.Select(ToArtifact));
         artifacts.AddRange(decisions.Select(ToArtifact));
         artifacts.AddRange(evidence.Select(ToArtifact));
+        artifacts.AddRange(state.Constraints.Values
+            .Where(constraint => constraint.Status == ConstraintStatus.Active)
+            .OrderBy(constraint => constraint.Id.Value, StringComparer.Ordinal)
+            .Select(ToArtifact));
+        artifacts.AddRange(state.Alternatives.Values
+            .OrderBy(alternative => alternative.Id.Value, StringComparer.Ordinal)
+            .Select(ToArtifact));
+        artifacts.AddRange(state.Escalations.Values
+            .Where(escalation => escalation.Status == EscalationStatus.Open)
+            .OrderBy(escalation => escalation.Id.Value, StringComparer.Ordinal)
+            .Select(ToArtifact));
         if (workItem is not null)
         {
             artifacts.Add(ToArtifact(workItem));
@@ -193,6 +212,36 @@ public sealed class ContextAssembler : IContextAssembler
 
         return artifacts;
     }
+
+    private static ContextArtifact ToArtifact(Constraint constraint) =>
+        new(
+            ContextArtifactKind.Constraint,
+            constraint.Id.Value,
+            $"{constraint.Statement}{Environment.NewLine}Source: {constraint.Source}",
+            constraint.Scope.OrderBy(entry => entry, StringComparer.Ordinal).ToArray());
+
+    private static ContextArtifact ToArtifact(Alternative alternative) =>
+        new(
+            ContextArtifactKind.Alternative,
+            alternative.Id.Value,
+            $"Rejected: {alternative.Statement}{Environment.NewLine}Because: {alternative.RejectionRationale}",
+            alternative.ReplacedByDecisionId is { } decisionId ? [decisionId.Value] : []);
+
+    private static ContextArtifact ToArtifact(Escalation escalation) =>
+        new(
+            ContextArtifactKind.Escalation,
+            escalation.Id.Value,
+            $"{escalation.Kind} awaiting the operator: {escalation.Question}" +
+            (escalation.Options.Count == 0
+                ? string.Empty
+                : $"{Environment.NewLine}Options: {string.Join(" | ", escalation.Options)}") +
+            (escalation.Recommendation is null
+                ? string.Empty
+                : $"{Environment.NewLine}Recommended: {escalation.Recommendation}"),
+            escalation.AttemptEvidenceIds.Select(id => id.Value)
+                .Concat(escalation.WorkItemId is { } workItemId ? [workItemId.Value] : Array.Empty<string>())
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray());
 
     private static IReadOnlyList<Claim> SelectClaims(GovernedTaskState state, WorkItem? workItem) =>
         state.Claims.Values

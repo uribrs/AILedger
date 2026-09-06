@@ -86,6 +86,37 @@ public sealed class ProviderProtocolTests
     }
 
     [Fact]
+    public async Task CodexCallerCancellationReturnsLearnedSessionInPartialResult()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var runner = new CancellingProviderRunner("codex", cancellation);
+
+        var result = await new CodexAgentAdapter(runner).RunAsync(
+            Request("codex", AgentLaunchMode.New, null), cancellation.Token);
+
+        Assert.Equal(AgentRunStatus.Cancelled, result.Status);
+        Assert.Equal("cancelled-codex-session", result.ProviderSessionId);
+        Assert.Single(result.Events);
+        Assert.Contains("cancelled", result.Failure, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ClaudeCallerCancellationReturnsPreassignedSessionInPartialResult()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var runner = new CancellingProviderRunner("claude", cancellation);
+
+        var result = await new ClaudeAgentAdapter(runner).RunAsync(
+            Request("claude", AgentLaunchMode.New, null), cancellation.Token);
+
+        Assert.Equal(AgentRunStatus.Cancelled, result.Status);
+        Assert.Equal(runner.ProviderSessionId, result.ProviderSessionId);
+        Assert.NotNull(result.ProviderSessionId);
+        Assert.Empty(result.Events);
+        Assert.Contains("cancelled", result.Failure, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task StandardErrorSecretsAreRedacted()
     {
         var runner = CodexRunner(0,
@@ -269,6 +300,59 @@ public sealed class ProviderProtocolTests
             await Task.WhenAll(stdout, stderr);
             return new ProcessExit(0, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
         }
+    }
+
+    private sealed class CancellingProviderRunner(
+        string provider,
+        CancellationTokenSource cancellation) : IProcessRunner
+    {
+        public string? ProviderSessionId { get; private set; }
+
+        public async Task<ProcessExit> RunAsync(
+            ProcessInvocation invocation,
+            Func<string, CancellationToken, ValueTask> onStandardOutputLine,
+            Func<string, CancellationToken, ValueTask> onStandardErrorLine,
+            CancellationToken cancellationToken)
+        {
+            if (invocation.Arguments is ["--version"])
+            {
+                await onStandardOutputLine("test-version", cancellationToken);
+                return Exit();
+            }
+
+            if (IsCapabilityProbe(invocation.Arguments))
+            {
+                var capabilities = provider == "codex"
+                    ? "--strict-config --sandbox --cd --add-dir --output-schema --json SESSION_ID"
+                    : "--print --output-format --session-id --resume --permission-prompts --settings --strict-mcp-config --disable-slash-commands";
+                await onStandardOutputLine(capabilities, cancellationToken);
+                return Exit();
+            }
+
+            if (provider == "codex")
+            {
+                ProviderSessionId = "cancelled-codex-session";
+                await onStandardOutputLine(
+                    "{\"type\":\"thread.started\",\"thread_id\":\"cancelled-codex-session\"}",
+                    cancellationToken);
+            }
+            else
+            {
+                ProviderSessionId = ValueAfter(invocation.Arguments, "--session-id");
+            }
+
+            cancellation.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
+            return Exit();
+        }
+
+        private bool IsCapabilityProbe(IReadOnlyList<string> arguments) =>
+            provider == "codex"
+                ? arguments.Contains("--help", StringComparer.Ordinal)
+                : arguments is ["--help"];
+
+        private static ProcessExit Exit() =>
+            new(0, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1));
     }
 }
 

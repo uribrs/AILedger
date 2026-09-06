@@ -146,6 +146,21 @@ public sealed class RecoveryTests
     }
 
     [Fact]
+    public async Task StateReadSucceedsWhenDisposableProjectionRepairKeepsFailing()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("read-projection-failure-task");
+        var service = new FileGovernedTaskService(
+            root.Path, new CommandHandler(), new TaskReducer(), new AlwaysFailProjectionWriter());
+        await OpenAsync(service, taskId, new ActorId("operator"));
+
+        var state = await service.GetStateAsync(taskId, CancellationToken.None);
+
+        Assert.NotNull(state);
+        Assert.Equal(2, state.Version);
+    }
+
+    [Fact]
     public async Task ReplayRejectsSyntacticallyValidEventSequenceCorruption()
     {
         using var root = new TemporaryDirectory();
@@ -246,6 +261,69 @@ public sealed class RecoveryTests
     }
 
     [Fact]
+    public async Task ReplayRejectsForgedOpeningRolePayload()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("forged-opening-role-task");
+        await OpenAsync(CreateService(root.Path), taskId, new ActorId("operator"));
+        var eventsPath = Path.Combine(root.Path, taskId.Value, "events.jsonl");
+        var lines = await File.ReadAllLinesAsync(eventsPath);
+        var openingRoleEvent = JsonSerializer.Deserialize<LedgerEvent>(lines[1], LedgerJson.CreateOptions())!;
+        var openingRole = Assert.IsType<RoleAssigned>(openingRoleEvent.Data);
+        openingRoleEvent = openingRoleEvent with
+        {
+            Data = new RoleAssigned(openingRole.Assignment with { ActorId = new ActorId("attacker") })
+        };
+        lines[1] = JsonSerializer.Serialize(openingRoleEvent, LedgerJson.CreateOptions());
+        await File.WriteAllLinesAsync(eventsPath, lines);
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            CreateService(root.Path).GetStateAsync(taskId, CancellationToken.None));
+
+        Assert.Contains("opening role", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ReplayRejectsAuthorityChangingEventFromUnauthorizedActor()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("forged-authority-task");
+        var operatorId = new ActorId("operator");
+        var workerId = new ActorId("worker");
+        var service = CreateService(root.Path);
+        await OpenAsync(service, taskId, operatorId);
+        await service.ExecuteAsync(
+            taskId,
+            new AssignRoleCommand(operatorId, null, "assign-worker", workerId, RoleKind.Worker, [Capability.AddClaim]),
+            CancellationToken.None);
+        var eventsPath = Path.Combine(root.Path, taskId.Value, "events.jsonl");
+        var history = await File.ReadAllLinesAsync(eventsPath);
+        var previous = JsonSerializer.Deserialize<LedgerEvent>(history[^1], LedgerJson.CreateOptions())!;
+        var recordedAt = previous.RecordedAt.AddSeconds(1);
+        var forged = new LedgerEvent(
+            GovernedTaskState.CurrentSchemaVersion,
+            new EventId($"{taskId.Value}:0000000004"),
+            taskId,
+            workerId,
+            recordedAt,
+            previous.EventId,
+            "forged-role",
+            new RoleAssigned(new RoleAssignment(
+                new ActorId("accomplice"),
+                RoleKind.Worker,
+                [],
+                new Provenance(workerId, recordedAt, "actor.assign-role"))));
+        await File.AppendAllTextAsync(
+            eventsPath,
+            JsonSerializer.Serialize(forged, LedgerJson.CreateOptions()) + "\n");
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            CreateService(root.Path).GetStateAsync(taskId, CancellationToken.None));
+
+        Assert.Contains("Only an operator", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task BoundedLedgerRejectsMutationBeforeExceedingEventLimit()
     {
         using var root = new TemporaryDirectory();
@@ -305,5 +383,11 @@ public sealed class RecoveryTests
             SuccessfulWrites++;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class AlwaysFailProjectionWriter : ITaskProjectionWriter
+    {
+        public Task WriteAsync(string taskDirectory, GovernedTaskState state, CancellationToken cancellationToken) =>
+            throw new IOException("Injected persistent projection failure.");
     }
 }
