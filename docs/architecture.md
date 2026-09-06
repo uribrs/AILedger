@@ -51,7 +51,7 @@ There is no background coordinator in v0.1. Starting both providers means issuin
 | A rejected approach must not be silently re-proposed. | Alternatives are recorded with a required rejection rationale and an optional link to the decision that replaced them. They are always eligible for assembled context, so work-item narrowing cannot hide them. |
 | Governed constraints are operator-controlled and current. | Constraints are task state with `Active`/`Superseded` status; adding or superseding one requires the operator role, and only active constraints enter context. |
 | Finished work is asserted, not inferred. | A completed provider run moves its work item to `Paused`. `work complete` is an explicit governed command, refused while a run is active or an escalation on the item is open. `work block` records a reason and may cite the escalation it waits on, and `work unblock` returns it to `Paused` — but never for an item whose claim was rejected, so unblocking cannot undo causal invalidation. |
-| Lifecycle changes are governed. | A finite transition policy permits forward movement and selected repair/research loops. Execution requires a work item; archive rejects active runs or open challenges. |
+| Lifecycle changes are governed. | A finite transition policy permits forward movement and selected repair/research loops. Execution requires a work item; archive rejects active runs or open challenges and mints lessons from governed findings. |
 
 The cognitive text has intentionally not been rewritten in v0.1. The six skills and governing `RULES.md` are a byte-for-byte snapshot recorded in `cognitive/manifest.json`. Future revisions can replace portions of prose with mechanisms, but each replacement should preserve the rule's intent, tests, provenance, and an explicit mapping such as the table above.
 
@@ -92,4 +92,6 @@ real file store and replays it in a fresh service to prove they agree, and
 `tests/AILedger.Tests/Core/EventRegistrationTests.cs` proves no event type is missing from the
 validator's switch. An unregistered event type would make a task permanently unreadable.
 
-`Archive` currently means a governed lifecycle stage only. It does not move, compress, freeze, or delete task files.
+`Archive` does not move, compress, freeze, or delete task files. It is also the close-out boundary:
+validated claims, rejected alternatives, and resolved escalations become lesson events. A later task
+opened under the same ledger root recalls those archived lessons into its own event history and context.

@@ -224,6 +224,20 @@ which work item is selected — a discarded approach is only useful if the next 
 Constraints are operator-governed: `constraint add` and `constraint supersede` require the operator
 role, and a superseded constraint leaves context.
 
+## Lessons across tasks
+
+The `Learn → Archive` transition is the governed close-out. At command time it mints one durable
+lesson for every validated claim, rejected alternative, and resolved escalation. Archiving is refused
+when none exists, so a task cannot silently close without leaving any learning behind. Validated-claim
+and true-unknown lessons retain their evidence citations.
+
+When a task is opened, the file service replays archived sibling tasks under the same `--root`, copies
+their own minted lessons into `lesson.recalled` events in the new task's opening history, and exposes
+them as `Lesson` context artifacts. Recalled lessons are not transitively re-minted: only records whose
+source task is the archived task are eligible. Old histories remain replayable because replay validates
+the shape of lesson events when present but does not require pre-feature archive transitions to contain
+one.
+
 ## Role defaults
 
 - `Operator`: every capability.
@@ -324,4 +338,4 @@ Discovery → Research → Design → Scope → Ready → Execution → Verifica
                                       Learn ↔ review
 ```
 
-Use `stage transition`; transitions outside the implemented graph fail. Entering `Execution` requires at least one work item. Entering `Archive` requires no active/pending run and no open challenge. Archive is currently only a state transition, not cold storage or deletion.
+Use `stage transition`; transitions outside the implemented graph fail. Entering `Execution` requires at least one work item. Entering `Archive` requires no active/pending run, no open challenge, and at least one lesson-bearing source. Archive mints lessons but remains a lifecycle state, not cold storage or deletion.

@@ -8,6 +8,7 @@ namespace AILedger.Storage;
 
 public sealed class FileGovernedTaskService : IGovernedTaskService
 {
+    private const int RecalledArchivedTaskLimit = 3;
     public const int DefaultMaximumEventsPerTask = 1_000;
     public const long DefaultMaximumEventLogBytes = 16 * 1024 * 1024;
 
@@ -49,6 +50,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (command is OpenTaskCommand open)
+        {
+            command = open with
+            {
+                RecalledLessons = await LoadArchivedLessonsAsync(taskId, cancellationToken).ConfigureAwait(false)
+            };
+        }
+
         var taskDirectory = _pathResolver.Resolve(taskId);
         _pathResolver.EnsureTaskDirectory(taskDirectory);
 
@@ -67,6 +76,88 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         await AppendEventsAsync(taskDirectory, outcome.Events, cancellationToken).ConfigureAwait(false);
         await TryRepairDerivedStateAsync(taskDirectory, outcome.State).ConfigureAwait(false);
         return outcome;
+    }
+
+    private async Task<IReadOnlyList<Lesson>> LoadArchivedLessonsAsync(
+        TaskId openingTaskId,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(_pathResolver.WorkspaceRoot))
+        {
+            return [];
+        }
+
+        var archivedTasks = new List<GovernedTaskState>();
+        foreach (var taskDirectory in Directory.EnumerateDirectories(_pathResolver.WorkspaceRoot)
+                     .OrderBy(path => path, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if ((File.GetAttributes(taskDirectory) & FileAttributes.ReparsePoint) != 0)
+            {
+                // Real task workspaces reject reparse points. Recall must not create a second path
+                // that follows a sibling link outside the authoritative root.
+                continue;
+            }
+
+            var taskName = Path.GetFileName(taskDirectory);
+            if (string.Equals(taskName, openingTaskId.Value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            GovernedTaskState? archived;
+            try
+            {
+                var sourceTaskId = new TaskId(taskName);
+                // Event-log replacement is atomic. Reading without taking a second task lock avoids
+                // the A-opens-B/B-opens-A deadlock while still yielding either complete snapshot.
+                archived = await ReplayAsync(
+                    sourceTaskId, taskDirectory, cancellationToken, allowConcurrentReplacement: true)
+                    .ConfigureAwait(false);
+            }
+            catch (ArgumentException)
+            {
+                // The root may contain administrative directories that are not task identifiers.
+                continue;
+            }
+
+            if (archived?.Stage != TaskStage.Archive)
+            {
+                continue;
+            }
+
+            archivedTasks.Add(archived);
+        }
+
+        var lessons = archivedTasks
+            .Select(task => new
+            {
+                task.TaskId,
+                Lessons = task.Lessons.Values
+                    .Where(lesson => lesson.SourceTaskId == task.TaskId)
+                    .ToArray()
+            })
+            // A sibling that minted nothing has no recency and nothing to recall, so it does not
+            // occupy a slot in the cap.
+            .Where(source => source.Lessons.Length > 0)
+            // Recency is the provenance the kernel stamps on a lesson when its source task
+            // archives. Nothing enforces a date prefix on a task id, so ordering by id made recall
+            // depend on a naming convention and silently dropped newer lessons under undated ids.
+            .OrderByDescending(source => source.Lessons.Max(lesson => lesson.Provenance.RecordedAt))
+            // Two tasks archived within the same tick still need one order on every replay.
+            .ThenByDescending(source => source.TaskId.Value, StringComparer.Ordinal)
+            .Take(RecalledArchivedTaskLimit)
+            .SelectMany(source => source.Lessons)
+            .ToArray();
+        var superseded = lessons
+            .Where(lesson => lesson.SupersedesLessonId is not null)
+            .Select(lesson => lesson.SupersedesLessonId!.Value)
+            .ToHashSet();
+
+        return lessons
+            .Where(lesson => !superseded.Contains(lesson.Id))
+            .OrderBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
+            .ToArray();
     }
 
     public async Task<GovernedTaskState?> GetStateAsync(TaskId taskId, CancellationToken cancellationToken)
@@ -148,7 +239,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private async Task<GovernedTaskState?> ReplayAsync(
         TaskId taskId,
         string taskDirectory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowConcurrentReplacement = false)
     {
         var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
         if (!File.Exists(eventsPath))
@@ -157,7 +249,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         }
 
         GovernedTaskState? state = null;
-        await foreach (var @event in ReadEventsAsync(eventsPath, cancellationToken).ConfigureAwait(false))
+        await foreach (var @event in ReadEventsAsync(
+                           eventsPath, cancellationToken, allowConcurrentReplacement).ConfigureAwait(false))
         {
             ValidateEventEnvelope(taskId, @event, state?.Version ?? 0);
             try
@@ -177,14 +270,15 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
     private async IAsyncEnumerable<LedgerEvent> ReadEventsAsync(
         string eventsPath,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        bool allowConcurrentReplacement = false)
     {
         EnsureEventLogSize(eventsPath);
         await using var stream = new FileStream(
             eventsPath,
             FileMode.Open,
             FileAccess.Read,
-            FileShare.Read,
+            allowConcurrentReplacement ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read,
             bufferSize: 4096,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         using var reader = new StreamReader(stream, Utf8WithoutBom, detectEncodingFromByteOrderMarks: true);

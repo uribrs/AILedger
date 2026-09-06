@@ -7,6 +7,24 @@ markdown notes. Record it through the CLI. Do not create a parallel record in a 
 The methodology itself is not repeated here. It lives in `cognitive/RULES.md` and the skills beside
 it, and the kernel serves the parts of it that apply to your role when you build context.
 
+## Your first act: take your brief from the ledger
+
+Do not orient yourself by reading the repository. Build your context and work from what comes back:
+
+```bash
+dotnet $DLL context build --task ledger-selfhost --actor claude-impl \
+  --work W1 --cognitive-root cognitive --root $R --output /tmp/manifest.json
+```
+
+That manifest is your brief. It carries the goal, the claims your work item depends on, the
+decisions and evidence attached to them, the active constraints, discarded approaches, open
+escalations, the stop conditions, and the skills your role is allowed to use. Omit `--work` to get
+the whole task instead of one item's slice.
+
+This is not a convenience. It is the same mechanism that briefs a launched agent, and it is the
+difference between working from what the task has settled and re-deciding it. `status` and `history`
+are for inspecting the record, not for orienting in it.
+
 ## Where the ledger lives
 
 ```
@@ -18,12 +36,20 @@ dotnet $DLL --help --root $R
 `--root` selects the ledger. Without it the CLI writes to a per-user directory outside this
 repository, so pass it on every call. Every mutation also requires an explicit `--actor`.
 
-The flags are written out in full below. `$DLL` and `$R` are single words and expand safely, but do
-not collect the repeated flags into a variable — this repository's shell is zsh, which does not
-split a scalar into separate arguments, so `A="--task T --actor X"` arrives as one argument and the
-call is rejected.
+The flags are written out in full below. `$DLL` and `$R` are single words and expand safely. Do not
+collect the repeated flags into a scalar. This shell is zsh, which does not split one, so the whole
+string arrives as a single argument:
 
-The live task is `ledger-selfhost`. Read it before doing anything:
+```bash
+A="--task ledger-selfhost --root $R --actor claude-impl"
+dotnet $DLL claim add $A --id C20 --statement "..."
+# error: Option '--task ledger-selfhost --root ... --actor claude-impl' requires a value.
+```
+
+This is a habit, not a fact you can learn once — it caught the session that wrote this warning three
+times in one afternoon. If you want the shorthand, use an array: `A=(--task T --root $R --actor X)`.
+
+The live task is `ledger-selfhost`. To inspect the record rather than to take a brief from it:
 
 ```bash
 dotnet $DLL status  --task ledger-selfhost --root $R    # full state as JSON
@@ -185,6 +211,55 @@ already carry a completed verifier run.
 
 The launching process closes the run. An agent inside a run must never call `run complete`,
 `stage transition`, or complete or block its own work item.
+
+## Dispatching work to other agents
+
+If you are coordinating rather than implementing, dispatch through the kernel, not through your own
+harness's subagents. This is the difference that matters most in practice:
+
+- An agent launched with `provider launch` has the manifest as its only context. It cannot work
+  outside the ledger, so everything it decides and every piece of evidence it finds lands in the
+  record. Its run, its provider, its version and its role are all recorded.
+- An agent spawned by your harness is invisible here. It may do excellent work and the ledger will
+  show no run at all, so nothing it learned survives and no rule can reach it.
+
+Both were measured on the same day in this repository. Codex, launched through the kernel and
+briefed by nothing but the ledger, produced eleven claims, thirteen evidence records, seven
+decisions and six discarded alternatives. Eight harness-spawned agents the same day produced work
+the ledger records as zero runs.
+
+So the brief for a dispatched agent is not a prompt — it is the ledger. Write the claim, the
+constraint and the accepted decision first, then launch. The agent reads them as its manifest.
+
+```bash
+dotnet $DLL provider launch --task ledger-selfhost --actor codex-lessons \
+  --run RL1 --work W3 --provider codex --executable /path/to/codex \
+  --working-directory $PWD --cognitive-root cognitive --timeout-seconds 1800 --root $R &
+```
+
+Background it and `wait`; a launch blocks until the agent finishes. Give it a generous timeout —
+two agents and your own session on one machine is slow, and a run that dies at its timeout comes
+back `Cancelled`, which reads like a governance failure and is not one.
+
+A coordinating lead should not also be implementing. Own the plan, the findings and the
+documentation; give the code to the agents you dispatch.
+
+## Identifiers when more than one agent is writing
+
+Claim, evidence, decision and alternative ids are one flat namespace per task, and nothing allocates
+them. Two agents composing `E1` at the same time will collide, and the loser's write is refused as a
+duplicate — it is easy to believe you recorded something you did not.
+
+Take a prefix of your own before you write anything, and keep to it. If you dispatch agents, give
+each one its prefix in a constraint so the manifest carries it.
+
+```
+operator      C1, E1, D1      the task's own framing
+lead          LC1, LE1, LD1   the coordinator's findings
+codex-lessons XC1, XE1, XD1   one dispatched agent
+```
+
+Read before you write when others are live: `status` shows every id currently taken.
 
 ## Changing the kernel
 

@@ -25,6 +25,7 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(BlockWorkItemCommand), "work.block")]
 [JsonDerivedType(typeof(UnblockWorkItemCommand), "work.unblock")]
 [JsonDerivedType(typeof(AbandonWorkItemCommand), "work.abandon")]
+[JsonDerivedType(typeof(MarkLessonBearingCommand), "lesson.mark")]
 public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);
 
 public sealed record OpenTaskCommand(
@@ -33,7 +34,10 @@ public sealed record OpenTaskCommand(
     string CorrelationId,
     TaskId TaskId,
     string Title,
-    string Goal) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string Goal,
+    // Populated by the durable service from archived sibling tasks. Callers opening an isolated
+    // aggregate can omit it and preserve the original command contract.
+    IReadOnlyList<Lesson>? RecalledLessons = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AssignRoleCommand(
     ActorId ActorId,
@@ -177,6 +181,14 @@ public sealed record RecordAlternativeCommand(
     string Statement,
     string RejectionRationale,
     DecisionId? ReplacedByDecisionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+public sealed record MarkLessonBearingCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    LessonSourceKind SourceKind,
+    string SourceRecordId,
+    LessonId? SupersedesLessonId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AddConstraintCommand(
     ActorId ActorId,

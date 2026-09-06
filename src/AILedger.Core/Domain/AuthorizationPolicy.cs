@@ -40,6 +40,12 @@ public sealed class AuthorizationPolicy
             throw new GovernanceException("Only an operator can govern task constraints.");
         }
 
+        if (command is MarkLessonBearingCommand &&
+            assignment.Role is not (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead))
+        {
+            throw new GovernanceException("Only an operator or lead can mark a source lesson-bearing.");
+        }
+
         foreach (var capability in RequiredCapabilities(command))
         {
             if (!assignment.Capabilities.Contains(capability))
@@ -67,6 +73,7 @@ public sealed class AuthorizationPolicy
         RaiseEscalationCommand => [Capability.RaiseEscalation],
         ResolveEscalationCommand => [Capability.ResolveEscalation],
         RecordAlternativeCommand => [Capability.RecordAlternative],
+        MarkLessonBearingCommand => [],
         AddConstraintCommand or SupersedeConstraintCommand => [Capability.ManageConstraints],
         CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand
             or AbandonWorkItemCommand => [Capability.ManageWork],
