@@ -273,7 +273,10 @@ public sealed class ProviderProtocolTests
         mode,
         provider,
         "/usr/bin/agent",
-        Path.GetTempPath(),
+        // Inside the repository, because Codex refuses to run outside a git work tree.
+        Environment.CurrentDirectory,
+        Path.Combine(Path.GetTempPath(), ".ailedger", "tasks"),
+        "\"/usr/bin/dotnet\" \"/opt/ledger/AILedger.Cli.dll\"",
         "governed context",
         sessionId,
         PermissionProfile.WorkspaceGoverned,

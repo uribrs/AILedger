@@ -83,7 +83,19 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
 
         builder.AppendLine().AppendLine("## Runs").AppendLine();
         AppendItems(builder, state.Runs.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
-            $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Status}** — {Clean(pair.Value.Provider)} / `{Clean(pair.Value.ActorId.Value)}`");
+        {
+            var run = pair.Value;
+            var role = state.Roles.TryGetValue(run.ActorId, out var assignment)
+                ? assignment.Role.ToString()
+                : "unassigned";
+            var cognition = Clean(run.Provider) +
+                            (run.Model is null ? string.Empty : $" {Clean(run.Model)}") +
+                            (run.ProviderVersion is null ? string.Empty : $" ({Clean(run.ProviderVersion)})");
+            var work = run.WorkItemId is { } workItemId ? $" on `{Clean(workItemId.Value)}`" : string.Empty;
+            var live = run.Status == AgentRunStatus.Active ? " ← live" : string.Empty;
+            return $"- `{Clean(pair.Key.Value)}` — **{run.Status}** — {role} `{Clean(run.ActorId.Value)}`" +
+                   $" via {cognition}{work}{live}";
+        });
 
         builder.AppendLine().AppendLine("## Active Constraints").AppendLine();
         AppendItems(builder,

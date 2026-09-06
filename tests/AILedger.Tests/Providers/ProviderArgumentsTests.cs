@@ -28,7 +28,17 @@ public sealed class ProviderArgumentsTests
         var run = runner.Invocations[3];
         Assert.Equal(["exec", "--help"], runner.Invocations[1].Arguments);
         Assert.Equal(["exec", "resume", "--help"], runner.Invocations[2].Arguments);
-        Assert.Equal(request.StandardInput, run.StandardInput);
+        // Codex reads its prompt from stdin, so the governed-execution briefing leads and the
+        // manifest follows it. The briefing has to name the identity the agent records truth under.
+        Assert.EndsWith(request.StandardInput, run.StandardInput, StringComparison.Ordinal);
+        Assert.Contains("AILedger governed task", run.StandardInput, StringComparison.Ordinal);
+        Assert.Contains(request.TaskId.Value, run.StandardInput, StringComparison.Ordinal);
+        Assert.Contains(request.ActorId.Value, run.StandardInput, StringComparison.Ordinal);
+        Assert.Contains(request.LedgerRoot, run.StandardInput, StringComparison.Ordinal);
+        Assert.Contains(request.LedgerCommandLine, run.StandardInput, StringComparison.Ordinal);
+        // The first live run closed its own run and erased the session identity the launcher records.
+        Assert.Contains("is managed by the process that launched you", run.StandardInput, StringComparison.Ordinal);
+        Assert.Contains("run complete", run.StandardInput, StringComparison.Ordinal);
         Assert.Equal(
             ["exec", "--strict-config", "--sandbox", "workspace-write", "--cd", request.WorkingDirectory,
              "--model", "gpt-test", "--output-schema", "schema.json", "--add-dir", "/tmp/a", "--add-dir", "/tmp/b",
@@ -51,7 +61,7 @@ public sealed class ProviderArgumentsTests
         var result = await new CodexAgentAdapter(runner).RunAsync(
             ProviderProtocolTests.Request("codex", AgentLaunchMode.Resume, "session-1"), CancellationToken.None);
 
-        Assert.Equal(["exec", "--strict-config", "--sandbox", "workspace-write", "--cd", Path.GetTempPath(),
+        Assert.Equal(["exec", "--strict-config", "--sandbox", "workspace-write", "--cd", Environment.CurrentDirectory,
             "resume", "--json", "session-1", "-"], runner.Invocations[3].Arguments);
         Assert.True(result.IsResume);
     }
@@ -110,6 +120,25 @@ public sealed class ProviderArgumentsTests
             new ClaudeAgentAdapter(runner).RunAsync(
                 ProviderProtocolTests.Request("claude", AgentLaunchMode.Resume, null), CancellationToken.None));
 
+        Assert.Empty(runner.Invocations);
+    }
+
+    // A live heterogeneous run failed here first: Codex exited 1 with "Not inside a trusted
+    // directory", which the adapter should catch as a precondition rather than let through.
+    [Fact]
+    public async Task CodexRefusesToLaunchOutsideAGitWorkTreeBeforeSpawningAnything()
+    {
+        using var outside = new TemporaryDirectory();
+        var runner = new ScriptedProcessRunner();
+        var request = ProviderProtocolTests.Request("codex", AgentLaunchMode.New, null) with
+        {
+            WorkingDirectory = outside.Path
+        };
+
+        var error = await Assert.ThrowsAsync<AgentAdapterException>(
+            () => new CodexAgentAdapter(runner).RunAsync(request, CancellationToken.None));
+
+        Assert.Contains("git work tree", error.Message, StringComparison.Ordinal);
         Assert.Empty(runner.Invocations);
     }
 }

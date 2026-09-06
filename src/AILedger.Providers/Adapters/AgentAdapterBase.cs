@@ -44,6 +44,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
     public async Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
     {
         ValidateRequest(request);
+        EnsurePreconditions(request);
         var version = await ProbeVersionAsync(request.ExecutablePath, cancellationToken).ConfigureAwait(false);
         await ProbeCapabilitiesAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -59,12 +60,19 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         var expectedSessionId = request.Mode == AgentLaunchMode.Resume || RequirePreassignedSessionMatch
             ? sessionId
             : null;
+        using var launchScope = OpenLaunchScope(request);
+        var environment = new Dictionary<string, string>(request.Environment, StringComparer.Ordinal);
+        foreach (var variable in launchScope.Environment)
+        {
+            environment[variable.Key] = variable.Value;
+        }
+
         var invocation = new ProcessInvocation(
             request.ExecutablePath,
             request.WorkingDirectory,
             arguments,
-            request.StandardInput,
-            request.Environment,
+            ComposeStandardInput(request),
+            environment,
             request.Timeout);
 
         ProcessExit exit;
@@ -157,6 +165,23 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
     protected abstract ProviderEvent ParseEvent(long sequence, string json);
     protected abstract string? ReadFinalOutput(ProviderEvent providerEvent);
     protected virtual bool RequirePreassignedSessionMatch => false;
+
+    /// <summary>Claude carries the briefing in its prompt argument; Codex prepends it to stdin.</summary>
+    protected virtual string ComposeStandardInput(AgentLaunchRequest request) => request.StandardInput;
+
+    /// <summary>Provider-specific launch preconditions, checked before any process is spawned.</summary>
+    protected virtual void EnsurePreconditions(AgentLaunchRequest request)
+    {
+    }
+
+    /// <summary>
+    /// Per-launch isolation from the operator's own installed configuration. Ledger serves the
+    /// role's skills through the context manifest, so a governed agent must not also inherit the
+    /// ambient copies installed for interactive use — they are a second, silently diverging source
+    /// of the same rules.
+    /// </summary>
+    protected virtual ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request) =>
+        ProviderLaunchScope.None;
 
     protected sealed record CapabilityProbe(IReadOnlyList<string> Arguments, IReadOnlyList<string> RequiredTokens);
 

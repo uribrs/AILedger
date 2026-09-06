@@ -504,6 +504,8 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Resource scope entries must be absolute paths.");
         }
 
+        EnsureScopeIsNotAlreadyOccupied(state, command.WorkItemId, command.ResourceScope);
+
         if (command.Owner is { } owner && !state.Roles.ContainsKey(owner))
         {
             throw new GovernanceException($"Work owner '{owner}' has no assigned role.");
@@ -554,7 +556,10 @@ public sealed class CommandHandler : ICommandHandler
             TrimOrNull(command.ProviderSessionId),
             AgentRunStatus.Active,
             now,
-            null);
+            null,
+            TrimOrNull(command.Model),
+            TrimOrNull(command.ProviderVersion),
+            TrimOrNull(command.LaunchTokenHash));
         return [new RunStarted(run)];
     }
 
@@ -581,7 +586,19 @@ public sealed class CommandHandler : ICommandHandler
             throw new GovernanceException("Run completion session identity does not match the started run.");
         }
 
-        return [new RunCompleted(command.RunId, command.Status, providerSessionId, now)];
+        // A run recorded as completed is a run someone may later resume, and resume requires the
+        // exact provider session. The identity lives only in the adapter until completion records
+        // it, so a completion without one loses it silently. Terminal failures are exempt: a run
+        // that died before its session existed genuinely has no identity to record.
+        if (command.Status is AgentRunStatus.Completed && providerSessionId is null)
+        {
+            throw new GovernanceException(
+                $"Run '{command.RunId}' cannot be recorded as completed without a provider session identity; " +
+                "a completed run must stay resumable.");
+        }
+
+        var launcherAuthorized = EnsureLauncherAuthorizedCompletion(state, command, run);
+        return [new RunCompleted(command.RunId, command.Status, providerSessionId, now, launcherAuthorized)];
     }
 
     private static void EnsureCanStartWork(
@@ -596,6 +613,44 @@ public sealed class CommandHandler : ICommandHandler
 
         throw new GovernanceException($"Only work owner '{workItem.Owner}' or an operator can start work item '{workItem.Id}'.");
     }
+
+    // A launched agent shares the run's actor identity, so identity cannot distinguish it from the
+    // process that launched it. The launcher's secret can. Three live agents closed their own runs
+    // despite a briefing telling them not to, which is why this is a rule rather than a sentence.
+    private static bool EnsureLauncherAuthorizedCompletion(
+        GovernedTaskState state,
+        CompleteRunCommand command,
+        AgentRun run)
+    {
+        if (run.LaunchTokenHash is not { } expectedHash)
+        {
+            return false;
+        }
+
+        if (TrimOrNull(command.LaunchToken) is { } token &&
+            string.Equals(HashLaunchToken(token), expectedHash, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // Escape hatch for an orphan: the launching process died and its secret went with it. An
+        // operator may close the run, but only as a failure — a run nobody watched finish must
+        // never be laundered into a success.
+        if (IsOperator(state, command.ActorId) &&
+            command.Status is AgentRunStatus.Failed or AgentRunStatus.Cancelled)
+        {
+            return false;
+        }
+
+        throw new GovernanceException(
+            $"Run '{run.Id}' was started by a provider launch and is closed by that launcher. " +
+            "An agent running inside it cannot complete it. An operator may close an orphaned run " +
+            "as failed or cancelled.");
+    }
+
+    public static string HashLaunchToken(string token) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(token)));
 
     private static void EnsureCanCompleteRun(
         GovernedTaskState state,
@@ -982,6 +1037,45 @@ public sealed class CommandHandler : ICommandHandler
                 : WorkItemStatus.Stale;
             events.Add(new WorkItemInvalidated(workItem.Id, claimId, status));
         }
+    }
+
+    // Disjoint work items were only ever disjoint by assertion. An area is occupied while the work
+    // item holding it is still live, so a second actor cannot claim it and redo the same work.
+    private static void EnsureScopeIsNotAlreadyOccupied(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        IReadOnlyList<string> requestedScope)
+    {
+        foreach (var existing in state.WorkItems.Values
+                     .Where(item => item.Id != workItemId)
+                     .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale))
+                     .OrderBy(item => item.Id.Value, StringComparer.Ordinal))
+        {
+            foreach (var held in existing.ResourceScope)
+            {
+                var clash = requestedScope.FirstOrDefault(requested => PathsOverlap(requested.Trim(), held));
+                if (clash is not null)
+                {
+                    throw new GovernanceException(
+                        $"Scope '{clash}' overlaps '{held}', already held by work item '{existing.Id}' in status " +
+                        $"'{existing.Status}'. Complete or supersede that item, or narrow this scope.");
+                }
+            }
+        }
+    }
+
+    private static bool PathsOverlap(string first, string second) =>
+        IsSameOrInside(first, second) || IsSameOrInside(second, first);
+
+    private static bool IsSameOrInside(string candidate, string container)
+    {
+        if (string.Equals(candidate, container, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var prefix = container.EndsWith(Path.DirectorySeparatorChar) ? container : container + Path.DirectorySeparatorChar;
+        return candidate.StartsWith(prefix, StringComparison.Ordinal);
     }
 
     private static void EnsureDependenciesAreCurrent(

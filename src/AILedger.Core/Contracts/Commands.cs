@@ -121,7 +121,10 @@ public sealed record StartRunCommand(
     RunId RunId,
     WorkItemId? WorkItemId,
     string Provider,
-    string? ProviderSessionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? ProviderSessionId,
+    string? Model = null,
+    string? ProviderVersion = null,
+    string? LaunchTokenHash = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record CompleteRunCommand(
     ActorId ActorId,
@@ -129,7 +132,9 @@ public sealed record CompleteRunCommand(
     string CorrelationId,
     RunId RunId,
     AgentRunStatus Status,
-    string? ProviderSessionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? ProviderSessionId,
+    // Plaintext, held only in the launching process. Never persisted.
+    string? LaunchToken = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RequestStageTransitionCommand(
     ActorId ActorId,

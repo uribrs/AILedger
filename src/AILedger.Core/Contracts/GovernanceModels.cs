@@ -209,4 +209,12 @@ public sealed record AgentRun(
     string? ProviderSessionId,
     AgentRunStatus Status,
     DateTimeOffset StartedAt,
-    DateTimeOffset? EndedAt);
+    DateTimeOffset? EndedAt,
+    // Which cognition actually ran. A score or a lesson earned against one model and CLI version
+    // says nothing about another, and the adapter knew both and used to discard them.
+    string? Model = null,
+    string? ProviderVersion = null,
+    // A run launched by the kernel is closed by the launcher, not by the agent inside it. The
+    // launcher holds a secret for the run's lifetime and only its hash is recorded, so the agent
+    // — which shares the run's actor identity — cannot authorise its own completion.
+    string? LaunchTokenHash = null);

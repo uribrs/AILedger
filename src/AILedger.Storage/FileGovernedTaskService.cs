@@ -86,6 +86,12 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             return null;
         }
 
+        // Before any repair: a replay that lands behind the recorded version means history was
+        // lost, and the repair below would heal the projection into the shorter log and erase the
+        // only local evidence of it. This is a data condition, not a disposable-view failure, so
+        // it must sit outside the fault-tolerant block.
+        await EnsureEventLogHasNotLostHistoryAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false);
+
         try
         {
             if (!await MaterializedStateIsCurrentAsync(taskDirectory, state, cancellationToken).ConfigureAwait(false))
@@ -296,6 +302,56 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         catch (DecoderFallbackException)
         {
             return false;
+        }
+    }
+
+    // A truncated event log still replays: a prefix of a valid history is a valid history. The
+    // only local witness that history was lost is the materialised state, which records the
+    // version reached by the last committed command. Healing silently into a shorter log would
+    // erase the evidence, so a replay that lands behind it fails closed instead.
+    private async Task EnsureEventLogHasNotLostHistoryAsync(
+        string taskDirectory,
+        GovernedTaskState replayedState,
+        CancellationToken cancellationToken)
+    {
+        var statePath = Path.Combine(taskDirectory, _layout.StateFileName);
+        if (!File.Exists(statePath))
+        {
+            return;
+        }
+
+        string materializedJson;
+        try
+        {
+            materializedJson = await File.ReadAllTextAsync(statePath, Utf8WithoutBom, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+
+        long materializedVersion;
+        try
+        {
+            using var document = JsonDocument.Parse(materializedJson);
+            if (!document.RootElement.TryGetProperty("version", out var version) ||
+                !version.TryGetInt64(out materializedVersion))
+            {
+                return;
+            }
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+
+        if (replayedState.Version < materializedVersion)
+        {
+            throw new InvalidDataException(
+                $"The event log for '{replayedState.TaskId}' replays to version {replayedState.Version}, " +
+                $"behind the version {materializedVersion} recorded in '{statePath}'. History has been lost; " +
+                "restore the event log rather than letting the projection heal into it.");
         }
     }
 

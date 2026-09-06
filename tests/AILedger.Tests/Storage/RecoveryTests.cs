@@ -390,4 +390,28 @@ public sealed class RecoveryTests
         public Task WriteAsync(string taskDirectory, GovernedTaskState state, CancellationToken cancellationToken) =>
             throw new IOException("Injected persistent projection failure.");
     }
+
+    // Reversing the launch containment guard means a governed agent can write to the ledger
+    // directory. Replay catches a forged history; truncation is the one attack it cannot, because
+    // a prefix of a valid history is itself valid. The materialised version is the witness.
+    [Fact]
+    public async Task ReplayBehindTheMaterializedVersionFailsClosedInsteadOfHealingIntoLostHistory()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("truncated-task");
+        var actor = new ActorId("operator");
+        var service = CreateService(root.Path);
+        await service.ExecuteAsync(taskId, new OpenTaskCommand(actor, null, "c1", taskId, "Task", "Goal"), CancellationToken.None);
+        await service.ExecuteAsync(taskId, new AddClaimCommand(actor, null, "c2", new ClaimId("C1"), "Recorded", null), CancellationToken.None);
+        await service.GetStateAsync(taskId, CancellationToken.None);
+
+        var eventsPath = Path.Combine(root.Path, taskId.Value, "events.jsonl");
+        var lines = await File.ReadAllLinesAsync(eventsPath);
+        await File.WriteAllLinesAsync(eventsPath, lines.Take(lines.Length - 1));
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => CreateService(root.Path).GetStateAsync(taskId, CancellationToken.None));
+
+        Assert.Contains("History has been lost", error.Message, StringComparison.Ordinal);
+    }
 }
