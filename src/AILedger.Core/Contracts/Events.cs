@@ -27,6 +27,7 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(WorkItemInvalidated), "work.invalidated")]
 [JsonDerivedType(typeof(RunStarted), "run.started")]
 [JsonDerivedType(typeof(RunCompleted), "run.completed")]
+[JsonDerivedType(typeof(StagePrerequisitesWaived), "stage.prerequisites-waived")]
 [JsonDerivedType(typeof(StageTransitioned), "stage.transitioned")]
 [JsonDerivedType(typeof(EscalationRaised), "escalation.raised")]
 [JsonDerivedType(typeof(EscalationResolved), "escalation.resolved")]
@@ -61,6 +62,7 @@ public sealed record WorkItemAdded(WorkItem WorkItem) : LedgerEventData;
 public sealed record WorkItemInvalidated(WorkItemId WorkItemId, ClaimId RejectedClaimId, WorkItemStatus Status) : LedgerEventData;
 public sealed record RunStarted(AgentRun Run) : LedgerEventData;
 public sealed record RunCompleted(RunId RunId, AgentRunStatus Status, string? ProviderSessionId, DateTimeOffset EndedAt, bool LauncherAuthorized = false) : LedgerEventData;
+public sealed record StagePrerequisitesWaived(TaskStage TargetStage, string Reason) : LedgerEventData;
 public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
 public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
 public sealed record EscalationResolved(EscalationId EscalationId, EscalationStatus Status, string? Resolution, ActorId ResolvedBy) : LedgerEventData;

@@ -55,6 +55,63 @@ public sealed class ScopeOccupancyTests
         Assert.Throws<GovernanceException>(() => Add(task, "W2", area));
     }
 
+    // An area may be a single file, which is accepted decision D1. Nothing in the rule branches on
+    // which shape a scope has: it compares the two paths as text. These three tests pin the five
+    // cases that reading follows from, because the kernel side of D1 is behaviour nothing else
+    // asserts — the command-time change that made it reachable was in the operator surface.
+    [Fact]
+    public void AFileIsAnAreaAndTwoFilesInOneDirectoryAreDifferentAreas()
+    {
+        var task = new TestTask();
+        var application = Path.GetFullPath("src/AILedger.Core/Application");
+        Add(task, "W1", Path.Combine(application, "ClaimRules.cs"));
+
+        // The second file is beside the first, not inside it, so it is a free area.
+        Add(task, "W2", Path.Combine(application, "EvidenceRules.cs"));
+
+        Assert.Equal(2, task.State.WorkItems.Count);
+        Assert.Equal(
+            [Path.Combine(application, "ClaimRules.cs")],
+            task.State.WorkItems[new WorkItemId("W1")].ResourceScope);
+    }
+
+    [Fact]
+    public void AFileAndTheDirectoryAroundItAreTheSameArea()
+    {
+        var byDirectory = new TestTask();
+        var application = Path.GetFullPath("src/AILedger.Core/Application");
+        Add(byDirectory, "W1", application);
+
+        // A file inside a held directory is inside it.
+        Assert.Contains("already held by work item 'W1'",
+            Assert.Throws<GovernanceException>(
+                () => Add(byDirectory, "W2", Path.Combine(application, "ClaimRules.cs"))).Message,
+            StringComparison.Ordinal);
+
+        // And the other way round: the directory containing a held file takes that file with it.
+        var byFile = new TestTask();
+        Add(byFile, "W1", Path.Combine(application, "ClaimRules.cs"));
+
+        Assert.Contains("already held by work item 'W1'",
+            Assert.Throws<GovernanceException>(() => Add(byFile, "W2", application)).Message,
+            StringComparison.Ordinal);
+    }
+
+    // The case a text comparison gets wrong if it forgets the separator: 'ClaimRules.cs' opens with
+    // 'ClaimRules', so a naive StartsWith reads the file as being inside the directory beside it and
+    // refuses work that overlaps nothing.
+    [Fact]
+    public void ASiblingWhoseNameStartsWithAHeldAreaIsNotInsideIt()
+    {
+        var task = new TestTask();
+        var application = Path.GetFullPath("src/AILedger.Core/Application");
+        Add(task, "W1", Path.Combine(application, "ClaimRules"));
+
+        Add(task, "W2", Path.Combine(application, "ClaimRules.cs"));
+
+        Assert.Equal(2, task.State.WorkItems.Count);
+    }
+
     // Occupancy is a command-time coordination rule, not a structural invariant of the event.
     // Replay must accept every history that was ever legal, including work items recorded before
     // the rule existed. Adding this rule to the replay validator once made a real task unreadable.

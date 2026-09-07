@@ -1378,6 +1378,216 @@ public sealed class CliApplicationTests
         Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
     }
 
+    // Accepted decision D1: an area may be a single file, so two agents can hold two files in one
+    // directory. The kernel accepted that from the beginning; the check that held every scope to a
+    // directory was here, in the operator surface, which is why these two tests are at this level.
+    [Fact]
+    public async Task WorkCreationAcceptsAFileAsAnAreaAndStoresTheFileItself()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var file = Path.Combine(area, "ClaimRules.cs");
+        await File.WriteAllTextAsync(file, "// the area itself");
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
+             "--scope", file], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, error.ToString());
+        // The stored scope is the file, not the directory around it. A scope widened to the parent
+        // here would hand one agent every other file beside it and read in `who` as the whole area.
+        Assert.True(Path.IsPathFullyQualified(scope));
+        Assert.True(File.Exists(scope));
+        Assert.Equal("ClaimRules.cs", Path.GetFileName(scope));
+    }
+
+    // A process cannot start inside a file, so a file-scoped item resolves its provider's working
+    // directory to the file's parent. That widening is the launch's alone: the recorded scope stays
+    // the file, and occupancy keeps reading it as one.
+    [Fact]
+    public async Task AFileScopedWorkItemLaunchesItsProviderInTheFilesDirectory()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var file = Path.Combine(area, "ClaimRules.cs");
+        await File.WriteAllTextAsync(file, "// the area itself");
+        var capture = new CapturingAdapter();
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
+             "--scope", file], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--run", "R1", "--work", "W1", "--provider", "codex",
+             "--executable", "/usr/bin/true", "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        var request = Assert.Single(capture.Requests);
+        Assert.Equal(0, exit);
+        // Both sides are canonical already — the stored scope was canonicalised when it was
+        // recorded — so the parent is compared as a path rather than through a sentinel file.
+        Assert.Equal(Path.GetDirectoryName(scope), request.WorkingDirectory);
+        Assert.EndsWith("ClaimRules.cs", scope, StringComparison.Ordinal);
+    }
+
+    // Constraint K8: the stage arms are the operator's to waive, and the waiver carries a reason
+    // rather than being a flag. These five drive it through the CLI, because that is where the
+    // option is parsed and where the per-command allow-list would otherwise refuse it unread.
+    // Discovery -> Research is the only exit from Discovery and its arm needs an open claim, so a
+    // task with no claims is a stage whose arm is unsatisfied without any setup.
+    [Fact]
+    public async Task WaivingStagePrerequisitesIsRefusedForAnActorWhoIsNotTheOperator()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        // An implementation lead holds requestTransition, so what is refused below is the waiver and
+        // not the authority to ask for a transition at all.
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "lead", "--role", "implementation-lead"],
+            CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["stage", "transition", "--root", root.Path, "--task", "T1", "--actor", "lead",
+             "--stage", "research", "--without-prerequisites", "The lead read the arm as inapplicable"],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains(
+            "Only an operator can transition stages without prerequisites",
+            error.ToString(),
+            StringComparison.Ordinal);
+        Assert.Equal(TaskStage.Discovery, state!.Stage);
+    }
+
+    [Fact]
+    public async Task WaivingStagePrerequisitesIsRefusedWhenTheReasonIsBlank()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        // Whitespace rather than an empty string: the option consumes the following argument either
+        // way, and a waiver whose reason records nothing is the one the log cannot be read from.
+        var exit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research", "--without-prerequisites", "   "],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains("a blank waiver records nothing", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(TaskStage.Discovery, state!.Stage);
+    }
+
+    [Fact]
+    public async Task AnOperatorWaivesTheArmAndTheReasonLandsOnItsOwnEvent()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research",
+             "--without-prerequisites", "Discovery closed with no open claim and the wave is scoped"],
+            CancellationToken.None);
+
+        var events = await HistoryAsync(root.Path);
+        var waiver = events.Single(item => item.Data is StagePrerequisitesWaived);
+        var transition = events.Single(item => item.Data is StageTransitioned);
+        var waived = (StagePrerequisitesWaived)waiver.Data;
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal("Discovery closed with no open claim and the wave is scoped", waived.Reason);
+        Assert.Equal(TaskStage.Research, waived.TargetStage);
+        // The reason is its own event, and the transition cites it, so a later reader sees which arm
+        // was skipped and why rather than only that a transition happened.
+        Assert.Equal(waiver.EventId, transition.CausationId);
+    }
+
+    [Fact]
+    public async Task AWaivedTransitionReplaysThroughAFreshServiceWithItsReasonIntact()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research",
+             "--without-prerequisites", "Discovery closed with no open claim and the wave is scoped"],
+            CancellationToken.None);
+
+        // A fresh service holds no state, so reading it replays the whole log through the validator.
+        // The waiver has to be legal at replay too, and its reason has to survive the round trip.
+        var replayed = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var waived = (StagePrerequisitesWaived)(await HistoryAsync(root.Path))
+            .Single(item => item.Data is StagePrerequisitesWaived).Data;
+
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(TaskStage.Research, replayed!.Stage);
+        Assert.Equal("Discovery closed with no open claim and the wave is scoped", waived.Reason);
+    }
+
+    [Fact]
+    public async Task AStageTransitionWithNoWaiverStillRefusesWhenItsArmIsUnsatisfied()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        // The same operator and the same transition as the accepted case above, without the waiver.
+        // If this passed, the waiver would have become the default path rather than an override.
+        var exit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains(
+            "Research requires at least one open claim", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(TaskStage.Discovery, state!.Stage);
+    }
+
+    private static async Task<IReadOnlyList<LedgerEvent>> HistoryAsync(string root)
+    {
+        var events = new List<LedgerEvent>();
+        await foreach (var @event in Service(root).GetHistoryAsync(new TaskId("T1"), CancellationToken.None))
+        {
+            events.Add(@event);
+        }
+
+        return events;
+    }
+
     // The body arrives on standard input rather than as an option value, because the parser takes
     // any value opening with two dashes as the next option name and a real workflow document starts
     // with a horizontal rule or YAML front matter. That is validated claim C10, and it is why every

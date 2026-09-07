@@ -1,0 +1,4 @@
+when a task is done and closeout runs well, the task should likely be zipped to conserve diskspace, this needs to be            checked if makes sense and doesn't lose vital information.
+if decided to do, need to add a temporary unzip capability - for relevant tasks, then remove the open copy
+
+this one needs a proper design, as this is mostly a proposition

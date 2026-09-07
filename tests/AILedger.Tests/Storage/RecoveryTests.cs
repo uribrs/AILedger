@@ -343,6 +343,28 @@ public sealed class RecoveryTests
     }
 
     [Fact]
+    public async Task EventLimitRefusalExplainsWhyTheTaskMustBeSucceededRatherThanCompacted()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("bounded-task");
+        var actor = new ActorId("operator");
+        var service = new FileGovernedTaskService(
+            root.Path, new CommandHandler(), new TaskReducer(), maximumEventsPerTask: 2);
+        await OpenAsync(service, taskId, actor);
+
+        var exception = await Assert.ThrowsAsync<GovernanceException>(() => service.ExecuteAsync(
+            taskId,
+            new AddClaimCommand(actor, null, "claim", new ClaimId("C1"), "Claim", null),
+            CancellationToken.None));
+
+        Assert.Equal(
+            "Task 'bounded-task' reached the limit of 2 events. Archive it and open a successor " +
+            "that depends on the claims this one validated; there is no compaction path, and a " +
+            "task id is embedded in every one of its events so the log cannot be rewritten.",
+            exception.Message);
+    }
+
+    [Fact]
     public async Task BoundedLedgerRejectsMutationBeforeExceedingByteLimit()
     {
         using var root = new TemporaryDirectory();
@@ -355,6 +377,24 @@ public sealed class RecoveryTests
 
         Assert.Contains("limit of 1 bytes", exception.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(root.Path, taskId.Value, "events.jsonl")));
+    }
+
+    [Fact]
+    public async Task ByteLimitRefusalExplainsWhyTheTaskMustBeSucceededRatherThanCompacted()
+    {
+        using var root = new TemporaryDirectory();
+        var taskId = new TaskId("bounded-bytes-task");
+        var service = new FileGovernedTaskService(
+            root.Path, new CommandHandler(), new TaskReducer(), maximumEventLogBytes: 1);
+
+        var exception = await Assert.ThrowsAsync<GovernanceException>(() => OpenAsync(
+            service, taskId, new ActorId("operator")));
+
+        Assert.Equal(
+            "Task event log would exceed the limit of 1 bytes. Archive it and open a successor " +
+            "that depends on the claims this one validated; there is no compaction path, and a " +
+            "task id is embedded in every one of its events so the log cannot be rewritten.",
+            exception.Message);
     }
 
     private static FileGovernedTaskService CreateService(string root) =>

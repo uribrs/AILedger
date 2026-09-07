@@ -54,6 +54,9 @@ internal static class TaskTransitionValidator
             case RunCompleted completed:
                 ValidateRunCompleted(Require(state), @event, completed);
                 break;
+            case StagePrerequisitesWaived waived:
+                ValidateStagePrerequisitesWaived(Require(state), @event, waived);
+                break;
             case StageTransitioned transitioned:
                 ValidateStageTransitioned(Require(state), @event, transitioned);
                 break;
@@ -729,7 +732,7 @@ internal static class TaskTransitionValidator
             }
         }
 
-        // Mirrors CommandHandler.EnsureSupersessionReplacement and DeriveSupersession. The outcome
+        // Mirrors ClaimRules.EnsureSupersessionReplacement and ClaimRules.DeriveSupersession. The outcome
         // is carried on the event, and re-derived here so a forged one is refused.
         if (resolved.Status != ClaimStatus.Superseded)
         {
@@ -1014,7 +1017,7 @@ internal static class TaskTransitionValidator
             RequireDefined(subjectRole, nameof(run.SubjectRole));
         }
 
-        // Mirrors CommandHandler.StartRun. LaunchedBy is set only when an operator dispatched the
+        // Mirrors RunRules.StartRun. LaunchedBy is set only when an operator dispatched the
         // run for another actor, so a run recorded before dispatch existed carries null here and
         // this reads exactly as it always did: the run belongs to the event actor. Replay accepts
         // every history that was ever legal; the new rule can only bite on the new shape.
@@ -1046,7 +1049,7 @@ internal static class TaskTransitionValidator
             throw new GovernanceException($"Only work owner '{owner}' or an operator can start work item '{workItem.Id}'.");
         }
 
-        // Mirrors CommandHandler.StartRun. Adding Abandoned tightens replay, which is normally the
+        // Mirrors RunRules.StartRun. Adding Abandoned tightens replay, which is normally the
         // forbidden direction — it is safe only because the status cannot exist in any history
         // written before work.abandoned did, so no log that was legal when written now fails.
         if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or
@@ -1087,7 +1090,7 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("Only an active run can transition to a terminal status.");
         }
 
-        // Mirrors CommandHandler.EnsureLauncherAuthorizedCompletion. The launcher's secret is
+        // Mirrors RunRules.EnsureLauncherAuthorizedCompletion. The launcher's secret is
         // deliberately absent from the log, so replay checks the shape rather than the secret: a
         // launcher-managed run is either closed with launcher authority, or closed by an operator
         // as a failure.
@@ -1137,10 +1140,49 @@ internal static class TaskTransitionValidator
         }
 
         StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
-        EnsureStagePrerequisites(state, transitioned.Current);
+        if (state.PendingStagePrerequisiteWaiver is { } waiver)
+        {
+            if (waiver.ActorId != @event.ActorId ||
+                waiver.TargetStage != transitioned.Current ||
+                @event.CausationId != waiver.EventId)
+            {
+                throw new GovernanceException(
+                    "A stage prerequisite waiver must be consumed by its immediately caused transition.");
+            }
+        }
+        else
+        {
+            EnsureStagePrerequisites(state, transitioned.Current);
+        }
         // C3 (lesson-closeout-replay-compatibility): CommandHandler requires and emits lessons for
         // a new Learn -> Archive command. Replay deliberately does not require a preceding lesson:
         // every archive history written before lesson events existed has none.
+    }
+
+    private static void ValidateStagePrerequisitesWaived(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        StagePrerequisitesWaived waived)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.RequestTransition);
+        RequireDefined(waived.TargetStage, nameof(waived.TargetStage));
+        if (string.IsNullOrWhiteSpace(waived.Reason))
+        {
+            throw new GovernanceException(
+                "Waiving stage prerequisites needs a reason; a blank waiver records nothing.");
+        }
+
+        if (!IsOperator(state, @event.ActorId))
+        {
+            throw new GovernanceException("Only an operator can transition stages without prerequisites.");
+        }
+
+        if (state.PendingStagePrerequisiteWaiver is not null)
+        {
+            throw new GovernanceException("A stage prerequisite waiver is already pending.");
+        }
+
+        StageTransitionPolicy.EnsureAllowed(state.Stage, waived.TargetStage);
     }
 
     private static void ValidateEscalationRaised(GovernedTaskState state, LedgerEvent @event, Escalation escalation)
@@ -1176,7 +1218,7 @@ internal static class TaskTransitionValidator
         EnsureUnique(escalation.Options, "Options", StringComparer.Ordinal);
 
         // R1 (dual-kernel-rule-drift): these payload rules are the replay-side copy of
-        // CommandHandler.RaiseEscalation. Change one and you must change the other.
+        // EscalationRules.RaiseEscalation. Change one and you must change the other.
         switch (escalation.Kind)
         {
             case EscalationKind.BusinessDecision:
@@ -1301,7 +1343,7 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("Work item is already completed.");
         }
 
-        // Mirrors CommandHandler.CompleteWorkItem, including its separation from the repair
+        // Mirrors WorkItemRules.CompleteWorkItem, including its separation from the repair
         // refusal below: an abandoned item is not damaged, so "repair it first" would misdescribe
         // it. Safe by construction — no history predating work.abandoned carries this status.
         if (workItem.Status is WorkItemStatus.Abandoned)
@@ -1329,7 +1371,7 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("Work item cannot be completed while an escalation on it is open.");
         }
 
-        // Mirrors the two waiver rules in CommandHandler.CompleteWorkItem. Both key on the PRESENCE
+        // Mirrors the two waiver rules in WorkItemRules.CompleteWorkItem. Both key on the PRESENCE
         // of WithoutVerificationReason, which is null on every event recorded before the field
         // existed, so neither can bite on a history that was legal when it was written. This is
         // deliberately not "a completion must carry a waiver": it only constrains the waiver when
@@ -1364,7 +1406,7 @@ internal static class TaskTransitionValidator
         // still never re-derived here: the event records what an operator decided, replay accepts it.
         //
         // The cross-provider rule added beside the ordering check —
-        // CommandHandler.ProviderThatVerifiedItsOwnWork, which refuses a completion whose only
+        // WorkItemRules.ProviderThatVerifiedItsOwnWork, which refuses a completion whose only
         // verifier runs came from the same provider that did the work — is command-time only for
         // the same reason and one of its own. Provider IS recorded on every run ever written, so
         // the field is not the problem; the problem is that no verifier run before this rule was
@@ -1382,7 +1424,7 @@ internal static class TaskTransitionValidator
         RequireAuthority(state, @event.ActorId, Capability.ManageWork);
         var workItem = Get(state.WorkItems, blocked.WorkItemId, "work item");
         RequireText(blocked.Reason, nameof(blocked.Reason));
-        // Mirrors CommandHandler.BlockWorkItem: Blocked is a live status holding the item's area,
+        // Mirrors WorkItemRules.BlockWorkItem: Blocked is a live status holding the item's area,
         // so a released item must not re-enter it. Abandoned is safe by construction — no history
         // predating work.abandoned carries that status.
         //
@@ -1418,7 +1460,7 @@ internal static class TaskTransitionValidator
             throw new GovernanceException($"Only a blocked work item can be unblocked; this one is '{workItem.Status}'.");
         }
 
-        // Mirrors CommandHandler.UnblockWorkItem: unblocking never undoes causal invalidation.
+        // Mirrors WorkItemRules.UnblockWorkItem: unblocking never undoes causal invalidation.
         if (workItem.DependsOnClaims
             .Select(claimId => Get(state.Claims, claimId, "claim"))
             .Any(claim => claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded))
@@ -1436,7 +1478,7 @@ internal static class TaskTransitionValidator
         RequireAuthority(state, @event.ActorId, Capability.ManageWork, operatorRequired: true);
         var workItem = Get(state.WorkItems, abandoned.WorkItemId, "work item");
         RequireText(abandoned.Reason, nameof(abandoned.Reason));
-        // Mirrors CommandHandler.AbandonWorkItem, Stale included. Every rule on this event is safe
+        // Mirrors WorkItemRules.AbandonWorkItem, Stale included. Every rule on this event is safe
         // at replay whatever it keys on, because the event type itself is new: no history contains
         // a work.abandoned at all, so none can be rejected by tightening its rules.
         if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Stale)
@@ -1506,7 +1548,7 @@ internal static class TaskTransitionValidator
             throw new GovernanceException("A decision is only overturned by a supported challenge against it.");
         }
 
-        // Mirrors the evidence bar in CommandHandler.AddChallengeConsequence.
+        // Mirrors the evidence bar in ChallengeRules.AddChallengeConsequence.
         if (challenge.EvidenceIds.Count == 0)
         {
             throw new GovernanceException(
