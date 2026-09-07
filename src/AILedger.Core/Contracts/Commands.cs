@@ -155,7 +155,10 @@ public sealed record RequestStageTransitionCommand(
     ActorId ActorId,
     EventId? CausationId,
     string CorrelationId,
-    TaskStage TargetStage) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    TaskStage TargetStage,
+    // Why the operator is advancing without satisfying the target stage's command-time arm.
+    // The handler emits this as its own event so the override remains visible in the log.
+    string? WithoutPrerequisitesReason = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RaiseEscalationCommand(
     ActorId ActorId,

@@ -31,7 +31,12 @@ public sealed record GovernedTaskState
     // when absent so that the state.json of every task opened before tags existed is unchanged.
     public IReadOnlyList<string>? Tags { get; init; }
     internal ActorId? PendingOpeningActor { get; init; }
+    // Transient replay state tying a waiver event to the immediately caused stage transition.
+    // Internal properties are not projected into state.json; a completed command always consumes it.
+    internal StagePrerequisiteWaiver? PendingStagePrerequisiteWaiver { get; init; }
 }
+
+internal sealed record StagePrerequisiteWaiver(EventId EventId, ActorId ActorId, TaskStage TargetStage);
 
 public sealed record CommandOutcome(
     GovernedTaskState State,

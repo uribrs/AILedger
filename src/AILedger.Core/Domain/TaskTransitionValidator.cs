@@ -54,6 +54,9 @@ internal static class TaskTransitionValidator
             case RunCompleted completed:
                 ValidateRunCompleted(Require(state), @event, completed);
                 break;
+            case StagePrerequisitesWaived waived:
+                ValidateStagePrerequisitesWaived(Require(state), @event, waived);
+                break;
             case StageTransitioned transitioned:
                 ValidateStageTransitioned(Require(state), @event, transitioned);
                 break;
@@ -1137,10 +1140,49 @@ internal static class TaskTransitionValidator
         }
 
         StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
-        EnsureStagePrerequisites(state, transitioned.Current);
+        if (state.PendingStagePrerequisiteWaiver is { } waiver)
+        {
+            if (waiver.ActorId != @event.ActorId ||
+                waiver.TargetStage != transitioned.Current ||
+                @event.CausationId != waiver.EventId)
+            {
+                throw new GovernanceException(
+                    "A stage prerequisite waiver must be consumed by its immediately caused transition.");
+            }
+        }
+        else
+        {
+            EnsureStagePrerequisites(state, transitioned.Current);
+        }
         // C3 (lesson-closeout-replay-compatibility): CommandHandler requires and emits lessons for
         // a new Learn -> Archive command. Replay deliberately does not require a preceding lesson:
         // every archive history written before lesson events existed has none.
+    }
+
+    private static void ValidateStagePrerequisitesWaived(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        StagePrerequisitesWaived waived)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.RequestTransition);
+        RequireDefined(waived.TargetStage, nameof(waived.TargetStage));
+        if (string.IsNullOrWhiteSpace(waived.Reason))
+        {
+            throw new GovernanceException(
+                "Waiving stage prerequisites needs a reason; a blank waiver records nothing.");
+        }
+
+        if (!IsOperator(state, @event.ActorId))
+        {
+            throw new GovernanceException("Only an operator can transition stages without prerequisites.");
+        }
+
+        if (state.PendingStagePrerequisiteWaiver is not null)
+        {
+            throw new GovernanceException("A stage prerequisite waiver is already pending.");
+        }
+
+        StageTransitionPolicy.EnsureAllowed(state.Stage, waived.TargetStage);
     }
 
     private static void ValidateEscalationRaised(GovernedTaskState state, LedgerEvent @event, Escalation escalation)

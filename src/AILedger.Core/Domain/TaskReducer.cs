@@ -25,6 +25,7 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemInvalidated invalidated => InvalidateWorkItem(Require(state), invalidated),
             RunStarted started => StartRun(Require(state), started),
             RunCompleted completed => CompleteRun(Require(state), completed),
+            StagePrerequisitesWaived waived => RecordStagePrerequisiteWaiver(Require(state), @event, waived),
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
             EscalationRaised raised => Require(state) with { Escalations = Set(Require(state).Escalations, raised.Escalation.Id, raised.Escalation) },
             EscalationResolved resolved => ResolveEscalation(Require(state), resolved),
@@ -278,8 +279,24 @@ public sealed class TaskReducer : ITaskReducer
         }
 
         StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
-        return state with { Stage = transitioned.Current };
+        return state with
+        {
+            Stage = transitioned.Current,
+            PendingStagePrerequisiteWaiver = null
+        };
     }
+
+    private static GovernedTaskState RecordStagePrerequisiteWaiver(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        StagePrerequisitesWaived waived) =>
+        state with
+        {
+            PendingStagePrerequisiteWaiver = new StagePrerequisiteWaiver(
+                @event.EventId,
+                @event.ActorId,
+                waived.TargetStage)
+        };
 
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");

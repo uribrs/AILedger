@@ -1378,6 +1378,74 @@ public sealed class CliApplicationTests
         Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
     }
 
+    // Accepted decision D1: an area may be a single file, so two agents can hold two files in one
+    // directory. The kernel accepted that from the beginning; the check that held every scope to a
+    // directory was here, in the operator surface, which is why these two tests are at this level.
+    [Fact]
+    public async Task WorkCreationAcceptsAFileAsAnAreaAndStoresTheFileItself()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var file = Path.Combine(area, "ClaimRules.cs");
+        await File.WriteAllTextAsync(file, "// the area itself");
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
+             "--scope", file], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, error.ToString());
+        // The stored scope is the file, not the directory around it. A scope widened to the parent
+        // here would hand one agent every other file beside it and read in `who` as the whole area.
+        Assert.True(Path.IsPathFullyQualified(scope));
+        Assert.True(File.Exists(scope));
+        Assert.Equal("ClaimRules.cs", Path.GetFileName(scope));
+    }
+
+    // A process cannot start inside a file, so a file-scoped item resolves its provider's working
+    // directory to the file's parent. That widening is the launch's alone: the recorded scope stays
+    // the file, and occupancy keeps reading it as one.
+    [Fact]
+    public async Task AFileScopedWorkItemLaunchesItsProviderInTheFilesDirectory()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var file = Path.Combine(area, "ClaimRules.cs");
+        await File.WriteAllTextAsync(file, "// the area itself");
+        var capture = new CapturingAdapter();
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
+             "--scope", file], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--run", "R1", "--work", "W1", "--provider", "codex",
+             "--executable", "/usr/bin/true", "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        var request = Assert.Single(capture.Requests);
+        Assert.Equal(0, exit);
+        // Both sides are canonical already — the stored scope was canonicalised when it was
+        // recorded — so the parent is compared as a path rather than through a sentinel file.
+        Assert.Equal(Path.GetDirectoryName(scope), request.WorkingDirectory);
+        Assert.EndsWith("ClaimRules.cs", scope, StringComparison.Ordinal);
+    }
+
     // The body arrives on standard input rather than as an option value, because the parser takes
     // any value opening with two dashes as the next option name and a real workflow document starts
     // with a horizontal rule or YAML front matter. That is validated claim C10, and it is why every

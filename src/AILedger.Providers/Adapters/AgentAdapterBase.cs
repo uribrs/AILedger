@@ -41,6 +41,20 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         return version.Trim();
     }
 
+    private static void WriteProgress(AgentLaunchRequest request, string eventType)
+    {
+        try
+        {
+            Console.Error.WriteLine(
+                $"[{DateTimeOffset.UtcNow:HH:mm:ss}] {request.RunId} {request.Provider} {eventType}");
+            Console.Error.Flush();
+        }
+        catch (IOException)
+        {
+            // A closed or redirected stderr must never fail a governed run.
+        }
+    }
+
     public async Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
     {
         ValidateRequest(request);
@@ -100,6 +114,13 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                         var output = ReadFinalOutput(providerEvent);
                         events.Add(providerEvent with { RawJson = redactor.RedactJson(providerEvent.RawJson) });
                         finalOutput = output is null ? finalOutput : redactor.RedactText(output);
+                        // Progress, as it happens, on stderr so stdout stays the single JSON result.
+                        // Without this a launch is silent until it ends, and an agent that is working
+                        // but not recording in the ledger is indistinguishable from one that is hung —
+                        // run RP1 exited zero having done nothing and only its final log said so.
+                        // The event type is provider vocabulary and carries no task content; the raw
+                        // JSON is not echoed, because it is the thing the redactor exists to guard.
+                        WriteProgress(request, providerEvent.Type);
                     }
                     catch (JsonException exception)
                     {

@@ -242,7 +242,7 @@ public sealed class CliApplication
                 break;
             case "work add":
                 var scopes = input.Many("scope")
-                    .Select(ResolveExistingDirectory)
+                    .Select(ResolveExistingScope)
                     .Distinct(PathComparer)
                     .ToArray();
                 EnsureLedgerIsOutsideProviderDirectories(ledgerRoot, scopes);
@@ -328,7 +328,8 @@ public sealed class CliApplication
                 break;
             case "stage transition":
                 await ExecuteAsync(service, input, new RequestStageTransitionCommand(
-                    Actor(input), Cause(input), Correlation(input), EnumValue<TaskStage>(input, "stage")), cancellationToken).ConfigureAwait(false);
+                    Actor(input), Cause(input), Correlation(input), EnumValue<TaskStage>(input, "stage"),
+                    input.Optional("without-prerequisites")), cancellationToken).ConfigureAwait(false);
                 break;
             case "provider launch":
                 await LaunchProviderAsync(service, input, AgentLaunchMode.New, ledgerRoot, cancellationToken).ConfigureAwait(false);
@@ -501,7 +502,7 @@ public sealed class CliApplication
 
         var occupied = state.WorkItems.Values
             // Which statuses release an area is this rule written twice: the second copy is the
-            // filter in CommandHandler.EnsureScopeIsNotAlreadyOccupied. They must change together.
+            // filter in ScopeOccupancyRules.EnsureScopeIsNotAlreadyOccupied. They must change together.
             // Apart, `who` shows an operator an area as taken that `work add` hands to someone else
             // in the next command, or the reverse.
             .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale
@@ -995,7 +996,7 @@ public sealed class CliApplication
         }
 
         var scopes = workItem.ResourceScope
-            .Select(ResolveExistingDirectory)
+            .Select(ResolveExistingScope)
             .Distinct(PathComparer)
             .ToArray();
         EnsureLedgerIsOutsideProviderDirectories(ledgerRoot, scopes);
@@ -1004,11 +1005,12 @@ public sealed class CliApplication
             throw new GovernanceException($"Work item '{workItemId.Value}' has no directory scope for a provider run.");
         }
 
-        var workingDirectory = ResolveExistingDirectory(requestedWorkingDirectory ?? scopes[0]);
+        var workingDirectory = ResolveExistingDirectory(
+            requestedWorkingDirectory ?? ProviderDirectoryForScope(scopes[0]));
         var additionalDirectories = requestedAdditionalDirectories.Select(ResolveExistingDirectory).ToArray();
         foreach (var grant in additionalDirectories.Prepend(workingDirectory))
         {
-            if (!scopes.Any(scope => IsContainedPath(scope, grant)))
+            if (!scopes.Any(scope => IsContainedPath(ProviderDirectoryForScope(scope), grant)))
             {
                 throw new GovernanceException(
                     $"Provider directory '{grant}' is outside work item '{workItemId.Value}' scope.");
@@ -1023,6 +1025,34 @@ public sealed class CliApplication
             workingDirectory,
             [.. additionalDirectories, ResolveExistingDirectory(ledgerRoot)]);
     }
+
+    private static string ResolveExistingScope(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (Directory.Exists(fullPath))
+        {
+            return ResolveExistingDirectory(fullPath);
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            // Keep the existing refusal contract for a path that names neither a file nor a directory.
+            return ResolveExistingDirectory(fullPath);
+        }
+
+        var parent = ResolveExistingDirectory(Path.GetDirectoryName(fullPath)!);
+        var file = new FileInfo(Path.Combine(parent, Path.GetFileName(fullPath)));
+        if (file.LinkTarget is not null)
+        {
+            return file.ResolveLinkTarget(returnFinalTarget: true)?.FullName
+                ?? throw new GovernanceException($"Could not resolve provider scope link '{file.FullName}'.");
+        }
+
+        return file.FullName;
+    }
+
+    private static string ProviderDirectoryForScope(string scope) =>
+        Directory.Exists(scope) ? scope : ResolveExistingDirectory(Path.GetDirectoryName(scope)!);
 
     private static string ResolveExistingDirectory(string path)
     {
@@ -1065,7 +1095,7 @@ public sealed class CliApplication
     {
         var canonicalLedgerRoot = ResolveExistingDirectory(ledgerRoot);
         var canonicalProviderDirectories = providerDirectories
-            .Select(ResolveExistingDirectory)
+            .Select(ResolveExistingScope)
             .Distinct(PathComparer)
             .ToArray();
         // A provider directory that *contains* the Ledger root is the self-hosting case: a governed
@@ -1211,7 +1241,7 @@ public sealed class CliApplication
             ["run complete"] = Options(
                 "root", "task", "actor", "run", "status", "session", "cause", "correlation"),
             ["stage transition"] = Options(
-                "root", "task", "actor", "stage", "cause", "correlation"),
+                "root", "task", "actor", "stage", "without-prerequisites", "cause", "correlation"),
             ["provider launch"] = ProviderOptions(),
             ["provider resume"] = ProviderOptions()
         };
@@ -1353,7 +1383,7 @@ public sealed class CliApplication
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
                            [--subject ID]
         run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
-        stage transition   --task ID --actor ID --stage STAGE
+        stage transition   --task ID --actor ID --stage STAGE [--without-prerequisites REASON]
         provider launch    --task ID --actor ID --run ID --provider codex|claude [provider options]
         provider resume    --task ID --actor ID --run ID --provider codex|claude --session EXACT_ID [provider options]
 
@@ -1368,6 +1398,12 @@ public sealed class CliApplication
         A work item is completed only after two runs have completed against it: one whose subject
         held a working role, and one whose subject was a verifier. --without-verification REASON is
         the operator's override for both, and the reason goes in the log.
+
+        stage transition --without-prerequisites REASON is the same shape for a stage: it is the
+        operator's override for the arm guarding the target stage. Only an operator may pass it, the
+        reason is required and a blank one is refused, and the reason is recorded as its own event
+        before the transition. A later reader therefore sees which arm was skipped and why, rather
+        than only that a transition happened.
 
         --not-split-because names an existing alternative explaining why a work item claims more
         than one --scope area instead of being split into separate items. It is required only for a

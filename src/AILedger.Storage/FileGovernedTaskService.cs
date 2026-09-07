@@ -10,8 +10,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
-    public const int DefaultMaximumEventsPerTask = 1_000;
-    public const long DefaultMaximumEventLogBytes = 16 * 1024 * 1024;
+    // Measured on this ledger an event costs 577 to 1061 bytes, averaging near a kilobyte now that
+    // artifacts carry their bodies inline, so ten thousand events is about ten megabytes and the
+    // byte bound stays the looser of the two rather than becoming the surprise limit. Replay is the
+    // real cost, not disk: a 553-event task replays inside a 25ms invocation including process
+    // start, which puts ten thousand events near 150ms per command. That is why this is a raised
+    // bound and not a compaction scheme — rotation buys nothing at a cost this size.
+    public const int DefaultMaximumEventsPerTask = 10_000;
+    public const long DefaultMaximumEventLogBytes = 64 * 1024 * 1024;
 
     private static readonly UTF8Encoding Utf8WithoutBom = new(false);
     private readonly TaskWorkspacePathResolver _pathResolver;
@@ -84,7 +90,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         if (outcome.State.Version > _maximumEventsPerTask)
         {
             throw new GovernanceException(
-                $"Task '{taskId}' reached the v0.1 limit of {_maximumEventsPerTask} events; archive or migrate it before continuing.");
+                $"Task '{taskId}' reached the limit of {_maximumEventsPerTask} events. Archive it and open a " +
+                "successor that depends on the claims this one validated; there is no compaction path, and a " +
+                "task id is embedded in every one of its events so the log cannot be rewritten.");
         }
 
         await AppendEventsAsync(taskDirectory, outcome.Events, cancellationToken).ConfigureAwait(false);
