@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterpart: TaskTransitionValidator.ValidateRoleAssigned.
+// Replay counterpart: TaskTransitionValidator.ValidateRoleAssigned.
 internal static class RoleAssignmentRules
 {
     internal static IReadOnlyList<LedgerEventData> AssignRole(

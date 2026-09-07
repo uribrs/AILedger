@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateConstraintAdded and ValidateConstraintSuperseded.
+// Replay counterparts: ValidateConstraintAdded and ValidateConstraintSuperseded.
 internal static class ConstraintRules
 {
     internal static IReadOnlyList<LedgerEventData> AddConstraint(

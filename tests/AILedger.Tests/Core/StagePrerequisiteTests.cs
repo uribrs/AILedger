@@ -19,6 +19,44 @@ public sealed class StagePrerequisiteTests
     private static readonly DateTimeOffset When = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void CommandTimeRefusesAStagePrerequisiteWaiverFromANonOperator()
+    {
+        var task = new TestTask();
+        var lead = new ActorId("lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.RequestTransition);
+        var handler = new CommandHandler(new NonValidatingReducer(), new AuthorizationPolicy());
+
+        var refusal = Assert.Throws<GovernanceException>(() => handler.Handle(
+            task.State,
+            new RequestStageTransitionCommand(
+                lead, null, "waive-command-time", TaskStage.Research, "The arm is inapplicable"),
+            When));
+
+        Assert.Equal("Only an operator can transition stages without prerequisites.", refusal.Message);
+    }
+
+    [Fact]
+    public void ReplayRefusesAStagePrerequisiteWaiverFromANonOperator()
+    {
+        var task = new TestTask();
+        var lead = new ActorId("lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.RequestTransition);
+        var forged = new LedgerEvent(
+            GovernedTaskState.CurrentSchemaVersion,
+            new EventId($"{task.TaskId.Value}:{task.State.Version + 1:D10}"),
+            task.TaskId,
+            lead,
+            When,
+            null,
+            "waive-replay",
+            new StagePrerequisitesWaived(TaskStage.Research, "The arm is inapplicable"));
+
+        var refusal = Assert.Throws<GovernanceException>(() => new TaskReducer().Apply(task.State, forged));
+
+        Assert.Equal("Only an operator can transition stages without prerequisites.", refusal.Message);
+    }
+
+    [Fact]
     public void EnteringResearchRequiresAnOpenClaim()
     {
         var task = new TestTask();
@@ -354,6 +392,46 @@ public sealed class StagePrerequisiteTests
         Assert.Single(task.State.Lessons);
     }
 
+    // Constraint K23. The Archive target appends its waiver on a line of its own, after the lessons
+    // it mints; every other target returns the waiver from the branch above, so a test that waives
+    // into Research says nothing about this one. This is also the branch the operator archives real
+    // tasks through, which made it the waiver path with the most use and the least cover.
+    [Fact]
+    public void WaivingTheArchiveArmRecordsTheReasonBesideTheLessonsItMints()
+    {
+        var task = new TestTask();
+        task.ReachStage(TaskStage.Learn);
+        task.Apply(new MarkLessonBearingCommand(
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT-stage",
+            Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["stages"],
+            Verify: "dotnet test --filter StagePrerequisiteTests",
+            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier));
+        // An active run is what the Archive arm refuses on, so the waiver is what carries the
+        // transition below rather than a prerequisite that was satisfied anyway.
+        var open = new RunId("R-open");
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), open, task.StageWorkItem(), "codex", null));
+        var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Archive));
+        Assert.Contains("active", refusal.Message, StringComparison.OrdinalIgnoreCase);
+
+        var outcome = task.Apply(new RequestStageTransitionCommand(
+            task.OperatorId, null, task.NextCorrelation(), TaskStage.Archive,
+            "The run died with its work landed and its session cannot be resumed"));
+
+        var waiver = outcome.Events.Single(item => item.Data is StagePrerequisitesWaived);
+        var transition = outcome.Events.Single(item => item.Data is StageTransitioned);
+        var waived = (StagePrerequisitesWaived)waiver.Data;
+        Assert.Equal(TaskStage.Archive, task.State.Stage);
+        Assert.Equal("The run died with its work landed and its session cannot be resumed", waived.Reason);
+        Assert.Equal(TaskStage.Archive, waived.TargetStage);
+        // The waiver does not skip the lesson: minting still runs, and the waiver is appended after
+        // the lessons, so the transition cites it. A reader following the causation chain back from
+        // the archive finds which arm was skipped and why, not only that a transition happened.
+        Assert.Single(outcome.Events.Where(item => item.Data is LessonMinted));
+        Assert.Equal(waiver.EventId, transition.CausationId);
+        Assert.Single(task.State.Lessons);
+    }
+
     // R2 (superseded-stage-evidence). A withdrawn document must satisfy nothing, which is a rule
     // about how each arm reads state rather than about what it asks for: CurrentArtifacts, never
     // state.Artifacts.
@@ -596,5 +674,11 @@ public sealed class StagePrerequisiteTests
         {
             Artifacts = state.Artifacts.Values.Append(withdrawal).ToDictionary(artifact => artifact.ArtifactId)
         };
+    }
+
+    private sealed class NonValidatingReducer : ITaskReducer
+    {
+        public GovernedTaskState Apply(GovernedTaskState? state, LedgerEvent @event) =>
+            state! with { Version = state.Version + 1 };
     }
 }

@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateChallengeRaised, ValidateChallengeDisposed, ValidateDecisionOverturned.
+// Replay counterparts: ValidateChallengeRaised, ValidateChallengeDisposed, ValidateDecisionOverturned.
 internal static class ChallengeRules
 {
     internal static IReadOnlyList<LedgerEventData> RaiseChallenge(

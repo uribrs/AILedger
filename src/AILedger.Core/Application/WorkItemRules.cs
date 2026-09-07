@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: the TaskTransitionValidator.ValidateWorkItem* family.
+// Replay counterparts: the TaskTransitionValidator.ValidateWorkItem* family.
 internal static class WorkItemRules
 {
     internal static IReadOnlyList<LedgerEventData> AddWorkItem(

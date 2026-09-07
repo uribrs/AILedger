@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateRunStarted and ValidateRunCompleted.
+// Replay counterparts: ValidateRunStarted and ValidateRunCompleted.
 internal static class RunRules
 {
     internal static IReadOnlyList<LedgerEventData> StartRun(

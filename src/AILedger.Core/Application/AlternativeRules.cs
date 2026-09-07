@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterpart: TaskTransitionValidator.ValidateAlternativeRecorded.
+// Replay counterpart: TaskTransitionValidator.ValidateAlternativeRecorded.
 internal static class AlternativeRules
 {
     internal static IReadOnlyList<LedgerEventData> RecordAlternative(

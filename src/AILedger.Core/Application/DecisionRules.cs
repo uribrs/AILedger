@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateDecisionProposed, ValidateDecisionResolved, ValidateDecisionInvalidated.
+// Replay counterparts: ValidateDecisionProposed, ValidateDecisionResolved, ValidateDecisionInvalidated.
 internal static class DecisionRules
 {
     internal static IReadOnlyList<LedgerEventData> ProposeDecision(

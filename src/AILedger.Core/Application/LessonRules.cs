@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateLessonMarked, ValidateLessonMinted, ValidateLessonRecalled.
+// Replay counterparts: ValidateLessonMarked, ValidateLessonMinted, ValidateLessonRecalled.
 internal static class LessonRules
 {
     internal static IReadOnlyList<Lesson> MintLessons(

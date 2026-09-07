@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateEscalationRaised and ValidateEscalationResolved.
+// Replay counterparts: ValidateEscalationRaised and ValidateEscalationResolved.
 internal static class EscalationRules
 {
     internal static IReadOnlyList<LedgerEventData> RaiseEscalation(

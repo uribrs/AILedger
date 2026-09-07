@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterpart: TaskTransitionValidator.ValidateStageTransitioned.
+// Replay counterpart: TaskTransitionValidator.ValidateStageTransitioned.
 internal static class StageTransitionRules
 {
     internal static IReadOnlyList<LedgerEventData> TransitionStage(

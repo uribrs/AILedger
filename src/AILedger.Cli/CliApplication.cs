@@ -1403,7 +1403,8 @@ public sealed class CliApplication
         operator's override for the arm guarding the target stage. Only an operator may pass it, the
         reason is required and a blank one is refused, and the reason is recorded as its own event
         before the transition. A later reader therefore sees which arm was skipped and why, rather
-        than only that a transition happened.
+        than only that a transition happened. The Archive arm additionally requires an eligible
+        lesson-bearing mark; the waiver does not skip that gate.
 
         --not-split-because names an existing alternative explaining why a work item claims more
         than one --scope area instead of being split into separate items. It is required only for a

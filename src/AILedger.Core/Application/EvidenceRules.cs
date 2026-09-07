@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterpart: TaskTransitionValidator.ValidateEvidenceAdded.
+// Replay counterpart: TaskTransitionValidator.ValidateEvidenceAdded.
 internal static class EvidenceRules
 {
     internal static IReadOnlyList<LedgerEventData> AddEvidence(

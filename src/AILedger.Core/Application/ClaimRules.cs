@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateClaimAdded, ValidateClaimResolved, ValidateClaimDependenciesRepointed.
+// Replay counterparts: ValidateClaimAdded, ValidateClaimResolved, ValidateClaimDependenciesRepointed.
 internal static class ClaimRules
 {
     internal static IReadOnlyList<LedgerEventData> AddClaim(

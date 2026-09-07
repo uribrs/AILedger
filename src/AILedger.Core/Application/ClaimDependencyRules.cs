@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateDecisionInvalidated, ValidateWorkItemInvalidated, ValidateClaimDependenciesRepointed.
+// Replay counterparts: ValidateDecisionInvalidated, ValidateWorkItemInvalidated, ValidateClaimDependenciesRepointed.
 internal static class ClaimDependencyRules
 {
     internal static void AddDependencyInvalidations(

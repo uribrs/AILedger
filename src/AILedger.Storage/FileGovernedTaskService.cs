@@ -409,7 +409,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             if (lineNumber > _maximumEventsPerTask)
             {
                 throw new InvalidDataException(
-                    $"Event log '{eventsPath}' exceeds the v0.1 limit of {_maximumEventsPerTask} events.");
+                    $"Event log '{eventsPath}' exceeds the limit of {_maximumEventsPerTask} events. Archive it " +
+                    "and open a successor that depends on the claims this one validated; there is no compaction " +
+                    "path, and a task id is embedded in every one of its events so the log cannot be rewritten.");
             }
 
             if (string.IsNullOrWhiteSpace(line))
@@ -456,7 +458,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         if (existingLength + bytes.LongLength > _maximumEventLogBytes)
         {
             throw new GovernanceException(
-                $"Task event log would exceed the v0.1 limit of {_maximumEventLogBytes} bytes; archive or migrate it before continuing.");
+                $"Task event log would exceed the limit of {_maximumEventLogBytes} bytes. Archive it and open a " +
+                "successor that depends on the claims this one validated; there is no compaction path, and a " +
+                "task id is embedded in every one of its events so the log cannot be rewritten.");
         }
 
         var temporaryPath = $"{eventsPath}.{Guid.NewGuid():N}.append";
@@ -676,7 +680,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         if (length > _maximumEventLogBytes)
         {
             throw new InvalidDataException(
-                $"Event log '{eventsPath}' exceeds the v0.1 limit of {_maximumEventLogBytes} bytes.");
+                $"Event log '{eventsPath}' exceeds the limit of {_maximumEventLogBytes} bytes. Archive it and " +
+                "open a successor that depends on the claims this one validated; there is no compaction path, " +
+                "and a task id is embedded in every one of its events so the log cannot be rewritten.");
         }
     }
 

@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Command-time counterparts: ValidateArtifactRecorded, ValidateArtifactProducer, ValidateArtifactRevision, ValidateVerifierOutput.
+// Replay counterparts: ValidateArtifactRecorded, ValidateArtifactProducer, ValidateArtifactRevision, ValidateVerifierOutput.
 internal static class ArtifactRules
 {
     internal static IReadOnlyList<LedgerEventData> RecordArtifact(
