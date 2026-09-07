@@ -120,7 +120,11 @@ public sealed class CliApplication
             // The lesson store is selected separately from the ledger because it is the one record
             // worth more to the next task than to this one, and that task is often in another
             // repository. A store inside a single ledger root is not a store that crosses roots.
-            var lessonRoot = Path.GetFullPath(input.Optional("lesson-root") ?? FileLessonStore.DefaultRoot());
+            var lessonRoot = Path.GetFullPath(
+                input.Optional("lesson-root")
+                ?? (DiscoverLedgerHome() is { } lessonHome
+                    ? Path.Combine(lessonHome, "lessons")
+                    : FileLessonStore.DefaultRoot()));
             var service = _serviceFactory(root, lessonRoot);
             await DispatchAsync(command, input, service, root, cancellationToken).ConfigureAwait(false);
             return 0;
@@ -129,6 +133,10 @@ public sealed class CliApplication
         {
             await _error.WriteLineAsync("Cancelled.").ConfigureAwait(false);
             return 130;
+        }
+        catch (AuditFailedException)
+        {
+            return 1;
         }
         catch (ProviderRunFailedException exception)
         {
@@ -163,6 +171,9 @@ public sealed class CliApplication
                 break;
             case "who":
                 await WriteWhoAsync(service, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case "audit":
+                await WriteAuditAsync(service, input, cancellationToken).ConfigureAwait(false);
                 break;
             case "status":
             case "task status":
@@ -263,7 +274,7 @@ public sealed class CliApplication
             case "lesson mark":
                 await ExecuteAsync(service, input, new MarkLessonBearingCommand(
                     Actor(input), Cause(input), Correlation(input),
-                    EnumValue<LessonSourceKind>(input, "kind"), input.Required("source"),
+                    MarkableSourceKind(input), input.Required("source"),
                     OptionalId(input.Optional("supersedes"), value => new LessonId(value)),
                     // The kernel refuses a mark that carries neither, so both are asked for here
                     // rather than sent to be refused: a lesson that does not say what kind of
@@ -358,6 +369,108 @@ public sealed class CliApplication
     }
 
     // One answer to "who is working on this, as what, with which model".
+    // The close-out gate. Command-time rules already refuse the things that can be refused; what
+    // nobody is watching is the end, where a task is finished in spirit and never closed, so its
+    // lessons are never minted and the next task inherits nothing. This reads the ledger rather
+    // than trusting that close-out ran, and exits non-zero so a Stop hook can block on it.
+    //
+    // --recent scopes it to tasks touched within N days. Without that, one abandoned task from
+    // months ago fails every session, and a gate that always fails gets switched off.
+    private async Task WriteAuditAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        var root = Path.GetFullPath(input.Optional("root") ?? DefaultWorkspaceRoot());
+        var quiet = input.Flag("quiet");
+        var recent = double.TryParse(input.Optional("recent"), out var days) ? days : (double?)null;
+        if (!Directory.Exists(root))
+        {
+            return;
+        }
+
+        var findings = new List<string>();
+        foreach (var directory in Directory.EnumerateDirectories(root).OrderBy(p => p, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var name = Path.GetFileName(directory);
+            if (recent is { } window)
+            {
+                var newest = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                    .Select(File.GetLastWriteTimeUtc)
+                    .DefaultIfEmpty(DateTime.MinValue)
+                    .Max();
+                if ((DateTime.UtcNow - newest).TotalDays > window)
+                {
+                    continue;
+                }
+            }
+
+            GovernedTaskState? state;
+            try
+            {
+                state = await service.GetStateAsync(new TaskId(name), cancellationToken).ConfigureAwait(false);
+            }
+            catch (GovernanceException exception)
+            {
+                findings.Add($"{name}: does not replay — {exception.Message}");
+                continue;
+            }
+
+            if (state is null)
+            {
+                continue;
+            }
+
+            if (state.Stage == TaskStage.Archive)
+            {
+                continue;
+            }
+
+            var activeRuns = state.Runs.Values.Count(run => run.Status == AgentRunStatus.Active);
+            var openEscalations = state.Escalations.Values.Count(e => e.Status == EscalationStatus.Open);
+            var liveWork = state.WorkItems.Values.Count(item =>
+                item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale));
+
+            // Finished in spirit and never closed: nothing is running, nothing is asked, no work is
+            // live, and the stage still says the task is mid-pipeline. Its lessons are unminted.
+            if (activeRuns == 0 && openEscalations == 0 && liveWork == 0 && state.WorkItems.Count > 0)
+            {
+                findings.Add(
+                    $"{name}: stage '{state.Stage}' with no live work, no active run and no open escalation — " +
+                    $"finished but never closed, so its {state.LessonMarks.Count} mark(s) minted nothing. " +
+                    "Walk it to archive or say why it stays open");
+            }
+
+            // A completion with no verifier run is not a finding: reaching it required an operator
+            // waiver whose reason is already permanent in the log. Reporting it every session end
+            // would make the gate fire on settled decisions, and a gate that always fires is one the
+            // operator turns off. What is left is the one thing nothing else catches — a task
+            // finished in spirit and never closed, whose marks therefore minted nothing.
+        }
+
+        if (findings.Count == 0)
+        {
+            if (!quiet)
+            {
+                await _output.WriteLineAsync("Close-out is clean.").ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        foreach (var finding in findings)
+        {
+            await _output.WriteLineAsync(finding).ConfigureAwait(false);
+        }
+
+        // Exits non-zero so a Stop hook can block on it. Distinct from a GovernanceException, which
+        // means a command was refused; this means the ledger is fine and the close-out is not.
+        throw new AuditFailedException();
+    }
+
+    private sealed class AuditFailedException : Exception;
+
     private async Task WriteWhoAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
     {
         var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
@@ -971,8 +1084,48 @@ public sealed class CliApplication
         }
     }
 
+    // Imported exists so a lesson carried in from the pre-kernel ledger can say where it came
+    // from. It is not a record this task holds, so nothing can be marked with it.
+    private static LessonSourceKind MarkableSourceKind(CommandLine input)
+    {
+        var kind = EnumValue<LessonSourceKind>(input, "kind");
+        if (kind == LessonSourceKind.Imported)
+        {
+            throw new GovernanceException(
+                "'imported' is not a markable source kind; it belongs to lessons carried in from the pre-kernel ledger.");
+        }
+
+        return kind;
+    }
+
+    // The ledger home is a real repository the operator opens a session in, so the root is found by
+    // walking up from the working directory for a `.ailedger` directory. Without this every command
+    // needs --root, and a command issued from a subdirectory silently writes to the per-user path
+    // instead of the ledger in front of it. The per-user path stays as the fallback for a caller
+    // that is nowhere near a ledger.
+    private static string? DiscoverLedgerHome()
+    {
+        for (var directory = new DirectoryInfo(Environment.CurrentDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            var candidate = Path.Combine(directory.FullName, ".ailedger");
+            if (Directory.Exists(candidate))
+            {
+                return directory.FullName;
+            }
+        }
+
+        return null;
+    }
+
     private static string DefaultWorkspaceRoot()
     {
+        if (DiscoverLedgerHome() is { } home)
+        {
+            return Path.Combine(home, ".ailedger", "tasks");
+        }
+
         var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (string.IsNullOrWhiteSpace(localData))
         {
@@ -999,6 +1152,7 @@ public sealed class CliApplication
             ["task open"] = Options(
                 "root", "task", "actor", "title", "goal", "tag", "cause", "correlation"),
             ["who"] = Options("root", "task", "actor"),
+        ["audit"] = Options("root", "recent", "quiet"),
             ["status"] = Options("root", "task", "actor"),
             ["task status"] = Options("root", "task", "actor"),
             ["history"] = Options("root", "task", "actor", "follow", "since"),

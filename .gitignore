@@ -7,3 +7,6 @@ obj/
 TestResults/
 .ailedger/
 *.user
+
+# Packed tool output; the nupkg is a build artifact, not source.
+artifacts/

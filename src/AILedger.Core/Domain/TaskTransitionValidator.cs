@@ -302,8 +302,15 @@ internal static class TaskTransitionValidator
         }
 
 
+        // A recalled lesson was minted by an archive, or carried in from the pre-kernel ledger where
+        // the close-out was a verifier's report rather than a stage transition. Both are real
+        // provenance and neither can be forged into the other without lying about where the lesson
+        // came from. This is a loosening, which is the safe direction at replay: it accepts a source
+        // no earlier history could contain and rejects nothing that was ever legal.
         if (lesson.Provenance.RecordedAt == default || string.IsNullOrWhiteSpace(lesson.Provenance.ActorId.Value) ||
-            !string.Equals(lesson.Provenance.Source, "stage.archive", StringComparison.Ordinal))
+            !(string.Equals(lesson.Provenance.Source, "stage.archive", StringComparison.Ordinal) ||
+              (string.Equals(lesson.Provenance.Source, "lesson.import", StringComparison.Ordinal) &&
+               lesson.SourceKind == LessonSourceKind.Imported)))
         {
             throw new GovernanceException("A recalled lesson must retain valid close-out provenance.");
         }

@@ -133,7 +133,12 @@ public enum LessonSourceKind
     // taking a path and no evidence at all. Conflating them loses the counter-evidence.
     RejectedClaim,
     RejectedAlternative,
-    ResolvedEscalation
+    ResolvedEscalation,
+    // A lesson carried in from the pre-kernel ledger, where the source was an assumption
+    // disposition in a verifier's report rather than a record this kernel holds. No event ever
+    // carries it: an imported lesson is written into the cross-repository store and read back by
+    // recall, so it is never marked and never minted. 'lesson mark' must refuse it for that reason.
+    Imported
 }
 
 public enum LessonClass

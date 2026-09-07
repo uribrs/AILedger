@@ -11,6 +11,16 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Installed as `ailedger` so a session in the ledger home can govern work without knowing
+         where the assembly lives. Every invocation was `dotnet <abs path>/AILedger.Cli.dll` before
+         this, which is why the root had to be passed by hand on every line. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ailedger</ToolCommandName>
+    <PackageId>AILedger.Cli</PackageId>
+    <Version>2.0.0</Version>
+    <Description>AILedger 2.0 governed task kernel.</Description>
+    <Authors>UriB</Authors>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/nupkg</PackageOutputPath>
   </PropertyGroup>
 
 </Project>
