@@ -26,6 +26,7 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(UnblockWorkItemCommand), "work.unblock")]
 [JsonDerivedType(typeof(AbandonWorkItemCommand), "work.abandon")]
 [JsonDerivedType(typeof(MarkLessonBearingCommand), "lesson.mark")]
+[JsonDerivedType(typeof(RecordArtifactCommand), "artifact.record")]
 public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);
 
 public sealed record OpenTaskCommand(
@@ -37,7 +38,10 @@ public sealed record OpenTaskCommand(
     string Goal,
     // Populated by the durable service from archived sibling tasks. Callers opening an isolated
     // aggregate can omit it and preserve the original command contract.
-    IReadOnlyList<Lesson>? RecalledLessons = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    IReadOnlyList<Lesson>? RecalledLessons = null,
+    // The tags recall selects against, in the order given. Optional: a task opened without them
+    // recalls exactly as it did before they existed.
+    IReadOnlyList<string>? Tags = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AssignRoleCommand(
     ActorId ActorId,
@@ -182,6 +186,18 @@ public sealed record RecordAlternativeCommand(
     string RejectionRationale,
     DecisionId? ReplacedByDecisionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
+public sealed record RecordArtifactCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    ArtifactId ArtifactId,
+    GovernedArtifactKind Kind,
+    string Title,
+    string Content,
+    WorkItemId? WorkItemId,
+    RunId? ProducerRunId,
+    ArtifactId? SupersedesArtifactId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
 public sealed record MarkLessonBearingCommand(
     ActorId ActorId,
     EventId? CausationId,
@@ -191,7 +207,10 @@ public sealed record MarkLessonBearingCommand(
     LessonId? SupersedesLessonId = null,
     LessonClass? Class = null,
     string? Repo = null,
-    IReadOnlyList<string>? Tags = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    IReadOnlyList<string>? Tags = null,
+    string? Verify = null,
+    string? DoNot = null,
+    LessonActor? Actor = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AddConstraintCommand(
     ActorId ActorId,

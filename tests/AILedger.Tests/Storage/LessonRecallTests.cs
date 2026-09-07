@@ -205,7 +205,8 @@ public sealed class LessonRecallTests
             actor, null, correlation.Next(), new AlternativeId("ALT1"), "Use global mutable state", "Tasks must remain isolated", null));
         await Run(service, source, new MarkLessonBearingCommand(
             actor, null, correlation.Next(), LessonSourceKind.RejectedAlternative, "ALT1", supersedesLessonId,
-            LessonClass.Refuted, "AILedger", ["state", "isolation"]));
+            LessonClass.Refuted, "AILedger", ["state", "isolation"],
+            "dotnet test --filter LessonRecallTests", "Do not use global mutable state", LessonActor.Verifier));
         await Run(service, source, new AddWorkItemCommand(
             actor, null, correlation.Next(), new WorkItemId("W1"), "Work", null, [], []));
     }
@@ -216,12 +217,89 @@ public sealed class LessonRecallTests
         ActorId actor,
         CorrelationSequence correlation)
     {
+        // Every stage on the walk to Archive requires state that only engagement with that stage
+        // produces. The arms are pinned one at a time in StagePrerequisiteTests; here they are
+        // preconditions of reaching Archive at all, so the task records what each one asks for.
+        // Entering Research asks for an unresolved claim, because that is what there is to research.
+        await Run(service, source, new AddClaimCommand(
+            actor, null, correlation.Next(), new ClaimId("C-topic"),
+            "The lesson survives the source task being archived", null));
+
+        // Leaving Research asks for the pass that did the research. It holds no directory area, so
+        // its run names no work item.
+        var researcher = new ActorId("researcher");
+        await Run(service, source, new AssignRoleCommand(
+            actor, null, correlation.Next(), researcher, RoleKind.Researcher, [Capability.BuildContext]));
+        var research = new RunId("R-research");
+        await Run(service, source, new StartRunCommand(
+            actor, null, correlation.Next(), research, null, "codex", null, null, null, null, researcher));
+        await Run(service, source, new CompleteRunCommand(
+            actor, null, correlation.Next(), research, AgentRunStatus.Completed, "session-research"));
+
+        // Scope asks for the contract, Ready asks for the plan, and Execution asks for all three
+        // documents and a work item. The artifact gate itself is pinned in ArtifactGateTests.
+        await Run(service, source, new RecordArtifactCommand(
+            actor, null, correlation.Next(), new ArtifactId("A-request"), GovernedArtifactKind.UserRequest,
+            "Governed document", "A governed workflow document", null, null, null));
+        var producer = new RunId("R-artifacts");
+        await Run(service, source, new StartRunCommand(
+            actor, null, correlation.Next(), producer, new WorkItemId("W1"), "codex", null));
+        await Run(service, source, new RecordArtifactCommand(
+            actor, null, correlation.Next(), new ArtifactId("A-contract"), GovernedArtifactKind.PromptContract,
+            "Governed document", ArtifactCommands.Body, null, producer, null));
+        await Run(service, source, new RecordArtifactCommand(
+            actor, null, correlation.Next(), new ArtifactId("A-plan"), GovernedArtifactKind.OrchestrationPlan,
+            "Governed document", ArtifactCommands.PlanBody, null, producer, null));
+        await Run(service, source, new CompleteRunCommand(
+            actor, null, correlation.Next(), producer, AgentRunStatus.Completed, "session-artifacts"));
+
+        // Ready also asks for the roles the rest of the walk needs, each on its own actor, and it
+        // asks for the code reviewer whether or not the work turns out to touch code. W1 declares no
+        // directory area, so the reviewer is staffed here and Learn asks for no run from it.
+        var verifier = new ActorId("verifier");
+        await Run(service, source, new AssignRoleCommand(
+            actor, null, correlation.Next(), verifier, RoleKind.Verifier,
+            [Capability.BuildContext, Capability.RecordArtifact]));
+        await Run(service, source, new AssignRoleCommand(
+            actor, null, correlation.Next(), new ActorId("reviewer"), RoleKind.CodeReviewer,
+            [Capability.BuildContext, Capability.RecordArtifact]));
+
         foreach (var stage in new[]
                  {
                      TaskStage.Research, TaskStage.Design, TaskStage.Scope, TaskStage.Ready,
-                     TaskStage.Execution, TaskStage.Verification, TaskStage.Review, TaskStage.Learn,
-                     TaskStage.Archive
+                     TaskStage.Execution
                  })
+        {
+            await Run(service, source, new RequestStageTransitionCommand(actor, null, correlation.Next(), stage));
+        }
+
+        // Verification asks for the pass that did the work. A researcher's pass and the lead's
+        // document passes are not it, so the walk records a worker's.
+        var worker = new ActorId("worker");
+        await Run(service, source, new AssignRoleCommand(
+            actor, null, correlation.Next(), worker, RoleKind.Worker, [Capability.BuildContext]));
+        var working = new RunId("R-work");
+        await Run(service, source, new StartRunCommand(
+            actor, null, correlation.Next(), working, new WorkItemId("W1"), "codex",
+            null, null, null, null, worker));
+        await Run(service, source, new CompleteRunCommand(
+            actor, null, correlation.Next(), working, AgentRunStatus.Completed, "session-work"));
+        await Run(service, source, new RequestStageTransitionCommand(
+            actor, null, correlation.Next(), TaskStage.Verification));
+
+        // Review asks for the pass that read the work, and the pass cannot close without the
+        // findings it was dispatched to write.
+        var verification = new RunId("R-verify");
+        await Run(service, source, new StartRunCommand(
+            actor, null, correlation.Next(), verification, new WorkItemId("W1"), "claude",
+            null, null, null, null, verifier));
+        await Run(service, source, new RecordArtifactCommand(
+            verifier, null, correlation.Next(), new ArtifactId("A-findings"), GovernedArtifactKind.VerifierOutput,
+            "Governed document", ArtifactCommands.VerifierBody, new WorkItemId("W1"), verification, null));
+        await Run(service, source, new CompleteRunCommand(
+            actor, null, correlation.Next(), verification, AgentRunStatus.Completed, "session-verify"));
+
+        foreach (var stage in new[] { TaskStage.Review, TaskStage.Learn, TaskStage.Archive })
         {
             await Run(service, source, new RequestStageTransitionCommand(actor, null, correlation.Next(), stage));
         }

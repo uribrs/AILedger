@@ -44,7 +44,17 @@ public enum Capability
     RaiseEscalation,
     ResolveEscalation,
     RecordAlternative,
-    ManageConstraints
+    ManageConstraints,
+    RecordArtifact
+}
+
+public enum GovernedArtifactKind
+{
+    UserRequest,
+    PromptContract,
+    OrchestrationPlan,
+    VerifierOutput,
+    CodeReviewOutput
 }
 
 // Only two things may interrupt the operator: a tradeoff no amount of research
@@ -131,6 +141,17 @@ public enum LessonClass
     Refuted,
     Untested,
     Drifted
+}
+
+// Which cognition established the lesson, and deliberately not RoleKind. This vocabulary is the
+// ledger row format's, and the two do not line up: Executor and Recon have no role here, and
+// Operator, PlanningLead, Worker and CodeReviewer mean nothing to a recalled row.
+public enum LessonActor
+{
+    Researcher,
+    Executor,
+    Verifier,
+    Recon
 }
 
 public sealed record Provenance(ActorId ActorId, DateTimeOffset RecordedAt, string? Source);
@@ -227,6 +248,16 @@ public sealed record Constraint(
     ConstraintStatus Status,
     Provenance Provenance);
 
+public sealed record GovernedArtifact(
+    ArtifactId ArtifactId,
+    GovernedArtifactKind Kind,
+    string Title,
+    string Content,
+    WorkItemId? WorkItemId,
+    RunId? ProducerRunId,
+    ArtifactId? SupersedesArtifactId,
+    Provenance Provenance);
+
 public sealed record Lesson(
     LessonId Id,
     TaskId SourceTaskId,
@@ -238,10 +269,15 @@ public sealed record Lesson(
     Provenance Provenance,
     LessonId? SupersedesLessonId = null,
     // Nullable only so histories written before lesson classification can still replay. New marks
-    // require all three metadata fields at command time and therefore mint populated lessons.
+    // require every metadata field at command time and therefore mint populated lessons.
     LessonClass? Class = null,
     string? Repo = null,
-    IReadOnlyList<string>? Tags = null);
+    IReadOnlyList<string>? Tags = null,
+    // The three fields that make a recalled row actionable rather than prose: a command that
+    // re-establishes the belief today, the prohibition it carries, and who established it.
+    string? Verify = null,
+    string? DoNot = null,
+    LessonActor? Actor = null);
 
 public sealed record LessonMark(
     LessonMarkId Id,
@@ -251,7 +287,10 @@ public sealed record LessonMark(
     Provenance Provenance,
     LessonClass? Class = null,
     string? Repo = null,
-    IReadOnlyList<string>? Tags = null);
+    IReadOnlyList<string>? Tags = null,
+    string? Verify = null,
+    string? DoNot = null,
+    LessonActor? Actor = null);
 
 public sealed record AgentRun(
     RunId Id,

@@ -46,9 +46,16 @@ public sealed class VerificationSequenceTests
         var task = Prepare(out var workItemId);
         task.RecordWorkingPass(workItemId);
         var verifier = new ActorId("verifier");
-        task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext);
+        task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext, Capability.RecordArtifact);
+        task.RecordExecutionArtifacts();
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("RV-same"),
             workItemId, "codex", null, null, null, null, verifier));
+        // A verifier run no longer closes as completed without the findings it was dispatched to
+        // write; that gate is pinned in ArtifactGateTests and is only a precondition here.
+        task.Apply(ArtifactCommands.Record(
+            task, verifier, "A-RV-same", GovernedArtifactKind.VerifierOutput,
+            ArtifactCommands.VerifierBody,
+            workItem: workItemId, producerRun: new RunId("RV-same")));
         task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("RV-same"),
             AgentRunStatus.Completed, "session-same"));
 
@@ -104,10 +111,13 @@ public sealed class VerificationSequenceTests
     {
         var task = Prepare(out var workItemId);
         var reviewer = new ActorId("reviewer");
-        task.Assign(reviewer, RoleKind.CodeReviewer, Capability.BuildContext);
+        task.Assign(reviewer, RoleKind.CodeReviewer, Capability.BuildContext, Capability.RecordArtifact);
         task.RecordVerifierPass(workItemId);
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R2"),
             workItemId, "claude", null, null, null, null, reviewer));
+        task.Apply(ArtifactCommands.Record(
+            task, reviewer, "A-R2", GovernedArtifactKind.CodeReviewOutput,
+            workItem: workItemId, producerRun: new RunId("R2")));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R2"), AgentRunStatus.Completed, "session-r2"));
 

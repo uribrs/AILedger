@@ -5,7 +5,7 @@ internal sealed class CommandLine
     // Options that are present or absent rather than set to something. Every other option consumes
     // the argument after it, so a bare '--follow' would otherwise be refused for missing a value.
     private static readonly IReadOnlySet<string> ValuelessOptions =
-        new HashSet<string>(["follow"], StringComparer.OrdinalIgnoreCase);
+        new HashSet<string>(["follow", "body-stdin", "json"], StringComparer.OrdinalIgnoreCase);
 
     private readonly Dictionary<string, List<string>> _options = new(StringComparer.OrdinalIgnoreCase);
 

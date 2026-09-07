@@ -9,6 +9,7 @@ namespace AILedger.Storage;
 public sealed class FileGovernedTaskService : IGovernedTaskService
 {
     private const int RecalledArchivedTaskLimit = 3;
+    private const int TaggedRecalledLessonLimit = 10;
     public const int DefaultMaximumEventsPerTask = 1_000;
     public const long DefaultMaximumEventLogBytes = 16 * 1024 * 1024;
 
@@ -20,7 +21,12 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private readonly TaskWorkspaceLayout _layout;
     private readonly TaskMutationLock _mutationLock = new();
     private readonly JsonSerializerOptions _eventJson = LedgerJson.CreateOptions();
-    private readonly JsonSerializerOptions _stateJson = LedgerJson.CreateOptions(indented: true);
+    // The event log carries artifact bodies; state.json is a projection of it and carries their
+    // metadata and size instead. Both the write and the currency comparison below go through these
+    // options, so the file on disk and the expected text are projected the same way. An edited body
+    // cannot hide behind the elision: an artifact is immutable, a revision is a new record, and
+    // either way the version in this file moves.
+    private readonly JsonSerializerOptions _stateJson = LedgerJson.CreateProjectionOptions(indented: true);
     private readonly int _maximumEventsPerTask;
     private readonly long _maximumEventLogBytes;
     private readonly ILessonStore? _lessonStore;
@@ -61,7 +67,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         {
             command = open with
             {
-                RecalledLessons = await LoadArchivedLessonsAsync(taskId, cancellationToken).ConfigureAwait(false)
+                RecalledLessons = await LoadArchivedLessonsAsync(taskId, open.Tags, cancellationToken)
+                    .ConfigureAwait(false)
             };
         }
 
@@ -116,13 +123,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
     private async Task<IReadOnlyList<Lesson>> LoadArchivedLessonsAsync(
         TaskId openingTaskId,
+        IReadOnlyList<string>? openingTags,
         CancellationToken cancellationToken)
     {
         var local = await LoadLessonsFromArchivedSiblingsAsync(openingTaskId, cancellationToken)
             .ConfigureAwait(false);
         if (_lessonStore is null)
         {
-            return SelectRecalled(local);
+            return SelectRecalled(local, openingTags);
         }
 
         // Publishing this root's archived lessons before reading makes the two sources one set
@@ -132,7 +140,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         var published = await _lessonStore.ReadAsync(cancellationToken).ConfigureAwait(false);
         return SelectRecalled(published
             .Where(lesson => lesson.SourceTaskId != openingTaskId)
-            .ToArray());
+            .ToArray(), openingTags);
     }
 
     private async Task<IReadOnlyList<Lesson>> LoadLessonsFromArchivedSiblingsAsync(
@@ -193,7 +201,39 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             .ToArray();
     }
 
-    private static IReadOnlyList<Lesson> SelectRecalled(IReadOnlyList<Lesson> candidates)
+    private static IReadOnlyList<Lesson> SelectRecalled(
+        IReadOnlyList<Lesson> candidates,
+        IReadOnlyList<string>? openingTags)
+    {
+        if (openingTags is null || openingTags.Count == 0)
+        {
+            return SelectLegacyRecalled(candidates);
+        }
+
+        var requestedTags = openingTags.ToHashSet(StringComparer.Ordinal);
+        // Supersession is global, not tag-local. A replacement that no longer carries one of the
+        // opening task's tags still withdraws the older lesson from recall.
+        var superseded = candidates
+            .Where(lesson => lesson.SupersedesLessonId is not null)
+            .Select(lesson => lesson.SupersedesLessonId!.Value)
+            .ToHashSet();
+
+        return candidates
+            .Where(lesson => !superseded.Contains(lesson.Id))
+            .Where(lesson => lesson.Tags?.Any(requestedTags.Contains) == true)
+            // Cross-repository task-id collisions produce the same lesson id. Keep the newest
+            // copy before applying the cap so a collision cannot consume a recall slot.
+            .GroupBy(lesson => lesson.Id)
+            .Select(group => MostRecentLesson(group))
+            .OrderByDescending(lesson => lesson.Provenance.RecordedAt)
+            .ThenByDescending(lesson => lesson.SourceTaskId.Value, StringComparer.Ordinal)
+            .ThenBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
+            .Take(TaggedRecalledLessonLimit)
+            .OrderBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<Lesson> SelectLegacyRecalled(IReadOnlyList<Lesson> candidates)
     {
         var lessons = candidates
             // A source task that minted nothing has no recency and nothing to recall, so it does
@@ -220,13 +260,16 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             // that carries a duplicate, and neither repository could fix the other's task id, so
             // recall keeps the more recent lesson rather than letting the coincidence block work.
             .GroupBy(lesson => lesson.Id)
-            .Select(group => group
-                .OrderByDescending(lesson => lesson.Provenance.RecordedAt)
-                .ThenBy(lesson => lesson.Repo ?? string.Empty, StringComparer.Ordinal)
-                .First())
+            .Select(group => MostRecentLesson(group))
             .OrderBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
             .ToArray();
     }
+
+    private static Lesson MostRecentLesson(IEnumerable<Lesson> lessons) =>
+        lessons
+            .OrderByDescending(lesson => lesson.Provenance.RecordedAt)
+            .ThenBy(lesson => lesson.Repo ?? string.Empty, StringComparer.Ordinal)
+            .First();
 
     public async Task<GovernedTaskState?> GetStateAsync(TaskId taskId, CancellationToken cancellationToken)
     {

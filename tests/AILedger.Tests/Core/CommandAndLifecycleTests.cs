@@ -37,12 +37,12 @@ public sealed class CommandAndLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Build",
             null, [], [Path.GetFullPath("src")]));
 
-        Transition(task, TaskStage.Research);
-        Transition(task, TaskStage.Design);
-        Transition(task, TaskStage.Scope);
-        Transition(task, TaskStage.Ready);
-        Transition(task, TaskStage.Execution);
-        Transition(task, TaskStage.Verification);
+        // Every stage now requires state that only engagement with it produces. The arms are pinned
+        // one at a time in StagePrerequisiteTests; here the walk stages all of them, because the
+        // subject is the shape of the lifecycle rather than any one gate.
+        task.ReachStage(TaskStage.Verification);
+        // Repair asks what there is to repair. The verifier's findings are that record.
+        task.RecordVerifierPass(task.StageWorkItem());
         Transition(task, TaskStage.Repair);
         Transition(task, TaskStage.Execution);
 
@@ -69,14 +69,14 @@ public sealed class CommandAndLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), new ChallengeId("CH1"), "claim", "C1", "Uncertain", []));
         task.Apply(new AddWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Build", null, [], [Path.GetFullPath("src")]));
-        foreach (var stage in new[]
-                 {
-                     TaskStage.Research, TaskStage.Design, TaskStage.Scope, TaskStage.Ready,
-                     TaskStage.Execution, TaskStage.Verification, TaskStage.Review, TaskStage.Learn
-                 })
-        {
-            Transition(task, stage);
-        }
+        task.ReachStage(TaskStage.Learn);
+        // Archive also asks for something worth carrying out of the task, so the challenge is the
+        // only thing left for it to refuse.
+        task.Apply(new MarkLessonBearingCommand(
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT-stage",
+            Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["stages"],
+            Verify: "dotnet test --filter StagePrerequisiteTests",
+            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier));
 
         var exception = Assert.Throws<GovernanceException>(() => Transition(task, TaskStage.Archive));
 

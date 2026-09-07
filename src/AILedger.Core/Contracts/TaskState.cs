@@ -25,6 +25,11 @@ public sealed record GovernedTaskState
     // self-contained even if the source task is later moved or archived elsewhere.
     public IReadOnlyDictionary<LessonId, Lesson> Lessons { get; init; } = new Dictionary<LessonId, Lesson>();
     public IReadOnlyDictionary<LessonMarkId, LessonMark> LessonMarks { get; init; } = new Dictionary<LessonMarkId, LessonMark>();
+    public IReadOnlyDictionary<ArtifactId, GovernedArtifact> Artifacts { get; init; } = new Dictionary<ArtifactId, GovernedArtifact>();
+    // The tags this task was opened with, which recall selects lessons against. Appended here
+    // rather than placed beside Goal to keep the property order above untouched, and left null
+    // when absent so that the state.json of every task opened before tags existed is unchanged.
+    public IReadOnlyList<string>? Tags { get; init; }
     internal ActorId? PendingOpeningActor { get; init; }
 }
 

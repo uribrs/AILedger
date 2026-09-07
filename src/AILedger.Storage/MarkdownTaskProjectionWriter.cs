@@ -97,6 +97,31 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
                    $" via {cognition}{work}{live}";
         });
 
+        builder.AppendLine().AppendLine("## Artifacts").AppendLine();
+        // Current context is the set of artifacts nothing supersedes. A list of every revision that
+        // did not say which one is live would read as five contracts rather than one contract and
+        // four repairs, so each row carries either its successor or the mark that it is the current
+        // one. Replay refuses to supersede an artifact that is not current, so a predecessor has at
+        // most one successor and this index cannot collide.
+        var successors = state.Artifacts.Values
+            .Where(artifact => artifact.SupersedesArtifactId is not null)
+            .ToDictionary(artifact => artifact.SupersedesArtifactId!.Value, artifact => artifact.ArtifactId);
+        AppendItems(builder, state.Artifacts.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
+        {
+            var artifact = pair.Value;
+            var scope = artifact.WorkItemId is { } workItemId
+                ? $" on `{Clean(workItemId.Value)}`"
+                : " task-wide";
+            var producer = artifact.ProducerRunId is { } runId ? $" from `{Clean(runId.Value)}`" : string.Empty;
+            var standing = successors.TryGetValue(artifact.ArtifactId, out var successor)
+                ? $" — superseded by `{Clean(successor.Value)}`"
+                : " — current";
+            // The body is in the event log. What a reader of a projection needs is the handle to
+            // read it with and the size it will be.
+            return $"- `{Clean(pair.Key.Value)}` — **{artifact.Kind}** — {Clean(artifact.Title)}" +
+                   $"{scope}{producer}{standing} ({Utf8WithoutBom.GetByteCount(artifact.Content)} bytes in the log)";
+        });
+
         builder.AppendLine().AppendLine("## Active Constraints").AppendLine();
         AppendItems(builder,
             state.Constraints.Where(pair => pair.Value.Status == ConstraintStatus.Active)

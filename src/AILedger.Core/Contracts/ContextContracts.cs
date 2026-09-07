@@ -19,7 +19,11 @@ public enum ContextArtifactKind
     Escalation,
     Alternative,
     Lesson,
-    LessonMark
+    LessonMark,
+    // The fifth governed workflow kind. It arrives last rather than beside VerifierOutput because
+    // the declaration order is the sort order, and reordering would move every other kind in every
+    // manifest a stored task has already produced.
+    CodeReviewOutput
 }
 
 public sealed record ContextArtifact(

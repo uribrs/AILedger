@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -10,7 +12,9 @@ namespace AILedger.Cli;
 
 public sealed class CliApplication
 {
+    private static readonly TextReader ProcessStandardInput = Console.In;
     private const int TerminalPersistenceAttempts = 3;
+    private const int MaximumArtifactBodyBytes = 1024 * 1024;
     private static readonly TimeSpan TerminalPersistenceDeadline = TimeSpan.FromSeconds(65);
     private static readonly TimeSpan TerminalPersistenceRetryDelay = TimeSpan.FromMilliseconds(100);
     // How long a governed agent's work can sit in the log before the feed shows it. Short enough to
@@ -151,7 +155,11 @@ public sealed class CliApplication
             case "task open":
                 await ExecuteAsync(service, input, new OpenTaskCommand(
                     Actor(input), Cause(input), Correlation(input), Task(input),
-                    input.Required("title"), input.Required("goal")), cancellationToken).ConfigureAwait(false);
+                    input.Required("title"), input.Required("goal"),
+                    // Passed as given. The kernel trims each tag, refuses an empty one and refuses a
+                    // duplicate, and collapses an empty list to "untagged"; trimming or de-duplicating
+                    // here would be a second copy of that rule, and one that hides its refusal.
+                    Tags: input.Many("tag")), cancellationToken).ConfigureAwait(false);
                 break;
             case "who":
                 await WriteWhoAsync(service, input, cancellationToken).ConfigureAwait(false);
@@ -169,6 +177,15 @@ public sealed class CliApplication
                 break;
             case "context build":
                 await BuildContextAsync(service, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case "artifact record":
+                await RecordArtifactAsync(service, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case "artifact show":
+                await ShowArtifactAsync(service, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case "artifact list":
+                await ListArtifactsAsync(service, input, cancellationToken).ConfigureAwait(false);
                 break;
             case "claim add":
                 await ExecuteAsync(service, input, new AddClaimCommand(
@@ -252,7 +269,14 @@ public sealed class CliApplication
                     // rather than sent to be refused: a lesson that does not say what kind of
                     // failure it records, or which repository it came from, cannot be judged stale.
                     EnumValue<LessonClass>(input, "class"), input.Required("repo"),
-                    input.Many("tag")), cancellationToken).ConfigureAwait(false);
+                    input.Many("tag"),
+                    // The kernel requires these three as well, so they are asked for here for the
+                    // same reason. The last is '--lesson-actor' and not '--actor': that name is
+                    // already the id of the actor issuing the command on every mutation, and this
+                    // is a different vocabulary — researcher, executor, verifier, recon — naming
+                    // which cognition established the lesson. One option cannot carry both.
+                    input.Required("verify"), input.Required("do-not"),
+                    EnumValue<LessonActor>(input, "lesson-actor")), cancellationToken).ConfigureAwait(false);
                 break;
             case "constraint add":
                 await ExecuteAsync(service, input, new AddConstraintCommand(
@@ -373,14 +397,203 @@ public sealed class CliApplication
             .Select(item => new { WorkItem = item.Id.Value, item.Status, Owner = item.Owner?.Value, Areas = item.ResourceScope })
             .ToArray();
 
-        await WriteJsonAsync(new { state.TaskId, Actors = rows, OccupiedAreas = occupied }).ConfigureAwait(false);
+        await WriteJsonAsync(new
+        {
+            state.TaskId,
+            Actors = rows,
+            RoleCoverage = RoleCoverage(state),
+            OccupiedAreas = occupied
+        }).ConfigureAwait(false);
     }
+
+    // Assigned and engaged are two different questions and the stage arms ask the second one. A role
+    // is assigned when an actor holds it; it is engaged when a completed run captured it as that
+    // run's subject role. Verification, Review and Learn are refused on engagement, and Ready on
+    // assignment, so an operator staffing a task needs both answers before attempting a transition —
+    // otherwise the refusal is the first place the missing role appears.
+    private static object[] RoleCoverage(GovernedTaskState state)
+    {
+        var assigned = state.Roles.Values
+            .GroupBy(assignment => assignment.Role)
+            .ToDictionary(group => group.Key, group => group
+                .Select(assignment => assignment.ActorId.Value)
+                .OrderBy(actor => actor, StringComparer.Ordinal)
+                .ToArray());
+
+        // Engagement is read from the run's own captured SubjectRole, never from what the actor holds
+        // now: an actor reassigned after a run must not reclassify what that run did. Only Completed
+        // counts — Active, Failed, Cancelled and ProtocolError are not engagement — and a run
+        // recorded before SubjectRole existed carries none, so it engages nothing.
+        var engaged = state.Runs.Values
+            .Where(run => run.Status == AgentRunStatus.Completed && run.SubjectRole is not null)
+            .GroupBy(run => run.SubjectRole!.Value)
+            .ToDictionary(group => group.Key, group => group
+                .GroupBy(run => run.ActorId.Value)
+                .OrderBy(actor => actor.Key, StringComparer.Ordinal)
+                .Select(actor => new RoleEngagement(
+                    actor.Key,
+                    [.. actor.Select(run => run.Id.Value).OrderBy(id => id, StringComparer.Ordinal)]))
+                .ToArray());
+
+        // The union, not the assignments alone. A role engaged by an actor since reassigned still
+        // satisfies its arm, so a row that exists only in the run history has to be reported too.
+        return [.. assigned.Keys
+            .Concat(engaged.Keys)
+            .Distinct()
+            .OrderBy(role => role)
+            .Select(role => (object)new
+            {
+                Role = role.ToString(),
+                Assigned = assigned.TryGetValue(role, out var holders) ? holders : Array.Empty<string>(),
+                Engaged = engaged.ContainsKey(role),
+                EngagedBy = engaged.TryGetValue(role, out var engagements)
+                    ? engagements
+                    : Array.Empty<RoleEngagement>()
+            })];
+    }
+
+    // One actor, and every completed run of that actor which carried the role. Engagement is reported
+    // with the runs that prove it, rather than as a bare flag the operator has to go and check.
+    private sealed record RoleEngagement(string Actor, string[] Runs);
 
     private async Task WriteStateAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
     {
         var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
-        await WriteJsonAsync(state).ConfigureAwait(false);
+        var projection = JsonSerializer.SerializeToNode(state, _json)
+            ?? throw new InvalidDataException("Task state could not be serialized.");
+        if (projection["artifacts"] is JsonObject artifacts)
+        {
+            foreach (var artifact in artifacts.Select(item => item.Value).OfType<JsonObject>())
+            {
+                artifact.Remove("content");
+            }
+        }
+
+        await WriteJsonAsync(projection).ConfigureAwait(false);
     }
+
+    private async Task RecordArtifactAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        _ = Task(input);
+        var actorId = Actor(input);
+        var artifactId = new ArtifactId(input.Required("id"));
+        var kind = EnumValue<GovernedArtifactKind>(input, "kind");
+        var title = input.Required("title");
+        var workItemId = OptionalId(input.Optional("work"), value => new WorkItemId(value));
+        var producerRunId = OptionalId(input.Optional("run"), value => new RunId(value));
+        var supersedesArtifactId = OptionalId(input.Optional("supersedes"), value => new ArtifactId(value));
+        if (!input.Flag("body-stdin"))
+        {
+            throw new CliUsageException("Artifact record requires '--body-stdin'.");
+        }
+        // Console.SetIn is the in-process equivalent of redirecting stdin and is how embedders and
+        // tests provide a finite body. The actual console reader is refused so this command never
+        // waits interactively for an EOF the caller did not mean to supply.
+        if (!Console.IsInputRedirected && ReferenceEquals(Console.In, ProcessStandardInput))
+        {
+            throw new CliUsageException("Artifact record requires redirected standard input for '--body-stdin'.");
+        }
+
+        var body = await ReadArtifactBodyAsync(cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(service, input, new RecordArtifactCommand(
+            actorId, Cause(input), Correlation(input), artifactId, kind, title, body,
+            workItemId, producerRunId, supersedesArtifactId), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<string> ReadArtifactBodyAsync(CancellationToken cancellationToken)
+    {
+        var body = new StringBuilder();
+        var buffer = new char[8192];
+        int read;
+        while ((read = await Console.In.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            body.Append(buffer, 0, read);
+            if (body.Length > MaximumArtifactBodyBytes)
+            {
+                throw new CliUsageException(
+                    $"Artifact body exceeds the {MaximumArtifactBodyBytes}-byte UTF-8 limit.");
+            }
+        }
+
+        if (body.Length == 0)
+        {
+            throw new CliUsageException("Artifact body cannot be empty.");
+        }
+
+        var content = body.ToString();
+        int byteCount;
+        try
+        {
+            byteCount = new UTF8Encoding(false, true).GetByteCount(content);
+        }
+        catch (EncoderFallbackException exception)
+        {
+            throw new CliUsageException($"Artifact body is not valid UTF-8 text: {exception.Message}");
+        }
+        if (byteCount > MaximumArtifactBodyBytes)
+        {
+            throw new CliUsageException(
+                $"Artifact body exceeds the {MaximumArtifactBodyBytes}-byte UTF-8 limit.");
+        }
+
+        return content;
+    }
+
+    private async Task ShowArtifactAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
+        var artifactId = new ArtifactId(input.Required("id"));
+        if (!state.Artifacts.TryGetValue(artifactId, out var artifact))
+        {
+            throw new CliUsageException($"Artifact '{artifactId}' was not found.");
+        }
+
+        if (input.Flag("json"))
+        {
+            await WriteJsonAsync(artifact).ConfigureAwait(false);
+            return;
+        }
+
+        await _output.WriteAsync(artifact.Content).ConfigureAwait(false);
+    }
+
+    private async Task ListArtifactsAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
+        var workItemId = OptionalId(input.Optional("work"), value => new WorkItemId(value));
+        var kind = input.Optional("kind") is { } kindValue
+            ? ParseEnum<GovernedArtifactKind>(kindValue)
+            : (GovernedArtifactKind?)null;
+        var rows = state.Artifacts.Values
+            .Where(artifact => workItemId is null || artifact.WorkItemId == workItemId)
+            .Where(artifact => kind is null || artifact.Kind == kind)
+            .OrderBy(artifact => artifact.ArtifactId.Value, StringComparer.Ordinal)
+            .Select(ArtifactMetadata)
+            .ToArray();
+
+        await WriteJsonAsync(new { state.TaskId, Artifacts = rows }).ConfigureAwait(false);
+    }
+
+    private static object ArtifactMetadata(GovernedArtifact artifact) => new
+    {
+        artifact.ArtifactId,
+        artifact.Kind,
+        artifact.Title,
+        artifact.WorkItemId,
+        artifact.ProducerRunId,
+        artifact.SupersedesArtifactId,
+        artifact.Provenance
+    };
 
     // Without --follow this prints the log and returns, as it always has. With it, the process stays
     // and prints each event as it is appended, so an operator watching several governed agents sees
@@ -532,11 +745,35 @@ public sealed class CliApplication
             throw;
         }
 
+        var requiredOutputKind = launchState.Roles[SubjectOrActor(input)].Role switch
+        {
+            RoleKind.Verifier => GovernedArtifactKind.VerifierOutput,
+            RoleKind.CodeReviewer => GovernedArtifactKind.CodeReviewOutput,
+            _ => (GovernedArtifactKind?)null
+        };
+        GovernedArtifactKind? missingOutputKind = null;
         Exception? completionFailure = null;
         try
         {
             await CompleteRunWithFreshTokenAsync(
                 service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken).ConfigureAwait(false);
+        }
+        catch (GovernanceException exception) when (
+            result.Status == AgentRunStatus.Completed &&
+            requiredOutputKind is { } kind &&
+            exception.Message.Contains($"requires its matching '{kind}' artifact.", StringComparison.Ordinal))
+        {
+            missingOutputKind = kind;
+            try
+            {
+                await CompleteRunWithFreshTokenAsync(
+                    service, input, start.RunId, result.ProviderSessionId, AgentRunStatus.Failed,
+                    startedEventId, launchToken).ConfigureAwait(false);
+            }
+            catch (Exception cleanupException)
+            {
+                completionFailure = new AggregateException(exception, cleanupException);
+            }
         }
         catch (Exception exception)
         {
@@ -550,6 +787,13 @@ public sealed class CliApplication
                 $"Provider run '{result.RunId}' returned a terminal result, but its Ledger run could not be closed. " +
                 "The provider result was written to standard output for recovery.",
                 completionFailure);
+        }
+
+        if (missingOutputKind is { } requiredKind)
+        {
+            throw new ProviderRunFailedException(
+                $"Provider run '{result.RunId}' did not record its required '{requiredKind}' artifact; " +
+                "its Ledger run was closed as 'Failed'.");
         }
 
         if (result.Status == AgentRunStatus.Cancelled && cancellationToken.IsCancellationRequested)
@@ -752,7 +996,8 @@ public sealed class CliApplication
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> AllowedOptions =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["task open"] = Options("root", "task", "actor", "title", "goal", "cause", "correlation"),
+            ["task open"] = Options(
+                "root", "task", "actor", "title", "goal", "tag", "cause", "correlation"),
             ["who"] = Options("root", "task", "actor"),
             ["status"] = Options("root", "task", "actor"),
             ["task status"] = Options("root", "task", "actor"),
@@ -761,6 +1006,11 @@ public sealed class CliApplication
             ["actor attach"] = Options(
                 "root", "task", "actor", "target", "role", "capability", "cause", "correlation"),
             ["context build"] = Options("root", "task", "actor", "work", "cognitive-root", "output"),
+            ["artifact record"] = Options(
+                "root", "task", "actor", "id", "kind", "title", "body-stdin", "work", "run",
+                "supersedes", "cause", "correlation"),
+            ["artifact show"] = Options("root", "task", "actor", "id", "json"),
+            ["artifact list"] = Options("root", "task", "actor", "work", "kind"),
             ["claim add"] = Options(
                 "root", "task", "actor", "id", "statement", "consequence", "cause", "correlation"),
             ["claim resolve"] = Options(
@@ -791,7 +1041,7 @@ public sealed class CliApplication
                 "cause", "correlation"),
             ["lesson mark"] = Options(
                 "root", "task", "actor", "kind", "source", "class", "repo", "tag", "supersedes",
-                "cause", "correlation"),
+                "verify", "do-not", "lesson-actor", "cause", "correlation"),
             ["constraint add"] = Options(
                 "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
             ["constraint supersede"] = Options(
@@ -903,12 +1153,18 @@ public sealed class CliApplication
                         --lesson-root PATH (default: platform local application data/AILedger/lessons)
         Every mutation requires an explicit --actor ID. Repeat list options once per value.
 
-        task open          --task ID --actor ID --title TEXT --goal TEXT
+        task open          --task ID --actor ID --title TEXT --goal TEXT [--tag TAG]
         status             --task ID
-        who                --task ID   (actors, roles, live runs, occupied areas)
+        who                --task ID   (actors, roles, live runs, role coverage, occupied areas)
+                           Role coverage names, per role, the actors assigned to it and whether a
+                           completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
+        artifact record    --task ID --actor ID --id ID --kind KIND --title TEXT --body-stdin
+                           [--work ID] [--run ID] [--supersedes ARTIFACT-ID]
+        artifact show      --task ID --id ID [--json]
+        artifact list      --task ID [--work ID] [--kind KIND]
         claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
         claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
                            [--superseded-by CLAIM]   (required when --status superseded)
@@ -931,9 +1187,13 @@ public sealed class CliApplication
         escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
         alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
                            [--replaced-by DECISION]
-        lesson mark        --task ID --actor ID --kind validated-claim|rejected-alternative|
-                           resolved-escalation --source ID --class refuted|untested|drifted
-                           --repo NAME [--tag TAG] [--supersedes LESSON]
+        lesson mark        --task ID --actor ID --source ID --repo NAME
+                           --kind validated-claim|rejected-claim|rejected-alternative|
+                                  resolved-escalation
+                           --class refuted|untested|drifted
+                           --verify COMMAND --do-not TEXT
+                           --lesson-actor researcher|executor|verifier|recon
+                           [--tag TAG] [--supersedes LESSON]
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
@@ -977,6 +1237,26 @@ public sealed class CliApplication
         repository the lesson came from and is required for the same reason: a lesson recalled in
         another repository is evidence about a system the reader may not be looking at. --tag is
         repeatable and carries what the lesson is about.
+
+        --verify is the command that re-establishes the lesson today: a grep, a test filter, a path
+        check. A lesson whose verify no longer resolves is stale on its face, which is the whole
+        point of carrying one. When the citation cannot be checked by running anything, say so
+        instead: "none" followed by a separator and the reason. A bare "none" is refused, and so is
+        an invented command, because a fabricated verify reads as evidence to every later recall.
+
+        --do-not says what must not be re-assumed without new evidence. --lesson-actor says which
+        cognition established the lesson — researcher, executor, verifier or recon. It is spelled
+        out rather than reusing --actor, which is the id of the actor issuing the command: the two
+        vocabularies do not line up, an operator or a code reviewer establishes no lesson, and one
+        option cannot carry both. All three are required, because a row missing any of them cannot
+        be re-checked, cannot say what it forbids, or cannot be attributed.
+
+        task open --tag is repeatable and says what the new task is about. Recall then hands the task
+        the lessons carrying at least one of those tags, newest first, instead of the most recent
+        lessons whatever their subject. A task opened without a tag recalls exactly as it did before
+        tags existed, which is why a tag is worth giving: an untagged task is handed whatever was
+        learned last, and the lesson earned for the work in front of it stays behind. A tag is
+        trimmed, an empty one is refused, and repeating the same tag is refused rather than ignored.
 
         --lesson-root selects the store that lessons cross repositories in. Archiving a task
         publishes the lessons it minted there, and opening a task recalls from it as well as from

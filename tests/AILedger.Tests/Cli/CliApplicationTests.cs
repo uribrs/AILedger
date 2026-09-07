@@ -9,6 +9,9 @@ using System.Text.Json;
 
 namespace AILedger.Tests.Cli;
 
+// This class records artifacts through the CLI, which reads the body from Console.In, so it shares
+// the standard-input collection with every other class that does.
+[Collection(StandardInput.Collection)]
 public sealed class CliApplicationTests
 {
     [Fact]
@@ -38,20 +41,87 @@ public sealed class CliApplicationTests
                 CancellationToken.None),
             await application.RunAsync(
                 ["lesson", "mark", .. source, "--kind", "validated-claim", "--source", "C1",
-                 "--class", "untested", "--repo", "AILedger", "--tag", "retry", "--tag", "bounded"],
+                 "--class", "untested", "--repo", "AILedger", "--tag", "retry", "--tag", "bounded",
+                 "--verify", "dotnet test --filter RetryTests.Bounded",
+                 "--do-not", "Do not assume retries are bounded without rerunning the test",
+                 "--lesson-actor", "verifier"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["claim", "add", .. source, "--id", "C2", "--statement", "The research topic remains open"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["alternative", "record", .. source, "--id", "ALT1", "--statement", "Skip bounded retries",
+                 "--rejected-because", "The validated claim requires a bounded policy"], CancellationToken.None),
+            await application.RunAsync(
+                ["actor", "attach", .. source, "--target", "researcher", "--role", "researcher"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["actor", "attach", .. source, "--target", "verifier", "--role", "verifier"],
+                CancellationToken.None),
+            await application.RunAsync(
+                ["actor", "attach", .. source, "--target", "reviewer", "--role", "code-reviewer"],
                 CancellationToken.None),
             await application.RunAsync(
                 ["work", "add", .. source, "--id", "W1", "--title", "Source work", "--owner", "operator"],
                 CancellationToken.None)
         };
-        foreach (var stage in new[]
-                 {
-                     "research", "design", "scope", "ready", "execution", "verification", "review", "learn", "archive"
-                 })
+        // The walk to Archive passes through Execution, which cannot be entered without the three
+        // task-wide workflow artifacts. They are recorded here the way an operator records them.
+        exits.AddRange(await RecordExecutionArtifactsAsync(application, source, "W1"));
+
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "research"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["run", "start", .. source, "--subject", "researcher", "--run", "R-research",
+             "--provider", "codex", "--session", "research-session"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["run", "complete", .. source, "--run", "R-research", "--status", "completed",
+             "--session", "research-session"], CancellationToken.None));
+
+        foreach (var stage in new[] { "design", "scope", "ready", "execution" })
         {
             exits.Add(await application.RunAsync(
                 ["stage", "transition", .. source, "--stage", stage], CancellationToken.None));
         }
+
+        // Verification asks for the pass that did the work, and the two roles that means are worker
+        // and implementation lead. The researcher pass above is not one of them.
+        exits.Add(await application.RunAsync(
+            ["actor", "attach", .. source, "--target", "worker", "--role", "worker"],
+            CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["run", "start", .. source, "--subject", "worker", "--run", "R-work", "--work", "W1",
+             "--provider", "codex", "--session", "work-session"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["run", "complete", .. source, "--run", "R-work", "--status", "completed",
+             "--session", "work-session"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "verification"], CancellationToken.None));
+
+        exits.Add(await application.RunAsync(
+            ["run", "start", .. source, "--subject", "verifier", "--run", "R-verify", "--work", "W1",
+             "--provider", "codex", "--session", "verify-session"], CancellationToken.None));
+        exits.Add(await RecordArtifactAsync(
+            application, source, "verifier", "A-verifier", "verifier-output", "W1", "R-verify",
+            ArtifactCommands.VerifierBody));
+        exits.Add(await application.RunAsync(
+            ["run", "complete", .. source, "--run", "R-verify", "--status", "completed",
+             "--session", "verify-session"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "review"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["run", "start", .. source, "--subject", "reviewer", "--run", "R-review", "--work", "W1",
+             "--provider", "codex", "--session", "review-session"], CancellationToken.None));
+        exits.Add(await RecordArtifactAsync(
+            application, source, "reviewer", "A-review", "code-review-output", "W1", "R-review",
+            "Review findings"));
+        exits.Add(await application.RunAsync(
+            ["run", "complete", .. source, "--run", "R-review", "--status", "completed",
+             "--session", "review-session"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "learn"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "archive"], CancellationToken.None));
 
         exits.Add(await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "2026-09-02_1200-target", "--actor", "operator",
@@ -819,13 +889,19 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
              "--role", "verifier"], CancellationToken.None);
+        await RecordExecutionArtifactsAsync(application, common, "W1");
         await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
              "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
+        await RecordArtifactAsync(
+            application, common, "verifier", "A-RV", "verifier-output", "W1", "RV",
+            ArtifactCommands.VerifierBody);
         await application.RunAsync(
             ["run", "complete", .. common, "--actor", "operator", "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);
 
+        // This agent files no review output. The launcher therefore records the run as failed
+        // instead of leaving the work item occupied by a run that can no longer be resumed.
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--actor", "operator", "--subject", "reviewer",
              "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
@@ -833,7 +909,8 @@ public sealed class CliApplicationTests
 
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
         var run = state!.Runs[new RunId("R1")];
-        Assert.Equal(0, exit);
+        Assert.Equal(3, exit);
+        Assert.Equal(AgentRunStatus.Failed, run.Status);
         Assert.Equal(new ActorId("reviewer"), run.ActorId);
         Assert.Equal(new ActorId("operator"), run.LaunchedBy);
         Assert.DoesNotContain(Capability.ManageRuns, state.Roles[new ActorId("reviewer")].Capabilities);
@@ -932,9 +1009,13 @@ public sealed class CliApplicationTests
     // identity, so it is stopped twice over: a role with no run authority cannot even reach the
     // command, and a role that has run authority is still refused because it holds no launch token.
     [Theory]
-    [InlineData("code-reviewer", "lacks capability")]
-    [InlineData("implementation-lead", "closed by that launcher")]
-    public async Task ADispatchedSubjectStillCannotCompleteItsOwnRun(string role, string expectedRefusal)
+    [InlineData("code-reviewer", "lacks capability", 3, AgentRunStatus.Failed)]
+    [InlineData("implementation-lead", "closed by that launcher", 0, AgentRunStatus.Completed)]
+    public async Task ADispatchedSubjectStillCannotCompleteItsOwnRun(
+        string role,
+        string expectedRefusal,
+        int expectedExit,
+        AgentRunStatus expectedStatus)
     {
         using var root = new TemporaryDirectory();
         using var providerRoot = new TemporaryDirectory();
@@ -957,13 +1038,21 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
              "--role", "verifier"], CancellationToken.None);
+        await RecordExecutionArtifactsAsync(application, common, "W1");
         await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
              "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
+        await RecordArtifactAsync(
+            application, common, "verifier", "A-RV", "verifier-output", "W1", "RV",
+            ArtifactCommands.VerifierBody);
         await application.RunAsync(
             ["run", "complete", .. common, "--actor", "operator", "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);
 
+        // The code-reviewer half of this theory meets open question DX1 in ledger-artifacts: the
+        // launcher's close of a reviewer run now requires a CodeReviewOutput this agent never
+        // filed. The implementation-lead half is unaffected — the gate reaches the two inspecting
+        // roles only.
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--actor", "operator", "--subject", "subject",
              "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
@@ -973,8 +1062,8 @@ public sealed class CliApplicationTests
         var run = state!.Runs[new RunId("R1")];
         // The agent's attempt from inside the run was refused; the launcher's close is the one that
         // landed, and it carries the session identity the agent's attempt would have overwritten.
-        Assert.Equal(0, exit);
-        Assert.Equal(AgentRunStatus.Completed, run.Status);
+        Assert.Equal(expectedExit, exit);
+        Assert.Equal(expectedStatus, run.Status);
         Assert.Equal("session-1", run.ProviderSessionId);
         Assert.Equal(new ActorId("subject"), run.ActorId);
         Assert.NotNull(SelfCompletingAdapter.LastAttemptError);
@@ -1267,9 +1356,15 @@ public sealed class CliApplicationTests
             ["run", "complete", .. common, "--run", "RW", "--status", "completed",
              "--session", "worker-session"], CancellationToken.None);
 
+        await RecordExecutionArtifactsAsync(application, common, "W1");
         await application.RunAsync(
             ["run", "start", .. common, "--subject", "verifier", "--run", "RV", "--work", "W1",
              "--provider", "claude", "--session", "verifier-session"], CancellationToken.None);
+        // The pass files its findings before it closes: a verifier run cannot be recorded as
+        // completed without the VerifierOutput artifact that run produced.
+        await RecordArtifactAsync(
+            application, ["--root", root.Path, "--task", "T1"], "verifier", "A-RV", "verifier-output",
+            "W1", "RV", ArtifactCommands.VerifierBody);
         await application.RunAsync(
             ["run", "complete", .. common, "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);
@@ -1281,6 +1376,56 @@ public sealed class CliApplicationTests
         Assert.Equal(string.Empty, error.ToString());
         Assert.Equal(RoleKind.Verifier, state!.Runs[new RunId("RV")].SubjectRole);
         Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
+    }
+
+    // The body arrives on standard input rather than as an option value, because the parser takes
+    // any value opening with two dashes as the next option name and a real workflow document starts
+    // with a horizontal rule or YAML front matter. That is validated claim C10, and it is why every
+    // artifact recorded through the CLI in this file goes through here.
+    private static async Task<int> RecordArtifactAsync(
+        CliApplication application,
+        IReadOnlyList<string> common,
+        string actor,
+        string artifactId,
+        string kind,
+        string? work,
+        string? run,
+        string body)
+    {
+        string[] scope = work is null ? [] : ["--work", work];
+        string[] producer = run is null ? [] : ["--run", run];
+        using var input = new StandardInput(body);
+        return await application.RunAsync(
+            ["artifact", "record", .. common, "--actor", actor, "--id", artifactId, "--kind", kind,
+             "--title", "Governed document", "--body-stdin", .. scope, .. producer],
+            CancellationToken.None);
+    }
+
+    private static async Task<int[]> RecordExecutionArtifactsAsync(
+        CliApplication application,
+        IReadOnlyList<string> common,
+        string workItemId)
+    {
+        var exits = new List<int>
+        {
+            await RecordArtifactAsync(
+                application, common, "operator", "A-request", "user-request", null, null,
+                "The governed request")
+        };
+        exits.Add(await application.RunAsync(
+            ["run", "start", .. common, "--actor", "operator", "--subject", "operator",
+             "--run", "R-artifacts", "--work", workItemId, "--provider", "codex",
+             "--session", "artifact-session"], CancellationToken.None));
+        exits.Add(await RecordArtifactAsync(
+            application, common, "operator", "A-contract", "prompt-contract", null, "R-artifacts",
+            ArtifactCommands.Body));
+        exits.Add(await RecordArtifactAsync(
+            application, common, "operator", "A-plan", "orchestration-plan", null, "R-artifacts",
+            ArtifactCommands.PlanBody));
+        exits.Add(await application.RunAsync(
+            ["run", "complete", .. common, "--actor", "operator", "--run", "R-artifacts",
+             "--status", "completed", "--session", "artifact-session"], CancellationToken.None));
+        return [.. exits];
     }
 
     // The manifest reaches the agent as the CLI wrote it, so it is read back the same way.

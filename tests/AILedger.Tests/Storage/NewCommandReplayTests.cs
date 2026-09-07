@@ -43,23 +43,36 @@ public sealed class NewCommandReplayTests
         // A7: the lifecycle claim is about what a *real* run completion does to a work item, so
         // this drives run.start/run.complete through the file store rather than a fake adapter.
         await Run(writer, taskId, new StartRunCommand(actor, null, "c13", new RunId("R1"), new WorkItemId("W2"), "codex", null));
+        await Run(writer, taskId, new RecordArtifactCommand(
+            actor, null, "c13a", new ArtifactId("A-request"), GovernedArtifactKind.UserRequest,
+            "Request", "The request", null, null, null));
+        await Run(writer, taskId, new RecordArtifactCommand(
+            actor, null, "c13b", new ArtifactId("A-contract"), GovernedArtifactKind.PromptContract,
+            "Contract", ArtifactCommands.Body, null, new RunId("R1"), null));
+        await Run(writer, taskId, new RecordArtifactCommand(
+            actor, null, "c13c", new ArtifactId("A-plan"), GovernedArtifactKind.OrchestrationPlan,
+            "Plan", ArtifactCommands.PlanBody, null, new RunId("R1"), null));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14", new RunId("R1"), AgentRunStatus.Completed, "session-1"));
         var afterRun = await Service(root.Path).GetStateAsync(taskId, CancellationToken.None);
         Assert.Equal(WorkItemStatus.Paused, afterRun?.WorkItems[new WorkItemId("W2")].Status);
 
         // Dispatch: the operator authorises, the reviewer is the run's subject. The rule is written
         // twice, so this has to survive a real commit and a real replay, not just the handler.
-        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14a", reviewer, RoleKind.CodeReviewer, [Capability.BuildContext]));
-        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14a2", verifier, RoleKind.Verifier, [Capability.BuildContext]));
+        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14a", reviewer, RoleKind.CodeReviewer, [Capability.BuildContext, Capability.RecordArtifact]));
+        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14a2", verifier, RoleKind.Verifier, [Capability.BuildContext, Capability.RecordArtifact]));
         await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c14b", new WorkItemId("W4"), "Reviewed work", actor, [], [Area("w4")]));
         // A reviewer only starts after a verifier has finished with the item, so the sequence has
-        // to hold through a real commit and a real replay, not only inside the handler.
+        // to hold through a real commit and a real replay, not only inside the handler. Each of the
+        // two inspecting roles also has to file its output before its run can close as completed.
         await Run(writer, taskId, new StartRunCommand(actor, null, "c14b2", new RunId("RV0"), new WorkItemId("W4"), "codex", null, null, null, null, verifier));
+        await Run(writer, taskId, Artifact(verifier, "c14b2a", "A-RV0", GovernedArtifactKind.VerifierOutput, new WorkItemId("W4"), new RunId("RV0")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14b3", new RunId("RV0"), AgentRunStatus.Completed, "session-v0"));
         await Run(writer, taskId, new StartRunCommand(actor, null, "c14c", new RunId("R2"), new WorkItemId("W4"), "claude", null, null, null, null, reviewer));
+        await Run(writer, taskId, Artifact(reviewer, "c14c1", "A-R2", GovernedArtifactKind.CodeReviewOutput, new WorkItemId("W4"), new RunId("R2")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14d", new RunId("R2"), AgentRunStatus.Completed, "session-2"));
 
         await Run(writer, taskId, new StartRunCommand(actor, null, "c14e", new RunId("RV1"), new WorkItemId("W2"), "claude", null, null, null, null, verifier));
+        await Run(writer, taskId, Artifact(verifier, "c14e1", "A-RV1", GovernedArtifactKind.VerifierOutput, new WorkItemId("W2"), new RunId("RV1")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14f", new RunId("RV1"), AgentRunStatus.Completed, "session-3"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c15", new WorkItemId("W2")));
 
@@ -72,6 +85,7 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new StartRunCommand(actor, null, "c18b", new RunId("RW1"), new WorkItemId("W6"), "codex", null, null, null, null, worker));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c18c", new RunId("RW1"), AgentRunStatus.Completed, "session-w1"));
         await Run(writer, taskId, new StartRunCommand(actor, null, "c19", new RunId("RV2"), new WorkItemId("W6"), "claude", null, null, null, null, verifier));
+        await Run(writer, taskId, Artifact(verifier, "c19a", "A-RV2", GovernedArtifactKind.VerifierOutput, new WorkItemId("W6"), new RunId("RV2")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c20", new RunId("RV2"), AgentRunStatus.Completed, "session-4"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c21", new WorkItemId("W6")));
 
@@ -107,6 +121,10 @@ public sealed class NewCommandReplayTests
         Assert.Equal(RoleKind.Verifier, replayed.Runs[new RunId("RV1")].SubjectRole);
         Assert.Equal(RoleKind.CodeReviewer, replayed.Runs[new RunId("R2")].SubjectRole);
         Assert.Equal(RoleKind.Operator, replayed.Runs[new RunId("R1")].SubjectRole);
+        // Each inspecting run's output came back with the run and the work item it belongs to.
+        Assert.Equal(new RunId("RV0"), replayed.Artifacts[new ArtifactId("A-RV0")].ProducerRunId);
+        Assert.Equal(new WorkItemId("W4"), replayed.Artifacts[new ArtifactId("A-R2")].WorkItemId);
+        Assert.Equal(GovernedArtifactKind.CodeReviewOutput, replayed.Artifacts[new ArtifactId("A-R2")].Kind);
         Assert.Equal(WorkItemStatus.Abandoned, replayed.WorkItems[new WorkItemId("W5")].Status);
         Assert.Equal("The split was wrong", replayed.WorkItems[new WorkItemId("W5")].AbandonReason);
         Assert.Equal(WorkItemStatus.Completed, replayed.WorkItems[new WorkItemId("W6")].Status);
@@ -199,6 +217,22 @@ public sealed class NewCommandReplayTests
         var assumptions = await File.ReadAllTextAsync(Path.Combine(root.Path, taskId.Value, "assumptions.md"));
         Assert.Contains("Superseded by `C2`", assumptions, StringComparison.Ordinal);
     }
+
+    // A verifier's or reviewer's output, the way the agent inside the run files it: it names the
+    // run that produced it and the work item that run was dispatched against.
+    private static RecordArtifactCommand Artifact(
+        ActorId actor,
+        string correlation,
+        string artifactId,
+        GovernedArtifactKind kind,
+        WorkItemId workItemId,
+        RunId producerRun) =>
+        new(
+            actor, null, correlation, new ArtifactId(artifactId), kind, "Governed document",
+            kind == GovernedArtifactKind.VerifierOutput
+                ? ArtifactCommands.VerifierBody
+                : $"Findings from {producerRun}",
+            workItemId, producerRun, null);
 
     private static FileGovernedTaskService Service(string root)
     {
