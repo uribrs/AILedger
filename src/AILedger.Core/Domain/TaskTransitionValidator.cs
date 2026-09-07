@@ -149,6 +149,9 @@ internal static class TaskTransitionValidator
             LessonSourceKind.ValidatedClaim =>
                 state.Claims.TryGetValue(new ClaimId(lesson.SourceRecordId), out var claim) &&
                 claim.Status == ClaimStatus.Validated && claim.Statement == lesson.Statement,
+            LessonSourceKind.RejectedClaim =>
+                state.Claims.TryGetValue(new ClaimId(lesson.SourceRecordId), out var rejected) &&
+                rejected.Status == ClaimStatus.Rejected && rejected.Statement == lesson.Statement,
             LessonSourceKind.RejectedAlternative =>
                 state.Alternatives.TryGetValue(new AlternativeId(lesson.SourceRecordId), out var alternative) &&
                 alternative.Statement == lesson.Statement && alternative.RejectionRationale == lesson.Outcome,
@@ -170,7 +173,10 @@ internal static class TaskTransitionValidator
         {
             var markId = LessonMarkIdFor(lesson.SourceKind, lesson.SourceRecordId);
             if (!state.LessonMarks.TryGetValue(markId, out var mark) ||
-                mark.SupersedesLessonId != lesson.SupersedesLessonId)
+                mark.SupersedesLessonId != lesson.SupersedesLessonId ||
+                mark.Class != lesson.Class ||
+                !string.Equals(mark.Repo, lesson.Repo, StringComparison.Ordinal) ||
+                !OptionalSequenceEqual(mark.Tags, lesson.Tags))
             {
                 throw new GovernanceException("A minted lesson must match its lesson-bearing mark.");
             }
@@ -178,8 +184,9 @@ internal static class TaskTransitionValidator
 
         var expectedCitations = lesson.SourceKind switch
         {
-            LessonSourceKind.ValidatedClaim => state.Claims[new ClaimId(lesson.SourceRecordId)].EvidenceIds
-                .Select(id => state.Evidence[id].Citation),
+            LessonSourceKind.ValidatedClaim or LessonSourceKind.RejectedClaim =>
+                state.Claims[new ClaimId(lesson.SourceRecordId)].EvidenceIds
+                    .Select(id => state.Evidence[id].Citation),
             LessonSourceKind.ResolvedEscalation => state.Escalations[new EscalationId(lesson.SourceRecordId)]
                 .AttemptEvidenceIds.Select(id => state.Evidence[id].Citation),
             _ => []
@@ -206,6 +213,7 @@ internal static class TaskTransitionValidator
         }
 
         RequireDefined(mark.SourceKind, nameof(mark.SourceKind));
+        ValidateLessonMetadata(mark.Class, mark.Repo, mark.Tags, "lesson mark");
         RequireId(mark.SourceRecordId, nameof(mark.SourceRecordId));
         var expectedId = LessonMarkIdFor(mark.SourceKind, mark.SourceRecordId);
         if (mark.Id != expectedId)
@@ -219,6 +227,11 @@ internal static class TaskTransitionValidator
             LessonSourceKind.ValidatedClaim =>
                 state.Claims.TryGetValue(new ClaimId(mark.SourceRecordId), out var claim) &&
                 claim.Status == ClaimStatus.Validated,
+            // Widening only: no history written before this kind existed can carry it, so replay
+            // accepts strictly more than it did and no archived task becomes unreadable.
+            LessonSourceKind.RejectedClaim =>
+                state.Claims.TryGetValue(new ClaimId(mark.SourceRecordId), out var rejected) &&
+                rejected.Status == ClaimStatus.Rejected,
             LessonSourceKind.RejectedAlternative =>
                 state.Alternatives.ContainsKey(new AlternativeId(mark.SourceRecordId)),
             LessonSourceKind.ResolvedEscalation =>
@@ -304,10 +317,44 @@ internal static class TaskTransitionValidator
                 throw new GovernanceException("A lesson cannot supersede itself.");
             }
         }
+        ValidateLessonMetadata(lesson.Class, lesson.Repo, lesson.Tags, "lesson");
+    }
+
+    // Metadata is optional only for replay compatibility. Validate every field an event actually
+    // carries, but do not require fields absent from histories written before lesson classification.
+    private static void ValidateLessonMetadata(
+        LessonClass? lessonClass,
+        string? repo,
+        IReadOnlyList<string>? tags,
+        string subject)
+    {
+        if (lessonClass is { } presentClass)
+        {
+            RequireDefined(presentClass, nameof(Lesson.Class));
+        }
+        if (repo is not null)
+        {
+            RequireText(repo, nameof(Lesson.Repo));
+        }
+        if (tags is null)
+        {
+            return;
+        }
+
+        EnsureUnique(tags, $"{subject} tags", StringComparer.Ordinal);
+        if (tags.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException($"A {subject} cannot carry an empty tag.");
+        }
     }
 
     private static LessonMarkId LessonMarkIdFor(LessonSourceKind kind, string sourceRecordId) =>
         new($"{kind.ToString().ToLowerInvariant()}:{sourceRecordId}");
+
+    private static bool OptionalSequenceEqual(
+        IReadOnlyList<string>? left,
+        IReadOnlyList<string>? right) =>
+        left is null ? right is null : right is not null && left.SequenceEqual(right, StringComparer.Ordinal);
 
     private static void ValidateRoleAssigned(
         GovernedTaskState state,
@@ -1047,6 +1094,16 @@ internal static class TaskTransitionValidator
         // waiver above — that a reason is there and that an operator recorded it — because that
         // keys on the PRESENCE of a new field. Whether anyone ever worked or verified the item is
         // still never re-derived here: the event records what an operator decided, replay accepts it.
+        //
+        // The cross-provider rule added beside the ordering check —
+        // CommandHandler.ProviderThatVerifiedItsOwnWork, which refuses a completion whose only
+        // verifier runs came from the same provider that did the work — is command-time only for
+        // the same reason and one of its own. Provider IS recorded on every run ever written, so
+        // the field is not the problem; the problem is that no verifier run before this rule was
+        // chosen under it. Any archived history that happens to have verified on the working
+        // provider was legal when it was written, and replay would now call it forged. It also inherits
+        // the ordering gate's blindness: it only counts verifier runs, and an old run carries no
+        // SubjectRole, so replay cannot tell which runs were verifications at all.
     }
 
     private static void ValidateWorkItemBlocked(

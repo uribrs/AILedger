@@ -293,8 +293,14 @@ public sealed class ContextAssembler : IContextAssembler
         new(
             ContextArtifactKind.Lesson,
             lesson.Id.Value,
-            $"Learned from {lesson.SourceTaskId}/{lesson.SourceKind}/{lesson.SourceRecordId}: " +
+            $"Unverified prior evidence from {lesson.SourceTaskId}/{lesson.SourceKind}/{lesson.SourceRecordId}" +
+            (lesson.Class is null ? string.Empty : $" [{lesson.Class}]") +
+            (lesson.Repo is null ? string.Empty : $" in {lesson.Repo}") +
+            $"; re-establish before relying on it: " +
             $"{lesson.Statement}{Environment.NewLine}Outcome: {lesson.Outcome}" +
+            (lesson.Tags is null || lesson.Tags.Count == 0
+                ? string.Empty
+                : $"{Environment.NewLine}Tags: {string.Join(", ", lesson.Tags)}") +
             (lesson.Citations.Count == 0
                 ? string.Empty
                 : $"{Environment.NewLine}Evidence: {string.Join(" | ", lesson.Citations)}"),

@@ -188,7 +188,10 @@ public sealed record MarkLessonBearingCommand(
     string CorrelationId,
     LessonSourceKind SourceKind,
     string SourceRecordId,
-    LessonId? SupersedesLessonId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    LessonId? SupersedesLessonId = null,
+    LessonClass? Class = null,
+    string? Repo = null,
+    IReadOnlyList<string>? Tags = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AddConstraintCommand(
     ActorId ActorId,

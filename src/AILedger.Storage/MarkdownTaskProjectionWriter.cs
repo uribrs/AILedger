@@ -120,11 +120,26 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
 
         builder.AppendLine().AppendLine("## Lessons").AppendLine();
         AppendItems(builder, state.Lessons.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
-            $"- `{Clean(pair.Key.Value)}` — {pair.Value.SourceKind} from `{Clean(pair.Value.SourceTaskId.Value)}`/" +
-            $"`{Clean(pair.Value.SourceRecordId)}`: {Clean(pair.Value.Statement)} Outcome: {Clean(pair.Value.Outcome)}" +
+            // A lesson minted here was earned by this task. A lesson recalled from elsewhere was
+            // earned in a world that may since have changed, and reads as settled fact unless the
+            // projection says otherwise, so it is labelled the same way the manifest labels it.
+            (pair.Value.SourceTaskId == state.TaskId
+                ? $"- `{Clean(pair.Key.Value)}` — {pair.Value.SourceKind} from "
+                : $"- `{Clean(pair.Key.Value)}` — **Unverified prior evidence** — {pair.Value.SourceKind} from ") +
+            $"`{Clean(pair.Value.SourceTaskId.Value)}`/" +
+            $"`{Clean(pair.Value.SourceRecordId)}`" +
+            (pair.Value.Repo is null ? string.Empty : $" in `{Clean(pair.Value.Repo)}`") +
+            (pair.Value.Class is null ? string.Empty : $" [{pair.Value.Class}]") +
+            $": {Clean(pair.Value.Statement)} Outcome: {Clean(pair.Value.Outcome)}" +
+            (pair.Value.Tags is null || pair.Value.Tags.Count == 0
+                ? string.Empty
+                : $" Tags: {Join(pair.Value.Tags.Select(tag => $"`{Clean(tag)}`"))}") +
             (pair.Value.SupersedesLessonId is null
                 ? string.Empty
-                : $" Supersedes: `{Clean(pair.Value.SupersedesLessonId.Value.Value)}`"));
+                : $" Supersedes: `{Clean(pair.Value.SupersedesLessonId.Value.Value)}`") +
+            (pair.Value.SourceTaskId == state.TaskId
+                ? string.Empty
+                : " Re-establish it before relying on it."));
 
         builder.AppendLine().AppendLine("## Lesson Marks").AppendLine();
         AppendItems(builder, state.LessonMarks.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>

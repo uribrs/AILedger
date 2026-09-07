@@ -23,6 +23,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private readonly JsonSerializerOptions _stateJson = LedgerJson.CreateOptions(indented: true);
     private readonly int _maximumEventsPerTask;
     private readonly long _maximumEventLogBytes;
+    private readonly ILessonStore? _lessonStore;
 
     public FileGovernedTaskService(
         string workspaceRoot,
@@ -31,7 +32,12 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         ITaskProjectionWriter? projectionWriter = null,
         TaskWorkspaceLayout? layout = null,
         int maximumEventsPerTask = DefaultMaximumEventsPerTask,
-        long maximumEventLogBytes = DefaultMaximumEventLogBytes)
+        long maximumEventLogBytes = DefaultMaximumEventLogBytes,
+        // Without a store, recall reaches only this root's own archived tasks, which is what it did
+        // before lessons crossed repositories. The per-user default belongs to the process that
+        // composes the service, not to the library, so that a caller holding a temporary root never
+        // writes into the operator's real store by omission.
+        ILessonStore? lessonStore = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventsPerTask);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventLogBytes);
@@ -42,6 +48,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         _projectionWriter = projectionWriter ?? new MarkdownTaskProjectionWriter(_layout);
         _maximumEventsPerTask = maximumEventsPerTask;
         _maximumEventLogBytes = maximumEventLogBytes;
+        _lessonStore = lessonStore;
     }
 
     public async Task<CommandOutcome> ExecuteAsync(
@@ -74,11 +81,61 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         }
 
         await AppendEventsAsync(taskDirectory, outcome.Events, cancellationToken).ConfigureAwait(false);
+        await TryPublishMintedLessonsAsync(outcome.Events).ConfigureAwait(false);
         await TryRepairDerivedStateAsync(taskDirectory, outcome.State).ConfigureAwait(false);
         return outcome;
     }
 
+    // Archiving is the moment a lesson exists, and the store is how it reaches a task in another
+    // repository. Publication happens after the commit, so it cannot fail the archive; a failure
+    // here is repaired by the reconciliation the next opening in this root performs.
+    private async Task TryPublishMintedLessonsAsync(IReadOnlyList<LedgerEvent> events)
+    {
+        if (_lessonStore is null)
+        {
+            return;
+        }
+
+        var minted = events.Select(item => item.Data).OfType<LessonMinted>()
+            .Select(item => item.Lesson).ToArray();
+        if (minted.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _lessonStore.PublishAsync(minted, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (!IsFatal(exception))
+        {
+            // The task's own history keeps the lesson. Reconciliation at the next opening in this
+            // root republishes it.
+        }
+    }
+
     private async Task<IReadOnlyList<Lesson>> LoadArchivedLessonsAsync(
+        TaskId openingTaskId,
+        CancellationToken cancellationToken)
+    {
+        var local = await LoadLessonsFromArchivedSiblingsAsync(openingTaskId, cancellationToken)
+            .ConfigureAwait(false);
+        if (_lessonStore is null)
+        {
+            return SelectRecalled(local);
+        }
+
+        // Publishing this root's archived lessons before reading makes the two sources one set
+        // rather than two competing recalls, and it is what repairs a publication that failed when
+        // the source task archived.
+        await _lessonStore.PublishAsync(local, cancellationToken).ConfigureAwait(false);
+        var published = await _lessonStore.ReadAsync(cancellationToken).ConfigureAwait(false);
+        return SelectRecalled(published
+            .Where(lesson => lesson.SourceTaskId != openingTaskId)
+            .ToArray());
+    }
+
+    private async Task<IReadOnlyList<Lesson>> LoadLessonsFromArchivedSiblingsAsync(
         TaskId openingTaskId,
         CancellationToken cancellationToken)
     {
@@ -129,25 +186,27 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             archivedTasks.Add(archived);
         }
 
-        var lessons = archivedTasks
-            .Select(task => new
-            {
-                task.TaskId,
-                Lessons = task.Lessons.Values
-                    .Where(lesson => lesson.SourceTaskId == task.TaskId)
-                    .ToArray()
-            })
-            // A sibling that minted nothing has no recency and nothing to recall, so it does not
-            // occupy a slot in the cap.
-            .Where(source => source.Lessons.Length > 0)
+        return archivedTasks
+            // A task also holds the lessons it recalled from elsewhere. Only the ones it minted
+            // itself are its own to publish.
+            .SelectMany(task => task.Lessons.Values.Where(lesson => lesson.SourceTaskId == task.TaskId))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<Lesson> SelectRecalled(IReadOnlyList<Lesson> candidates)
+    {
+        var lessons = candidates
+            // A source task that minted nothing has no recency and nothing to recall, so it does
+            // not occupy a slot in the cap.
+            .GroupBy(lesson => lesson.SourceTaskId)
             // Recency is the provenance the kernel stamps on a lesson when its source task
             // archives. Nothing enforces a date prefix on a task id, so ordering by id made recall
             // depend on a naming convention and silently dropped newer lessons under undated ids.
-            .OrderByDescending(source => source.Lessons.Max(lesson => lesson.Provenance.RecordedAt))
+            .OrderByDescending(source => source.Max(lesson => lesson.Provenance.RecordedAt))
             // Two tasks archived within the same tick still need one order on every replay.
-            .ThenByDescending(source => source.TaskId.Value, StringComparer.Ordinal)
+            .ThenByDescending(source => source.Key.Value, StringComparer.Ordinal)
             .Take(RecalledArchivedTaskLimit)
-            .SelectMany(source => source.Lessons)
+            .SelectMany(source => source)
             .ToArray();
         var superseded = lessons
             .Where(lesson => lesson.SupersedesLessonId is not null)
@@ -156,6 +215,15 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
         return lessons
             .Where(lesson => !superseded.Contains(lesson.Id))
+            // A lesson identifier is derived from its source task's id, so two repositories that
+            // named a task the same way mint colliding identifiers. The kernel refuses an opening
+            // that carries a duplicate, and neither repository could fix the other's task id, so
+            // recall keeps the more recent lesson rather than letting the coincidence block work.
+            .GroupBy(lesson => lesson.Id)
+            .Select(group => group
+                .OrderByDescending(lesson => lesson.Provenance.RecordedAt)
+                .ThenBy(lesson => lesson.Repo ?? string.Empty, StringComparer.Ordinal)
+                .First())
             .OrderBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
             .ToArray();
     }

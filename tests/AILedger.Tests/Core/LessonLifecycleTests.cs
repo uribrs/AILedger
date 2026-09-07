@@ -20,12 +20,14 @@ public sealed class LessonLifecycleTests
         task.Apply(new ResolveClaimCommand(
             task.OperatorId, null, task.NextCorrelation(), claimId, ClaimStatus.Validated, [evidenceId]));
         task.Apply(new MarkLessonBearingCommand(
-            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.ValidatedClaim, claimId.Value));
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.ValidatedClaim, claimId.Value,
+            Class: LessonClass.Untested, Repo: "AILedger", Tags: ["retry", "bounded"]));
         task.Apply(new RecordAlternativeCommand(
             task.OperatorId, null, task.NextCorrelation(), new AlternativeId("ALT1"),
             "Retry forever", "It prevents terminal failure", null));
         task.Apply(new MarkLessonBearingCommand(
-            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1"));
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1",
+            Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["retry"]));
         task.Apply(new RaiseEscalationCommand(
             task.OperatorId, null, task.NextCorrelation(), new EscalationId("X1"),
             EscalationKind.BusinessDecision, "Ship narrow or broad?", null,
@@ -34,7 +36,8 @@ public sealed class LessonLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), new EscalationId("X1"),
             EscalationStatus.Resolved, "narrow"));
         task.Apply(new MarkLessonBearingCommand(
-            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.ResolvedEscalation, "X1"));
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.ResolvedEscalation, "X1",
+            Class: LessonClass.Drifted, Repo: "AILedger", Tags: []));
         AddWorkAndReachLearn(task);
 
         var outcome = task.Apply(new RequestStageTransitionCommand(
@@ -49,9 +52,22 @@ public sealed class LessonLifecycleTests
             {
                 Assert.Equal(LessonSourceKind.ValidatedClaim, lesson.SourceKind);
                 Assert.Equal(["RetryTests.Bounded"], lesson.Citations);
+                Assert.Equal(LessonClass.Untested, lesson.Class);
+                Assert.Equal("AILedger", lesson.Repo);
+                Assert.Equal(["retry", "bounded"], lesson.Tags);
             },
-            lesson => Assert.Equal(LessonSourceKind.RejectedAlternative, lesson.SourceKind),
-            lesson => Assert.Equal(LessonSourceKind.ResolvedEscalation, lesson.SourceKind));
+            lesson =>
+            {
+                Assert.Equal(LessonSourceKind.RejectedAlternative, lesson.SourceKind);
+                Assert.Equal(LessonClass.Refuted, lesson.Class);
+                Assert.Equal(["retry"], lesson.Tags);
+            },
+            lesson =>
+            {
+                Assert.Equal(LessonSourceKind.ResolvedEscalation, lesson.SourceKind);
+                Assert.Equal(LessonClass.Drifted, lesson.Class);
+                Assert.Empty(lesson.Tags!);
+            });
     }
 
     [Fact]
@@ -65,7 +81,8 @@ public sealed class LessonLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), new AlternativeId("ALT2"),
             "Repeat the cross-task mistake", "Future tasks need this warning", null));
         task.Apply(new MarkLessonBearingCommand(
-            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT2"));
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT2",
+            Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["repeat"]));
         AddWorkAndReachLearn(task);
 
         var outcome = task.Apply(new RequestStageTransitionCommand(
@@ -87,10 +104,62 @@ public sealed class LessonLifecycleTests
             "Carry this into every later task", "Only a lead can make that scope decision", null));
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new MarkLessonBearingCommand(
-            worker, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1")));
+            worker, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1",
+            Class: LessonClass.Refuted, Repo: "AILedger", Tags: [])));
 
         Assert.Contains("operator or lead", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(task.State.LessonMarks);
+    }
+
+    [Fact]
+    public void NewLessonMarkRequiresClassAndRepository()
+    {
+        var task = new TestTask();
+        task.Apply(new RecordAlternativeCommand(
+            task.OperatorId, null, task.NextCorrelation(), new AlternativeId("ALT1"),
+            "Repeat a stale workaround", "The environment changed", null));
+
+        var missingClass = Assert.Throws<GovernanceException>(() => task.Apply(new MarkLessonBearingCommand(
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1",
+            Repo: "AILedger", Tags: [])));
+        Assert.Contains("class", missingClass.Message, StringComparison.OrdinalIgnoreCase);
+
+        var missingRepo = Assert.Throws<GovernanceException>(() => task.Apply(new MarkLessonBearingCommand(
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1",
+            Class: LessonClass.Drifted, Tags: [])));
+        Assert.Contains("repo", missingRepo.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(task.State.LessonMarks);
+    }
+
+    [Fact]
+    public void ReplayAcceptsLegacyLessonWithoutPortedMetadata()
+    {
+        var task = new TestTask("target-task");
+        var legacyLesson = new Lesson(
+            new LessonId("source-task:rejectedalternative:ALT1"),
+            new TaskId("source-task"),
+            LessonSourceKind.RejectedAlternative,
+            "ALT1",
+            "Use global mutable state",
+            "Tasks must remain isolated",
+            [],
+            new Provenance(task.OperatorId, new DateTimeOffset(2026, 9, 6, 14, 0, 0, TimeSpan.Zero), "stage.archive"));
+        var legacyRecall = new LedgerEvent(
+            GovernedTaskState.CurrentSchemaVersion,
+            new EventId("legacy-lesson"),
+            task.TaskId,
+            task.OperatorId,
+            new DateTimeOffset(2026, 9, 6, 14, 1, 0, TimeSpan.Zero),
+            null,
+            "legacy",
+            new LessonRecalled(legacyLesson));
+
+        var replayed = new TaskReducer().Apply(task.State, legacyRecall);
+        var recalled = replayed.Lessons[legacyLesson.Id];
+
+        Assert.Null(recalled.Class);
+        Assert.Null(recalled.Repo);
+        Assert.Null(recalled.Tags);
     }
 
     [Fact]

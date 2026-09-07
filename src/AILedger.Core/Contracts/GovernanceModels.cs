@@ -117,8 +117,20 @@ public enum AgentRunStatus
 public enum LessonSourceKind
 {
     ValidatedClaim,
+    // A belief that was disproved, which is a different record from an approach that was
+    // discarded. Only a rejected claim carries the evidence that refuted it, so it is the
+    // record a Refuted lesson is minted from; RejectedAlternative carries a rationale for not
+    // taking a path and no evidence at all. Conflating them loses the counter-evidence.
+    RejectedClaim,
     RejectedAlternative,
     ResolvedEscalation
+}
+
+public enum LessonClass
+{
+    Refuted,
+    Untested,
+    Drifted
 }
 
 public sealed record Provenance(ActorId ActorId, DateTimeOffset RecordedAt, string? Source);
@@ -224,14 +236,22 @@ public sealed record Lesson(
     string Outcome,
     IReadOnlyList<string> Citations,
     Provenance Provenance,
-    LessonId? SupersedesLessonId = null);
+    LessonId? SupersedesLessonId = null,
+    // Nullable only so histories written before lesson classification can still replay. New marks
+    // require all three metadata fields at command time and therefore mint populated lessons.
+    LessonClass? Class = null,
+    string? Repo = null,
+    IReadOnlyList<string>? Tags = null);
 
 public sealed record LessonMark(
     LessonMarkId Id,
     LessonSourceKind SourceKind,
     string SourceRecordId,
     LessonId? SupersedesLessonId,
-    Provenance Provenance);
+    Provenance Provenance,
+    LessonClass? Class = null,
+    string? Repo = null,
+    IReadOnlyList<string>? Tags = null);
 
 public sealed record AgentRun(
     RunId Id,

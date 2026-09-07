@@ -799,12 +799,22 @@ public sealed class CommandHandler : ICommandHandler
                     mark.SourceKind, mark.SourceRecordId, claim.Statement, "Validated",
                     claim.EvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-                    provenance, mark.SupersedesLessonId),
+                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
+            // The refuting evidence is what makes this lesson worth carrying: a later task that
+            // recalls it gets the belief and what contradicted it, not just the verdict.
+            LessonSourceKind.RejectedClaim when
+                state.Claims.TryGetValue(new ClaimId(mark.SourceRecordId), out var rejected) &&
+                rejected.Status == ClaimStatus.Rejected => new Lesson(
+                    LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
+                    mark.SourceKind, mark.SourceRecordId, rejected.Statement, "Rejected",
+                    rejected.EvidenceIds.Select(id => state.Evidence[id].Citation)
+                        .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
             LessonSourceKind.RejectedAlternative when
                 state.Alternatives.TryGetValue(new AlternativeId(mark.SourceRecordId), out var alternative) =>
                 new Lesson(LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
                     mark.SourceKind, mark.SourceRecordId, alternative.Statement, alternative.RejectionRationale,
-                    [], provenance, mark.SupersedesLessonId),
+                    [], provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
             LessonSourceKind.ResolvedEscalation when
                 state.Escalations.TryGetValue(new EscalationId(mark.SourceRecordId), out var escalation) &&
                 escalation.Status == EscalationStatus.Resolved => new Lesson(
@@ -812,7 +822,7 @@ public sealed class CommandHandler : ICommandHandler
                     mark.SourceKind, mark.SourceRecordId, escalation.Question, escalation.Resolution!,
                     escalation.AttemptEvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-                    provenance, mark.SupersedesLessonId),
+                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
             _ => null
         };
 
@@ -822,7 +832,23 @@ public sealed class CommandHandler : ICommandHandler
         DateTimeOffset now)
     {
         RequireDefined(command.SourceKind, nameof(command.SourceKind));
+        if (command.Class is not { } lessonClass)
+        {
+            throw new GovernanceException("A lesson mark must specify its lesson class.");
+        }
+        RequireDefined(lessonClass, nameof(command.Class));
         RequireId(command.SourceRecordId, nameof(command.SourceRecordId));
+        if (command.Repo is not { } repo)
+        {
+            throw new GovernanceException("A lesson mark must specify its repository.");
+        }
+        RequireText(repo, nameof(command.Repo));
+        var tags = command.Tags?.Select(tag => tag.Trim()).ToArray() ?? [];
+        EnsureUnique(tags, "Lesson tags", StringComparer.Ordinal);
+        if (tags.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("A lesson mark cannot carry an empty tag.");
+        }
         var markId = LessonMarkIdFor(command.SourceKind, command.SourceRecordId);
         EnsureNew(state.LessonMarks, markId, "lesson mark");
 
@@ -831,6 +857,9 @@ public sealed class CommandHandler : ICommandHandler
             LessonSourceKind.ValidatedClaim =>
                 state.Claims.TryGetValue(new ClaimId(command.SourceRecordId), out var claim) &&
                 claim.Status == ClaimStatus.Validated,
+            LessonSourceKind.RejectedClaim =>
+                state.Claims.TryGetValue(new ClaimId(command.SourceRecordId), out var rejected) &&
+                rejected.Status == ClaimStatus.Rejected,
             LessonSourceKind.RejectedAlternative =>
                 state.Alternatives.ContainsKey(new AlternativeId(command.SourceRecordId)),
             LessonSourceKind.ResolvedEscalation =>
@@ -854,7 +883,7 @@ public sealed class CommandHandler : ICommandHandler
 
         return [new LessonMarked(new LessonMark(
             markId, command.SourceKind, command.SourceRecordId.Trim(), command.SupersedesLessonId,
-            new Provenance(command.ActorId, now, "lesson.mark")))];
+            new Provenance(command.ActorId, now, "lesson.mark"), lessonClass, repo.Trim(), tags))];
     }
 
     private static LessonMarkId LessonMarkIdFor(LessonSourceKind kind, string sourceRecordId) =>
@@ -1113,6 +1142,18 @@ public sealed class CommandHandler : ICommandHandler
                     "so no verifier run has seen the finished work. Verify it again, or an operator may " +
                     "complete it without doing so by recording why.");
             }
+
+            // Separate again, for the same reason: having been verified after the work and having
+            // been verified by someone who does not share the author's blind spots are different
+            // claims. A model reviewing its own output agrees with it, so a verifier run on the
+            // provider that did the work is a second opinion in name only.
+            if (ProviderThatVerifiedItsOwnWork(state, command.WorkItemId) is { } sameProvider)
+            {
+                throw new GovernanceException(
+                    $"Work item '{command.WorkItemId}' was verified by the same provider that did the work " +
+                    $"('{sameProvider}'), so nothing independent has read it. Verify it with a different " +
+                    "provider, or an operator may complete it without doing so by recording why.");
+            }
         }
         else if (!IsOperator(state, command.ActorId))
         {
@@ -1245,12 +1286,16 @@ public sealed class CommandHandler : ICommandHandler
     // The LATEST completed working run, not the earliest. Work done after a verification was not
     // covered by it, so the verifier has to have finished after the last thing it was meant to
     // check. Comparing against the earliest would let an agent verify, keep working, and complete.
-    private static DateTimeOffset? LatestCompletedWorkingRunEnd(GovernedTaskState state, WorkItemId workItemId) =>
+    private static AgentRun? LatestCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values
             .Where(run => run.WorkItemId == workItemId &&
                           run.Status is AgentRunStatus.Completed &&
                           run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer))
-            .Max(run => run.EndedAt);
+            .OrderByDescending(run => run.EndedAt)
+            .FirstOrDefault();
+
+    private static DateTimeOffset? LatestCompletedWorkingRunEnd(GovernedTaskState state, WorkItemId workItemId) =>
+        LatestCompletedWorkingRun(state, workItemId)?.EndedAt;
 
     // Existence was never the question the gate meant to ask. A verifier run that ended before the
     // work did read an unfinished work item and proves nothing about the finished one. Equal
@@ -1263,6 +1308,32 @@ public sealed class CommandHandler : ICommandHandler
             run.Status is AgentRunStatus.Completed &&
             run.SubjectRole is RoleKind.Verifier &&
             (workedAt is null || run.EndedAt >= workedAt));
+    }
+
+    // The same question the ordering gate asks, one step further: not only did a verifier see the
+    // finished work, but did a verifier who is not the model that wrote it. Returns the provider
+    // that did the work when every verifier run qualifying under the ordering gate came from that
+    // provider too, and null when at least one came from another.
+    //
+    // The rule is positional, not a claim that either model verifies better: whoever authored the
+    // work is the one who may not also sign it off, and the same two providers swap those places
+    // from one work item to the next. Provider, not model or version — a newer build of the same
+    // model shares the reasoning that produced the work, which is the thing being guarded against.
+    private static string? ProviderThatVerifiedItsOwnWork(GovernedTaskState state, WorkItemId workItemId)
+    {
+        if (LatestCompletedWorkingRun(state, workItemId) is not { } worked)
+        {
+            return null;
+        }
+
+        var verifiedByAnotherProvider = state.Runs.Values.Any(run =>
+            run.WorkItemId == workItemId &&
+            run.Status is AgentRunStatus.Completed &&
+            run.SubjectRole is RoleKind.Verifier &&
+            (worked.EndedAt is null || run.EndedAt >= worked.EndedAt) &&
+            !string.Equals(run.Provider, worked.Provider, StringComparison.OrdinalIgnoreCase));
+
+        return verifiedByAnotherProvider ? null : worked.Provider;
     }
 
     private static bool HasOpenEscalation(GovernedTaskState state, WorkItemId workItemId) =>
@@ -1347,6 +1418,11 @@ public sealed class CommandHandler : ICommandHandler
                 break;
             case MarkLessonBearingCommand mark:
                 RequireDefined(mark.SourceKind, nameof(mark.SourceKind));
+                if (mark.Class is not { } lessonClass)
+                {
+                    throw new GovernanceException("A lesson mark must specify its lesson class.");
+                }
+                RequireDefined(lessonClass, nameof(mark.Class));
                 break;
         }
     }
