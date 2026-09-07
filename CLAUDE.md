@@ -12,9 +12,16 @@ it, and the kernel serves the parts of it that apply to your role when you build
 Do not orient yourself by reading the repository. Build your context and work from what comes back:
 
 ```bash
-dotnet $DLL context build --task ledger-learning --actor claude-impl \
-  --cognitive-root cognitive --root $R --output /tmp/manifest.json
+ls .ailedger/tasks                      # every task, live and archived
+ailedger status --task <id> | head -3   # a task at stage 'archive' is finished; anything else is live
+ailedger context build --task <live-id> --actor claude-impl \
+  --cognitive-root cognitive --output /tmp/manifest.json
 ```
+
+No task is named here on purpose. Every id this file has ever hardcoded went stale — one pointed at a
+finished task, another at a task that had been archived that same day — and a fresh session that
+takes its brief from an archived task starts from a record nothing will accept a write against. Find
+the live one; do not trust a name in a document.
 
 That manifest is your brief. It carries the goal, the claims your work item depends on, the
 decisions and evidence attached to them, the active constraints, discarded approaches, open
@@ -27,75 +34,41 @@ are for inspecting the record, not for orienting in it.
 
 ## Where the ledger lives
 
-```
-DLL=src/AILedger.Cli/bin/Debug/net8.0/AILedger.Cli.dll   # dotnet build first if absent
-R=.ailedger/tasks                                        # this repository's governed tasks
-dotnet $DLL --help --root $R
-```
-
-`--root` selects the ledger. Without it the CLI writes to a per-user directory outside this
-repository, so pass it on every call. Every mutation also requires an explicit `--actor`.
-
-The flags are written out in full below. `$DLL` and `$R` are single words and expand safely. Do not
-collect the repeated flags into a scalar. This shell is zsh, which does not split one, so the whole
-string arrives as a single argument:
-
 ```bash
-A="--task ledger-selfhost --root $R --actor claude-impl"
-dotnet $DLL claim add $A --id C20 --statement "..."
-# error: Option '--task ledger-selfhost --root ... --actor claude-impl' requires a value.
+ailedger --help                  # installed as a global tool; no path, no --root
+ailedger status --task <id>
 ```
 
-This is a habit, not a fact you can learn once — it caught the session that wrote this warning three
-times in one afternoon. If you want the shorthand, use an array: `A=(--task T --root $R --actor X)`.
+`ailedger` finds its ledger by walking up from the working directory for a `.ailedger` directory, so
+no command needs `--root` and one issued from a subdirectory reaches the ledger in front of it rather
+than a per-user path. The lesson store is found the same way, at `<home>/lessons`. Every mutation
+still requires an explicit `--actor`.
 
-There are three tasks, and the live one is `ledger-learning`. It holds the current wave and every
-live work item. `ledger-artifacts` holds the accepted design for the artifact record, and
-`ledger-selfhost` is finished — every work item in it is completed or abandoned, and it appears
-below only as the example each command is written against.
+If `ailedger` is not on your PATH, add `$HOME/.dotnet/tools` to it. If it is missing or stale, run
+`sh scripts/install.sh` — that packs, reinstalls and prints the commit it was built from. Reinstalling
+matters more than it looks: the installed tool and the built solution are two separate artifacts, so a
+green build and a green suite say nothing about whether `ailedger` has your change. That silence cost
+this repository real confusion twice in one day and is `Backlog/kernel-version-stamp.md`.
 
-To inspect the record rather than to take a brief from it:
-
-```bash
-dotnet $DLL status  --task ledger-learning --root $R    # full state as JSON
-dotnet $DLL who     --task ledger-learning --root $R    # actors, live runs, occupied areas
-dotnet $DLL history --task ledger-learning --root $R    # the event log itself
-```
-
-Reopen that task rather than starting a new one, unless the work is genuinely unrelated:
-
-```bash
-dotnet $DLL task open --task NEW-ID --actor operator --title "..." --goal "..." --root $R
-```
-
-`task open` makes the opening actor the operator. Give yourself a working identity under it, so the
-record shows who reasoned and who authorised:
-
-```bash
-dotnet $DLL actor attach --task ledger-selfhost --actor operator \
-  --target claude-impl --role implementation-lead --root $R
-```
-
-Roles are `operator`, `planning-lead`, `implementation-lead`, `researcher`, `worker`, `verifier`,
-`code-reviewer`. Each gets safe default capabilities; `--capability` narrows or extends within what
-the role may hold.
+Only pass `--root` to reach a ledger that is not the one above you, which in practice means a test
+fixture.
 
 ## Record a claim before you act on it
 
 Anything you assume and then build on is a claim. Record it first, then earn it.
 
 ```bash
-dotnet $DLL claim add --task ledger-selfhost --root $R --actor claude-impl --id C20 \
+ailedger claim add --task ledger-selfhost --actor claude-impl --id C20 \
   --statement "The adapter discards the provider session on failure" \
   --consequence "A failed run cannot be resumed and the work is redone"
 
-dotnet $DLL evidence add --task ledger-selfhost --root $R --actor claude-impl --id E20 \
+ailedger evidence add --task ledger-selfhost --actor claude-impl --id E20 \
   --source-type source-read \
   --citation "src/AILedger.Providers/Adapters/AgentAdapterBase.cs:104" \
   --summary "The catch block returns a result with a null session identity" \
   --supports C20
 
-dotnet $DLL claim resolve --task ledger-selfhost --root $R --actor operator \
+ailedger claim resolve --task ledger-selfhost --actor operator \
   --id C20 --status validated --evidence E20
 ```
 
@@ -110,7 +83,7 @@ it.
 Record approaches you considered and discarded, too:
 
 ```bash
-dotnet $DLL alternative record --task ledger-selfhost --root $R --actor claude-impl --id ALT10 \
+ailedger alternative record --task ledger-selfhost --actor claude-impl --id ALT10 \
   --statement "Cache the manifest between runs" \
   --rejected-because "The manifest is role-filtered per run, so a shared cache leaks context"
 ```
@@ -121,8 +94,8 @@ Only an operator may add work. A work item's directory scope is occupied while t
 two agents cannot claim the same area:
 
 ```bash
-dotnet $DLL work add --task ledger-selfhost --actor operator --id W10 \
-  --title "..." --owner claude-impl --depends-on C20 --scope src/AILedger.Core --root $R
+ailedger work add --task ledger-selfhost --actor operator --id W10 \
+  --title "..." --owner claude-impl --depends-on C20 --scope src/AILedger.Core
 ```
 
 An item claiming more than one `--scope` is refused unless it also names an alternative recording
@@ -130,8 +103,8 @@ why those areas were not split into separate items. Holding two areas is one age
 could have held. The kernel does not judge that choice; it refuses to let it go unrecorded:
 
 ```bash
-dotnet $DLL work add --task ledger-selfhost --actor operator --id W11 --title "..." \
-  --scope src/AILedger.Cli --scope src/AILedger.Storage --not-split-because ALT10 --root $R
+ailedger work add --task ledger-selfhost --actor operator --id W11 --title "..." \
+  --scope src/AILedger.Cli --scope src/AILedger.Storage --not-split-because ALT10
 ```
 
 ## Completing work
@@ -148,18 +121,18 @@ and only then completed. The kernel imposes that order — it is not a conventio
 So completing W10 is three commands, not one:
 
 ```bash
-dotnet $DLL provider launch --task ledger-selfhost --actor operator --subject claude-impl \
-  --run R10 --work W10 --provider claude --cognitive-root cognitive --root $R
-dotnet $DLL provider launch --task ledger-selfhost --actor operator --subject claude-verify \
-  --run R12 --work W10 --provider claude --cognitive-root cognitive --root $R
-dotnet $DLL work complete --task ledger-selfhost --actor operator --id W10 --root $R
+ailedger provider launch --task ledger-selfhost --actor operator --subject claude-impl \
+  --run R10 --work W10 --provider claude --cognitive-root cognitive
+ailedger provider launch --task ledger-selfhost --actor operator --subject claude-verify \
+  --run R12 --work W10 --provider claude --cognitive-root cognitive
+ailedger work complete --task ledger-selfhost --actor operator --id W10
 ```
 
 One operator-only flag waives both required runs. Its reason is required, and it stays in the log:
 
 ```bash
-dotnet $DLL work complete --task ledger-selfhost --actor operator --id W12 \
-  --without-verification "Documentation-only change; no verifier run was warranted" --root $R
+ailedger work complete --task ledger-selfhost --actor operator --id W12 \
+  --without-verification "Documentation-only change; no verifier run was warranted"
 ```
 
 Use it when an operator has decided the runs are not warranted, not when they are inconvenient. The
@@ -171,8 +144,8 @@ escalation against it is open — settle those first, withdrawing the escalation
 answered. An item already stale or completed cannot be abandoned:
 
 ```bash
-dotnet $DLL work abandon --task ledger-selfhost --actor operator --id W11 \
-  --reason "Superseded by a narrower split; the two areas are now separate items" --root $R
+ailedger work abandon --task ledger-selfhost --actor operator --id W11 \
+  --reason "Superseded by a narrower split; the two areas are now separate items"
 ```
 
 If `work add` is refused for overlapping scope, the holder is still live: finish it, abandon it, or
@@ -185,12 +158,12 @@ repository. A business decision carries at least two options and a recommendatio
 unknown carries evidence of the attempt that failed to answer it.
 
 ```bash
-dotnet $DLL escalation raise --task ledger-selfhost --root $R --actor claude-impl \
+ailedger escalation raise --task ledger-selfhost --actor claude-impl \
   --id X10 --kind business-decision \
   --question "Ship the narrow fix or rework the adapter?" \
   --option "Narrow fix" --option "Rework" --recommend "Narrow fix" --work W10
 
-dotnet $DLL escalation raise --task ledger-selfhost --root $R --actor claude-impl \
+ailedger escalation raise --task ledger-selfhost --actor claude-impl \
   --id X11 --kind true-unknown \
   --question "Which account owns the provider credentials?" --evidence E20
 ```
@@ -207,8 +180,8 @@ by the subject's role. An operator can dispatch on another actor's behalf with `
 how a role holding no run authority — researcher, worker, verifier, code reviewer — is launched:
 
 ```bash
-dotnet $DLL provider launch --task ledger-selfhost --actor operator --subject claude-review \
-  --run R13 --work W10 --provider claude --cognitive-root cognitive --root $R
+ailedger provider launch --task ledger-selfhost --actor operator --subject claude-review \
+  --run R13 --work W10 --provider claude --cognitive-root cognitive
 ```
 
 A code-reviewer subject is refused here on the same grounds as `run start`: the work item must
@@ -237,9 +210,9 @@ So the brief for a dispatched agent is not a prompt — it is the ledger. Write 
 constraint and the accepted decision first, then launch. The agent reads them as its manifest.
 
 ```bash
-dotnet $DLL provider launch --task ledger-selfhost --actor codex-lessons \
+ailedger provider launch --task ledger-selfhost --actor codex-lessons \
   --run RL1 --work W3 --provider codex --executable /path/to/codex \
-  --working-directory $PWD --cognitive-root cognitive --timeout-seconds 1800 --root $R &
+  --working-directory $PWD --cognitive-root cognitive --timeout-seconds 1800 &
 ```
 
 Background it and `wait`; a launch blocks until the agent finishes. Give it a generous timeout —
