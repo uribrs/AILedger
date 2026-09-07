@@ -12,15 +12,19 @@ internal static class RoleDefaults
             Capability.AddClaim, Capability.ResolveClaim, Capability.AddEvidence,
             Capability.ProposeDecision, Capability.RaiseChallenge, Capability.ManageRuns,
             Capability.RequestTransition, Capability.BuildContext,
-            Capability.RaiseEscalation, Capability.RecordAlternative
+            Capability.RaiseEscalation, Capability.RecordAlternative, Capability.RecordArtifact
         ],
         RoleKind.ImplementationLead =>
         [
             Capability.AddClaim, Capability.AddEvidence, Capability.ProposeDecision,
             Capability.RaiseChallenge, Capability.ManageRuns, Capability.RequestTransition,
-            Capability.BuildContext, Capability.RaiseEscalation, Capability.RecordAlternative
+            Capability.BuildContext, Capability.RaiseEscalation, Capability.RecordAlternative,
+            Capability.RecordArtifact
         ],
-        RoleKind.Researcher or RoleKind.Worker or RoleKind.Verifier or RoleKind.CodeReviewer =>
+        RoleKind.Verifier or RoleKind.CodeReviewer =>
+        [Capability.AddClaim, Capability.AddEvidence, Capability.RaiseChallenge, Capability.BuildContext,
+         Capability.RaiseEscalation, Capability.RecordArtifact],
+        RoleKind.Researcher or RoleKind.Worker =>
         [Capability.AddClaim, Capability.AddEvidence, Capability.RaiseChallenge, Capability.BuildContext,
          Capability.RaiseEscalation],
         _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown role.")

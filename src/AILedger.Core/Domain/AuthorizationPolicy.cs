@@ -74,6 +74,7 @@ public sealed class AuthorizationPolicy
         ResolveEscalationCommand => [Capability.ResolveEscalation],
         RecordAlternativeCommand => [Capability.RecordAlternative],
         MarkLessonBearingCommand => [],
+        RecordArtifactCommand => [Capability.RecordArtifact],
         AddConstraintCommand or SupersedeConstraintCommand => [Capability.ManageConstraints],
         CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand
             or AbandonWorkItemCommand => [Capability.ManageWork],

@@ -18,7 +18,13 @@ public sealed class ContextAssembler : IContextAssembler
             ContextArtifactKind.Escalation,
             ContextArtifactKind.Alternative,
             ContextArtifactKind.Lesson,
-            ContextArtifactKind.LessonMark
+            ContextArtifactKind.LessonMark,
+            // The request, the contract and the plan govern the whole task, not one item in it.
+            // Work-item relevance admits an artifact only when it names a dependent claim, so
+            // before they were always-included a work-scoped manifest carried no contract at all.
+            ContextArtifactKind.UserRequest,
+            ContextArtifactKind.PromptContract,
+            ContextArtifactKind.OrchestrationPlan
         };
 
     private static readonly IReadOnlySet<ContextArtifactKind> ReviewerExclusions =
@@ -28,10 +34,24 @@ public sealed class ContextAssembler : IContextAssembler
             ContextArtifactKind.PromptContract,
             ContextArtifactKind.OrchestrationPlan,
             ContextArtifactKind.VerifierOutput,
+            // An earlier review of the same work is withheld for the same reason as the verifier's
+            // verdict: a second pass that reads the first is not a second opinion.
+            ContextArtifactKind.CodeReviewOutput,
             // An open escalation carries the leads' recommendation, which is intent. A blind
             // review must not learn what the team wants the answer to be. Alternatives stay:
             // a discarded approach is design history, like a Decision, not a verdict.
             ContextArtifactKind.Escalation
+        };
+
+    // What the caller may still contribute. The five governed workflow kinds now come from replayed
+    // state, so a caller offering one is offering a task record the ledger never wrote; the cognitive
+    // root is the only input that has no event behind it and legitimately arrives from outside.
+    private static readonly IReadOnlySet<ContextArtifactKind> CallerSuppliedKinds =
+        new HashSet<ContextArtifactKind>
+        {
+            ContextArtifactKind.Rules,
+            ContextArtifactKind.Skill,
+            ContextArtifactKind.StopCondition
         };
 
     private static readonly IReadOnlyDictionary<RoleKind, IReadOnlySet<string>> CanonicalRoleSkills =
@@ -69,7 +89,7 @@ public sealed class ContextAssembler : IContextAssembler
             .ToHashSet(StringComparer.Ordinal);
 
         var artifacts = stateArtifacts
-            .Concat(availableArtifacts)
+            .Concat(availableArtifacts.Where(artifact => CallerSuppliedKinds.Contains(artifact.Kind)))
             .Where(artifact => IsAllowedForRole(assignment.Role, artifact))
             .Where(artifact => IsRelevant(artifact, workItem, relevantIds))
             .OrderBy(artifact => artifact.Kind)
@@ -207,6 +227,10 @@ public sealed class ContextAssembler : IContextAssembler
         artifacts.AddRange(state.LessonMarks.Values
             .OrderBy(mark => mark.Id.Value, StringComparer.Ordinal)
             .Select(ToArtifact));
+        artifacts.AddRange(CurrentArtifacts(state)
+            .Where(artifact => IsInWorkScope(artifact, workItem))
+            .OrderBy(artifact => artifact.ArtifactId.Value, StringComparer.Ordinal)
+            .Select(ToArtifact));
         if (workItem is not null)
         {
             artifacts.Add(ToArtifact(workItem));
@@ -220,6 +244,43 @@ public sealed class ContextAssembler : IContextAssembler
 
         return artifacts;
     }
+
+    // Every revision is retained in state, but only the artifact nothing supersedes is current. A
+    // superseded contract in a manifest is an agent working to instructions that were withdrawn.
+    private static IReadOnlyList<GovernedArtifact> CurrentArtifacts(GovernedTaskState state)
+    {
+        var superseded = state.Artifacts.Values
+            .Where(artifact => artifact.SupersedesArtifactId is not null)
+            .Select(artifact => artifact.SupersedesArtifactId!.Value)
+            .ToHashSet();
+        return state.Artifacts.Values
+            .Where(artifact => !superseded.Contains(artifact.ArtifactId))
+            .ToArray();
+    }
+
+    // A verifier or review output belongs to one work item, and the other items' outputs are not
+    // this agent's context. The filter is here rather than in IsRelevant because the relevant-id set
+    // is drawn from the state artifacts themselves: an output naming another work item would put
+    // that item's id into the set and so admit itself.
+    private static bool IsInWorkScope(GovernedArtifact artifact, WorkItem? workItem) =>
+        workItem is null || artifact.WorkItemId is null || artifact.WorkItemId == workItem.Id;
+
+    private static ContextArtifact ToArtifact(GovernedArtifact artifact) =>
+        new(
+            ToContextKind(artifact.Kind),
+            artifact.ArtifactId.Value,
+            $"{artifact.Title}{Environment.NewLine}{artifact.Content}",
+            artifact.WorkItemId is { } workItemId ? [workItemId.Value] : []);
+
+    private static ContextArtifactKind ToContextKind(GovernedArtifactKind kind) => kind switch
+    {
+        GovernedArtifactKind.UserRequest => ContextArtifactKind.UserRequest,
+        GovernedArtifactKind.PromptContract => ContextArtifactKind.PromptContract,
+        GovernedArtifactKind.OrchestrationPlan => ContextArtifactKind.OrchestrationPlan,
+        GovernedArtifactKind.VerifierOutput => ContextArtifactKind.VerifierOutput,
+        GovernedArtifactKind.CodeReviewOutput => ContextArtifactKind.CodeReviewOutput,
+        _ => throw new GovernanceException($"Unknown governed artifact kind '{kind}'.")
+    };
 
     private static ContextArtifact ToArtifact(Constraint constraint) =>
         new(
@@ -303,7 +364,18 @@ public sealed class ContextAssembler : IContextAssembler
                 : $"{Environment.NewLine}Tags: {string.Join(", ", lesson.Tags)}") +
             (lesson.Citations.Count == 0
                 ? string.Empty
-                : $"{Environment.NewLine}Evidence: {string.Join(" | ", lesson.Citations)}"),
+                : $"{Environment.NewLine}Evidence: {string.Join(" | ", lesson.Citations)}") +
+            // The verify command is what turns re-establishing the lesson from an instruction into
+            // something the reader can run, so it belongs beside the label that demands it.
+            (lesson.Verify is null
+                ? string.Empty
+                : $"{Environment.NewLine}Verify: {lesson.Verify}") +
+            (lesson.DoNot is null
+                ? string.Empty
+                : $"{Environment.NewLine}Do not: {lesson.DoNot}") +
+            (lesson.Actor is null
+                ? string.Empty
+                : $"{Environment.NewLine}Established by: {lesson.Actor}"),
             [lesson.SourceTaskId.Value, lesson.SourceRecordId]);
 
     private static ContextArtifact ToArtifact(LessonMark mark) =>

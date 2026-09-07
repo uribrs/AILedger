@@ -27,7 +27,10 @@ public sealed class ContextIsolationTests
             ContextArtifactKind.UserRequest,
             ContextArtifactKind.PromptContract,
             ContextArtifactKind.OrchestrationPlan,
-            ContextArtifactKind.VerifierOutput
+            ContextArtifactKind.VerifierOutput,
+            // An earlier review of the same work is excluded for the same reason as the verifier's
+            // verdict: a second pass that reads the first is not a second opinion.
+            ContextArtifactKind.CodeReviewOutput
         };
         Assert.DoesNotContain(manifest.Artifacts, artifact => forbidden.Contains(artifact.Kind));
         Assert.Contains(manifest.Artifacts, artifact => artifact.Kind == ContextArtifactKind.Skill && artifact.Id == "code-reviewer");

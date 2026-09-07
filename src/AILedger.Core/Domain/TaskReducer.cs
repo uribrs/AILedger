@@ -40,6 +40,10 @@ public sealed class TaskReducer : ITaskReducer
             LessonMinted minted => AddLesson(Require(state), minted.Lesson),
             LessonRecalled recalled => AddLesson(Require(state), recalled.Lesson),
             LessonMarked marked => AddLessonMark(Require(state), marked.Mark),
+            ArtifactRecorded recorded => Require(state) with
+            {
+                Artifacts = Set(Require(state).Artifacts, recorded.Artifact.ArtifactId, recorded.Artifact)
+            },
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -76,6 +80,7 @@ public sealed class TaskReducer : ITaskReducer
             TaskId = @event.TaskId,
             Title = opened.Title,
             Goal = opened.Goal,
+            Tags = opened.Tags,
             PendingOpeningActor = @event.ActorId
         };
     }

@@ -1,7 +1,8 @@
 # Closing the gap: stages as the trigger, roles as the staffing
 
-Design for the next session. The authoritative record is the ledger — decisions LD11 to LD15 and
-constraints K19 to K24 in task `ledger-learning`. This document is the prose that will not fit in a
+Design for the next session. The authoritative record is the ledger — decisions LD11 to LD16 and
+constraint K19 in task `ledger-learning`. Only K19 exists; an earlier draft of this line cited K19
+to K24. This document is the prose that will not fit in a
 record until artifacts land, and it is committed rather than kept beside the ledger.
 
 ## The gap, stated precisely
@@ -50,14 +51,20 @@ stage was engaged, so the transition itself is the confirmation and it is refuse
 | Repair        | at least one open challenge or a verifier finding                         |
 | Review        | at least one completed Verifier run                                       |
 | Learn         | at least one completed CodeReviewer run for code-bearing work             |
-| Archive       | no active run, no open challenge, at least one lesson — exists today       |
+| Archive       | no active run, no open challenge — exists today                          |
 
-**Replay safety.** `EnsureStagePrerequisites` runs in both copies, at command time and at replay. No
-live task has ever transitioned stage — all three are in Discovery, with zero `stage.transitioned`
-events between them. So every arm above is safe by construction in both copies: replay cannot reject
-a transition that no history contains. This is the rare change that does not need a command-time-only
-exemption, and the reason should be written in the comment so a later reader does not assume the
-general rule was broken.
+**Replay safety.** Superseded by LD16: the arms are command-time only, in `CommandHandler`, and
+`TaskTransitionValidator` carries a comment saying why they are deliberately absent.
+
+This paragraph originally argued for both copies, on the grounds that no live task has ever
+transitioned stage — all three sit in Discovery with zero `stage.transitioned` events between them,
+so replay cannot reject a transition no history contains. That is true of the histories on disk and
+stops being true the moment a task transitions. Once a task reaches Ready under an arm as first
+written, editing that arm rejects a transition that was legal when written, and these arms encode a
+methodology the operator is still changing under K1, so they are the rules most likely to be tuned.
+The three sequencing rules this repository already imposes — the working-run requirement, the
+verifier requirement and the cross-provider rule — all live in `CommandHandler` only for the same
+reason.
 
 ## B. Roles become staffing that can be confirmed
 
@@ -115,7 +122,14 @@ which is additive and can land at any point.
 6. Tests for each. `tests`
 
 Those are five disjoint directory scopes, so items 1, 2, 3 and 6 can run concurrently against a
-frozen contract, as this task has done throughout. Item 4 waits on item 1.
+frozen contract, as this task has done throughout. Item 4 waits on item 1, and shares
+`src/AILedger.Core` with it, so the two are sequential items rather than concurrent ones. Items 3
+and 5 share `src/AILedger.Cli` on the same terms.
+
+What a narrow scope costs is recorded as LC24: the launch guard requires an agent's working
+directory and every additional directory to sit inside its item's scope, so a dispatched agent
+cannot build the solution or run the suite. The lead builds and tests; a verifier reads its own
+subtree. LA5 records the rejected alternative of scoping every item to the repository root.
 
 ## Verification each piece needs
 

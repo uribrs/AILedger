@@ -12,8 +12,8 @@ it, and the kernel serves the parts of it that apply to your role when you build
 Do not orient yourself by reading the repository. Build your context and work from what comes back:
 
 ```bash
-dotnet $DLL context build --task ledger-selfhost --actor claude-impl \
-  --work W1 --cognitive-root cognitive --root $R --output /tmp/manifest.json
+dotnet $DLL context build --task ledger-learning --actor claude-impl \
+  --cognitive-root cognitive --root $R --output /tmp/manifest.json
 ```
 
 That manifest is your brief. It carries the goal, the claims your work item depends on, the
@@ -49,12 +49,17 @@ dotnet $DLL claim add $A --id C20 --statement "..."
 This is a habit, not a fact you can learn once — it caught the session that wrote this warning three
 times in one afternoon. If you want the shorthand, use an array: `A=(--task T --root $R --actor X)`.
 
-The live task is `ledger-selfhost`. To inspect the record rather than to take a brief from it:
+There are three tasks, and the live one is `ledger-learning`. It holds the current wave and every
+live work item. `ledger-artifacts` holds the accepted design for the artifact record, and
+`ledger-selfhost` is finished — every work item in it is completed or abandoned, and it appears
+below only as the example each command is written against.
+
+To inspect the record rather than to take a brief from it:
 
 ```bash
-dotnet $DLL status  --task ledger-selfhost --root $R    # full state as JSON
-dotnet $DLL who     --task ledger-selfhost --root $R    # actors, live runs, occupied areas
-dotnet $DLL history --task ledger-selfhost --root $R    # the event log itself
+dotnet $DLL status  --task ledger-learning --root $R    # full state as JSON
+dotnet $DLL who     --task ledger-learning --root $R    # actors, live runs, occupied areas
+dotnet $DLL history --task ledger-learning --root $R    # the event log itself
 ```
 
 Reopen that task rather than starting a new one, unless the work is genuinely unrelated:
@@ -268,9 +273,15 @@ methodology in `cognitive/`. The short version, so you know whether it applies t
 already contains the pipeline's eleven phases as stages and drives nothing from them, so the skills
 reach every agent and none of them fire.
 
-The decisions are in the ledger as LD11 through LD15 and the constraint naming the document is K19,
-so `context build` will surface them. Read the decisions first and the document second — the ledger
-is authoritative and the document is the prose that does not fit in a record yet.
+The decisions are in task `ledger-learning` as LD11 through LD15, with LD16 settling that the stage
+arms are command-time only, and the constraint naming the document is K19 in that same task. The
+artifact design the Scope and Ready arms depend on is in task `ledger-artifacts`, where D1 to D6 and
+D10 are accepted and C10 to C14 are validated. `context build` on `ledger-learning` surfaces the
+first set; read `ledger-artifacts` for the second.
+
+Read the decisions first and the document second — the ledger is authoritative and the document is
+the prose that does not fit in a record yet. The document says the arms go in both rule copies and
+cites constraints K19 to K24; LD16 supersedes the first, and only K19 exists.
 
 ## Changing the kernel
 

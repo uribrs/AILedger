@@ -50,7 +50,7 @@ public sealed class CommandHandler : ICommandHandler
 
         var events = new List<LedgerEventData>
         {
-            new TaskOpened(open.Title.Trim(), open.Goal.Trim()),
+            new TaskOpened(open.Title.Trim(), open.Goal.Trim(), OpeningTags(open.Tags)),
             new RoleAssigned(operatorRole)
         };
 
@@ -63,6 +63,26 @@ public sealed class CommandHandler : ICommandHandler
         }
 
         return events;
+    }
+
+    // Mirrors the normalisation the lesson tags already get: trimmed, refused when duplicated or
+    // empty. An explicitly empty list collapses to null so that "untagged" has one representation
+    // for recall to read, rather than two that behave the same.
+    private static IReadOnlyList<string>? OpeningTags(IReadOnlyList<string>? tags)
+    {
+        if (tags is null)
+        {
+            return null;
+        }
+
+        var trimmed = tags.Select(tag => tag.Trim()).ToArray();
+        EnsureUnique(trimmed, "Task tags", StringComparer.Ordinal);
+        if (trimmed.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("A task cannot carry an empty tag.");
+        }
+
+        return trimmed.Length == 0 ? null : trimmed;
     }
 
     private IReadOnlyList<LedgerEventData> HandleExisting(
@@ -94,6 +114,7 @@ public sealed class CommandHandler : ICommandHandler
             RaiseEscalationCommand raise => RaiseEscalation(state, raise, now),
             ResolveEscalationCommand resolve => ResolveEscalation(state, resolve),
             RecordAlternativeCommand record => RecordAlternative(state, record, now),
+            RecordArtifactCommand record => RecordArtifact(state, record, now),
             MarkLessonBearingCommand mark => MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => AddConstraint(state, add, now),
             SupersedeConstraintCommand supersede => SupersedeConstraint(state, supersede),
@@ -673,6 +694,19 @@ public sealed class CommandHandler : ICommandHandler
                 "a completed run must stay resumable.");
         }
 
+        if (command.Status == AgentRunStatus.Completed && run.SubjectRole is RoleKind.Verifier or RoleKind.CodeReviewer)
+        {
+            var requiredKind = run.SubjectRole == RoleKind.Verifier
+                ? GovernedArtifactKind.VerifierOutput
+                : GovernedArtifactKind.CodeReviewOutput;
+            if (!CurrentArtifacts(state).Any(artifact =>
+                    artifact.Kind == requiredKind && artifact.ProducerRunId == run.Id))
+            {
+                throw new GovernanceException(
+                    $"Completing {run.SubjectRole} run '{run.Id}' requires its matching '{requiredKind}' artifact.");
+            }
+        }
+
         var launcherAuthorized = EnsureLauncherAuthorizedCompletion(state, command, run);
         return [new RunCompleted(command.RunId, command.Status, providerSessionId, now, launcherAuthorized)];
     }
@@ -799,7 +833,8 @@ public sealed class CommandHandler : ICommandHandler
                     mark.SourceKind, mark.SourceRecordId, claim.Statement, "Validated",
                     claim.EvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
+                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
+                    mark.Verify, mark.DoNot, mark.Actor),
             // The refuting evidence is what makes this lesson worth carrying: a later task that
             // recalls it gets the belief and what contradicted it, not just the verdict.
             LessonSourceKind.RejectedClaim when
@@ -809,12 +844,14 @@ public sealed class CommandHandler : ICommandHandler
                     mark.SourceKind, mark.SourceRecordId, rejected.Statement, "Rejected",
                     rejected.EvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
+                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
+                    mark.Verify, mark.DoNot, mark.Actor),
             LessonSourceKind.RejectedAlternative when
                 state.Alternatives.TryGetValue(new AlternativeId(mark.SourceRecordId), out var alternative) =>
                 new Lesson(LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
                     mark.SourceKind, mark.SourceRecordId, alternative.Statement, alternative.RejectionRationale,
-                    [], provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
+                    [], provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
+                    mark.Verify, mark.DoNot, mark.Actor),
             LessonSourceKind.ResolvedEscalation when
                 state.Escalations.TryGetValue(new EscalationId(mark.SourceRecordId), out var escalation) &&
                 escalation.Status == EscalationStatus.Resolved => new Lesson(
@@ -822,7 +859,8 @@ public sealed class CommandHandler : ICommandHandler
                     mark.SourceKind, mark.SourceRecordId, escalation.Question, escalation.Resolution!,
                     escalation.AttemptEvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags),
+                    provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
+                    mark.Verify, mark.DoNot, mark.Actor),
             _ => null
         };
 
@@ -849,6 +887,23 @@ public sealed class CommandHandler : ICommandHandler
         {
             throw new GovernanceException("A lesson mark cannot carry an empty tag.");
         }
+        if (command.Verify is not { } verify)
+        {
+            throw new GovernanceException(
+                "A lesson mark must specify the command that re-establishes it.");
+        }
+        RequireText(verify, nameof(command.Verify));
+        RequireCheckableVerify(verify);
+        if (command.DoNot is not { } doNot)
+        {
+            throw new GovernanceException("A lesson mark must specify what it prohibits re-assuming.");
+        }
+        RequireText(doNot, nameof(command.DoNot));
+        if (command.Actor is not { } lessonActor)
+        {
+            throw new GovernanceException("A lesson mark must specify which actor established it.");
+        }
+        RequireDefined(lessonActor, nameof(command.Actor));
         var markId = LessonMarkIdFor(command.SourceKind, command.SourceRecordId);
         EnsureNew(state.LessonMarks, markId, "lesson mark");
 
@@ -883,7 +938,32 @@ public sealed class CommandHandler : ICommandHandler
 
         return [new LessonMarked(new LessonMark(
             markId, command.SourceKind, command.SourceRecordId.Trim(), command.SupersedesLessonId,
-            new Provenance(command.ActorId, now, "lesson.mark"), lessonClass, repo.Trim(), tags))];
+            new Provenance(command.ActorId, now, "lesson.mark"), lessonClass, repo.Trim(), tags,
+            verify.Trim(), doNot.Trim(), lessonActor))];
+    }
+
+    // A fabricated verify command reads as evidence to every future recall, so the only way to
+    // say there is nothing to run is the admission itself. A bare "none" is refused. This is a
+    // methodology rule the operator is still changing, so it is command-time only: the replay
+    // copy validates that the field is well formed and never what it says.
+    private static void RequireCheckableVerify(string verify)
+    {
+        var trimmed = verify.Trim();
+        var claimsNothingToRun =
+            trimmed.StartsWith("none", StringComparison.OrdinalIgnoreCase) &&
+            (trimmed.Length == 4 || !(char.IsLetterOrDigit(trimmed[4]) || trimmed[4] == '_'));
+        var admission = trimmed.Length > 4 ? trimmed[4..].TrimStart() : string.Empty;
+        var hasReason = admission.Length > 1 &&
+            admission[0] is '-' or '—' or '–' or ':' &&
+            !string.IsNullOrWhiteSpace(admission[1..]);
+        if (!claimsNothingToRun || hasReason)
+        {
+            return;
+        }
+
+        throw new GovernanceException(
+            "A lesson mark's verify must be a runnable command, or 'none' followed by " +
+            "a dash or colon and a reason.");
     }
 
     private static LessonMarkId LessonMarkIdFor(LessonSourceKind kind, string sourceRecordId) =>
@@ -1026,6 +1106,247 @@ public sealed class CommandHandler : ICommandHandler
             command.ReplacedByDecisionId,
             new Provenance(command.ActorId, now, "alternative.record"));
         return [new AlternativeRecorded(alternative)];
+    }
+
+    private static IReadOnlyList<LedgerEventData> RecordArtifact(
+        GovernedTaskState state,
+        RecordArtifactCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.ArtifactId.Value, nameof(command.ArtifactId));
+        EnsureNew(state.Artifacts, command.ArtifactId, "artifact");
+        RequireText(command.Title, nameof(command.Title));
+        RequireText(command.Content, nameof(command.Content));
+
+        var assignment = Get(state.Roles, command.ActorId, "actor role");
+        EnsureArtifactScope(command.Kind, command.WorkItemId);
+        EnsureArtifactAuthority(state, command.Kind, command.ActorId, assignment.Role,
+            command.WorkItemId, command.ProducerRunId);
+        EnsureArtifactRevision(state, command.Kind, command.WorkItemId,
+            command.ArtifactId, command.SupersedesArtifactId);
+
+        if (command.Kind == GovernedArtifactKind.VerifierOutput)
+        {
+            ValidateVerifierOutput(state, command.WorkItemId!.Value, command.Content);
+        }
+
+        return [new ArtifactRecorded(new GovernedArtifact(
+            command.ArtifactId,
+            command.Kind,
+            command.Title.Trim(),
+            command.Content,
+            command.WorkItemId,
+            command.ProducerRunId,
+            command.SupersedesArtifactId,
+            new Provenance(command.ActorId, now, "artifact.record")))];
+    }
+
+    private static void EnsureArtifactScope(GovernedArtifactKind kind, WorkItemId? workItemId)
+    {
+        var workScoped = kind is GovernedArtifactKind.VerifierOutput or GovernedArtifactKind.CodeReviewOutput;
+        if (workScoped != workItemId.HasValue)
+        {
+            throw new GovernanceException(workScoped
+                ? $"A '{kind}' artifact must name its work item."
+                : $"A '{kind}' artifact is task-wide and cannot name a work item.");
+        }
+    }
+
+    private static void EnsureArtifactAuthority(
+        GovernedTaskState state,
+        GovernedArtifactKind kind,
+        ActorId actorId,
+        RoleKind actorRole,
+        WorkItemId? workItemId,
+        RunId? producerRunId)
+    {
+        if (kind == GovernedArtifactKind.UserRequest)
+        {
+            if (actorRole != RoleKind.Operator || producerRunId is not null)
+            {
+                throw new GovernanceException(
+                    "A user-request artifact must be operator-authored and cannot name a producer run.");
+            }
+            return;
+        }
+
+        if (producerRunId is not { } runId)
+        {
+            throw new GovernanceException($"A '{kind}' artifact must name its active producer run.");
+        }
+
+        var run = Get(state.Runs, runId, "producer run");
+        if (run.Status != AgentRunStatus.Active || run.ActorId != actorId)
+        {
+            throw new GovernanceException(
+                $"Artifact producer run '{runId}' must be active and belong to actor '{actorId}'.");
+        }
+        if (workItemId is not null && run.WorkItemId != workItemId)
+        {
+            throw new GovernanceException($"Artifact work item must match producer run '{runId}'.");
+        }
+
+        var requiredRole = kind switch
+        {
+            GovernedArtifactKind.VerifierOutput => RoleKind.Verifier,
+            GovernedArtifactKind.CodeReviewOutput => RoleKind.CodeReviewer,
+            _ => (RoleKind?)null
+        };
+        if (requiredRole is { } role && run.SubjectRole != role)
+        {
+            throw new GovernanceException($"A '{kind}' artifact requires a matching active {role} run.");
+        }
+        if (requiredRole is null && run.SubjectRole is not
+            (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead))
+        {
+            throw new GovernanceException(
+                "Only an operator, planning lead, or implementation lead can record a governing workflow artifact.");
+        }
+    }
+
+    private static void EnsureArtifactRevision(
+        GovernedTaskState state,
+        GovernedArtifactKind kind,
+        WorkItemId? workItemId,
+        ArtifactId artifactId,
+        ArtifactId? supersedesArtifactId)
+    {
+        var current = CurrentArtifacts(state)
+            .Where(item => item.Kind == kind && item.WorkItemId == workItemId)
+            .ToArray();
+        if (supersedesArtifactId is not { } predecessorId)
+        {
+            if (current.Length != 0)
+            {
+                throw new GovernanceException(
+                    $"A current '{kind}' artifact already exists for this scope; a revision must supersede it.");
+            }
+            return;
+        }
+
+        if (predecessorId == artifactId)
+        {
+            throw new GovernanceException("An artifact cannot supersede itself.");
+        }
+        var predecessor = Get(state.Artifacts, predecessorId, "superseded artifact");
+        if (predecessor.Kind != kind || predecessor.WorkItemId != workItemId)
+        {
+            throw new GovernanceException(
+                "An artifact can only supersede the current artifact of the same kind and work scope.");
+        }
+        if (!current.Any(item => item.ArtifactId == predecessorId))
+        {
+            throw new GovernanceException($"Artifact '{predecessorId}' is not current and cannot be superseded.");
+        }
+    }
+
+    private static IReadOnlyList<GovernedArtifact> CurrentArtifacts(GovernedTaskState state)
+    {
+        var superseded = state.Artifacts.Values
+            .Where(item => item.SupersedesArtifactId is not null)
+            .Select(item => item.SupersedesArtifactId!.Value)
+            .ToHashSet();
+        return state.Artifacts.Values.Where(item => !superseded.Contains(item.ArtifactId)).ToArray();
+    }
+
+    private static void ValidateVerifierOutput(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        string content)
+    {
+        var workItem = Get(state.WorkItems, workItemId, "work item");
+        var assumptions = ReadMarkdownTable(content, ["id", "status", "name", "citation", "actor"]);
+        var assumptionIds = assumptions.Select(row => row[0]).ToArray();
+        EnsureUnique(assumptionIds, "Verifier assumption disposition IDs", StringComparer.Ordinal);
+        foreach (var claimId in workItem.DependsOnClaims.Where(id =>
+                     state.Claims[id].Status is ClaimStatus.Open or ClaimStatus.Validated))
+        {
+            var row = assumptions.SingleOrDefault(candidate => candidate[0] == claimId.Value)
+                ?? throw new GovernanceException($"Verifier output must dispose dependent claim '{claimId}'.");
+            if (row[1] is not ("VALIDATED" or "REJECTED" or "NEVER-TESTED") ||
+                string.IsNullOrWhiteSpace(row[2]) || string.IsNullOrWhiteSpace(row[3]) ||
+                string.IsNullOrWhiteSpace(row[4]))
+            {
+                throw new GovernanceException(
+                    $"Verifier disposition for claim '{claimId}' must be terminal and carry a name, citation, and actor.");
+            }
+        }
+
+        var plan = CurrentArtifacts(state).SingleOrDefault(item =>
+            item.Kind == GovernedArtifactKind.OrchestrationPlan);
+        if (plan is null)
+        {
+            throw new GovernanceException("A verifier output requires a current orchestration plan.");
+        }
+        var attentionIds = plan.Content.Contains("No material attention items", StringComparison.OrdinalIgnoreCase)
+            ? Array.Empty<string>()
+            : ReadMarkdownTable(plan.Content,
+                    ["id", "name", "failure mode", "causal path and impact", "planned handling", "source"])
+                .Select(row => row[0]).Where(IsAttentionId).ToArray();
+        EnsureUnique(attentionIds, "Orchestration-plan attention item IDs", StringComparer.Ordinal);
+
+        var dispositions = ReadMarkdownTable(content, ["id", "final disposition", "name", "evidence"]);
+        var dispositionIds = dispositions.Select(row => row[0]).ToArray();
+        EnsureUnique(dispositionIds, "Verifier attention disposition IDs", StringComparer.Ordinal);
+        foreach (var attentionId in attentionIds)
+        {
+            var row = dispositions.SingleOrDefault(candidate => candidate[0] == attentionId)
+                ?? throw new GovernanceException($"Verifier output must dispose attention item '{attentionId}'.");
+            if (row[1] is not ("handled" or "accepted-risk" or "not-applicable" or "unresolved") ||
+                string.IsNullOrWhiteSpace(row[2]) || string.IsNullOrWhiteSpace(row[3]))
+            {
+                throw new GovernanceException(
+                    $"Verifier attention disposition '{attentionId}' must use an allowed value and carry a name and evidence.");
+            }
+        }
+    }
+
+    private static IReadOnlyList<string[]> ReadMarkdownTable(string content, IReadOnlyList<string> header)
+    {
+        var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var cells = SplitMarkdownRow(lines[index]);
+            if (!cells.SequenceEqual(header, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var rows = new List<string[]>();
+            for (var rowIndex = index + 2; rowIndex < lines.Length; rowIndex++)
+            {
+                var row = SplitMarkdownRow(lines[rowIndex]);
+                if (row.Length != header.Count)
+                {
+                    break;
+                }
+                rows.Add(row);
+            }
+            return rows;
+        }
+
+        throw new GovernanceException($"Artifact body is missing the required '{string.Join(" | ", header)}' table.");
+    }
+
+    private static string[] SplitMarkdownRow(string line)
+    {
+        var trimmed = line.Trim();
+        if (!trimmed.StartsWith('|') || !trimmed.EndsWith('|'))
+        {
+            return [];
+        }
+        return trimmed[1..^1].Split('|').Select(cell => cell.Trim()).ToArray();
+    }
+
+    private static bool IsAttentionId(string value)
+    {
+        if (value.Length < 2 || value[0] != 'R')
+        {
+            return false;
+        }
+        var digitCount = value.Skip(1).TakeWhile(char.IsDigit).Count();
+        return digitCount > 0 && (digitCount == value.Length - 1 ||
+            digitCount == value.Length - 2 && char.IsLetter(value[^1]));
     }
 
     private static IReadOnlyList<LedgerEventData> AddConstraint(
@@ -1424,6 +1745,9 @@ public sealed class CommandHandler : ICommandHandler
                 }
                 RequireDefined(lessonClass, nameof(mark.Class));
                 break;
+            case RecordArtifactCommand record:
+                RequireDefined(record.Kind, nameof(record.Kind));
+                break;
         }
     }
 
@@ -1541,22 +1865,144 @@ public sealed class CommandHandler : ICommandHandler
 
     private static void EnsureStagePrerequisites(GovernedTaskState state, TaskStage target)
     {
-        if (target == TaskStage.Execution && state.WorkItems.Count == 0)
+        var currentArtifacts = CurrentArtifacts(state);
+        var completedRoles = state.Runs.Values
+            .Where(run => run.Status == AgentRunStatus.Completed && run.SubjectRole is not null)
+            .Select(run => run.SubjectRole!.Value)
+            .ToHashSet();
+        var codeBearing = state.WorkItems.Values.Any(item => item.ResourceScope.Count != 0);
+
+        switch (target)
         {
-            throw new GovernanceException("Execution requires at least one governed work item.");
+            case TaskStage.Discovery:
+                break;
+
+            case TaskStage.Research:
+                if (!state.Claims.Values.Any(claim => claim.Status == ClaimStatus.Open))
+                {
+                    throw new GovernanceException("Research requires at least one open claim to investigate.");
+                }
+                break;
+
+            case TaskStage.Design:
+                if (!completedRoles.Contains(RoleKind.Researcher))
+                {
+                    throw new GovernanceException("Design requires a completed Researcher run.");
+                }
+                if (state.Alternatives.Count == 0 &&
+                    !state.Decisions.Values.Any(decision => decision.Status == DecisionStatus.Accepted))
+                {
+                    throw new GovernanceException(
+                        "Design requires at least one recorded alternative or accepted decision.");
+                }
+                break;
+
+            case TaskStage.Scope:
+                EnsureCurrentArtifact(currentArtifacts, TaskStage.Scope, GovernedArtifactKind.PromptContract);
+                break;
+
+            case TaskStage.Ready:
+                EnsureCurrentArtifact(currentArtifacts, TaskStage.Ready, GovernedArtifactKind.OrchestrationPlan);
+                var assignedRoles = state.Roles.Values.Select(assignment => assignment.Role).ToHashSet();
+                if (!assignedRoles.Any(IsWorkingRole))
+                {
+                    throw new GovernanceException("Ready requires a working role assigned to a distinct actor.");
+                }
+                if (!assignedRoles.Contains(RoleKind.Verifier))
+                {
+                    throw new GovernanceException("Ready requires a Verifier assigned to a distinct actor.");
+                }
+                if (!assignedRoles.Contains(RoleKind.CodeReviewer))
+                {
+                    throw new GovernanceException(
+                        "Ready requires a CodeReviewer assigned to a distinct actor.");
+                }
+                break;
+
+            case TaskStage.Execution:
+                if (state.WorkItems.Count == 0)
+                {
+                    throw new GovernanceException("Execution requires at least one governed work item.");
+                }
+                var currentKinds = currentArtifacts.Select(item => item.Kind).ToHashSet();
+                var required = new[]
+                {
+                    GovernedArtifactKind.UserRequest,
+                    GovernedArtifactKind.PromptContract,
+                    GovernedArtifactKind.OrchestrationPlan
+                };
+                var missing = required.Where(kind => !currentKinds.Contains(kind)).ToArray();
+                if (missing.Length != 0)
+                {
+                    throw new GovernanceException(
+                        $"Execution requires current governed artifacts: {string.Join(", ", missing)}.");
+                }
+                break;
+
+            case TaskStage.Verification:
+                if (!completedRoles.Any(role =>
+                        role is RoleKind.Worker or RoleKind.ImplementationLead))
+                {
+                    throw new GovernanceException(
+                        "Verification requires a completed Worker or ImplementationLead run.");
+                }
+                break;
+
+            case TaskStage.Repair:
+                if (!state.Challenges.Values.Any(challenge => challenge.Status == ChallengeStatus.Open) &&
+                    !currentArtifacts.Any(artifact => artifact.Kind == GovernedArtifactKind.VerifierOutput))
+                {
+                    throw new GovernanceException(
+                        "Repair requires an open challenge or current VerifierOutput artifact.");
+                }
+                break;
+
+            case TaskStage.Review:
+                if (!completedRoles.Contains(RoleKind.Verifier))
+                {
+                    throw new GovernanceException("Review requires a completed Verifier run.");
+                }
+                break;
+
+            case TaskStage.Learn:
+                if (codeBearing && !completedRoles.Contains(RoleKind.CodeReviewer))
+                {
+                    throw new GovernanceException(
+                        "Learn requires a completed CodeReviewer run for code-bearing work.");
+                }
+                break;
+
+            case TaskStage.Archive:
+                if (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Active))
+                {
+                    throw new GovernanceException("A task with active runs cannot be archived.");
+                }
+                if (state.Challenges.Values.Any(challenge => challenge.Status == ChallengeStatus.Open))
+                {
+                    throw new GovernanceException("A task with open challenges cannot be archived.");
+                }
+                if (state.LessonMarks.Count == 0)
+                {
+                    throw new GovernanceException("Archive requires at least one lesson-bearing mark.");
+                }
+                break;
+
+            default:
+                throw new GovernanceException($"Unsupported target stage '{target}'.");
         }
+    }
 
-        if (target == TaskStage.Archive)
+    private static bool IsWorkingRole(RoleKind role) =>
+        role is not (RoleKind.Verifier or RoleKind.CodeReviewer);
+
+    private static void EnsureCurrentArtifact(
+        IReadOnlyList<GovernedArtifact> currentArtifacts,
+        TaskStage target,
+        GovernedArtifactKind requiredKind)
+    {
+        if (!currentArtifacts.Any(artifact => artifact.Kind == requiredKind))
         {
-            if (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Active))
-            {
-                throw new GovernanceException("A task with active runs cannot be archived.");
-            }
-
-            if (state.Challenges.Values.Any(challenge => challenge.Status == ChallengeStatus.Open))
-            {
-                throw new GovernanceException("A task with open challenges cannot be archived.");
-            }
+            throw new GovernanceException($"{target} requires a current {requiredKind} artifact.");
         }
     }
 
