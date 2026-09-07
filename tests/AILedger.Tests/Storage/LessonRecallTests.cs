@@ -9,6 +9,35 @@ namespace AILedger.Tests.Storage;
 public sealed class LessonRecallTests
 {
     [Fact]
+    public async Task OpeningTaskRecallsLessonArchivedInAnotherRepositoryRoot()
+    {
+        using var sourceRoot = new TemporaryDirectory();
+        using var targetRoot = new TemporaryDirectory();
+        using var lessonRoot = new TemporaryDirectory();
+        var actor = new ActorId("operator");
+        var source = new TaskId("source-from-another-repo");
+        await ArchiveAlternativeAsync(Service(sourceRoot.Path, lessonRoot.Path), source, actor);
+
+        // A fresh store and service model the next repository opening in another process. The
+        // target root has no archived sibling from which it could have learned this lesson.
+        var target = new TaskId("target-in-this-repo");
+        var opened = await Service(targetRoot.Path, lessonRoot.Path).ExecuteAsync(
+            target,
+            new OpenTaskCommand(actor, null, "target-open", target, "Target", "Recall"),
+            CancellationToken.None);
+
+        var recalled = Assert.Single(opened.State.Lessons.Values);
+        Assert.Equal(source, recalled.SourceTaskId);
+        Assert.Equal("AILedger", recalled.Repo);
+        Assert.Equal(LessonClass.Refuted, recalled.Class);
+        Assert.Equal(["state", "isolation"], recalled.Tags);
+        Assert.DoesNotContain(
+            Directory.EnumerateDirectories(targetRoot.Path),
+            path => Path.GetFileName(path) == source.Value);
+        Assert.True(File.Exists(Path.Combine(lessonRoot.Path, FileLessonStore.LessonsFileName)));
+    }
+
+    [Fact]
     public async Task OpeningTaskRecallsLessonsMintedByArchivedSibling()
     {
         using var root = new TemporaryDirectory();
@@ -33,8 +62,10 @@ public sealed class LessonRecallTests
         AssertLessonEqual(lesson, replayed!.Lessons[lesson.Id]);
         var manifest = new ContextAssembler().Build(
             replayed, actor, null, [], DateTimeOffset.UtcNow);
-        Assert.Contains(manifest.Artifacts, artifact =>
+        var artifact = Assert.Single(manifest.Artifacts, artifact =>
             artifact.Kind == ContextArtifactKind.Lesson && artifact.Id == lesson.Id.Value);
+        Assert.Contains("Unverified prior evidence", artifact.Content, StringComparison.Ordinal);
+        Assert.Contains("re-establish before relying on it", artifact.Content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -173,7 +204,8 @@ public sealed class LessonRecallTests
         await Run(service, source, new RecordAlternativeCommand(
             actor, null, correlation.Next(), new AlternativeId("ALT1"), "Use global mutable state", "Tasks must remain isolated", null));
         await Run(service, source, new MarkLessonBearingCommand(
-            actor, null, correlation.Next(), LessonSourceKind.RejectedAlternative, "ALT1", supersedesLessonId));
+            actor, null, correlation.Next(), LessonSourceKind.RejectedAlternative, "ALT1", supersedesLessonId,
+            LessonClass.Refuted, "AILedger", ["state", "isolation"]));
         await Run(service, source, new AddWorkItemCommand(
             actor, null, correlation.Next(), new WorkItemId("W1"), "Work", null, [], []));
     }
@@ -201,6 +233,16 @@ public sealed class LessonRecallTests
         return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
     }
 
+    private static FileGovernedTaskService Service(string root, string lessonRoot)
+    {
+        var reducer = new TaskReducer();
+        return new FileGovernedTaskService(
+            root,
+            new CommandHandler(reducer, new AuthorizationPolicy()),
+            reducer,
+            lessonStore: new FileLessonStore(lessonRoot));
+    }
+
     private static async Task Run(FileGovernedTaskService service, TaskId taskId, LedgerCommand command) =>
         _ = await service.ExecuteAsync(taskId, command, CancellationToken.None);
 
@@ -215,5 +257,8 @@ public sealed class LessonRecallTests
         Assert.Equal(expected.Citations, actual.Citations);
         Assert.Equal(expected.Provenance, actual.Provenance);
         Assert.Equal(expected.SupersedesLessonId, actual.SupersedesLessonId);
+        Assert.Equal(expected.Class, actual.Class);
+        Assert.Equal(expected.Repo, actual.Repo);
+        Assert.Equal(expected.Tags, actual.Tags);
     }
 }

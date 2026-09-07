@@ -19,16 +19,33 @@ public sealed class CliApplication
 
     private readonly TextWriter _output;
     private readonly TextWriter _error;
-    private readonly Func<string, IGovernedTaskService> _serviceFactory;
+    private readonly Func<string, string, IGovernedTaskService> _serviceFactory;
     private readonly Func<string, IAgentAdapter> _adapterFactory;
     private readonly IContextAssembler _contextAssembler;
     private readonly CognitiveArtifactLoader _artifactLoader;
     private readonly JsonSerializerOptions _json;
 
+    // A factory that takes only the ledger root builds a service with no lesson store, so recall
+    // reaches this root's own archived tasks and nothing else — the behaviour before lessons crossed
+    // repositories. Selecting the shared store is the composing process's choice, which is what keeps
+    // a caller holding a temporary root from writing into the operator's real one by omission.
     public CliApplication(
         TextWriter output,
         TextWriter error,
         Func<string, IGovernedTaskService> serviceFactory,
+        Func<string, IAgentAdapter> adapterFactory,
+        IContextAssembler contextAssembler)
+        : this(output, error, (root, _) => serviceFactory(root), adapterFactory, contextAssembler,
+            new CognitiveArtifactLoader())
+    {
+    }
+
+    // The lesson root the factory receives is the one '--lesson-root' selected, or the per-user
+    // default when the option was absent.
+    public CliApplication(
+        TextWriter output,
+        TextWriter error,
+        Func<string, string, IGovernedTaskService> serviceFactory,
         Func<string, IAgentAdapter> adapterFactory,
         IContextAssembler contextAssembler)
         : this(output, error, serviceFactory, adapterFactory, contextAssembler, new CognitiveArtifactLoader())
@@ -38,7 +55,7 @@ public sealed class CliApplication
     private CliApplication(
         TextWriter output,
         TextWriter error,
-        Func<string, IGovernedTaskService> serviceFactory,
+        Func<string, string, IGovernedTaskService> serviceFactory,
         Func<string, IAgentAdapter> adapterFactory,
         IContextAssembler contextAssembler,
         CognitiveArtifactLoader artifactLoader)
@@ -58,10 +75,12 @@ public sealed class CliApplication
         return new CliApplication(
             Console.Out,
             Console.Error,
-            root =>
+            (root, lessonRoot) =>
             {
                 var reducer = new TaskReducer();
-                return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+                return new FileGovernedTaskService(
+                    root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer,
+                    lessonStore: new FileLessonStore(lessonRoot));
             },
             provider => provider.ToLowerInvariant() switch
             {
@@ -94,7 +113,11 @@ public sealed class CliApplication
             var command = NormalizeCommand(input);
             ValidateOptions(command, input);
             var root = Path.GetFullPath(input.Optional("root") ?? DefaultWorkspaceRoot());
-            var service = _serviceFactory(root);
+            // The lesson store is selected separately from the ledger because it is the one record
+            // worth more to the next task than to this one, and that task is often in another
+            // repository. A store inside a single ledger root is not a store that crosses roots.
+            var lessonRoot = Path.GetFullPath(input.Optional("lesson-root") ?? FileLessonStore.DefaultRoot());
+            var service = _serviceFactory(root, lessonRoot);
             await DispatchAsync(command, input, service, root, cancellationToken).ConfigureAwait(false);
             return 0;
         }
@@ -224,7 +247,12 @@ public sealed class CliApplication
                 await ExecuteAsync(service, input, new MarkLessonBearingCommand(
                     Actor(input), Cause(input), Correlation(input),
                     EnumValue<LessonSourceKind>(input, "kind"), input.Required("source"),
-                    OptionalId(input.Optional("supersedes"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
+                    OptionalId(input.Optional("supersedes"), value => new LessonId(value)),
+                    // The kernel refuses a mark that carries neither, so both are asked for here
+                    // rather than sent to be refused: a lesson that does not say what kind of
+                    // failure it records, or which repository it came from, cannot be judged stale.
+                    EnumValue<LessonClass>(input, "class"), input.Required("repo"),
+                    input.Many("tag")), cancellationToken).ConfigureAwait(false);
                 break;
             case "constraint add":
                 await ExecuteAsync(service, input, new AddConstraintCommand(
@@ -288,7 +316,9 @@ public sealed class CliApplication
             throw new CliUsageException($"Unknown command '{string.Join(' ', input.Command)}'. Use --help.");
         }
 
-        input.EnsureOnlyAllowedOptions(command, allowedOptions);
+        // A global option selects where the CLI reads and writes rather than what one command does,
+        // so it is accepted everywhere instead of being repeated in each command's list.
+        input.EnsureOnlyAllowedOptions(command, Options([.. allowedOptions, .. GlobalOptions]));
     }
 
     private async Task AttachActorAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
@@ -714,6 +744,11 @@ public sealed class CliApplication
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
+    // Accepted by every command, on top of what that command allows. '--root' predates this and is
+    // still listed per command; '--lesson-root' is here because the store it selects is read when a
+    // task opens and written when one archives, which is not one command's business to declare.
+    private static readonly IReadOnlySet<string> GlobalOptions = Options("lesson-root");
+
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> AllowedOptions =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -755,7 +790,8 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "statement", "rejected-because", "replaced-by",
                 "cause", "correlation"),
             ["lesson mark"] = Options(
-                "root", "task", "actor", "kind", "source", "supersedes", "cause", "correlation"),
+                "root", "task", "actor", "kind", "source", "class", "repo", "tag", "supersedes",
+                "cause", "correlation"),
             ["constraint add"] = Options(
                 "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
             ["constraint supersede"] = Options(
@@ -863,7 +899,8 @@ public sealed class CliApplication
     private const string HelpText = """
         AILedger 2.0 governed task CLI
 
-        Global option: --root PATH (default: platform local application data/AILedger/tasks)
+        Global options: --root PATH        (default: platform local application data/AILedger/tasks)
+                        --lesson-root PATH (default: platform local application data/AILedger/lessons)
         Every mutation requires an explicit --actor ID. Repeat list options once per value.
 
         task open          --task ID --actor ID --title TEXT --goal TEXT
@@ -895,7 +932,8 @@ public sealed class CliApplication
         alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
                            [--replaced-by DECISION]
         lesson mark        --task ID --actor ID --kind validated-claim|rejected-alternative|
-                           resolved-escalation --source ID [--supersedes LESSON]
+                           resolved-escalation --source ID --class refuted|untested|drifted
+                           --repo NAME [--tag TAG] [--supersedes LESSON]
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
@@ -931,6 +969,20 @@ public sealed class CliApplication
         escalation. --supersedes names the lesson this one replaces, which keeps the older lesson out
         of a later task's recall without deleting it. Only an operator or a lead may mark: a mark
         decides what every later task inherits, which is scope authority rather than execution.
+
+        --class says what kind of failure the lesson records: refuted, a belief that evidence
+        contradicted; untested, one the work never produced evidence either way for; drifted, a
+        decision that changed or was abandoned during execution. It is required, because a lesson
+        that does not say which of those it is cannot later be judged stale. --repo names the
+        repository the lesson came from and is required for the same reason: a lesson recalled in
+        another repository is evidence about a system the reader may not be looking at. --tag is
+        repeatable and carries what the lesson is about.
+
+        --lesson-root selects the store that lessons cross repositories in. Archiving a task
+        publishes the lessons it minted there, and opening a task recalls from it as well as from
+        this root's own archived tasks, so a lesson earned in one repository reaches the next task
+        in another. A recalled lesson is stale operational evidence about a system that may have
+        changed since; it is prior evidence to re-establish, never a settled fact.
 
         history --follow keeps printing, one JSON line per event, as each event is appended, until it
         is interrupted. It is how an operator watches several governed agents work in one feed rather

@@ -59,7 +59,7 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new StartRunCommand(actor, null, "c14c", new RunId("R2"), new WorkItemId("W4"), "claude", null, null, null, null, reviewer));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14d", new RunId("R2"), AgentRunStatus.Completed, "session-2"));
 
-        await Run(writer, taskId, new StartRunCommand(actor, null, "c14e", new RunId("RV1"), new WorkItemId("W2"), "codex", null, null, null, null, verifier));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c14e", new RunId("RV1"), new WorkItemId("W2"), "claude", null, null, null, null, verifier));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14f", new RunId("RV1"), AgentRunStatus.Completed, "session-3"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c15", new WorkItemId("W2")));
 
@@ -71,7 +71,7 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new AssignRoleCommand(actor, null, "c18a", worker, RoleKind.Worker, [Capability.BuildContext]));
         await Run(writer, taskId, new StartRunCommand(actor, null, "c18b", new RunId("RW1"), new WorkItemId("W6"), "codex", null, null, null, null, worker));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c18c", new RunId("RW1"), AgentRunStatus.Completed, "session-w1"));
-        await Run(writer, taskId, new StartRunCommand(actor, null, "c19", new RunId("RV2"), new WorkItemId("W6"), "codex", null, null, null, null, verifier));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c19", new RunId("RV2"), new WorkItemId("W6"), "claude", null, null, null, null, verifier));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c20", new RunId("RV2"), AgentRunStatus.Completed, "session-4"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c21", new WorkItemId("W6")));
 

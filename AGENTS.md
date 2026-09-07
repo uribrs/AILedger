@@ -261,6 +261,17 @@ codex-lessons XC1, XE1, XD1   one dispatched agent
 
 Read before you write when others are live: `status` shows every id currently taken.
 
+## What the next piece of work is
+
+`docs/stage-engagement-design.md` is the design for closing the gap between this kernel and the
+methodology in `cognitive/`. The short version, so you know whether it applies to you: the kernel
+already contains the pipeline's eleven phases as stages and drives nothing from them, so the skills
+reach every agent and none of them fire.
+
+The decisions are in the ledger as LD11 through LD15 and the constraint naming the document is K19,
+so `context build` will surface them. Read the decisions first and the document second — the ledger
+is authoritative and the document is the prose that does not fit in a record yet.
+
 ## Changing the kernel
 
 Every rule is written twice: in `CommandHandler` (command time) and in `TaskTransitionValidator`

@@ -65,8 +65,9 @@ internal sealed class TestTask
         }
 
         var run = new RunId(runId);
+        var provider = role is RoleKind.Verifier ? "claude" : "codex";
         Apply(new StartRunCommand(
-            OperatorId, null, NextCorrelation(), run, workItemId, "codex", null, null, null, null, subject));
+            OperatorId, null, NextCorrelation(), run, workItemId, provider, null, null, null, null, subject));
         Apply(new CompleteRunCommand(
             OperatorId, null, NextCorrelation(), run, AgentRunStatus.Completed, $"session-{runId}"));
         return run;

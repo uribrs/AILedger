@@ -37,7 +37,8 @@ public sealed class CliApplicationTests
                 ["claim", "resolve", .. source, "--id", "C1", "--status", "validated", "--evidence", "E1"],
                 CancellationToken.None),
             await application.RunAsync(
-                ["lesson", "mark", .. source, "--kind", "validated-claim", "--source", "C1"],
+                ["lesson", "mark", .. source, "--kind", "validated-claim", "--source", "C1",
+                 "--class", "untested", "--repo", "AILedger", "--tag", "retry", "--tag", "bounded"],
                 CancellationToken.None),
             await application.RunAsync(
                 ["work", "add", .. source, "--id", "W1", "--title", "Source work", "--owner", "operator"],
@@ -70,6 +71,9 @@ public sealed class CliApplicationTests
             Assert.Single(sourceHistory, item => item.Data is LessonMinted).Data).Lesson;
         Assert.Equal(LessonSourceKind.ValidatedClaim, minted.SourceKind);
         Assert.Equal("C1", minted.SourceRecordId);
+        Assert.Equal(LessonClass.Untested, minted.Class);
+        Assert.Equal("AILedger", minted.Repo);
+        Assert.Equal(["retry", "bounded"], minted.Tags);
         var targetHistory = new List<LedgerEvent>();
         await foreach (var @event in service.GetHistoryAsync(
                            new TaskId("2026-09-02_1200-target"), CancellationToken.None))
@@ -1265,7 +1269,7 @@ public sealed class CliApplicationTests
 
         await application.RunAsync(
             ["run", "start", .. common, "--subject", "verifier", "--run", "RV", "--work", "W1",
-             "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
+             "--provider", "claude", "--session", "verifier-session"], CancellationToken.None);
         await application.RunAsync(
             ["run", "complete", .. common, "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);

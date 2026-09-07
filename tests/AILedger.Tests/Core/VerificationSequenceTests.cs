@@ -41,6 +41,27 @@ public sealed class VerificationSequenceTests
     }
 
     [Fact]
+    public void AVerifierFromTheWorkingProviderDoesNotUnlockCompletion()
+    {
+        var task = Prepare(out var workItemId);
+        task.RecordWorkingPass(workItemId);
+        var verifier = new ActorId("verifier");
+        task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext);
+        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("RV-same"),
+            workItemId, "codex", null, null, null, null, verifier));
+        task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("RV-same"),
+            AgentRunStatus.Completed, "session-same"));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId)));
+
+        Assert.Contains("same provider", error.Message, StringComparison.Ordinal);
+        task.RecordVerifierPass(workItemId, "RV-different");
+        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
+    }
+
+    [Fact]
     public void AVerifierRunThatDidNotFinishIsNotAVerification()
     {
         var task = Prepare(out var workItemId);
