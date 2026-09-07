@@ -1,0 +1,16 @@
+- Treat `/Users/user/Dev/cymulate-integration-adapters/logs/20260820-135639` as the authoritative local-run log source.
+- Inspect the actual S3 objects named by the run; log statements alone are insufficient proof of object contents.
+- Use the merged CrowdStrike parser from `/Users/user/Dev/cymulate-integration-parsers`.
+- Prefer a true parser run when its runtime, credentials, and an explicitly non-production database target are safely available.
+- Never write to a production database, bucket prefix, or downstream service during validation.
+- If a safe true run is unavailable, perform the closest faithful local replay and label the untested boundary explicitly.
+- Do not expose AWS, CrowdStrike, PostgreSQL, MongoDB, or other credentials in commands, task artifacts, or the report.
+- Do not modify product code in any repository.
+- Do not modify `/Users/user/Dev/cybi-db-models` or `/Users/user/Dev/cymulate-exposure-analytics`; inspect them read-only.
+- Do not commit, push, deploy, publish, or open pull requests.
+- Store only validation state and evidence summaries in this task directory; use `/private/tmp` for disposable downloaded artifacts.
+- Distinguish source-contract readiness from deployed-version readiness.
+- Correlate collection, S3, parser, and database evidence with stable identifiers such as instance ID, batch ID, object key, policy ID, or correlation ID.
+- Treat a parser exit code or generic JDBC exception as insufficient proof; inspect the first causal error and verify resulting rows when a database write is attempted.
+- Preserve customer-data confidentiality: report counts, schemas, hashes, identifiers needed for correlation, and redacted samples only.
+- A discovered defect is a reporting and diagnosis result, not authorization to fix product code.

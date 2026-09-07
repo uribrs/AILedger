@@ -1,0 +1,75 @@
+{
+  "taskId": "TASK-20260708-1739",
+  "taskSlug": "tenableio-correlated-parser",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "repo": "/Users/user/Dev/cymulate-integration-parsers",
+  "branch": "feature/tenableio-correlated-parser",
+  "baseCommit": "2bc1422",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    { "id": "S1", "title": "Resolve OPEN assumptions from repo evidence (A7 legacy-hydrated, A8 field parity map, A9 fixture strategy)", "status": "done" },
+    { "id": "S2", "title": "SUPERSEDED by D7 pivot: correlated lane lives in the delegate (envelope sniff in hydrated branch), not a router hook", "status": "done" },
+    { "id": "S3", "title": "SUPERSEDED by D7 pivot: lanes derived from envelope + split machinery reused verbatim (TenableAssetsAndFindingsCorrelated)", "status": "done" },
+    { "id": "S4", "title": "SUPERSEDED by D7 pivot: no fns module needed (hand-written maps reused)", "status": "done" },
+    { "id": "S5", "title": "Fixture cut from real sample data + per-parser test + harness wiring", "status": "done" },
+    { "id": "S6", "title": "Full repo test run green; split-mode regression check", "status": "done" },
+    { "id": "S7", "title": "Docs/comments (mode routing rationale in spec); commit (no push)", "status": "done (commit 56d2e45, not pushed)" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-08T17:41:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "state.json", "constraints.md", "assumptions.md", "decisions.md"]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": ["orchestration_plan.md"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-08T18:35:00Z",
+        "outputs": [
+          "libs/packages/parsers/deprecated/tenable/tenableAssetsAndFindingsCorrelated.py",
+          "libs/packages/parsers/deprecated/tenable/tenableAssetsAndFindings.py",
+          "libs/packages/parsers/yaml_engine/specs/tenable-assets-findings.yaml",
+          "tests/test_tenable_assets_findings_correlated.py",
+          "test_files/tenable/assets_and_findings/findings_correlated.json",
+          "test_files/tenable/assets_and_findings/findings_correlated.expected_assets.json",
+          "test_files/tenable/assets_and_findings/findings_correlated.expected_findings.json",
+          "execution_notes.md",
+          "commit 56d2e45"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "verifierVerdict": "PASS-WITH-GAPS (review/verifier-1.md: MED mirror-staleness fixed at close; LOW stray-assets.json accepted; LOW chunk-content-disagreement accepted)",
+    "codeReviewerRun": true,
+    "codeReviewerVerdict": "Approve, no blockers/majors (review/code-reviewer-1.md). Repaired: collector-invariant docstring (folded into amended commit 1e8a880). Accepted: all-null-host sniff fall-through (pathological, pre-existing failure shape); redundant pre-explode filter kept as self-documenting engine idiom."
+  },
+  "lastUpdated": "2026-07-08T17:42:00Z"
+}

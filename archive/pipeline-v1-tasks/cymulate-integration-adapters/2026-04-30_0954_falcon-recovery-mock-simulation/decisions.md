@@ -1,0 +1,6 @@
+- Create a new task directory because recovery simulation is distinct from the completed partial-page success task.
+- Treat local mock-server execution logs and published batch files as the primary evidence, not synthetic unit assertions.
+- Model the mock server after CrowdStrike token/probe/Spotlight endpoints so the collector uses its normal HTTP code paths.
+- Keep the simulation as a LocalAdapterRunner mode instead of a unit test so it produces the same kind of logs and published batch artifacts as the real local runner.
+- Use deterministic fake records across April, March, and February to verify inverted month traversal and resume behavior.
+- Do not call real CrowdStrike; the simulation binds a loopback mock server and points the collector configuration at that URL.

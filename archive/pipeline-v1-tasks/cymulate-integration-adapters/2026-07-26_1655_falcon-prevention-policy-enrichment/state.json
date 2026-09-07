@@ -1,0 +1,218 @@
+{
+  "taskId": "TASK-20260726-1655",
+  "taskSlug": "falcon-prevention-policy-enrichment",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "fixed_and_verified_live",
+  "branch": "feature/falcon-prevention-policy-enrichment",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "sourceDocs": {
+    "authoritativePlan": "source_docs/FALCON_PREVENTION_POLICY_IMPLEMENTATION_PLAN.md",
+    "implementationPrompt": "source_docs/FALCON_PREVENTION_POLICY_IMPLEMENTATION_PROMPT.md",
+    "supersededResearch": "source_docs/FALCON_POLICY_COLLECTION_PLAN.md"
+  },
+  "steps": [
+    {
+      "name": "create_task_state",
+      "status": "completed"
+    },
+    {
+      "name": "lock_prevention_only_contract",
+      "status": "completed"
+    },
+    {
+      "name": "archive_source_docs_in_task_dir",
+      "status": "completed"
+    },
+    {
+      "name": "lock_shared_enricher_placement_decision",
+      "status": "completed"
+    },
+    {
+      "name": "inspect_current_falcon_implementation",
+      "status": "completed"
+    },
+    {
+      "name": "add_urls_and_policy_clients",
+      "status": "completed"
+    },
+    {
+      "name": "add_shared_enricher_and_run_cache",
+      "status": "completed"
+    },
+    {
+      "name": "wire_collect_assets_bounded_page",
+      "status": "completed"
+    },
+    {
+      "name": "wire_collect_findings_aid_batch",
+      "status": "completed"
+    },
+    {
+      "name": "add_configuration_and_access_probe",
+      "status": "completed"
+    },
+    {
+      "name": "add_contract_and_recovery_tests",
+      "status": "completed"
+    },
+    {
+      "name": "run_targeted_verification",
+      "status": "completed"
+    },
+    {
+      "name": "run_final_collector_review",
+      "status": "completed"
+    },
+    {
+      "name": "repair_review_findings",
+      "status": "completed"
+    },
+    {
+      "name": "update_execution_state",
+      "status": "completed"
+    },
+    {
+      "name": "document_policy_shapes_and_update_falcon_docs",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_targeted_and_live",
+    "notes": [
+      "dotnet build Cymulate.Integration.Adapters.sln \u2014 Build succeeded",
+      "Change-relevant Falcon filter (9 classes incl. resume + recovery guards): 135 passed, 1 pre-existing skip, 0 failed",
+      "New coverage: 36 FalconPolicyEnrichmentTests + 5 assets-flow + 5 findings-flow + 5 access-probe + 3 config",
+      "Cross-flow canonical host parity asserted by running both flows and comparing serialized hosts",
+      "Full FalconCollector suite deliberately not run (risky simulation classes hang in this harness)",
+      "Post-review repairs: 146 passed, 1 pre-existing skip, 0 failed; solution build succeeded",
+      "Post-diagnosis: 149 passed, 1 pre-existing skip, 0 failed; solution build succeeded",
+      "Post-fix: 152 passed, 1 pre-existing skip, 0 failed; both flows verified against the live tenant"
+    ]
+  },
+  "review": {
+    "verifier": {
+      "file": "review/verifier-1.md",
+      "verdict": "PASS_WITH_GAPS",
+      "gapsRepaired": 4,
+      "gapsAccepted": 0
+    },
+    "codeReviewer": {
+      "file": "review/code-reviewer-1.md",
+      "blockers": 0,
+      "majorFindings": 2,
+      "majorRepaired": 1,
+      "majorAcceptedAsRisk": 1,
+      "acceptedRiskNote": "Device-endpoint 404-on-unresolvable-AIDs is unverified vendor behavior; mapping it to an empty result would violate the never-disguise-failure rule, so it is documented as a residual risk instead."
+    }
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-26T14:30:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-26T14:40:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-26T15:40:00Z",
+        "outputs": [
+          "Collectors/FalconCollector/Flows/Policies/*.cs (5 new files)",
+          "Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs",
+          "Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs",
+          "Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs",
+          "Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs",
+          "Collectors/FalconCollector/Flows/Findings/Hosts/AidExtractor.cs",
+          "Collectors/FalconCollector/Processing/Urls/FalconUrls.cs",
+          "Collectors/FalconCollector/Processing/Validation/FalconAccessProber.cs",
+          "Collectors/FalconCollector/Processing/Configuration/* (config + builder)",
+          "Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs",
+          "Collectors/FalconCollector/Dtos/* (both flow run configs)",
+          "Collectors/FalconCollector/FalconCollector.cs",
+          "UnitTests/.../FalconPolicyEnrichmentTests.cs (new)",
+          "UnitTests/.../FalconCollectorTests.cs",
+          "UnitTests/.../FalconCorrelatedFindingsTests.cs",
+          "UnitTests/.../FalconAccessProberTests.cs",
+          "UnitTests/.../FalconCollectorConfigurationBuilderTests.cs",
+          "FalconDocs/CollectorDocs/04-architecture.md",
+          "FalconDocs/CollectorDocs/05-testing.md",
+          "ai/skills/collector-flow-patterns/SKILL.md",
+          "ai/skills/collector-tests/SKILL.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution (docs pass)",
+        "completedAt": "2026-07-27T00:00:00Z",
+        "outputs": [
+          "FalconDocs/CollectorDocs/01-collection-strategy.md (enrichment section, page materialization, policy probe)",
+          "FalconDocs/CollectorDocs/02-decision-making.md (5 new decisions incl. stated-vs-derived AIDs)",
+          "FalconDocs/CollectorDocs/03-current-concerns.md (false-negative risk, ignored errors[], memory, assumption hygiene)",
+          "FalconDocs/CollectorDocs/06-prevention-policy-contract.md (new, layer 1)",
+          "FalconDocs/CollectorDocs/07-prevention-policy-observed-variants.md (new, layer 2)",
+          "FalconDocs/CollectorDocs/README.md (index + two-layer documentation convention)",
+          "ai/skills/collector-flow-patterns/SKILL.md (stated-vs-derived id rule + two-layer docs rule)"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-27T00:00:00Z",
+  "resolvedBlockers": [
+    {
+      "id": "B1",
+      "summary": "POST /devices/entities/devices/v2 returns HTTP 400 for a 250-AID batch on the live tenant, while the single-AID access probe returns 200. Run publishes nothing (correct by design) but cannot complete.",
+      "evidence": "logs/local-adapter-runner-20260726-183026.log; correlation e1b72bd4-0321-4a6e-a639-d0351cb7a29b",
+      "candidateCauses": [
+        "per-request ID cap below 250",
+        "one or more submitted IDs rejected by the vendor"
+      ],
+      "favours": "second cause - the 400 body carries a populated resources array with a valid device entity",
+      "neededToDecide": "Run one findings collection with aidBatchSize=2-3 (Collectors:FalconCollector:Credentials in appsettings.local.json). A 250-AID response is ~1MB so errors[] cannot fit a log budget; shrinking the request is the only way to see it. Success => per-request ID cap (chunk the lookup; assets sends up to 1000 and is more exposed). Failure with visible errors[] => rejected identifiers (stop sending non-AID ids derived by AidExtractor).",
+      "notFixedBecause": "the two candidate remedies diverge, and consuming a partial-success 400 risks publishing hosts that DO have a policy as having none",
+      "sharedDefectFound": "StreamedResponseBodyReader.ReadFirstCharsAsync did a single ReadAsync, so maxErrorSnippetChars was never reached on chunked responses - every collector's vendor error snippet was cut to ~one buffer. Fixed with a read loop; locked by StreamedResponseBodyReaderTests (verified failing against the old implementation).",
+      "status": "RESOLVED",
+      "rootCause": "AidExtractor falls back to the 32-hex suffix of Discover's combined `id` when no `aid` field exists. For unmanaged/unsupported Discover entities that suffix is a well-formed 32-hex value that is NOT an agent id; CrowdStrike rejects it as 'invalid device id'. In the failing window 333 of 374 sent identifiers (89%) were such non-AIDs.",
+      "capHypothesisDead": "FalconPy endpoint table (from CrowdStrike OpenAPI): PostDeviceDetailsV2 supports up to 5000 ids. 250 is far below it. The POC's batch_size=5000 default was never exercised (samples 5 hosts per policy) and sourced real AIDs from policy members, never Discover.",
+      "liveProof": "A) 41 managed aid values -> HTTP 200, 41 resources, 0 errors. B) 2 id-suffix heuristic values -> HTTP 400 'invalid device id'. C) 1 managed + 1 heuristic -> HTTP 400 with 1 resource + 1 error, reproducing the production shape.",
+      "agreedFix": "Only identifiers sourced from the real aid/device_id field may reach the device endpoint; hosts whose aid exists only via the id-suffix heuristic get the complete/prevention:null envelope with no vendor call. Do not chunk (cap is 5000) and do not add 400-tolerance.",
+      "resolution": "Only explicitly-stated AIDs (aid/device_id) reach the device endpoint via new AidExtractor.ExtractSensorAid; the combined-id derivation is retained only as the best-effort AID for Spotlight scoping. DiscoverHost carries both. Access probe now requests a managed entity (+entity_type:'managed') and no longer duplicates across validation and init.",
+      "liveVerification": "CollectFindings: Success=True, 374 hosts, 78933 findings; 396 records all collection_status=complete; 63 resolved records (41 managed hosts + 22 extra chunks), 333 prevention:null. CollectAssets: Success=True, 375 records all complete, 41 resolved = every managed host, 0 duplicated device_policies properties."
+    }
+  ]
+}

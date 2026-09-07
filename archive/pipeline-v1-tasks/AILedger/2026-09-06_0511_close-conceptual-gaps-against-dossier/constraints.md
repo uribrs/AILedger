@@ -1,0 +1,11 @@
+- Scope is the four gaps in `task.md`, plus the operator-authorised `work unblock` amendment recorded in `prompt_contract.md` on 2026-09-06. Do not open a sixth.
+- This is a personal POC. Prefer the simplest mechanism that satisfies a success criterion.
+- Do not add hardening, generic policy languages, new abstraction layers, or defensive code beyond what a listed success criterion requires.
+- Follow the existing kernel shape: command validated in `CommandHandler`, event applied in `TaskReducer`, state on `GovernedTaskState`, surfaced in `CliApplication`.
+- Every new state object must round-trip through `events.jsonl` replay and appear in the Markdown projections.
+- Do not modify the `cognitive/` snapshot or `cognitive/manifest.json`.
+- Do not change provider adapter or process-runner behavior; this task does not touch `AILedger.Providers`.
+- Do not weaken existing authorization, causal invalidation, or code-reviewer context isolation.
+- A code-review or verifier finding is a repair only if it violates a success criterion or stop condition in this contract. Everything else is recorded as a backlog item, not fixed in this task.
+- Cap review rounds: at most two verifier rounds and two code-reviewer rounds. If a third would be needed, stop and report instead.
+- Do not commit or push unless explicitly requested.

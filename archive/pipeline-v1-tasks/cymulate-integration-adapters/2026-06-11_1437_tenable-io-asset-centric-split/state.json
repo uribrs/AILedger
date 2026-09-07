@@ -1,0 +1,148 @@
+{
+  "taskId": "TASK-20260611-1437",
+  "taskSlug": "tenable-io-asset-centric-split",
+  "status": "cycle2_committed_local",
+  "endToEnd": "PROVEN on real cycle-2 batch (published-batches/20260611-222237): one CollectFindings run -> 105 assets_*.json + 656 findings_*.json co-located; parser split mode triggered; 104,385 assets; 103,434 no-vuln assets survived as asset rows (zero phantom findings); risk_score 99.98% from ratings.acr.score; no orphan fan-out; no exceptions. Full 3.9M findings not run locally (Spark memory) - platform-scale concern (A3). Collector run was cancelled mid-findings (partial findings, all assets).",
+  "complexityTier": "full",
+  "currentPhase": "contract_design_cycle2",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Research: split data model + preparation.py feed shape; legacy batchful upload (resolve A1, A2, A4 design)",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "desc": "Collector .NET: two-feed asset-centric rework (assets/export + vulns/export all-severity, drop info filter + /assets/{id} hunt, preserve resumability)",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "desc": "Parser Python: align to split model (read both feeds, correlate uuid==id, ACR repath, field-name deltas)",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "desc": "Verify against prototype feeds + sanity gates (~102K assets, no-vuln survival, no phantom findings)",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "desc": "Cycle 2: re-wire collector \u2014 CollectFindings runs assets+findings into ONE shared egress (co-located lanes); CollectAssets assets-only; phase-aware checkpoint (Falcon-style)",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "desc": "Cycle 2: verifier confirms co-located lanes + phase-resume; isolated code-reviewer",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "split-model-and-legacy",
+        "file": "research/split-model-and-legacy.md",
+        "status": "complete",
+        "triggeredBy": "assumption:A1,A2,A4"
+      }
+    ],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "Read-only research: split-model/preparation.py feed shape + no-vuln representation; legacy batchful upload; adapter egress/resumability",
+        "status": "complete",
+        "outputRef": "research/split-model-and-legacy.md"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Collector .NET two-feed asset-centric rework (Uri checkout)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Parser Python split-model alignment",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      }
+    ],
+    "cycle": 2,
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdictCycle2": "SATISFIED (verifier-2.md) - co-location proven from source within one invocation; phase-resume correct; build 0/0, 14 pass + known flake.",
+    "workersCycle2": [
+      {
+        "id": "W4",
+        "scopeSummary": "Re-wire: CollectFindings runs assets+findings into one shared egress (co-located lanes); CollectAssets assets-only; phase-aware checkpoint (Falcon-style)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w4"
+      }
+    ],
+    "openRisksCycle2": [
+      "RESOLVED (was code-reviewer-3.md #1): lane split on resume does NOT occur. Batch dir is keyed off the PlatformEvent storageUrl/CorrelationId (re-supplied identically on resume), not the per-invocation progress context; checkpoint carries no storage pointer. Verified our flows publish via shared CollectorNdjsonPublisher (TenableIoFindingsFlow.cs:480 / TenableIoAssetsFlow.cs:453) and resume via shared CollectorResumeRunner + CreateProgressContext(flowEvent) (TenableIoResumeRunner.cs:43,102). Mirrors Falcon's proven DUAL_MODE split mechanism. The reviewer's concern came from the local-runner's per-timestamp dump dir (test harness), not production.",
+      "Minor (optional hardening): redundant combinedRun truth sources; CurrentPage vs lane-local page divergence; 'FindingsInProgress' magic string x4 -> promote to a constant (typo would silently re-pull assets)."
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-11T14:37:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-11T15:05:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "research/split-model-and-legacy.md",
+          "execution_notes.md",
+          "review/verifier-1.md",
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierVerdict": "SATISFIED-WITH-RISKS",
+    "acceptedRisks": [
+      "A3: ~3x findings volume (Spark/postgres throughput) mitigated by egress batching but not proven from code; user running tests.",
+      "Population-window mismatch: assets last_assessed vs findings last_found are not coextensive -> a tail of asset_id=null findings (LEFT-join + no-asset-struct guard tolerate).",
+      "Deferred (tracked, not done): TenableIoAssetsFlow ~95% duplicates FindingsFlow; checkpoint save/load triplicated; dead Processing/Resilience TenableIoFlowExceptionClassifier stub; inherited nested-retry amplification."
+    ],
+    "repairs": [
+      "Dead enrichment config (EnableAssetEnrichment, MaxParallelAssetEnrichmentRequests) + info-filter counters removed (build 0 errors).",
+      "Parser schema-safety bugs fixed: ratings.acr.score nested-schema guard; findings-lane asset-struct guard; unknown input_mode now raises. 2 regression tests added (fail-without/pass-with verified); 12 parser tests green."
+    ],
+    "processNotes": [
+      "Parser repo changes are on master -> branch before push.",
+      "Nothing committed or pushed; changes are working-tree only."
+    ],
+    "cycle2Commit": "7f0ee48 (collector, branch tenable-io-findings-to-assets-focused, ahead 1 of origin, NOT pushed). Includes the re-wire + Falcon-style AssetsPhaseComplete boolean + TenableIoCheckpointKeys. cycle-1 (0e2d622) + dev merges already on origin."
+  },
+  "lastUpdated": "2026-06-12T00:00:00Z"
+}

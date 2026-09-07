@@ -1,0 +1,141 @@
+{
+  "taskId": "TASK-20260715-1746",
+  "taskSlug": "yaml-engine-declarative-enrichment",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "branch": "feature/yaml-engine-declarative-enrichment",
+  "baseCommit": "d5b0c93",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Fix: lastResponseBody assigned post XML->JSON conversion",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "desc": "Fix: $self mapping token with except: list (ResponseMapper)",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "desc": "Fix: single repeated XML element coerced to 1-element array",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "desc": "Feature: body_cursor pagination strategy (json_path/regex, value or next-URL)",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "desc": "Feature: merge_into per-page enrichment on workflow stages",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "desc": "Schema + loader validation for merge_into/body_cursor/$self",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "desc": "Tests: Workflow/, Mapping/, Pagination/ suites + XML fixture regressions",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1 PASS",
+      "verifier-2 PASS post-repairs; residual non-blocking: int-only canonicalization test, no mid-chunk partial rollback, scalar anchors cannot embed"
+    ]
+  },
+  "lastUpdated": "2026-07-16T07:42:19Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "fixes: $self/except, ExtractArray coercion, lastResponseBody post-conversion + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "body_cursor paginator + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "merge_into per-page enrichment + loader validation + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-15T14:46:52Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "verifier-subagent",
+        "completedAt": "2026-07-16T07:21:57Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ],
+        "verdict": "PASS"
+      },
+      {
+        "skill": "code-reviewer-subagent",
+        "completedAt": "2026-07-16T07:31:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ],
+        "verdict": "needs-work: 2 Major (repaired), 5 deferrable"
+      },
+      {
+        "skill": "verifier-subagent",
+        "completedAt": "2026-07-16T07:41:33Z",
+        "outputs": [
+          "review/verifier-2.md"
+        ],
+        "verdict": "PASS (delta, no regression)"
+      },
+      {
+        "skill": "code-reviewer-subagent",
+        "completedAt": "2026-07-16T07:42:19Z",
+        "outputs": [
+          "review/code-reviewer-2.md"
+        ],
+        "verdict": "ship"
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  }
+}

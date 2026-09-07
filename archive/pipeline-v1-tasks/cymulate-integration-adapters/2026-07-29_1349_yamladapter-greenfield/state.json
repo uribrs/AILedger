@@ -1,0 +1,146 @@
+{
+  "taskId": "TASK-20260729-1349",
+  "taskSlug": "yamladapter-greenfield",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "kind": "greenfield implementation in the adapters repo",
+  "repo": "/Users/user/Dev/cymulate-integration-adapters",
+  "branch": "test/apply-yaml-engine-nuget (9 files uncommitted at contract time)",
+  "baseRef": "origin/dev @ 032e0c3",
+  "readOnlyRepos": [
+    "/Users/user/Dev/yaml-adapter-engine",
+    "/Users/user/Dev/cymulate-magic-integration"
+  ],
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "baseline": {
+    "measuredAt": "2026-07-29T13:49:02Z",
+    "siblingConcerns": [
+      "Collectors",
+      "Indicators",
+      "Exclusions",
+      "QueryIntegration",
+      "Strategies",
+      "Shared",
+      "Tools",
+      "E2E",
+      "UnitTests"
+    ],
+    "capabilityTypeCounts": {
+      "IIndicatorCapability": 17,
+      "ICollectorCapability": 7,
+      "IExclusionCapability": 1
+    },
+    "businessFilesToPort": 18,
+    "testAssets": {
+      "YamlCollector.Test": 25,
+      "YamlCollector.E2E": 5,
+      "vendoredYaml.Engine.Test": 73
+    },
+    "enginePackage": {
+      "id": "Cymulate.Integration.Yaml.Engine",
+      "version": "1.0.0-preview.1",
+      "feed": "/Users/user/local-nuget-feed (local-engine source; stands in for CodeArtifact)"
+    },
+    "aiDirGitignored": true,
+    "unitTestsMirrorsConcerns": true
+  },
+  "criticalFinding": {
+    "id": "F0",
+    "summary": "YamlLocalRunner is an ENGINE harness, not an adapter harness. Program.cs:114 constructs IntegrationEngine directly and Program.cs:71 loads the definition itself, bypassing YamlCollectorAdapter, runtime discovery, the Shared orchestration pipeline, checkpointing and the sinks.",
+    "consequence": "The two live vendor collections run earlier this session are evidence about the ENGINE PACKAGE only. They say nothing about the 18 host files this task ports. The parity gate cannot rest on YamlLocalRunner.",
+    "evidence": "grep -n 'IntegrationEngine|LoadFromString' Tools/...YamlLocalRunner/Program.cs"
+  },
+  "hostOracleAvailability": {
+    "runnableOnThisMachine": [
+      "UnitTests/Collectors/...YamlCollector.Test (25 files) — the only host-code oracle available here",
+      "dotnet build + dotnet test over the solution"
+    ],
+    "notRunnableOnThisMachine": [
+      "run-local-yaml-smoke.ps1 — needs pwsh (absent on darwin), needs the ISB repo (absent), and its $bridgeProj path is STALE: it expects Collectors/YamlCollector/Cymulate.Integration.Adapters.Collectors.YamlCollector/ which does not exist; the csproj sits one level up",
+      "run-vendor-e2e.ps1 — needs pwsh, the ISB repo, and Docker",
+      "E2E project (Category=VendorE2E) — needs the dockerized ISB stack"
+    ],
+    "consequence": "Runtime adapter DISCOVERY (the IsCollector=true stamp) cannot be executed here. It is a reasoned requirement from CLAUDE.md:90 plus the sibling props convention, NOT a verified one. Final parity therefore requires run-local-yaml-smoke.ps1 on a box with pwsh and the ISB repo — outside this task."
+  },
+  "steps": [
+    {
+      "id": "S0",
+      "title": "Restore the baseline and prove the oracle is usable before writing any new code",
+      "status": "pending",
+      "mustProduce": [
+        "trial changes under Collectors/YamlCollector/ reverted; nuget.config and Directory.Packages.props kept",
+        "solution builds green and the 25-file YamlCollector.Test suite passes UNTOUCHED — the measured pass count is the parity baseline number",
+        "each of the 25 test files classified by what it binds to (public type / internal type via InternalsVisibleTo / Shared type / engine type), so A1 is resolved on evidence rather than hope"
+      ]
+    },
+    {
+      "id": "S1",
+      "title": "Scaffold the YamlAdapter concern; it must build before anything is ported",
+      "status": "pending",
+      "mustProduce": [
+        "YamlAdapter/Directory.Build.props stamping IsCollector=true plus a version property, importing the parent props with the sibling Exists(...) guard",
+        "one greenfield csproj: PackageReference to the engine with no inline version, no ProjectReference to engine source, no vendored subtree, no DefaultItemExcludes",
+        "solution wiring"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Port and reshape the 18 business files",
+      "status": "pending",
+      "mustProduce": [
+        "every file accounted for: ported, renamed, split, or deliberately dropped with the role it played named and what performs that role now",
+        "load-bearing comments preserved verbatim (AwsAlcAssemblyResolver first among them)",
+        "the four-layer retry split of CLAUDE.md:74-81 intact in YamlResilienceStrategyFactory's successor"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Test project mirroring the concern; point the 25-file suite at the new project",
+      "status": "pending",
+      "mustProduce": [
+        "UnitTests/YamlAdapter/ test project (UnitTests/ already mirrors the concern folders)",
+        "measured pass count vs the S0 baseline number",
+        "an itemised list of any test that needed more than a namespace/reference edit — each one is a finding"
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Give the harness scripts a YamlAdapter code path",
+      "status": "pending",
+      "mustProduce": [
+        "run-local-yaml-smoke.ps1 and run-vendor-e2e.ps1 able to target the new project",
+        "their pre-existing stale $bridgeProj path noted (fix it or report it; do not silently leave it broken)",
+        "explicit statement that neither was EXECUTED and why"
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Parity report",
+      "status": "pending",
+      "mustProduce": [
+        "parity_report.md: what was verified, by what execution, with measured numbers",
+        "a separate section naming what could NOT be verified on this machine and what would verify it",
+        "an explicit verdict on whether the operator's kill criterion for YamlCollector is met (expected: NOT yet, pending the ISB-host smoke)"
+      ]
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-07-29T13:49:02Z"
+}

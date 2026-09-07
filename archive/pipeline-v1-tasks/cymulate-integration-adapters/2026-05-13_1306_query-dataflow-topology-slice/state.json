@@ -1,0 +1,81 @@
+{
+  "taskId": "TASK-20260513-1306",
+  "taskSlug": "query-dataflow-topology-slice",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "updated",
+    "phase_documentation.md": "created",
+    "next_agent_handoff.md": "created"
+  },
+  "sourceDocuments": {
+    "aggregateQueryState": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1238_query-domain-creation/state.json",
+    "nativeCoalescerTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice",
+    "planningDirectory": "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation",
+    "primaryPrd": "QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md",
+    "sdkDescriptor": "QUERY_INTEGRATION_SDK_CONTRACT_DESCRIPTOR.md"
+  },
+  "implementationTarget": "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Validate aggregate Query state, completed planning stages, SDK pipeline contracts, and Shared conventions",
+      "status": "completed"
+    },
+    {
+      "id": "step-2",
+      "description": "Create execution contract for the Query Dataflow topology slice",
+      "status": "completed"
+    },
+    {
+      "id": "step-3",
+      "description": "Implement bounded Query Dataflow topology composition using SDK stage contracts",
+      "status": "completed"
+    },
+    {
+      "id": "step-4",
+      "description": "Add focused topology tests for option validation, stage order, cancellation/failure propagation, and publication flow",
+      "status": "completed"
+    },
+    {
+      "id": "step-5",
+      "description": "Build or run targeted tests for touched projects",
+      "status": "completed"
+    },
+    {
+      "id": "step-6",
+      "description": "Run task-orchestrator verifier and code-reviewer passes",
+      "status": "completed"
+    },
+    {
+      "id": "step-7",
+      "description": "Finalize task notes, aggregate state, and global archive",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Shared project build passed with 0 warnings and 0 errors.",
+      "Query shared test project passed 70 tests after adding failed-outcome, duplicate-section, and unknown-section coverage.",
+      "Test command emitted NU1900 vulnerability-source warnings because external NuGet/CodeArtifact vulnerability indexes were unavailable.",
+      "Verifier reported task handoff finalization still pending and requested clearer source evidence that no real/fake Query clients were added.",
+      "Source scan for real/fake Query client additions returned no matches.",
+      "Initial code-reviewer pass found a section summary duplicate/unknown section validation gap.",
+      "Follow-up code-reviewer pass reported no material findings after repair."
+    ]
+  },
+  "lastUpdated": "2026-05-13T13:30:00+03:00"
+}

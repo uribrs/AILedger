@@ -1,0 +1,57 @@
+{
+  "taskId": "TASK-20260519-1430",
+  "taskSlug": "kaspersky-edr-ioc-to-timerange",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "complete",
+  "repo": "AgentService",
+  "taskPath": "/Users/user/Dev/AgentService/ai/active/2026-05-19_1430_kaspersky-edr-ioc-to-timerange",
+  "archivePath": "/Users/user/codex-state/tasks/AgentService/2026-05-19_1430_kaspersky-edr-ioc-to-timerange",
+  "requiredFiles": {
+    "task.md": "done",
+    "prompt_contract.md": "done",
+    "constraints.md": "done",
+    "assumptions.md": "done",
+    "decisions.md": "done",
+    "execution_notes.md": "done",
+    "orchestration_plan.md": "done"
+  },
+  "steps": [
+    {"id": "S1", "name": "Resolve external-behavior assumption A1 (Kaspersky EVP_FTX_QUERY removal semantics)", "status": "completed", "owner": "technical-researcher"},
+    {"id": "S2", "name": "Refactor KasperskyEdrApi.cs: replace generateCacheByIoc with generateCacheByTimeRange and add queryByTimeRange callback", "status": "completed", "owner": "contract-driven-execution"},
+    {"id": "S3", "name": "Migrate helper methods (fetchAlertsAsync, writeAlertsToCacheAsync, createEventProcessingTaskAsync, createAlertsRequestContent) to QueryByTimeRangeGroupModel and drop EVP_FTX_QUERY from JSON body", "status": "completed", "owner": "contract-driven-execution"},
+    {"id": "S4", "name": "Remove queryByIoc and any now-dead IOC plumbing in KasperskyEdrApi.cs", "status": "completed", "owner": "contract-driven-execution"},
+    {"id": "S5", "name": "Run dotnet build AgentService.sln; record result", "status": "completed", "owner": "contract-driven-execution"},
+    {"id": "S6", "name": "Verifier pass (full context)", "status": "completed", "owner": "verifier"},
+    {"id": "S7", "name": "Code-reviewer pass (isolated, minimal context)", "status": "completed", "owner": "code-reviewer"},
+    {"id": "S8", "name": "Address code-reviewer I1 (populate requestDetails.Query with time-range descriptor)", "status": "completed", "owner": "contract-driven-execution"}
+  ],
+  "openAssumptions": [],
+  "validatedAssumptions": ["A1", "A2", "A3", "A4", "A5", "A6"],
+  "rejectedAssumptions": [],
+  "blockers": [],
+  "validation": {"promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true},
+  "verification": {"status": "passed", "notes": ["All 8 success criteria PASS. Code-reviewer Important finding I1 applied. Build: 0 errors."]},
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {"topic": "kaspersky-edr-event-processing", "triggeringAssumptionId": "A1", "status": "complete", "outputFile": "research/kaspersky-edr-event-processing.md", "note": "Inference-only — written without live vendor fetch. Kept for comparison."},
+      {"topic": "kaspersky-edr-event-processing-verified", "triggeringAssumptionId": "A1", "status": "complete", "outputFile": "research/kaspersky-edr-event-processing-verified.md", "note": "Live vendor research — KSC 13 + 13.2 catalogue pages fetched. Upgraded A1 from inferred to HIGH confidence."}
+    ],
+    "workers": [],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "skillsRun": [
+      {"skill": "prompt-contract-designer", "completedAt": "2026-05-19T14:30:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]},
+      {"skill": "vendor-integration-expert", "topic": "kaspersky-edr-event-processing", "outputFile": "research/kaspersky-edr-event-processing.md", "completedAt": "2026-05-19T14:40:00Z"},
+      {"skill": "refactor-query-integration", "outputs": ["Source/Application/Cymulate.Agent.Application.Actions/Actions/QueryIntegration/Logic/Clients/EDR/Kaspersky/KasperskyEdrApi.cs"], "completedAt": "2026-05-19T14:55:00Z"},
+      {"skill": "verifier", "outputFile": "review/verifier-1.md", "completedAt": "2026-05-19T15:05:00Z"},
+      {"skill": "code-reviewer", "outputFile": "review/code-reviewer-1.md", "completedAt": "2026-05-19T15:08:00Z"},
+      {"skill": "contract-driven-execution", "note": "Applied code-reviewer I1 — added describeTimeRangeQuery helper, repopulated requestDetails.Query", "completedAt": "2026-05-19T15:12:00Z"},
+      {"skill": "vendor-integration-expert", "topic": "kaspersky-edr-event-processing-verified", "outputFile": "research/kaspersky-edr-event-processing-verified.md", "note": "Post-merge verification: live KSC 13/13.2 docs fetched; A1 upgraded inference → HIGH confidence", "completedAt": "2026-05-19T16:30:00Z"}
+    ]
+  },
+  "lastUpdated": "2026-05-19T16:30:00Z"
+}

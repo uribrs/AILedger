@@ -1,0 +1,12 @@
+- Use `state.json` as the execution source of truth.
+- Preserve existing repo conventions: small methods, focused helpers, SRP, no forced abstraction.
+- Do not change the Tenable.io parser to prove this fix.
+- Keep the simulation routed through `SparkDAL` or a narrow subclass/wrapper of `SparkDAL`.
+- Use Tenable.io sample data from `files/tenable/assets_and_findings/findings_000001.ndjson` by default.
+- Allow callers to provide alternate Tenable input paths for environments with additional parser files.
+- Simulate the real failure shape: partial target persistence followed by failure and retry.
+- Do not require external services other than local/reachable Postgres and local Spark dependencies.
+- Do not hide unrelated database errors.
+- The harness must make pre-fix versus fixed behavior understandable from logs or printed output.
+- Keep production code changes limited to reusable support only if the simulation cannot be built cleanly without it.
+- Avoid committing generated output, temporary tables, local credentials, or large copied sample data.

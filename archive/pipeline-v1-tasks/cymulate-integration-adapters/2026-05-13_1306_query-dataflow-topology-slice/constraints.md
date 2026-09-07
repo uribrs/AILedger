@@ -1,0 +1,12 @@
+- Keep Shared concern-first; place topology code under `Orchestration/Query`.
+- Use SDK Query pipeline contracts directly where available.
+- Do not add a real Query Integration client.
+- Do not add a fake vendor client as product code.
+- Do not recreate RabbitMQ, Postgres, outbox, storage upload, session, HTTP retry, ServiceBus host, or transport infrastructure.
+- Do not implement adapters-repo `IExecutionPlanStore` storage.
+- Do not decide or implement `QueryV2.ExpressionDialect`, expanded cloud/SaaS `QueryTargeting`, composite `ResultType` policy, or native-query normalization changes.
+- Dataflow composition must use explicit cancellation, bounded capacity, explicit parallelism, explicit ordering, and completion propagation.
+- Publication must go through SDK `ISectionPublisher` and the existing Query publisher surface.
+- Keep dispatcher, distributor, matcher, section tracker, and recovery planner implementations in separate future slices.
+- Keep classes and methods small, focused, and consistent with existing Shared conventions.
+- Preserve existing user changes.

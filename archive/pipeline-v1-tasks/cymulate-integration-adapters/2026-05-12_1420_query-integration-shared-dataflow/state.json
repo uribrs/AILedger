@@ -1,0 +1,77 @@
+{
+  "taskId": "TASK-20260512-1420",
+  "taskSlug": "query-integration-shared-dataflow",
+  "status": "ready_for_execution",
+  "complexityTier": "full",
+  "currentPhase": "implementation",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "sourceDocuments": {
+    "planningDirectory": "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation",
+    "primaryPrd": "QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md",
+    "sdkDescriptor": "QUERY_INTEGRATION_SDK_CONTRACT_DESCRIPTOR.md",
+    "phaseBacklog": "QUERY_INTEGRATION_PHASE1_BACKLOG.md",
+    "latestConclusions": "latest-conclusions-summary.md"
+  },
+  "implementationTarget": "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Read planning handoff and confirm execution constraints",
+      "status": "completed"
+    },
+    {
+      "id": "step-2",
+      "description": "Create repo-local execution contract and state",
+      "status": "completed"
+    },
+    {
+      "id": "step-3",
+      "description": "Produce short implementation plan before product code edits",
+      "status": "completed"
+    },
+    {
+      "id": "step-4",
+      "description": "Implement smallest Shared Query/Dataflow infrastructure slice",
+      "status": "completed"
+    },
+    {
+      "id": "step-5",
+      "description": "Add focused tests for introduced behavior",
+      "status": "completed"
+    },
+    {
+      "id": "step-6",
+      "description": "Build or test the touched projects",
+      "status": "completed"
+    },
+    {
+      "id": "step-7",
+      "description": "Update task state and execution notes",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Shared project builds with no warnings or errors.",
+      "New Query shared test project passed 5 tests.",
+      "Existing DummyCollector runner/resume policy tests passed 8 tests.",
+      "LocalAdapterRunner build passed, covering collector projects touched by the AdapterResumeRunner rename.",
+      "Restore/build emitted NU1900 vulnerability-source warnings because external NuGet/CodeArtifact vulnerability indexes were unavailable."
+    ]
+  },
+  "lastUpdated": "2026-05-12T14:39:00+03:00"
+}

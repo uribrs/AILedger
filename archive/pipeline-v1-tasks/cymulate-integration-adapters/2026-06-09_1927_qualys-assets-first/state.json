@@ -1,0 +1,141 @@
+{
+  "taskId": "TASK-20260609-1927",
+  "taskSlug": "qualys-assets-first",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Collector A (adapters): assets-first combined-feed, streamed pages, keep findings-less hosts",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "desc": "Collector B (agent service): same assets-first behavior, parity with A",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "desc": "SPARK parser: decouple asset extraction from explode; emit assets for empty DETECTION_LIST; no junk findings; FQDN from DNS_DATA.FQDN",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "desc": "Tests: existing pass + new findings-less coverage in A and B; parser validated against probe fixtures",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "E1",
+        "scopeSummary": "Discovery: Collector A change surface",
+        "status": "complete",
+        "outputRef": "execution_notes.md#e1"
+      },
+      {
+        "id": "E2",
+        "scopeSummary": "Discovery: Collector B change surface + downstream shape",
+        "status": "complete",
+        "outputRef": "execution_notes.md#e2"
+      },
+      {
+        "id": "W1",
+        "scopeSummary": "Impl: Collector A assets-first + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Impl: Collector B assets-first + tests (parity)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Impl: SPARK parser decouple + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-09T19:27:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-09T19:55:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "review/verifier-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "verifierVerdict": "PASS with 4 non-blocking follow-ups; B spine-fetch 1960/AIMD gap repaired",
+    "codeReviewerRun": true,
+    "codeReviewerRound1": "A, B, parser reviewed in isolation. Confirmed HIGH (both collectors, independently): unpaginated detection fetch -> truncated host emits empty DETECTION_LIST, indistinguishable from findings-less. Repair dispatched to A+B (in flight). Lower findings: duplicate-ID aliasing (A), all-exposureless explode exception (parser), dead curated additional_fields props (parser), spine-absent detection IDs silently dropped (A,B).",
+    "reviewFiles": [
+      "review/verifier-1.md",
+      "review/code-reviewer-A-1.md",
+      "review/code-reviewer-B-1.md",
+      "review/code-reviewer-parser-1.md",
+      "review/compare-A-2.md",
+      "review/compare-B-2.md",
+      "review/compare-parser-2.md",
+      "review/code-reviewer-A-full-3.md",
+      "review/code-reviewer-B-full-3.md",
+      "review/code-reviewer-parser-full-3.md",
+      "review/verifier-2.md",
+      "review/verifier-3.md"
+    ],
+    "repairsDone": [
+      "B spine 1960/AIMD parity",
+      "A detection cursor-follow+merge (9/9 tests)",
+      "B detection truncation_limit=0 (tests pass)"
+    ],
+    "round2Comparison": "complete",
+    "round2Verdict": "Shape parity A=B=prototype combined.ndjson confirmed; XML->JSON semantically equivalent A/B; SPARK consumable. OPEN: B detection truncation is single-page (truncation_limit=0) vs A cursor-follow \u2014 B can silently mis-emit findings-less if Qualys server-cap still truncates. Decision pending: port cursor-follow to B for parity, or verify batch stays under cap.",
+    "openItems": [
+      "parser non-CVE finding drop (pre-existing, user-accepted)",
+      "parser repo on wrong branch (housekeeping)",
+      "B stress suite not runnable in harness"
+    ],
+    "round3FullScan": "complete; 2 new MEDIUMs (A dup-ID crash, B spine no-cursor) FIXED; parser clean",
+    "finalParity": "CLOSED (verifier-3 divergences fixed; accepted residual: B log level = framework enum limit)"
+  },
+  "lastUpdated": "2026-06-10T08:30:00Z"
+}

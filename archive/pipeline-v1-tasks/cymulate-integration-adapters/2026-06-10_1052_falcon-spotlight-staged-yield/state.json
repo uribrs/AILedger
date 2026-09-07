@@ -1,0 +1,170 @@
+{
+  "taskId": "TASK-20260610-1052",
+  "taskSlug": "falcon-spotlight-staged-yield",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Add 5 Falcon config fields + builder parsing/validation",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "desc": "Extend FalconFindingsCheckpointState with Spotlight lane fields",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "desc": "Build per-lane Spotlight status filter composing with existing clauses",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "desc": "Stage the Spotlight loop open->reopen->closed in findings flow",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "desc": "Planned-yield exception/decision -> unbudgeted PartialResult + wait reasons",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "desc": "120s cursor-TTL sanitizer in fresh+resume hooks; re-anchor from watermark",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "desc": "Tests: config, filter, planned-yield, resume/checkpoint, recovery",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "desc": "Version bump per magnitude",
+      "status": "complete"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "CR-1",
+      "sev": "major",
+      "desc": "User-filter resume: lanes after first collect 0 (AssetsPaginationCompleted shared across lanes) -> silent data loss",
+      "status": "resolved"
+    },
+    {
+      "id": "CR-2",
+      "sev": "major",
+      "desc": "Invalid spotlightStatusStages not validated at build -> deep ArgumentException retried as transient",
+      "status": "resolved"
+    }
+  ],
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "Foundation: config fields + checkpoint lane schema + FalconCursorSanitizer + tests",
+        "phase": 1,
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Per-lane Spotlight status filter (new pure FalconSpotlightLaneFilter) + tests",
+        "phase": 2,
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Lane sequencer + unbudgeted planned-yield exception/classifier/factory decision + tests",
+        "phase": 2,
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      },
+      {
+        "id": "W5",
+        "scopeSummary": "Cursor TTL safety in recovery + resume hooks + tests",
+        "phase": 2,
+        "status": "complete",
+        "outputRef": "execution_notes.md#w5"
+      },
+      {
+        "id": "W6",
+        "scopeSummary": "Integration: staged loop + runner wiring + e2e tests + version bump",
+        "phase": 3,
+        "status": "complete",
+        "outputRef": "execution_notes.md#w6"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator (workers W1-W6)",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "verifier (re-run)",
+        "outputs": [
+          "review/verifier-2.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: PASS all 6 criteria (153/153)",
+      "code-reviewer-1: 2 Major (cross-lane user-filter data loss; invalid-stage retried as transient) + 2 Minor",
+      "repairs: both Majors fixed w/ regression tests (MAJOR-1 red-before/green-after)",
+      "verifier-2: PASS, repairs confirmed non-regressive (156/156)"
+    ]
+  },
+  "openAssumptions": [],
+  "lastUpdated": "2026-06-10T12:20:00Z"
+}

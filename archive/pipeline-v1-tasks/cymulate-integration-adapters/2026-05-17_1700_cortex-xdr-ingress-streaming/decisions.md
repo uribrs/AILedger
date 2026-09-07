@@ -1,0 +1,20 @@
+- Library v1 surface: `public static class IngressStream` with two methods — `ReadNdjsonLinesAsync(Stream, CancellationToken)` and `Skip(IAsyncEnumerable<ReadOnlyMemory<byte>>, long, CancellationToken)`. No interface, no base class, no options class.
+- Universal Ingress shape: `IAsyncEnumerable<ReadOnlyMemory<byte>>`. Collector writes the vendor-specific producer; the library hosts only the common helpers.
+- `ReadNdjsonLinesAsync` does not parse or validate JSON. Bytes flow through. Empty and whitespace-only lines are skipped silently.
+- Malformed-line policy: **lenient at Ingress, strict at Egress.** Ingress passes bytes through without parsing or validating. Egress is the single authoritative validator and must validate every record at append time — not only records that contain newlines.
+- Today's `NdjsonUtf8BatchSession.AppendRecordAsync` only validates records that contain newlines (it runs `Utf8ResultsRecordFormatter.NormalizeToSingleLine`, which throws on bad JSON). Single-line records pass through verbatim because the historical contract was "caller already normalized." That contract is no longer satisfied once Ingress stops parsing, so Egress must be tightened.
+- Egress tightening (Commit 2, alongside the Cortex refactor): in the UTF-8 publish path, validate every record. For records without newlines, perform a cheap `JsonDocument.Parse(record.Span)`-and-dispose validity check; on `JsonException`, throw `InvalidOperationException` matching the existing multi-line failure mode. Records with newlines continue through the existing `NormalizeToSingleLine` path. The string publish path (`NdjsonBatchSession` / `ResultsRecordFormatter.NormalizeToSingleLine`) is already strict and needs no change.
+- The asymmetry between the string and UTF-8 publish paths existed before this task. The tightening closes the gap that this refactor would otherwise widen.
+- `Skip` takes `long`, not `int`. Cortex XDR is bounded at 50k rows today (fits int easily), but the time-based adapter coming next is expected to exceed int. `long` costs nothing and avoids a future signature change.
+- Cortex XDR XQL client streams. `CortexXdrXqlClient.ExecuteAsync` returns `IAsyncEnumerable<ReadOnlyMemory<byte>>`. Control-channel responses (`start_xql_query`, `get_query_results` poll) continue to use `JsonDocument.Parse` because they are small fixed-shape replies. Only the row payload streams.
+- Cortex XDR drops the SHA-256 tie-breaker hash on resume. Sort determinism comes from XQL's `| sort asc cve_id, name` alone.
+- Operator-accepted risk (2026-05-17): `cve_id` uniqueness in `va_cves` is not vendor-confirmed. If duplicates exist and resume-by-index drifts across runs, upstream dedup is the fallback. No adapter-side spool, no halt. See `assumptions.md` and `research/cve-id-uniqueness.md`.
+- Cortex XDR's `CortexXdrFindingsCheckpointState` is unchanged. `checkpointVersion = 2` remains valid. `NextCveIndex` semantics unchanged: "rows already published."
+- Two-commit structure: Commit 1 lands the library standalone (no consumers); Commit 2 lands the Cortex XDR refactor. Reviewers can verify the library in isolation, and the Cortex change has a clean "before/after" diff against the library it consumes.
+- Deferred until a second consumer justifies (i.e., when the time-based adapter lands):
+  - Spool-to-disk wrapper for deterministic re-read across pod restarts.
+  - Memory-pressure-aware back-pressure wrapper. `IAsyncEnumerable`'s pull semantics already provide implicit back-pressure via consumer pull rate.
+  - Chunk-by-row-count helper. Collectors page inline; not worth a helper yet.
+- The library has no DI registration, no service interface, no lifetime concerns. Pure static helpers.
+- The `Shared/DataPipeline/Ingress/README.md` describes the Ingress role, the universal shape, and cross-links to the parent `Shared/DataPipeline/README.md`.
+- Cortex XDR `va_endpoints` source and `sourceType` discriminator are explicitly deferred to a separate task. They are a contract change requiring upstream coordination; this task is internal-only.

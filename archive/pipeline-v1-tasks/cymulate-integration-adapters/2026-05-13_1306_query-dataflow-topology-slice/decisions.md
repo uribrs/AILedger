@@ -1,0 +1,4 @@
+- Implement topology as an `IQueryAdapterPipeline` composition shell under `Orchestration/Query/Dataflow`.
+- Use a local `IQuerySectionTrackerFactory` to create one `ISectionTracker` per execution plan.
+- Treat dispatcher/distributor/matcher/tracker implementations as injected SDK-stage collaborators, not as behavior owned by this slice.
+- Return SDK `AdapterResult` from the pipeline and preserve cancellation/failure semantics at the orchestration boundary.

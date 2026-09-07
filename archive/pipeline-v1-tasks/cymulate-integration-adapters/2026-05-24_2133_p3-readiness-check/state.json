@@ -1,0 +1,53 @@
+{
+  "taskId": "TASK-20260524-2133",
+  "taskSlug": "p3-readiness-check",
+  "status": "complete",
+  "complexityTier": "light",
+  "currentPhase": "complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "orchestration_plan.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "S1", "description": "Estimate context usage from session history", "status": "complete" },
+    { "id": "S2", "description": "Prereq 1 SDK xmldoc check — SetState durability", "status": "complete_unresolved" },
+    { "id": "S3", "description": "Prereq 2 grep collision check across all *CheckpointHelper/Writer/Reader.cs", "status": "complete_clear" },
+    { "id": "S4", "description": "Prereq 3 surface — needs platform team", "status": "complete_unresolved" },
+    { "id": "S5", "description": "Recommend next step", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": [
+      "Verifier skipped: status-check pipeline whose deliverable is a recommendation, not produced artifacts requiring independent validation. Operator will accept or redirect."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-05-24T19:17:00Z", "outputs": ["task.md", "prompt_contract.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-05-24T19:18:00Z", "outputs": ["orchestration_plan.md", "execution_notes.md"] }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false,
+    "codeReviewerSkippedReason": "Non-code-bearing — status report + local grep + recommendation. No production code/config/schema modified.",
+    "verifierSkippedReason": "Deliverable is an operator-facing recommendation. Output is two questions for the platform team and a path choice. Independent verification would re-spawn the same grep and re-read the SDK xmldoc; the artifact is self-evident from the execution_notes.md."
+  },
+  "prereqStatus": {
+    "prereq1_setState_durability": "unresolved_external",
+    "prereq2_retry_prefix_collision": "clear",
+    "prereq3_downstream_consumers": "unresolved_external"
+  },
+  "lastUpdated": "2026-05-24T19:18:00Z"
+}

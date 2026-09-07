@@ -1,0 +1,42 @@
+{
+  "taskId": "TASK-20260429-1450",
+  "taskSlug": "falcon-partial-page-success",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "verification_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "name": "create_task_state", "status": "completed" },
+    { "name": "inspect_existing_code", "status": "completed" },
+    { "name": "implement_partial_page_success", "status": "completed" },
+    { "name": "add_regression_tests", "status": "completed" },
+    { "name": "run_targeted_tests", "status": "completed" },
+    { "name": "run_verifier", "status": "completed" },
+    { "name": "update_execution_state", "status": "completed" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Falcon uses Shared partial-success hook for terminal non-retryable flow failures after at least one completed page.",
+      "Partial DONE result includes partialSuccess, collectedPages, processed counters, partialErrorCode, partialErrorMessage, and partialExceptionType.",
+      "Retryable failures and failures before a completed page continue through normal failure handling.",
+      "Falcon tests passed: 50/50.",
+      "Verifier subagent found no blocking issues.",
+      "Documentation and repo-local collector skills now describe opt-in partial-success rules for future collectors."
+    ]
+  },
+  "lastUpdated": "2026-04-29T12:02:53Z"
+}

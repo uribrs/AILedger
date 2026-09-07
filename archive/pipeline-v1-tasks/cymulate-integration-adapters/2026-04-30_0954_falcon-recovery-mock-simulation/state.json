@@ -1,0 +1,41 @@
+{
+  "taskId": "TASK-20260430-0954",
+  "taskSlug": "falcon-recovery-mock-simulation",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "verified",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "name": "create_task_state", "status": "completed" },
+    { "name": "inspect_partial_mock_reference", "status": "completed" },
+    { "name": "design_recovery_simulation", "status": "completed" },
+    { "name": "implement_local_mock_recovery_harness", "status": "completed" },
+    { "name": "run_recovery_scenarios", "status": "completed" },
+    { "name": "analyze_logs_and_outputs", "status": "completed" },
+    { "name": "update_execution_state", "status": "completed" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "completed",
+    "notes": [
+      "Added --falcon-recovery-simulation to LocalAdapterRunner.",
+      "Added local Falcon mock server recovery harness with same-month-after, cursor-expired-fallback, and month-boundary-after scenarios.",
+      "Ran all scenarios successfully via the built LocalAdapterRunner DLL against a loopback mock server.",
+      "Artifacts written under logs/falcon-recovery-mock and log file logs/local-adapter-runner-20260430-100607.log.",
+      "Published batches show no duplicate first-page records after resume; cursor-expired-fallback resumes through watermark fallback and completes."
+    ]
+  },
+  "lastUpdated": "2026-04-30T07:07:57Z"
+}

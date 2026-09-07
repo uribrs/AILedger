@@ -1,0 +1,10 @@
+- New parser is additive; `CortexXdrAssets` remains the parser for the existing flat Cortex endpoint feed. Justification: user-confirmed in clarification.
+- Parser is a pass-through normalizer; collector owns Cymulate field mapping. Justification: user-confirmed in clarification.
+- No façade / `input_mode` plumbing for Cortex (unlike defender_vm). Justification: only one Cortex emit shape exists; YAGNI per RULES.md §1.
+- Pattern reference is `defenderVmAssetsFindings.py` (hydrated path) — not `DefenderVmAssetsFindingsHydrated` façade specifically, but its inline behavior. Justification: closest existing analog; proven `_row_asset_id` join-key approach.
+- Standard `BaseParser.post_process` is the source of truth for severity / status / type / os_type normalization. Justification: collector emits Cymulate-named fields but values may still be in collector casing; base parser already handles this.
+- Required asset fields are exactly the 14 enforced by `process_asset_mandatory_fields`. Justification: enforced via raise; non-negotiable.
+- Required finding fields are the 12 used by `defenderVmAssetsFindings.finding_mandatory_fields`. Justification: convention + DB schema coverage; no base-parser enforcement function exists for findings.
+- Collector's composite vulnerability `id` is preserved under `findings.additional_fields["Collector Finding Id"]`. Justification: operator sign-off; matches tenable's pattern of stashing vendor identifiers in additional_fields for cross-system traceability while row PKs remain UUIDs.
+- Linkage via `_row_asset_id` join-key minted on the asset row before exploding `vulnerabilities[]`. Justification: unanimous repo pattern; row `id` and `asset_id` are UUIDs per DB schema.
+- Registry key: `cortex-assets-findings`. Justification: operator sign-off; mirrors `crowdstrike-assets-findings` and `defender-vm-assets-findings` naming.

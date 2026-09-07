@@ -1,0 +1,7 @@
+- Follow the repository's existing .NET conventions and nullable/type-safety expectations.
+- Keep changes scoped to build failures attributable to the current pulled revision.
+- Preserve unrelated local work; the worktree was clean at contract creation.
+- Prefer small, cohesive fixes close to the affected test or production component.
+- Do not weaken or remove meaningful test coverage merely to make compilation pass.
+- Use local repository evidence; no external/vendor research is required unless diagnosis proves otherwise.
+- Verify in proportion to the affected project scope, expanding to the solution when practical.

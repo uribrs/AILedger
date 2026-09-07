@@ -1,0 +1,339 @@
+{
+  "counts": {
+    "assets": 47,
+    "findings": 124918,
+    "policies": 19
+  },
+  "execution": {
+    "elapsed_seconds": 17.003,
+    "findings_strategy_kind": "PathStrategy",
+    "input_mode": "hydrated",
+    "parser_class": "parsers.deprecated.crowdstrike.crowdstrikeAssetsFindings.CrowdstrikeAssetsFindingsParser",
+    "parser_key": "crowdstrike-assets-findings",
+    "resolved_inventory_field_count": 6
+  },
+  "input": {
+    "basename": "findings_000001.json",
+    "bytes": 324046289,
+    "raw_findings": {
+      "complete_cve": 124918,
+      "missing_cve_id": 65,
+      "non_null_unique_vendor_ids": 124983,
+      "total": 124983
+    },
+    "sha256": "98dc0daf5a515e8a8d7c340c61d95bfd1e4efb029a86dc658371da55daecc48e"
+  },
+  "integrity": {
+    "asset_distinct_ids": 47,
+    "finding_distinct_ids": 124918,
+    "policy_distinct_external_ids": 19,
+    "raw_to_parsed_findings": {
+      "dropped_by_cve_only_contract": 65,
+      "parser_count_equals_complete_cve_subset": true,
+      "replay_or_dedupe_loss": 0
+    },
+    "policy_nulls": {
+      "external_id": 0,
+      "name": 0,
+      "policy_edges": 0,
+      "rules": 0,
+      "source_tool": 0,
+      "status": 0,
+      "type": 0
+    }
+  },
+  "policies_parquet": {
+    "contains_sensitive_payload": true,
+    "copied_to_task_evidence": false,
+    "path": "/tmp/policies.parquet"
+  },
+  "policy_distributions": {
+    "enabled": {
+      "true": 19
+    },
+    "is_default": {
+      "<null>": 19
+    },
+    "platform": {
+      "Linux": 7,
+      "Mac": 1,
+      "Windows": 11
+    },
+    "rule_value_encoding": {
+      "json_encoded_object": 939
+    },
+    "status": {
+      "untested": 19
+    },
+    "type": {
+      "prevention": 19
+    }
+  },
+  "policy_edge_integrity": {
+    "distinct_asset_id": 47,
+    "distinct_asset_value": 43,
+    "distinct_edge_keys": 47,
+    "matching_asset_aid": null,
+    "matching_asset_id": 0,
+    "matching_asset_value": 0
+  },
+  "runtime": {
+    "java_home": "/opt/java",
+    "pyspark": "3.3.0",
+    "python": "3.10.18",
+    "spark": "3.3.0"
+  },
+  "schemas": {
+    "assets": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "client_id",
+          "type": "string"
+        },
+        {
+          "name": "client_integration_id",
+          "type": "string"
+        },
+        {
+          "name": "instance_id",
+          "type": "string"
+        },
+        {
+          "name": "integration_setting_id",
+          "type": "string"
+        },
+        {
+          "name": "integration_setting_flow_id",
+          "type": "string"
+        },
+        {
+          "name": "connector_flow_name",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "first_seen",
+          "type": "timestamp"
+        },
+        {
+          "name": "last_seen",
+          "type": "timestamp"
+        },
+        {
+          "name": "ip_address",
+          "type": "array<string>"
+        },
+        {
+          "name": "tags",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "string"
+        },
+        {
+          "name": "os_type",
+          "type": "string"
+        },
+        {
+          "name": "os_version",
+          "type": "string"
+        },
+        {
+          "name": "os_build",
+          "type": "string"
+        },
+        {
+          "name": "fqdn",
+          "type": "string"
+        },
+        {
+          "name": "group_names",
+          "type": "array<string>"
+        },
+        {
+          "name": "site_names",
+          "type": "array<string>"
+        },
+        {
+          "name": "additional_fields",
+          "type": "string"
+        },
+        {
+          "name": "agent_metadata",
+          "type": "string"
+        },
+        {
+          "name": "device_metadata",
+          "type": "string"
+        },
+        {
+          "name": "risk_score",
+          "type": "double"
+        }
+      ],
+      "simple_string": "struct<id:string,client_id:string,client_integration_id:string,instance_id:string,integration_setting_id:string,integration_setting_flow_id:string,connector_flow_name:string,created_at:timestamp,first_seen:timestamp,last_seen:timestamp,ip_address:array<string>,tags:string,type:string,value:string,os_type:string,os_version:string,os_build:string,fqdn:string,group_names:array<string>,site_names:array<string>,additional_fields:string,agent_metadata:string,device_metadata:string,risk_score:double>"
+    },
+    "findings": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "asset_id",
+          "type": "string"
+        },
+        {
+          "name": "client_id",
+          "type": "string"
+        },
+        {
+          "name": "client_integration_id",
+          "type": "string"
+        },
+        {
+          "name": "instance_id",
+          "type": "string"
+        },
+        {
+          "name": "integration_setting_id",
+          "type": "string"
+        },
+        {
+          "name": "integration_setting_flow_id",
+          "type": "string"
+        },
+        {
+          "name": "connector_flow_name",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "first_seen",
+          "type": "timestamp"
+        },
+        {
+          "name": "last_seen",
+          "type": "timestamp"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "mitigation",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "severity",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "cve_id",
+          "type": "string"
+        },
+        {
+          "name": "additional_fields",
+          "type": "string"
+        }
+      ],
+      "simple_string": "struct<id:string,asset_id:string,client_id:string,client_integration_id:string,instance_id:string,integration_setting_id:string,integration_setting_flow_id:string,connector_flow_name:string,created_at:timestamp,first_seen:timestamp,last_seen:timestamp,name:string,display_name:string,description:string,mitigation:string,type:string,severity:string,status:string,cve_id:string,additional_fields:string>"
+    },
+    "policies": {
+      "columns": [
+        {
+          "name": "external_id",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "source_tool",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "platform",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "criticality",
+          "type": "string"
+        },
+        {
+          "name": "enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "is_default",
+          "type": "boolean"
+        },
+        {
+          "name": "precedence",
+          "type": "int"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "settings",
+          "type": "string"
+        },
+        {
+          "name": "rules",
+          "type": "string"
+        },
+        {
+          "name": "policy_edges",
+          "type": "string"
+        },
+        {
+          "name": "additional_fields",
+          "type": "string"
+        }
+      ],
+      "simple_string": "struct<external_id:string,name:string,source_tool:string,type:string,platform:string,status:string,criticality:string,enabled:boolean,is_default:boolean,precedence:int,description:string,settings:string,rules:string,policy_edges:string,additional_fields:string>"
+    }
+  }
+}

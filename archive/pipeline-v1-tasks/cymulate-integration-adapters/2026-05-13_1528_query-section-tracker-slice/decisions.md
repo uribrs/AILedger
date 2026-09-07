@@ -1,0 +1,9 @@
+- Implement section tracker in Dataflow as the concrete stage consumed by `QueryAdapterPipeline`.
+- Constructor takes `ExecutionPlan`, SDK `IExecutionPlanStore`, and `QuerySectionTrackerOptions` (polling interval).
+- Use a per-instance `ConcurrentDictionary` (or equivalent) keyed by `(SectionId, QueryId)` for finding accumulation and unit-failure attribution.
+- Yield `SectionResultV2` directly from the `CompletedSections` `IAsyncEnumerable` and use a bounded single-slot `Channel<byte>` purely as the wake signal. Functionally equivalent to a bounded output channel: single consumer, single emission per section, back-pressure honored by the consumer's `MoveNextAsync` cadence.
+- Drive completion re-evaluation by both event signals from record calls and a poll timer; the loop wakes on whichever fires first.
+- Build inline `FindingRefV2` items at emission time; `ByteSize` is computed via `Encoding.UTF8.GetByteCount(payload.GetRawText())`.
+- Treat dispatcher (or whoever owns store transitions) as responsible for calling `RecordUnitFailureAsync` whenever it sets a unit to `Failed`/`Cancelled` in the store. The tracker waits for the matching failure record before emitting any section whose membership depends on that unit.
+- Idempotent emission: maintain a `HashSet<Guid>` of emitted section ids and only enqueue each section once.
+- Leave Spillover, publication transport, `QueryJobCompletedV2` emission, recovery persistence, and `IExecutionPlanStore` implementation to other stages and other slices.

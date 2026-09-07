@@ -1,0 +1,14 @@
+- Use `/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md` as the primary product/design source.
+- Read adjacent planning documents when they clarify SDK contracts, backlog intent, or historical findings.
+- Target `/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared`.
+- Do not create a real Query Integration client.
+- Do not create a fake vendor client as product code.
+- Do not recreate RabbitMQ, Postgres, outbox, storage upload, session, HTTP retry, ServiceBus host, or transport infrastructure.
+- Reuse existing Shared infrastructure; when collector-named infrastructure is needed by Query Integration, prefer generic naming and namespaces over query-specific duplication.
+- Update namespaces/usages where generic renames are made.
+- Query output from parallel Dataflow execution must publish through existing publish infrastructure.
+- Prefer SDK Query contracts over local duplicate contracts.
+- Read SDK documentation/source to infer `IExecutionPlanStore` ownership intent before deciding whether adapters Shared should bridge or implement anything.
+- Leave `QueryV2.ExpressionDialect`, cloud/SaaS `QueryTargeting` dimensions, and composite `ResultType` policy open for now.
+- Keep classes and methods small, focused, and consistent with existing Shared conventions.
+- Preserve existing user changes.

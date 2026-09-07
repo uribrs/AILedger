@@ -1,0 +1,11 @@
+- VALIDATED: The aggregate handoff and matcher handoff recommend a fresh bounded contract for the concrete Query `ISectionTracker` slice.
+- VALIDATED: The SDK `ISectionTracker` contract defines `RecordFindingAsync`, `RecordUnitFailureAsync`, and `CompletedSections`.
+- VALIDATED: The SDK doc on `IExecutionPlanStore` states the tracker reads execution-unit state transitions from the store to decide when a section is complete. There is no `RecordUnitCompletedAsync` API on the SDK interface.
+- VALIDATED: Operator chose to depend on the SDK `IExecutionPlanStore` interface as a constructor dep. Concrete implementation lives outside this repo; tests inject a mock.
+- VALIDATED: `QueryResultV2.Findings` uses `FindingRefV2`. The Spillover stage decides inline-vs-S3 downstream. The tracker emits all-inline `FindingRefV2` with `ByteSize` = UTF-8 byte count of the inline payload's raw JSON text.
+- VALIDATED: `QueryJobCompletedV2` is the publisher's responsibility and is not produced by the tracker.
+- VALIDATED: A unit completion without findings must still close the query; this is detected by the store reporting `Completed` for every representing unit. Polling the store is the only available mechanism in this repo because the SDK contract exposes no completion record call.
+- VALIDATED: When the store reports a unit in `Failed`/`Cancelled` but no `RecordUnitFailureAsync` has been called yet, the tracker waits rather than emit a section with a missing error. Treat the dispatcher (or whoever transitions the store) as responsible for calling `RecordUnitFailureAsync` for any failure/cancellation it records in the store.
+- OPEN: When SDK eventually adds a `RecordUnitCompletedAsync` API or a store-event subscription, polling can be replaced with event-driven re-checks. This slice leaves the polling cadence configurable so the future replacement does not change the SDK surface.
+- OPEN: `QueryResultV2.Findings` preserves the arrival order of accumulated findings. If SDK later requires deterministic ordering by some other key, a future slice can sort at emission time.
+- OPEN: Section emission order depends on completion order and the polling cadence; the SDK contract does not promise a specific order across sections.

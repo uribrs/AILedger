@@ -1,0 +1,10 @@
+- Preserve the feature branch's `device_policies` parsing and normalized output contract.
+- Preserve all current `master` parser architecture, schema, and persistence changes.
+- Fetch and merge the current remote `origin/master` tip.
+- Do not drop unknown or nested prevention-policy fields unless the existing parser contract explicitly requires it.
+- PostgreSQL writes must accept the new section without column/type/count mismatches or row loss.
+- Preserve unrelated user work; abort rather than overwrite an unexpected dirty worktree.
+- Resolve conflicts semantically rather than taking entire files from one side.
+- Build and run focused parser and PostgreSQL tests before committing.
+- Run an independent verifier and isolated code review before committing.
+- Do not push.

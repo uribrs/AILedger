@@ -1,0 +1,10 @@
+- Use `/Users/user/Dev/Uri/Skills/workflow-coordinator/SKILL.md` as the workflow entry point.
+- Use repo-local collector guidance under `ai/README.md` and `ai/skills/collector-migrate/SKILL.md`.
+- Preserve the explicit user correction: do not hydrate or join assets/findings inside the adapter.
+- Findings flow must publish CVE rows into `findings_*.json`.
+- Findings flow must publish endpoint rows into `assets_*.json` for upstream hydration.
+- Resume support must report/checkpoint both stages that can make durable progress.
+- Work with existing uncommitted changes; do not revert user-owned edits without explicit approval.
+- Keep changes scoped to Cortex XDR collector code, Cortex XDR tests, and directly relevant docs.
+- Prefer existing Shared orchestration, session, publishing, and recovery mechanisms.
+- Validate vendor API behavior with official/source evidence before relying on XQL segmentation assumptions.

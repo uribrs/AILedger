@@ -1,0 +1,131 @@
+{
+  "taskId": "TASK-20260625-0107",
+  "taskSlug": "retire-subset-mapping",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "ENGINE-PASSTHROUGH-ONLY",
+      "desc": "ResponseMapper.Map always emits the full record element \u2014 remove Fields projection, sourceType injection, correlation injection. emit_mode: remove 'mapped'; default 'verbatim'; values {verbatim, typed_wrapper, source_type_prefix}. Remove MappingSpec.Fields. Keep envelope (typed_wrapper/source_type_prefix + templated envelope_fields) unchanged.",
+      "status": "complete"
+    },
+    {
+      "id": "REMOVE-CORRELATION-INJECT",
+      "desc": "Drop correlation-key injection from the emit path: remove StepSpec/StreamSpec CorrelationKeys from the C# model + the synthetic-step builder assignment + the validation that requires correlation keys. (YAML loader IgnoreUnmatchedProperties tolerates leftover correlation_keys in profiles.)",
+      "status": "complete"
+    },
+    {
+      "id": "SEAM-SIMPLIFY",
+      "desc": "Simplify IRecordMapper/DotPathMapper.Map signature to passthrough (drop correlationKeys/sourceType params) if clean; keep the seam + registry.",
+      "status": "complete"
+    },
+    {
+      "id": "VALIDATION",
+      "desc": "ValidateMapping: default verbatim; valid {verbatim,typed_wrapper,source_type_prefix}; type_value required for wrapper/prefix; envelope_fields only for source_type_prefix; type_value rejected on verbatim; records_path required for emitting steps. No correlation-keys requirement.",
+      "status": "complete"
+    },
+    {
+      "id": "PROFILES",
+      "desc": "Convert all integrations/*.yaml to passthrough; strip dead fields:/correlation_keys:. tenable verbatim (done), defender envelope (done), falcon+qualys verbatim, cortex source_type_prefix with native sourceType values (va_cves/endpoint/...) or verbatim.",
+      "status": "complete"
+    },
+    {
+      "id": "TESTS",
+      "desc": "Remove/rewrite mapped-subset tests (Emit_Mapped_* + any vendor harness test asserting projected subsets) to assert full-record passthrough. Keep envelope tests; update validation tests for new default + removed 'mapped'. Build clean; full suite green.",
+      "status": "complete"
+    },
+    {
+      "id": "DOCS",
+      "desc": "Update CollectorExecutor/docs/yaml-contract.md: mapping = records_path + envelope only; remove fields/mapped/correlationKeys-as-emit; state 'always passthrough \u2014 request shapes the data, response content is published as-is'.",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Build clean; 58/58 tests pass. Emit path code-clean: no mapped/Fields/correlation injection (grep-proven; only narrative docs referenced them, now corrected).",
+      "Verifier (review/verifier-1.md): PASS on all 5 criteria, no must-fix.",
+      "Code-reviewer (review/code-reviewer-1.md): no blockers; the one shared finding (Runner/DefaultProfiles.cs stale fields/source_type/correlation_keys) repaired.",
+      "Accepted: test-fixture dead keys (cosmetic), thin IRecordMapper seam (kept as extension pattern), scalar records_path emits zero silently (pre-existing)."
+    ]
+  },
+  "lastUpdated": "2026-06-25T01:45:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-25T01:09:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-25T01:10:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-25T01:35:00Z",
+        "outputs": [
+          "CollectorExecutor/Interpreter/Interpreter.cs",
+          "CollectorExecutor/Seams/Seams.cs",
+          "Strategies/Mapping/DotPathMapper.cs",
+          "CollectorExecutor/Profile/Profile.cs",
+          "CollectorExecutor/Execution/CollectorExecutorStepHelpers.cs",
+          "CollectorExecutor/Execution/CollectorExecutorRunner.cs",
+          "integrations/*.yaml",
+          "Runner/DefaultProfiles.cs",
+          "CollectorExecutor/docs/yaml-contract.md",
+          "CollectorExecutor/docs/architecture.md",
+          "Tests/CollectorExecutor.Test/CollectorExecutorTests.cs",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-25T01:40:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-25T01:42:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  }
+}

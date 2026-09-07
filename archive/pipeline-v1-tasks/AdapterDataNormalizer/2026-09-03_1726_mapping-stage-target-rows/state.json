@@ -1,0 +1,151 @@
+{
+  "taskId": "TASK-20260903-1726",
+  "taskSlug": "mapping-stage-target-rows",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "vendor-enum-contract",
+      "summary": "Generate or vendor the five Postgres enum member sets from the authoritative enum.prisma, using @map values.",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "name": "target-row-shape",
+      "summary": "Declare the parser_output_asset_enrich / parser_output_exposures_enrich column sets and their types.",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "name": "id-derivation",
+      "summary": "Port uuidv5 instance-scoped derivation and canonical content hashing; one code path.",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "name": "mapping-engine",
+      "summary": "Generic engine applying per-vendor mapping data; verifies declared field reads against the manifest at load time.",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "name": "vendor-mapping-data",
+      "summary": "Falcon asset + findings mapping, and Tenable findings mapping, as data only.",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "name": "measure",
+      "summary": "Run both lanes end to end; report throughput, peak RSS under a heap cap, enum-cast rejects, and identity collision counts.",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "review/verifier-1.md",
+      "review/verifier-2.md",
+      "review/code-reviewer-1.md"
+    ]
+  },
+  "baseRef": null,
+  "lastUpdated": "2026-09-06T08:26:50Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W0",
+        "name": "freeze-target-contract-and-mapping-schema",
+        "scopeSummary": "generated target column+enum contract with provenance, row types, uuid5/separators, mapping-spec type",
+        "status": "complete",
+        "outputRef": "execution_notes.md#freeze-target-contract-and-mapping-schema"
+      },
+      {
+        "id": "W1",
+        "name": "identity-canonical-content",
+        "scopeSummary": "canonicalJson + exposureContent composition",
+        "status": "complete",
+        "outputRef": "execution_notes.md#identity-canonical-content"
+      },
+      {
+        "id": "W2",
+        "name": "mapping-engine-and-enum-validation",
+        "scopeSummary": "generic mapping engine, load-time field verification, enum validation",
+        "status": "complete",
+        "outputRef": "execution_notes.md#mapping-engine-and-enum-validation"
+      },
+      {
+        "id": "W3",
+        "name": "vendor-mapping-data-and-map-cli",
+        "scopeSummary": "falcon+tenable mapping data, map CLI and counters",
+        "status": "complete",
+        "outputRef": "execution_notes.md#vendor-mapping-data-and-map-cli"
+      },
+      {
+        "id": "W4",
+        "name": "evidence-tests",
+        "scopeSummary": "R1-R5 tripwires plus demonstration evidence for criteria 1-7",
+        "status": "complete",
+        "outputRef": "execution_notes.md#evidence-tests"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-09-03T14:26:10Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md",
+          "research/internal-recon.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-09-06T08:26:50Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "research/internal-recon.md",
+          "research/production-mapping-spec.md",
+          "research/collector-field-availability.md",
+          "review/verifier-1.md",
+          "review/verifier-2.md",
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-09-06T08:26:50Z"
+  }
+}

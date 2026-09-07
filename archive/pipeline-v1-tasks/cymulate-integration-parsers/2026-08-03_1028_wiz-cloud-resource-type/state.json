@@ -1,0 +1,146 @@
+{
+  "taskId": "TASK-20260803-1028",
+  "taskSlug": "wiz-cloud-resource-type",
+  "status": "executed_pending_review",
+  "complexityTier": "full",
+  "currentPhase": "verification",
+  "repo": "cymulate-integration-parsers",
+  "branch": "feat/wiz-cloud-resource-type",
+  "targetBranch": "feat/wiz-cloud-resource-type (created 2026-08-03, off master 375511e)",
+  "predecessorTask": "ai/active/2026-08-02_1423_wiz-parser-envelope-correlation",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "filesInScope": [
+    "libs/packages/parsers/deprecated/wiz/wizAssetsAndFindings.py",
+    "libs/packages/parsers/schemas/db_schema.py",
+    "tests/test_wiz_assets_findings_split.py"
+  ],
+  "filesExplicitlyOutOfScope": [
+    "libs/packages/parsers/common/base_parser.py",
+    "test_files/**/*.expected_assets.json"
+  ],
+  "steps": [
+    {
+      "id": "T1",
+      "title": "Asset type -> cloud_resource",
+      "status": "complete",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Change the mandatory asset type const from \"Host\" to \"cloud_resource\"."
+    },
+    {
+      "id": "T2",
+      "title": "Carry the four available cloud columns",
+      "status": "complete",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Carry cloud_platform, sub_type (<- source `type`), cloud_account_id, cloud_account_name as explicit columns through process()."
+    },
+    {
+      "id": "T3",
+      "title": "Wiz-local create_asset_source override",
+      "status": "complete",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Override create_asset_source to append the six cloud columns after super() shaping. region and cloud_provider_url emit NULL."
+    },
+    {
+      "id": "T4",
+      "title": "Add the six columns to the DDL",
+      "status": "complete",
+      "target": "db_schema.py",
+      "summary": "Add sub_type, cloud_platform, region, cloud_account_id, cloud_account_name, cloud_provider_url as nullable text on parser_output_assets."
+    },
+    {
+      "id": "T5",
+      "title": "Resolve additional_fields redundancy",
+      "status": "complete",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Decide whether \"Cloud Resource Type\"/\"Cloud Platform\"/\"Cloud Account\"/\"Subscription\" stay in asset_additional_fields now that four feed real columns."
+    },
+    {
+      "id": "T6",
+      "title": "Tests + real-data proof",
+      "status": "complete",
+      "target": "tests/test_wiz_assets_findings_split.py",
+      "summary": "Assert type=cloud_resource, the four populated columns, the two NULL ones; prove one non-Wiz parser is unaffected; re-run the real-data simulation."
+    }
+  ],
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-03T10:28:12Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-03T10:31:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-08-03T11:05:00Z",
+        "outputs": [
+          "libs/packages/parsers/deprecated/wiz/wizAssetsAndFindings.py",
+          "libs/packages/parsers/schemas/db_schema.py",
+          "tests/test_wiz_assets_findings_split.py",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-08-03T10:50:12Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-08-03T10:48:15Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Spark runs locally: JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home, PYSPARK_PYTHON=.venv/bin/python. Tests MUST be executed.",
+      "tests/test_wiz_assets_findings_split.py: 6 passed in 31.08s.",
+      "tests/test_run_parsers.py -k qualys: 2 passed, 48 deselected \u2014 no snapshot regeneration.",
+      "Real-data run: 4809 assets / 107653 exposures, 0 dup ids, 0 null/dangling asset_id, type=cloud_resource, four cloud columns populated and lowercased."
+    ]
+  },
+  "lastUpdated": "2026-08-03T11:40:00Z",
+  "baseCommit": "375511e (merge of PR #206, contains f230eee)"
+}

@@ -1,0 +1,3 @@
+- VALIDATED: `QueryPlanBuilder`, `QueryPlanOptimizer`, and `NativeQueryCoalescer` exist and are the completed planning stages this topology should compose.
+- VALIDATED: SDK `ISectionTracker` requires plan-aware construction outside the SDK interface, so topology may introduce a small local factory interface rather than treating a tracker instance as reusable across jobs.
+- OPEN: Concrete dispatcher, distributor, matcher, and tracker implementations will be added by later bounded slices.

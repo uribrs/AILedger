@@ -1,0 +1,133 @@
+{
+  "taskId": "TASK-20260630-1612",
+  "taskSlug": "reporting-carry",
+  "status": "complete_review_passed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Re-verify wire-safety ($type/JsonDerivedType) on outbound shapes/status/converter",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Copy 14 Reporting files -> Reporting/ + Status/EventMetadata/StatusConverter -> Envelopes/Common/ verbatim",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Flatten/rewrite namespaces -> Cymulate.IntegrationInfra.Reporting; Common -> Envelopes.Common",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "D8 neutralization (Collector*/ICollector* -> Adapter*/IAdapter*); JsonPropertyName + status string values unchanged; rename files",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Build clean; no residual Shared.*; Kernel+Emission+Job+existing Envelopes.Common shapes unmodified",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "XML docs; extend Reporting/README.md (carried set, D8, Envelopes.Common completion + Events reckoning, forwarding invariant)",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "Tests: EnvelopeBuilder, AdapterStatusJsonConverter, payload shapes, diagnostics",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "name": "dotnet build clean + tests pass; record output; mirror to global archive",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_qualifications",
+    "notes": [
+      "Full build 0 errors; 124 tests pass (33+10+20+15+31+15).",
+      "Wire-safe D8; missed dep AdapterInProcEventRaiser found+carried (scope 15); Envelopes.Common completed (6 shapes).",
+      "Prior concerns + existing Envelopes.Common shapes untouched; source unmodified.",
+      "Verifier PARTIAL 6/7 (only C5 XML-docs FAIL \u2014 disclosed, within precedent, conflicts with verbatim). Verbatim confirmed; AdapterInProcEventForwarder correctly NOT dragged; best-effort forwarding unaltered; 124 tests; source unmutated. Code-reviewer no blockers."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-30T16:12:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-30T16:14:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-30T16:30:00Z",
+        "outputs": [
+          "src/IntegrationInfra/Reporting/**",
+          "src/IntegrationInfra/Envelopes/Common/{AdapterStatus,AdapterEventMetadata,AdapterStatusJsonConverter}.cs",
+          "IntegrationInfra.slnx",
+          "tests/IntegrationInfra.Reporting.Tests/**",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-30T16:35:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-30T16:38:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "codeReviewerRun_output": "review/code-reviewer-1.md",
+    "codeReviewerDisposition": "No blockers/majors. Status converter + envelope builder solid; no event-handler leak (hub holds Func accessors). M2 (raiser doesn't swallow subscriber exceptions / no GetInvocationList - best-effort guarantee is the CALLER's, not the raiser) + M3 (AdapterError set-mutable vs init siblings; already merged in FaultGovernance) = PRE-EXISTING verbatim source -> recorded, NOT changed (no-reshape rule; M3 would touch a merged file + risk deserialization). M1 test gap (hub/raiser/diagnostics untested) -> tracked follow-up; PRIORITY: AdapterResultDiagnosticsEnricher (redaction regex + truncation = regressable, security-adjacent) needs focused tests before Conducting wires it. Lows/nits recorded.",
+    "verifierRun_output": "review/verifier-1.md"
+  },
+  "lastUpdated": "2026-06-30T16:38:00Z"
+}

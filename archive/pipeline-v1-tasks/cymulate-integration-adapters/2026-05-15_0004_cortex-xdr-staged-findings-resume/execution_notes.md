@@ -1,0 +1,38 @@
+# Execution Notes
+
+- Contract created after operator correction that workflow-coordinator had not been invoked.
+- Existing uncommitted state at contract creation:
+  - `CortexXdrIdentification.cs` already had findings topic added before this contract.
+  - `CortexXdrCheckpointHelper.cs`, `CortexXdrFindingsCheckpointState.cs`, and untracked `CortexXdrFindingsStage.cs` were partially edited before this contract and must be reviewed against the final contract before continuing.
+- Orchestrator selected direct path because implementation is tightly coupled within Cortex XDR flow/recovery/tests.
+- Research completed in `research/cortex-xdr-segmentation.md`.
+- Verifier 1 failed because CVE resume-by-index used an unsorted XQL query. Repaired by adding `| sort asc cve_id, name` before `limit` and asserting the query in tests.
+- Verifier 2 confirmed the main staged behavior but failed closure on missing CVE-stage resume coverage, stale metadata wording, and stale task state.
+- Added CVE-stage resume regression coverage for `Stage=findings` with `NextCveIndex > 0`, continued findings page numbering, XQL replay, skipped rows, and subsequent endpoint asset publishing.
+- Updated metadata description to advertise that findings mode publishes CVE rows and endpoint asset rows separately for upstream hydration.
+- Latest targeted checks:
+  - `dotnet test src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test.csproj --no-restore --disable-build-servers -p:UseSharedCompilation=false` passed 19/19.
+  - `dotnet build src/Cymulate.Integration.Adapters/Collectors/CortexXdrCollector/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.csproj --no-restore --disable-build-servers -p:UseSharedCompilation=false` succeeded.
+  - Both commands still emit NU1900 warnings because the configured CodeArtifact vulnerability feed is unreachable for vulnerability metadata lookup.
+- Verifier 3 passed the staged findings/resume contract.
+- Code reviewer 1 found high-risk technical issues in cancellation handling, duplicate-key CVE ordering, legacy checkpoint compatibility, and checkpoint-state coverage.
+- Repaired code-review findings:
+  - Cancellation is now exceptional at loop boundaries and before successful completion.
+  - XQL CVE rows are ordered client-side by `cve_id`, `name`, and a selected-field tie-breaker before checkpoint-index paging.
+  - Findings checkpoints now include `checkpointVersion=2`.
+  - Legacy joined findings checkpoints without staged state are explicitly rejected as non-resumable.
+  - Added tests for cancellation, duplicate-key CVE resume ordering, legacy checkpoint rejection, and staged checkpoint/event state.
+- Latest post-review targeted checks:
+  - `dotnet test src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test.csproj --no-restore --disable-build-servers -p:UseSharedCompilation=false` passed 23/23.
+  - `dotnet build src/Cymulate.Integration.Adapters/Collectors/CortexXdrCollector/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.csproj --no-restore --disable-build-servers -p:UseSharedCompilation=false` succeeded.
+- Code reviewer 2 found remaining technical issues in CVE tie-breaker memory behavior, strict staged checkpoint counter parsing, and empty terminal endpoint-page checkpoint state.
+- Repaired final review findings:
+  - CVE tie-breaker now uses a fixed SHA-256 key instead of caching full selected-field strings.
+  - Staged findings checkpoints now require totals/page counters as non-negative values.
+  - Empty terminal endpoint pages now save and emit a terminal `stage=assets`, `hasMorePages=false` checkpoint.
+  - Added tests for missing staged counters and terminal empty endpoint pages.
+- Final checks:
+  - `dotnet test src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test.csproj --no-restore --disable-build-servers -p:UseSharedCompilation=false` passed 25/25.
+  - `dotnet build src/Cymulate.Integration.Adapters/Collectors/CortexXdrCollector/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.csproj --no-restore --disable-build-servers -p:UseSharedCompilation=false` succeeded.
+  - `git diff --check` is clean.
+  - Verifier 5 passed and code reviewer 3 found no blocking or major technical safety findings.

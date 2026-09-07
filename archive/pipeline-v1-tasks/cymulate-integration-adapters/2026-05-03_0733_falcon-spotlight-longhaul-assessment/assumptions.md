@@ -1,0 +1,10 @@
+- VALIDATED: The request is for an engineering assessment and recommendations, not immediate product-code implementation.
+- VALIDATED: Public official Falcon portal docs are not fully available from this environment; accessible CrowdStrike/FalconPy SDK docs, CrowdStrike Tech Hub guidance, GoFalcon generated docs, and local PDFs were used as evidence.
+- VALIDATED: The production 401 body was supplied from Elastic. It was an actual HTTP 401 from `crowdstrike-api-gateway` with CrowdStrike trace ID `bfd2b3e8-6743-4356-a431-7721986eb0f0`, `query_time=0.000315688`, and error message `authorization failed`.
+- VALIDATED: Adjacent production logs show `POST /oauth2/token` returned 201, the session refreshed credentials after authorization failure, replayed the Spotlight request, and the replayed request still failed with 401.
+- VALIDATED: Production traffic evidence is available in `falcon401s.txt`. The captured 401 response headers include `X-Cs-Region=us-1`, `X-Cs-Traceid=2260249f-0d84-4e18-9abb-4e6f7c87fa89`, `X-Ratelimit-Limit=6000`, and `X-Ratelimit-Remaining=5998`.
+- VALIDATED: The captured 401 response headers do not show `Retry-After` or `WWW-Authenticate`.
+- VALIDATED: CrowdStrike support evidence is not available for this incident and should not be treated as a prerequisite for implementation.
+- OPEN: Deployed adapter and `Cymulate.Http.Package` commit/version for the production pod are still not proven from the supplied traffic file.
+- VALIDATED: Downstream status/event semantics are currently limited by repository models that expose success, failed, and partial statuses rather than a full InProgress/Paused vocabulary.
+- VALIDATED: The local `spotlight.pdf` was extracted with bundled `pypdf`; it contains 37 pages of Vulnerability Management API documentation dated 2026-04-30.

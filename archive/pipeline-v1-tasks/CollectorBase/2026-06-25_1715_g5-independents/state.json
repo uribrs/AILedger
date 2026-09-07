@@ -1,0 +1,38 @@
+{
+  "taskId": "TASK-20260625-1715",
+  "taskSlug": "g5-independents",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete", "prompt_contract.md": "complete", "constraints.md": "complete",
+    "assumptions.md": "complete", "decisions.md": "complete", "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "DONE B-M2: cursor non-advance guard (token != ctx.Cursor)", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "DONE ProbeAsync: probeReq = step.Request else step.Step.Request", "effort": "low", "status": "complete" },
+    { "id": "S3", "desc": "DONE doc-drift: sort_key/stop_when marked reserved (grep: zero consumers); watermark_field requirement corrected; timeWindow doesn't exist; hydrate kept", "effort": "low", "status": "complete" },
+    { "id": "S4", "desc": "DONE tests: non-advancing cursor→4 (bounded); for_each-first probe hits /noauth/query", "effort": "medium", "status": "complete" },
+    { "id": "S5", "desc": "DONE build clean + 88/88; note written", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "not_started", "notes": [] },
+  "workflow": {
+    "executionPath": "direct", "orchestrationPlanFile": "orchestration_plan.md", "researchNeeded": false,
+    "researchTopics": [], "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T17:15:00Z", "outputs": ["task.md","prompt_contract.md","constraints.md","assumptions.md","decisions.md","state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-25T17:16:00Z", "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T17:24:00Z", "outputs": ["CursorPaginationStrategy.cs", "CollectorExecutorRunner.cs", "yaml-contract.md", "CollectorExecutorTests.cs", "execution_notes.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T17:30:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T17:35:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true, "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "CLEAN — no blocker/major; MINOR (null cursor on non-advance) FIXED; 2 NITs accepted"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T17:36:00Z"
+}

@@ -1,0 +1,144 @@
+{
+  "taskId": "TASK-20260830-1247",
+  "taskSlug": "falcon-unmanaged-assets-never-lost",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Stop the AID-less drop in the correlated findings scroller",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Fix the post-filter end-of-scroll silent truncation",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Make the AID-less path safe through spooler dedup, Spotlight pump, staged encode/decode",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Prove the parser does not regress, by execution against a real artifact",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Full Falcon suite against the recorded baseline",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-2: all R-ids handled, no unresolved; SC1-SC8 met",
+      "full Falcon suite 368/1/2 of 371 vs 357/1/2 baseline",
+      "parser 34/34",
+      "live: 298 hosts (was 49), 121761 findings",
+      "parser E2E over real artifact: 298 in / 298 out"
+    ]
+  },
+  "repos": {
+    "primary": "/Users/user/Dev/cymulate-integration-adapters",
+    "secondary": "/Users/user/Dev/cymulate-integration-parsers"
+  },
+  "branch": "fix/falcon-disable-prevention-policy-enrichment",
+  "baseRef": "bbb044b9557a205fa6b166402c19544622098e20",
+  "lastUpdated": "2026-08-30T12:10:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "falcon-fql-null-field-matching",
+        "file": "research/falcon-fql-null-field-matching.md",
+        "status": "complete",
+        "triggeredBy": "assumption:A17"
+      }
+    ],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "scroller drop + truncation + named fallback derivation",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "spool dedup guard, truncated freeze, manifest ceiling",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Spotlight path bypasses keyless hosts, empty-batch guard",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "correlated-flow tripwire tests SC1 SC2 SC4 R1",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w4"
+      },
+      {
+        "id": "W5",
+        "scopeSummary": "two-phase tripwire tests SC3 R2 R3 resume",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w5"
+      },
+      {
+        "id": "W6",
+        "scopeSummary": "parser collapse guard + E2E ground-truth fix (parsers repo)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w6"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-30T09:50:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md",
+          "research/internal-recon.md",
+          "research/lab-tenant-identity-probe.md",
+          "research/falcon-fql-null-field-matching.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-30T12:10:00Z"
+  }
+}

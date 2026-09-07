@@ -1,0 +1,91 @@
+{
+  "taskId": "TASK-20260513-1247",
+  "taskSlug": "query-native-coalescer-slice",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created",
+    "phase_documentation.md": "created",
+    "next_step_usage_examples.md": "created",
+    "next_agent_handoff.md": "created"
+  },
+  "sourceDocuments": {
+    "aggregateQueryState": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1238_query-domain-creation/state.json",
+    "previousTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice",
+    "planBuilderTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice",
+    "planningDirectory": "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation",
+    "sdkDescriptor": "QUERY_INTEGRATION_SDK_CONTRACT_DESCRIPTOR.md"
+  },
+  "implementationTarget": "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Planning",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Validate aggregate Query state, planning docs, SDK contracts, and current Shared conventions",
+      "status": "completed"
+    },
+    {
+      "id": "step-2",
+      "description": "Create execution contract for native coalescer slice",
+      "status": "completed"
+    },
+    {
+      "id": "step-3",
+      "description": "Implement NativeQueryCoalescer and deterministic coalesced native unit ids",
+      "status": "completed"
+    },
+    {
+      "id": "step-4",
+      "description": "Add focused native coalescer tests",
+      "status": "completed"
+    },
+    {
+      "id": "step-5",
+      "description": "Update Query planning and aggregate documentation",
+      "status": "completed"
+    },
+    {
+      "id": "step-6",
+      "description": "Build or run targeted tests for touched projects",
+      "status": "completed"
+    },
+    {
+      "id": "step-7",
+      "description": "Run verifier and task-orchestrator code-reviewer passes",
+      "status": "completed"
+    },
+    {
+      "id": "step-8",
+      "description": "Fix material review notes and run final code-reviewer pass",
+      "status": "completed"
+    },
+    {
+      "id": "step-9",
+      "description": "Finalize task state, notes, handoff docs, aggregate state, and global archive",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Shared project build passed with 0 warnings and 0 errors.",
+      "Query shared test project passed 62 tests.",
+      "Test command emitted NU1900 vulnerability-source warnings because external NuGet/CodeArtifact vulnerability indexes were unavailable.",
+      "Final verifier reported no material request-coverage issues after repairs.",
+      "Task-orchestrator code-reviewer pass reported no material implementation-quality issues.",
+      "Final explicit code-reviewer pass reported no material implementation-quality issues."
+    ]
+  },
+  "lastUpdated": "2026-05-13T13:01:29+03:00"
+}

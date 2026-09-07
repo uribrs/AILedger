@@ -1,0 +1,9 @@
+- Cursor chains are authoritative only within the exact filter/sort used to create them.
+- Watermark fallback is the recovery mechanism after a cursor is rejected, repeated, or otherwise unsafe.
+- Progress logs should report segment-relative progress from known timestamps, not claim exact total completion.
+- Debug-level logs may include cursor-derived hints; information-level logs should avoid full opaque cursor values.
+- Local mock simulator artifacts are durable reference points for recovery behavior.
+- Reusing a cursor with any changed filter is invalid; resumed month segments must use the checkpointed segment ceiling even if wall-clock time has advanced.
+- Repeated non-empty `after` after a non-empty page is treated as an unsafe cursor state. The collector falls back to watermark pagination instead of continuing the cursor chain.
+- Cursor sort timestamp decoding is best-effort observability. The collector must still work correctly when decoding returns null.
+- Page progress is reported as segment-relative and day-relative timestamp position, not as percent of total records.

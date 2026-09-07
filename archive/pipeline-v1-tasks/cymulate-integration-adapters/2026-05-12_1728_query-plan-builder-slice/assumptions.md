@@ -1,0 +1,7 @@
+- VALIDATED: The previous first-slice task is complete and verified.
+- VALIDATED: SDK `IPlanBuilder` exists and returns `ExecutionPlan` from `QueryJobV2`.
+- VALIDATED: Current Shared layout is concern-first with Query orchestration code under `Orchestration/Query`.
+- VALIDATED: `IExecutionPlanStore` belongs to ServiceBus Infrastructure/Postgres and should not be implemented in adapters Shared.
+- OPEN: SDK does not define a reusable unit-id canonicalization helper; this slice may need a local deterministic helper documented as adapters Shared behavior.
+- OPEN: Full window splitting semantics remain optimizer/planning follow-up work unless the current SDK contract makes them unavoidable.
+- OPEN: Native query normalization contract is minimal; this slice should treat native expression as trimmed opaque text.

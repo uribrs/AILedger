@@ -1,0 +1,9 @@
+- Use the previous research as the external evidence baseline; browse only if a new unresolved external uncertainty appears.
+- Implement server header handling as a layered retry-delay resolver used by `RetryPolicy`.
+- Keep `Retry-After` highest precedence.
+- Use jitter/backoff as fallback behavior through existing Polly retry configuration unless a server header supplies a delay.
+- Use `RateLimitDelaySource` only for header families that actually produce retry delays.
+- Use `RateLimitHeaderCatalog` for the broader known industry header list, including older and metadata-only headers.
+- Add `RateLimitHeaderStrategy` as the public strategy selection space.
+- Keep `RateLimitHeaderStrategy.KnownIndustryHeaders` as the default to broaden support while retaining `Disabled` and `RetryAfterOnly` escape hatches.
+- Do not route server header feedback into `RateLimiterPolicy`; it remains a configured pre-request limiter.

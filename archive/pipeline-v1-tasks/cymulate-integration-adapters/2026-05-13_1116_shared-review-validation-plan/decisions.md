@@ -1,0 +1,3 @@
+- Use an evidence matrix instead of treating every planning-note item as confirmed.
+- Validate runtime/lifecycle issues with focused unit or harness tests before refactoring.
+- Trace public/shared behavior through consumers before changing contracts or semantics.

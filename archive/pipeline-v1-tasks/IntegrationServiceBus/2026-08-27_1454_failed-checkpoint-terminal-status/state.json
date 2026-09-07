@@ -1,0 +1,113 @@
+{
+  "taskId": "TASK-20260827-1454",
+  "taskSlug": "failed-checkpoint-terminal-status",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Write Failed status + release claim + strip credentials, replacing the delete",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "desc": "GetRecoverableAsync excludes Failed, both stores",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "desc": "DeleteExpiredAsync becomes Failed-and-older-than-retention, both stores",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "desc": "Retention config value",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "desc": "Tests across all three behaviours",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "desc": "Build and run affected test projects",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass_with_gaps",
+    "notes": [
+      "Build clean; Application.UnitTests 93/93 (baseline 83); Infrastructure.Core.UnitTests 449/449; API.UnitTests non-container checkpoint 25/25.",
+      "Three review cycles. Cycles 1 and 2 each found a defect introduced by the previous cycle's fix; cycle 3 found none.",
+      "Postgres raw SQL runtime-unverified: Docker unavailable, ~37 CheckpointRepositoryTests never executed.",
+      "Open for operator: redelivery restart-vs-resume semantics; unindexed status scan on a table this change makes grow; no metric on retained-row count."
+    ]
+  },
+  "baseRef": "d53e347d48b71d7befa9bce6b9086b909a547093",
+  "branch": "feat/failed-checkpoint-retention-ttl",
+  "lastUpdated": "2026-08-27T13:30:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "impl: interface, both stores, handler branch",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "tests + decorator forwarding members",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-27T11:54:00Z",
+        "outputs": [
+          "prompt_contract.md",
+          "assumptions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-27T13:30:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "review/verifier-1.md",
+          "review/verifier-2.md",
+          "review/verifier-3.md",
+          "review/code-reviewer-1.md",
+          "review/code-reviewer-2.md",
+          "review/code-reviewer-3.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-27T13:31:00Z"
+  }
+}

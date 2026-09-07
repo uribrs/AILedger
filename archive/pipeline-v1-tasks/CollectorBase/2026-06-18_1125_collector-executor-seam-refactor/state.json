@@ -1,0 +1,55 @@
+{
+  "taskId": "TASK-20260618-1125",
+  "taskSlug": "collector-executor-seam-refactor",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "S1", "name": "Define seam interfaces (WindowPlanner, StagePlanner, Paginator, PageSize, Hydration, ResponseMapper) + RunContext extending AdapterProgressContext", "status": "pending" },
+    { "id": "S2", "name": "Define decision-vocabulary contract (ResetToWatermark/DeferUnbudgeted/Retry/Fail) + how seams coordinate via RunContext", "status": "pending" },
+    { "id": "S3", "name": "Strategy registry (name->factory) + profile-driven resolution + load-time fail-closed validation", "status": "pending" },
+    { "id": "S4", "name": "Reimplement today's behavior as the DEFAULT strategy in each seam (cursor/offset/page/link, id_style hydration, no window, single stage)", "status": "pending" },
+    { "id": "S5", "name": "Refactor CollectorExecutorRunner into a composition root wiring resolved strategies; keep always-on invariants (recovery budget, partial-page success, checkpoint ordering, server-delay externalization)", "status": "pending" },
+    { "id": "S6", "name": "Move generic strategy components into a shared Strategies library in CollectorBase", "status": "pending" },
+    { "id": "S7", "name": "Copy the CollectorExecutor unit test project into CollectorBase as the local regression oracle; keep green", "status": "complete", "output": "Tests/ (oracle green 3/3)" },
+    { "id": "S8", "name": "Verify: solution builds, tests green, happy-path output identical (assets=5/findings=3 unit; real-shape unchanged)", "status": "partial", "note": "oracle green against CURRENT code; seam refactor not yet applied" }
+  ],
+  "blockers": [
+    { "id": "B1", "name": "Contract contradiction: budget vs behavior-preserving. RESOLVED by orchestrator: resilience/recovery seam default = today's behavior; real budget is Phase 1.", "status": "resolved" },
+    { "id": "B2", "name": "Six-seam refactor: increment 2 wired the PAGINATION seam + registry + decision vocabulary + open/closed proof (verified). Remaining seams (window/stage/pagesize/mapper/hydration) are subsequent Phase-0 slices.", "status": "in_progress" },
+    { "id": "B3", "name": "PRE-EXISTING offset-pagination defect (offset never threaded; not introduced by the refactor). Fix when a real offset strategy lands (later phase). Falcon uses cursor, unaffected.", "status": "known-accepted" }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-18T08:25:45Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-18T09:10:00Z", "outputs": ["CollectorExecutor/Seams/Seams.cs", "CollectorExecutor/Composition/StrategyRegistry.cs", "CollectorExecutor/Execution/CollectorExecutorRunner.cs", "Strategies/*", "Runner/LocalRunHost.cs", "Tests/*", "CollectorBase.slnx"] },
+      { "skill": "verifier", "completedAt": "2026-06-18T09:20:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-18T09:20:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-06-18T09:21:00Z"
+}

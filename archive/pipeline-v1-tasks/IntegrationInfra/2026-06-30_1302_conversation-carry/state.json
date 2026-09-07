@@ -1,0 +1,134 @@
+{
+  "taskId": "TASK-20260630-1302",
+  "taskSlug": "conversation-carry",
+  "status": "complete_review_passed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Relocate Session/*.cs (18) -> Conversation/ verbatim, ns rewrite",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Relocate Session/HttpCertValidationHandler/* (3) -> Conversation/HttpCertValidationHandler/, ns rewrite",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Reclaim Orchestration/AdapterSessionLifecycle.cs -> Conversation; carry RateLimiterHelper + HttpStatusExtractor",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Rewire Kernel refs: TransportErrorHandling->Kernel.Transport(+Exceptions), LogRedaction->Kernel.Redaction, DataPipeline.Telemetry->Kernel.Telemetry; verify no Shared.* remains; do NOT re-carry excluded items",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Resolve package refs (Authentication / Sdk.Query) build-driven; add PackageReference+PackageVersion if not transitive",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "XML docs on public members; extend Conversation/README.md (reclaim, helpers, rewires, http.package dep, leak-is-expected)",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "Tests for testable pure units (RateLimiterHelper, HttpStatusExtractor, SessionSpec defaults / pure logic)",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "name": "dotnet build clean + tests pass; record output; mirror to global archive",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_qualifications",
+    "notes": [
+      "Full build 0 errors; 63 tests pass (33+20+10).",
+      "Added Microsoft.Extensions.Http 10.0.9 (floor-resolved); Authentication/Sdk.Query transitive.",
+      "Kernel untouched; 0 Shared.* refs; source unmodified. SessionHandle dispose ordering verbatim.",
+      "Verifier PASS (6/7); SC5 XML docs PARTIAL (verbatim source gaps, none dropped). Code-reviewer no blockers. No must-fix."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-30T13:02:18Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-30T13:04:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-30T13:25:00Z",
+        "outputs": [
+          "src/IntegrationInfra/Conversation/**",
+          "Directory.Packages.props",
+          "src/IntegrationInfra/IntegrationInfra.csproj",
+          "IntegrationInfra.slnx",
+          "tests/IntegrationInfra.Conversation.Tests/**",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-30T13:30:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-30T13:33:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "codeReviewerRun_output": "review/code-reviewer-1.md",
+    "codeReviewerDisposition": "No blockers. Load-bearing pieces verified correct (SessionHandle dispose guard/ordering, cert secure-by-default, token cache). 2 Majors + minors are PRE-EXISTING verbatim source behavior -> recorded, NOT reshaped (operator no-change rule): M1 dispose sync-bridge (reviewer: accept as-is); M2 error-stream not drained before dispose (a real source behavior; fixing = logic change, needs operator decision); minors: force-refresh coalescing, token expiry window, cert per-request log warning, lifecycle ref-param ordering. Test-coverage gap (our deliverable): only the 2 pure helpers tested; reviewer notes *ForTests/IAsyncDisposable seams exist for dispose/cache/cert tests -> tracked follow-up (contract A-test scoped narrow on purpose).",
+    "verifierRun_output": "review/verifier-1.md"
+  },
+  "lastUpdated": "2026-06-30T13:33:00Z"
+}

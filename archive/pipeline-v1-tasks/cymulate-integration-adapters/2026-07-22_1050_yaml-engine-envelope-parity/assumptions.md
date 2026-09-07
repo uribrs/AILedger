@@ -1,0 +1,10 @@
+# Assumptions
+
+- A1 — VALIDATED — Egress cannot and should not do chunk framing (category-(c) reshaping lives above egress). Source: egress-map research thread, 2026-07-22 (verdict + file:line in the design doc).
+- A2 — VALIDATED — Native chunking algorithm is exactly: cap 2000 (clamp 1..100000), chunk 0-based, flush at count>=cap (last=false), one terminal last=true, findingsInChunk per-record, `floor(n/cap)+1` records, zero-finding -> one empty record, host deep-cloned per chunk, key order aid,chunk,isLastChunk,findingsInChunk,host,findings, per-finding strip apps/suppression_info/host_info, remediation.entities OrderBy(ToJsonString,Ordinal) when Count>=2, AidExtractor skip when all fail. Source: native-chunk-spec thread.
+- A3 — VALIDATED — Engine merge pipeline is already 1->{0,1}; nothing downstream assumes in-count==out-count; expanding the nodes list in a post-plan pass is safe. JsonObject preserves insertion order; native key order is free via fresh rebuild. Source: engine-hooks thread.
+- A4 — OPEN — Exact YAML field names/shapes for the four capabilities (require_key, strip, sort{path,order}, chunk{array,max,index_field,last_field,count_field}) are proposals; executor finalizes names to fit existing loader conventions, keeps them additive, and documents final grammar in execution_notes.
+- A5 — OPEN — `chunk.array` default = the merge `as:` field when omitted; executor confirms and documents.
+- A6 — OPEN — Interaction of `chunk` with a non-group embed (single-value `as`) — whether chunk requires group mode. Native only chunks the group array; executor decides (likely: chunk requires the target field to be an array; loader validates) and documents.
+- A7 — VALIDATED — Vendor totals drift live; parity measured against the run-time vendor total and the native baseline modulo drift (per-host counts, not frozen numbers). Source: phase-1 runs.
+- A8 — OPEN — The scratchpad parity harness still exists/builds; if cleaned, rebuild per the phase-1 recipe (console app referencing the engine, WorkflowRunner + local NDJSON sink + wire-logging handler, creds mapped clientId/clientSecret/apiEndpoint->baseUrl).

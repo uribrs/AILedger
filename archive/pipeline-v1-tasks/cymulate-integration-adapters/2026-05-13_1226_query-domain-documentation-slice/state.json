@@ -1,0 +1,62 @@
+{
+  "taskId": "TASK-20260513-1226",
+  "taskSlug": "query-domain-documentation-slice",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "sourceDocuments": {
+    "planBuilderTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice",
+    "planOptimizerTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice",
+    "planningDirectory": "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation"
+  },
+  "documentationTargets": [
+    "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/README.md",
+    "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Planning/README.md",
+    "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/Query/README.md",
+    "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Recovery/Query/README.md"
+  ],
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Review existing Shared Query docs and completed Query planning handoffs",
+      "status": "completed"
+    },
+    {
+      "id": "step-2",
+      "description": "Create execution contract for Query documentation slice",
+      "status": "completed"
+    },
+    {
+      "id": "step-3",
+      "description": "Update Query orchestration README and add planning/publishing/recovery READMEs",
+      "status": "completed"
+    },
+    {
+      "id": "step-4",
+      "description": "Verify documentation references and update task state/archive",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Checked new Query docs for implemented stage references, future-work markers, target paths, and deferred infrastructure warnings.",
+      "No code build was run because this slice changed Markdown documentation only."
+    ]
+  },
+  "lastUpdated": "2026-05-13T12:39:00+03:00"
+}

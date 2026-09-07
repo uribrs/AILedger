@@ -1,0 +1,112 @@
+{
+  "taskId": "TASK-20260830-1130",
+  "taskSlug": "force-resume-on-operator-dispatch",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Marker on AdapterRunMessage",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "desc": "Dispatcher sets ForceResume on ProcessEventCommand (NOT PlatformEvent.Metadata \u2014 that serializes into platform_event_json and the sweep would replay it)",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "desc": "ExecuteWithResumeAsync forces ResumeAsync past the gate when marked",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "desc": "Ensure the marker cannot leak into an automatic sweep dispatch",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "desc": "Tests",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "desc": "Build and run affected projects",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass_with_gaps",
+    "notes": [
+      "Build clean. Application.UnitTests 114/114. Infrastructure.Core.UnitTests 449/449. CheckpointRepositoryTests 47/47 against real Postgres.",
+      "Docker was wrongly reported unavailable for the whole change set; a stopped colima VM was started and the container suites ran for the first time.",
+      "That run found a blocker: operator precedence in MarkFailedAsync's strip made the retention feature inoperative against real Postgres. Fixed.",
+      "Full API.UnitTests 766/774; the 8 failures are pre-existing, identical names with the change stashed."
+    ]
+  },
+  "baseRef": "d53e347d48b71d7befa9bce6b9086b909a547093",
+  "baseRefNote": "The working tree already carries the pass-2 terminal-status change, uncommitted and already verified over 3 verifier and 3 blind-review cycles. A snapshot of that state is at scratchpad/pass2-terminal-status-baseline.patch. THIS task's delta is only the force-resume marker and its plumbing; diff against the snapshot, not against baseRef, to isolate it.",
+  "branch": "feat/failed-checkpoint-retention-ttl",
+  "lastUpdated": "2026-08-30T10:15:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "marker, command flag, dispatcher, handler",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "tests R1-R4",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-30T08:30:00Z",
+        "outputs": [
+          "prompt_contract.md",
+          "assumptions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-30T10:15:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "review/verifier-1.md",
+          "review/verifier-2.md",
+          "review/code-reviewer-1.md",
+          "review/code-reviewer-2.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-30T10:16:00Z"
+  }
+}

@@ -1,0 +1,11 @@
+- VALIDATED: The previous first-slice task is complete and verified.
+- VALIDATED: SDK Query pipeline contracts exist in `/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Pipeline`.
+- VALIDATED: Current Shared layout is concern-first with Query code nested under `Orchestration/Query`, `Publishing/Query`, and `Recovery/Query`.
+- VALIDATED: The superseding plan-builder task is complete and verified at `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice`.
+- VALIDATED: `QueryPlanBuilder` now implements SDK `IPlanBuilder` under `Orchestration/Query/Planning`.
+- VALIDATED: Query shared tests pass 41 cases after the plan-builder slice.
+- REJECTED: Dataflow topology was the immediate next slice. The PRD order and SDK contract review showed plan building had to come first.
+- OPEN: `System.Threading.Tasks.Dataflow` may require an explicit package reference in Shared when topology work resumes.
+- OPEN: Optimization, native coalescing, dispatch, distribution, matching, and section tracking behavior remain separate slices.
+- OPEN: SDK `ISectionTracker` construction/initialization semantics may require a factory or adapter boundary in a later slice.
+- OPEN: Composite `QueryV2.ResultType` semantics remain a product/SDK policy decision and must not be decided by topology code.

@@ -1,0 +1,82 @@
+{
+  "taskId": "TASK-20260514-1119",
+  "taskSlug": "cortexxdr-findings-reverse-join",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Phase 1: temp-file dump (cves.jsonl + endpoints.jsonl)",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "name": "Phase 2: build cvesByHost reverse-join map, enrich endpoints, emit hydrated rows",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "name": "Port mapper helpers (MapAsset, MapVulnerabilityFromCve, BuildCvesByHost, BuildFindingId, ResolveCveName) into a collector-local helper class",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "name": "Remove dead helpers (isDatasetReadyForQuery, findDataset, isDatasetExplicitlyEmpty, plus any others rendered unreachable)",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "name": "Update CortexXdrCollector/Examples/README.md 'Known asymmetry' (or defer via execution_notes.md)",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "name": "dotnet build clean; existing collector tests pass",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "assumptions": [
+    { "id": "A1", "status": "VALIDATED", "summary": "FetchEndpointsAsync paginates last_seen DESC, stops at last_seen < baseDate; reuse with iIsDryRun?UtcNow:iBaseDate" },
+    { "id": "A2", "status": "VALIDATED", "summary": "FetchXqlResultsAsync sends no timeframe; va_cves XQL is unbounded by design" },
+    { "id": "A3", "status": "VALIDATED", "summary": "Reverse-join va_cves.affected_hosts[] ↔ endpoint.endpoint_name is case-insensitive; validated against probe archive CortexXdr_20260514_080340_616Z" },
+    { "id": "A4", "status": "ACCEPTED_OUT_OF_SCOPE", "summary": "CollectAssetsAsync keeps forward-join finding_ids[]; id-set asymmetry with new findings flow is accepted" },
+    { "id": "A5", "status": "OPEN", "summary": "cvesByHost ~75 MB heap ceiling acceptable per operator but unverified under production memory pressure" },
+    { "id": "A6", "status": "VALIDATED", "summary": "Tenants without Host Insights return zero va_cves rows; readiness gate misclassifies — dropping it is correct" }
+  ],
+  "decisions": [
+    { "id": "D1", "summary": "Refactor scope is CollectFindingsAsync plus dead-helper cleanup; CollectAssetsAsync untouched" },
+    { "id": "D2", "summary": "Defender-style intermediates: cves.jsonl + endpoints.jsonl to per-collection temp dir; enrich in Phase 2" },
+    { "id": "D3", "summary": "cvesByHost is an in-memory Dictionary<string, List<JObject>>, case-insensitive hostname key" },
+    { "id": "D4", "summary": "Drop /xql/get_datasets readiness gate and unreachable helpers" },
+    { "id": "D5", "summary": "baseDate gates endpoints pagination only; va_cves XQL stays unbounded" },
+    { "id": "D6", "summary": "Port mapper logic byte-faithfully into a collector-local helper (e.g. CortexXdrFindingsMapper)" },
+    { "id": "D7", "summary": "Direct execution path (single contributor, focused refactor, no decomposition)" }
+  ],
+  "skillsRun": [
+    {
+      "skill": "prompt-contract-designer",
+      "completedAt": "2026-05-14T11:19:00Z",
+      "outputs": ["task.md", "constraints.md", "assumptions.md", "decisions.md", "prompt_contract.md", "state.json"]
+    }
+  ],
+  "lastUpdated": "2026-05-14T11:19:00Z"
+}

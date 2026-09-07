@@ -1,0 +1,79 @@
+{
+  "taskId": "TASK-20260524-1427-P3",
+  "taskSlug": "failure-handling-phase-3-persist-retry-budget",
+  "parentTask": "ai/active/2026-05-24_1427_failure-handling-redesign",
+  "source": "../plan.md (rev 4) §6 Phase 3",
+  "phase": "P3",
+  "status": "executed_with_redesign",
+  "complexityTier": "full",
+  "currentPhase": "complete",
+  "baselineCommit": "f51ed3d",
+  "predecessorPhase": "phase-2 (executed + patched D-P2-17/18)",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "orchestration_plan.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    "designer:contract drafted with 17 D-P3-N decisions + 13 A-P3-N assumptions",
+    "orchestrator:plan written; 3 Explore subagents executed in parallel during drafting to resolve Prereqs 1, 2",
+    "executor:complete (1 new prod file + 2 modified prod files + 1 new test file + 1 modified test file)",
+    "verifier-1:PASS (0 critical, 0 major, 2 low, 1 info)",
+    "code-reviewer-1:REQUEST-CHANGES (1 Blocker verified real, 3 Major) — Blocker repaired in-place via D-P3-3 redesign",
+    "redesign-repair:RetryBudget Write/Clear no longer call AdvancePage; best-effort durability per plan-Prereq-1 option (3); 113/113 tests pass",
+    "handoff:ready for next agent (P4 contract drafting or operator review)"
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_redesign",
+    "notes": [
+      "Verifier-1: PASS (0 critical / 0 major / 2 low / 1 info). All SC1-10 met against initial-design code.",
+      "Code-reviewer-1: REQUEST-CHANGES (1 Blocker + 3 Major + minor/nit). Blocker (AdvancePage side-effect) verified real via new regression tests Write_DoesNotChangeProgressCounters / Clear_DoesNotChangeProgressCounters. Both FAILED → AdvancePage(0,0) increments page counter.",
+      "Repair: removed AdvancePage from Write/Clear; fell back to plan-Prereq-1 option (3) best-effort durability. D-P3-3 updated. xmldoc on RetryBudget updated. Regression tests now pass; 113/113 total.",
+      "Major #2 (terminal-failure paths don't Clear budget): saturated budget persists across redeliveries for RETRY_BUDGET_EXHAUSTED (intentional). Other terminal failures leak — low impact pre-P4. Flagged for P4 contract.",
+      "Major #3 (BelowRetryBudget test missing Delay assertion): minor — coverage exists in DelayPlannerTests.",
+      "Minor magic-string `RETRY_BUDGET_EXHAUSTED`: noted, deferred."
+    ]
+  },
+  "openAssumptions": ["A-P3-5", "A-P3-12", "A-P3-13"],
+  "resolvedAssumptions": ["A-P3-1", "A-P3-2", "A-P3-3", "A-P3-4", "A-P3-6", "A-P3-7", "A-P3-8", "A-P3-9", "A-P3-10", "A-P3-11"],
+  "operatorSignOff": "2026-05-24 'continue to P3' implies recommended options stand; A-P3-5 (cap=4 via ctor param) and A-P3-12 (best-effort write — log+swallow) committed in D-P3-8/D-P3-12. A-P3-13 (platform-team consumer check) flagged as deferred follow-up.",
+  "prereqStatus": {
+    "prereq1_setState_durability": "resolved_option_2 (explicit AdvancePage flush)",
+    "prereq2_retry_prefix_collision": "clear",
+    "prereq3_downstream_consumers": "assumed_filters_underscore_keys"
+  },
+  "outOfScope": [
+    "UnknownFlowRetryPolicy.IsUnknownRetryCandidate (P5)",
+    "ClassifiedRetryablePolicy.ShouldHandle (P5)",
+    "ClassifiedRetryableTriggerException deletion (P5)",
+    "Falcon classified-retry enable (P4)",
+    "all cloud collectors",
+    "Directory.Packages.props / Directory.Build.props",
+    "phase-0a/0b/1/2 artifacts and plan.md",
+    "Polly pipeline files",
+    "FailureContext field additions (per D-P3-14)"
+  ],
+  "lastUpdated": "2026-05-24T19:55:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS — all SC1-10 + 17 D-P3-N decisions honoured against initial design.",
+    "codeReviewerVerdict": "REQUEST-CHANGES — 1 Blocker (AdvancePage page-counter side-effect, verified real); repaired in-place by reverting D-P3-3 to plan-Prereq-1 option (3) best-effort durability. Major #2 (terminal-failure path Clear) + Major #3 (test assertion) accepted; flagged for P4.",
+    "acceptedRisks": [
+      "C6 cross-redelivery cap weakened from hard to best-effort. Worker crash during retry sleep before next natural AdvancePage loses the budget; redelivery starts fresh. Documented in RetryBudget xmldoc.",
+      "A-P3-13 platform-team consumer check still open — `_retry.*` underscore-prefix assumed filtered downstream.",
+      "Terminal-failure paths other than success don't call RetryBudget.Clear. Saturated budget persists across redeliveries. Intentional for RETRY_BUDGET_EXHAUSTED; leaks slightly for other terminal failures. Low impact pre-P4."
+    ]
+  }
+}

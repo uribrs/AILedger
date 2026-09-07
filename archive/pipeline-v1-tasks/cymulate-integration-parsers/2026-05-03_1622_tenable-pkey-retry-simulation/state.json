@@ -1,0 +1,59 @@
+{
+  "taskId": "TASK-20260503-1622",
+  "taskSlug": "tenable-pkey-retry-simulation",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "verification_complete",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "design-contract",
+      "status": "completed",
+      "description": "Create execution contract for a Tenable.io parser_output_exposures primary-key retry simulation harness."
+    },
+    {
+      "id": "inspect-parser-flow",
+      "status": "completed",
+      "description": "Confirm how local Tenable.io sample files are parsed into findings and written through SparkDAL."
+    },
+    {
+      "id": "implement-simulation-script",
+      "status": "completed",
+      "description": "Create a local script that simulates partial target write, injected failure, retry, and successful ON CONFLICT handling."
+    },
+    {
+      "id": "add-relevant-angles",
+      "status": "completed",
+      "description": "Cover additional useful scenarios such as pre-fix failure mode, duplicate staging IDs, clean no-conflict write, and retry after cleanup failures where feasible."
+    },
+    {
+      "id": "verify-harness",
+      "status": "completed",
+      "description": "Run syntax/unit verification and document any manual Postgres run requirements."
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "syntax_and_cli_verified",
+    "notes": [
+      "Created scripts/simulate_tenable_pkey_retry.py.",
+      "Verified script syntax with py_compile.",
+      "Verified script CLI with --help.",
+      "Verified existing SparkDAL unit tests still pass.",
+      "Full scenario execution requires local or reachable Postgres configuration."
+    ]
+  },
+  "lastUpdated": "2026-05-03T13:25:57Z"
+}

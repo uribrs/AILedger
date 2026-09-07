@@ -1,0 +1,9 @@
+- Use `prompt-contract-designer` before execution.
+- Execute from `prompt_contract.md` using `contract-driven-execution`.
+- Use exactly three subagents for the requested reader/reader/mediator workflow.
+- Keep analysis grounded in local files only.
+- Do not modify product code.
+- Publish final report under `/Users/user/Dev/Uri/Planning`.
+- Include a detailed diff-style comparison where documentation and implementation differ.
+- Mark unsupported documentation claims clearly.
+- Preserve user and existing file changes.

@@ -1,0 +1,20 @@
+- Composition-only edits inside `QueryAdapterPipeline`; no new infrastructure dependency may be introduced.
+- No real Postgres, S3, RabbitMQ, outbox, storage upload, session, HTTP retry, host, or transport infrastructure may be added or referenced.
+- No real Query clients and no fake Query clients as product code.
+- The `QuerySectionTracker` "Behavior To Preserve" listed in the section tracker handoff must not be altered.
+- `QuerySectionTracker.CompletedSections` is single-consumer; the wiring code must consume it exactly once per pipeline run.
+- Spillover is out of scope; section results emit inline `FindingRefV2` only, exactly as the tracker produces today.
+- Structured matcher filtering is out of scope.
+- `QueryJobCompletedV2` is emitted at job end through `ISectionPublisher.PublishJobCompletedAsync`; the tracker never emits it.
+- The `QueryJobCompletedV2` envelope is built by `QueryAdapterPipeline` after the tracker stream completes, using counts derived from the executed plan and the published section ids (already implemented; do not relocate this responsibility into the tracker or the publisher).
+- `IExecutionPlanStore` concrete implementation is not part of this slice; tests may use an in-memory `IExecutionPlanStore` test fake.
+- `IAdapterExecutionContext` must not be replaced; the publisher publishes through `IAdapterExecutionContext.PublishAsync`. Tests use a capturing `IAdapterExecutionContext` fake.
+- Cancellation in the wired path must propagate as `OperationCanceledException` from `RunAsync` (currently translated into `AdapterResult.FailureResult` with `OPERATION_CANCELLED`; preserve that translation at the pipeline boundary but ensure cancellation reaches the publisher path before translation).
+- Build target: `dotnet build` on the Shared csproj must pass with 0 warnings and 0 errors (NU1900 from offline NuGet/CodeArtifact vulnerability indexes is acceptable per prior slices).
+- Test target: `dotnet test` on `Cymulate.Integration.Adapters.QueryIntegration.Shared.Test` must pass; this slice adds wiring-focused tests.
+- New tests must exercise the real `QuerySectionTracker` and the real `QuerySectionPublisher` together inside `QueryAdapterPipeline`. Mocks are acceptable for `IQueryAdapter`, `IPlanBuilder`, `IPlanOptimizer`, `INativeCoalescer`, `IUnitDispatcher`, `IDistributor`, `IMatcher`, and `IExecutionPlanStore`. The publisher and tracker must not be mocked in the wiring tests.
+- If trimmed-usings affect the test project compile, extend the existing project `GlobalUsings.cs` rather than restoring per-file `using` directives.
+- Use SDK Query contracts directly; do not create local duplicates of SDK types.
+- Keep code small, focused, and aligned with existing Shared Query style. Do not refactor unrelated pipeline behavior.
+- Do not revive the superseded topology task and do not revive deferred items without a new contract.
+- Do not delete or rewrite task artifacts from prior Query slices.

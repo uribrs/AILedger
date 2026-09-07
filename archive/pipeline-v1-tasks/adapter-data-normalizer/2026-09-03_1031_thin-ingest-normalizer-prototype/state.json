@@ -1,0 +1,152 @@
+{
+  "taskId": "TASK-20260903-1031",
+  "taskSlug": "thin-ingest-normalizer-prototype",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "label-contract-generator",
+      "summary": "Generate versioned label contract (columns, types, enum members) from EA schema dumps + Prisma into src/Contract",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "contract-and-manifest",
+      "summary": "Target row shapes, batch manifest model, manifest+row validation incl. unknown-version rejection",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "thin-falcon-collector",
+      "summary": "Two flat lanes from live lab tenant, parent key on both records, batched publish to local disk",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "normalizer",
+      "summary": "Labeled JSON to target rows, uuidv5 id derivation scoped per (instance, asset), CVE explode",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "postgres-writer",
+      "summary": "Docker Postgres schema for the two enrich-shaped tables plus COPY-based writer",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "host-and-events",
+      "summary": "Simulated work-available then data-ready, counts payload",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "exit-bar-proof",
+      "summary": "xUnit + SQL proving manifest rejection, both lanes written, zero unresolved parent keys",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "partial",
+    "notes": [
+      "verifier-1.md complete with both disposition tables (7 VALIDATED, 1 REJECTED, 9 NEVER-TESTED).",
+      "code-reviewer-1.md complete: 0 blockers, 3 major, 10 minor; collector section possibly thin (agent died mid-review).",
+      "verifier-2 never completed - all four subagents died to API 529s. Post-repair measurements taken by the orchestrator: build 0 errors, 54/54 tests, exit-bar 0 unresolved, 294 assets / 122310 exposures / 0 null asset_id / 84560 distinct (asset_id,cve_id) pairs.",
+      "Open: re-disposition of assumptions and attention items after repairs, and disposition of the code reviewer's 3 Major findings (M1 exit codes, M2 EnsureSchemaAsync cannot repair, M3 collector transport retries)."
+    ]
+  },
+  "baseRef": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+  "lastUpdated": "2026-09-03T13:40:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W0",
+        "name": "freeze-contract-surface",
+        "scopeSummary": "Solution scaffold + src/Contract incl. label-contract generator (enum.prisma + dump .md)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#freeze-contract-surface"
+      },
+      {
+        "id": "W1",
+        "name": "thin-falcon-collector",
+        "scopeSummary": "Live Discover+Spotlight, two flat lanes, parent key on both, batch + manifest",
+        "status": "complete",
+        "outputRef": "execution_notes.md#thin-falcon-collector"
+      },
+      {
+        "id": "W2",
+        "name": "normalizer-id-derivation",
+        "scopeSummary": "Labeled JSON to row types, uuidv5 derivation, CVE explode, row validation",
+        "status": "complete",
+        "outputRef": "execution_notes.md#normalizer-id-derivation"
+      },
+      {
+        "id": "W3",
+        "name": "postgres-copy-writer",
+        "scopeSummary": "docker-compose, DDL for both tables + five enums, COPY writer",
+        "status": "complete",
+        "outputRef": "execution_notes.md#postgres-copy-writer"
+      },
+      {
+        "id": "W4",
+        "name": "host-and-exit-bar",
+        "scopeSummary": "Simulated events, xUnit incl. R1-R5 tripwires and the exit-bar SQL proof, README",
+        "status": "complete",
+        "outputRef": "execution_notes.md#host-and-exit-bar"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-09-03T10:40:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md",
+          "research/internal-recon.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-09-03T13:27:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-09-03T13:40:00Z"
+  }
+}

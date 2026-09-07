@@ -1,0 +1,7 @@
+# Assumptions
+
+- B1 (VALIDATED): The engine's sink-ful page loop already supports per-page publish + pagination-state reporting (IsbExecutionSink.SetPaginationState ordering invariant; cursor fields in YamlCollectorCheckpointState) — the decorator rides existing machinery. Verified in predecessor session.
+- B2 (OPEN): ExecuteStageAsync (workflow stage execution) currently runs sink-less; giving merge-target stages a sink requires threading a sink parameter through the workflow stage path. Risk: the streaming-ingest fast-path gate (CanStreamIngest) excludes sink-ful runs — confirm no perf regression for large non-merge stages (they stay sink-less). Executor must verify the gate logic.
+- B3 (OPEN): Priming a paginator from a stored cursor mid-operation is expressible for cursor/body_cursor strategies (state.CursorValue restore). Offset/page_number strategies restore from offset/page fields. If a strategy proves non-restorable, document it as restart-fresh for that strategy (same rule as non-paginated).
+- B4 (VALIDATED): Chaining order semantics (later merge sees earlier enrichment) match the operator-approved design; no consumer requires reverse order.
+- B5 (OPEN): collect-mode `on:` lists in real consumers share one source key (IVMC: four array paths, all "= id"). If a future consumer needs per-path source keys, that is out of scope — loader rejects mixed source keys with a clear message.

@@ -1,0 +1,65 @@
+{
+  "taskId": "TASK-20260706-1344",
+  "taskSlug": "batch-scoped-storage-subfolders",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    { "id": "S1", "name": "Shared batch-scoped storage scope helper in DataPipeline/Egress", "status": "complete" },
+    { "id": "S2", "name": "Opt-in surface reachable by collector *Configuration without collector wiring", "status": "complete" },
+    { "id": "S3", "name": "Dud-page behavior (no upload, no subfolder, bare base URL in event)", "status": "complete" },
+    { "id": "S4", "name": "Base URL restoration before DONE/failure/partial publication incl. resilience snapshot path", "status": "complete" },
+    { "id": "S5", "name": "Unit tests: derive-from-base, deterministic naming, dud pages, base restoration, ordering invariant", "status": "complete" },
+    { "id": "S6", "name": "Build + existing tests pass", "status": "complete_with_note", "note": "build 0 errors; touched test projects green; full suite killed by operator, CI is backstop" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-06T13:44:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-06T14:20:00Z",
+        "outputs": ["BatchScopedStorage.cs", "restoration hooks (5 files)", "BatchScopedStorageTests.cs", "AdapterFailureDecisionExecutorTests.cs (new test)", "Egress README", "ai/skills/collector-flow-patterns", "execution_notes.md"]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-06T15:05:00Z",
+        "outputs": ["review/verifier-1.md (PASS-WITH-GAPS)", "review/verifier-2.md (PASS after repairs)"]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-06T15:30:00Z",
+        "outputs": ["review/code-reviewer-1.md (sound, no blockers; findings 1+3 repaired, 2+4 accepted risks)"]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-06T15:35:00Z"
+}

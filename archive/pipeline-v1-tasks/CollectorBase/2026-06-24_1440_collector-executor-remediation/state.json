@@ -1,0 +1,118 @@
+{
+  "taskId": "TASK-20260624-1440",
+  "taskSlug": "collector-executor-remediation",
+  "status": "execution_complete",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "R1a",
+      "desc": "Tolerant next-token extraction (string OR numeric/bool coerced) in cursor/cursor_watermark/next_url strategies so a non-string token never throws",
+      "status": "complete"
+    },
+    {
+      "id": "R1b",
+      "desc": "Clamp effective page_size and batch_size to >= 1 (StaticPageSizeStrategy + Chunk + paginator advance) so 0/negative can't infinite-loop",
+      "status": "complete"
+    },
+    {
+      "id": "R2",
+      "desc": "Extract one shared prepare/validate routine used by both Preflight and RunAsync (single source of truth; behavior-preserving)",
+      "status": "complete"
+    },
+    {
+      "id": "R3",
+      "desc": "Delete dead FetchSignal/FetchDecision/RunContext.Signal + CursorWatermarkStrategy writes; fix misleading Seams comments",
+      "status": "complete"
+    },
+    {
+      "id": "R4",
+      "desc": "Build clean + all tests pass (+ tests for 1a/1b if feasible); conformance intact",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "complete",
+    "notes": [
+      "verifier-1: PASS all 6 criteria, no regressions, no scope violations",
+      "code-reviewer-1: 0 blocking/0 major; clean (1 minor intentional, 1 nit)"
+    ]
+  },
+  "lastUpdated": "2026-06-24T15:05:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-24T14:40:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-24T15:00:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-24T15:00:00Z",
+        "outputs": [
+          "Interpreter.cs",
+          "5 pagination/pagesize strategies",
+          "Seams.cs",
+          "CollectorExecutorRunner.cs"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-24T15:05:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-24T15:05:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS all 6 success criteria; build clean; 43/43 tests; conformance intact; only items 1-3 touched.",
+    "codeReviewerVerdict": "Clean - ship it. 0 blocking, 0 major. Minor: BuildSessionSpec built twice (intentional, behavior-preserving). Nit: StringAt exponent-literal coercion (irrelevant for cursor tokens).",
+    "acceptedRisks": [
+      "Minor: BuildSessionSpec is built once in Prepare (auth validation) and again in RunAsync (use) - pure/deterministic, behavior-preserving; avoids carrying a secret-bearing SessionSpec on PreparedRun (also used by the validation-only Preflight path).",
+      "Nit: JsonNav.StringAt coerces a numeric token via JsonValue.ToString() (a JSON exponent literal 1e3 -> \"1e3\"); irrelevant for opaque/integer cursor tokens."
+    ]
+  }
+}

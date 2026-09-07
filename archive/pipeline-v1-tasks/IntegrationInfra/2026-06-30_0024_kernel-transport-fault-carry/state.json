@@ -1,0 +1,54 @@
+{
+  "taskId": "TASK-20260630-0024",
+  "taskSlug": "kernel-transport-fault-carry",
+  "status": "complete_review_passed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "S1", "name": "Scaffold Kernel/Transport; relocate HttpTransportFailureClassifier + IHttpFailureClassifier (verbatim, ns rewrite, XML docs)", "status": "complete" },
+    { "id": "S2", "name": "Relocate AdapterHttpRequestFailedException -> Kernel/Exceptions (verbatim, ns rewrite, fix dangling AdapterHttpClient cref)", "status": "complete" },
+    { "id": "S3", "name": "Split UnknownFlowRetryPolicy: carry Polly-free residue to Kernel/Transport; exclude CreatePipeline; Kernel stays Polly-free", "status": "complete" },
+    { "id": "S4", "name": "Docs: Kernel/Transport/README.md + update Kernel/README.md 'Holds:' line", "status": "complete" },
+    { "id": "S5", "name": "Establish test project + unit tests (classifier predicates, unknown-flow predicate, exception shape)", "status": "complete" },
+    { "id": "S6", "name": "dotnet build clean + tests pass; record output in execution_notes.md", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": [
+      "Build: 0 errors (8 pre-existing NuGet source-mapping/vuln warnings). Tests: 33 passed, 0 failed.",
+      "Kernel Polly-free confirmed; CreatePipeline absent; source repo unmutated."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-30T00:24:54Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json", "execution_notes.md"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-30T00:26:00Z", "outputs": ["orchestration_plan.md", "state.json"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-30T00:40:00Z", "outputs": ["src/IntegrationInfra/Kernel/Transport/HttpTransportFailureClassifier.cs", "src/IntegrationInfra/Kernel/Transport/IHttpFailureClassifier.cs", "src/IntegrationInfra/Kernel/Transport/UnknownFlowRetryClassification.cs", "src/IntegrationInfra/Kernel/Transport/README.md", "src/IntegrationInfra/Kernel/Exceptions/AdapterHttpRequestFailedException.cs", "src/IntegrationInfra/Kernel/README.md", "Directory.Packages.props", "IntegrationInfra.slnx", "tests/IntegrationInfra.Kernel.Tests/**", "execution_notes.md"] }
+    ],
+    "verifierRun": true,
+    "verifierRun_output": "review/verifier-1.md",
+    "codeReviewerRun": true,
+    "codeReviewerRun_output": "review/code-reviewer-1.md",
+    "codeReviewerDisposition": "All findings (M1,M2,m1,m2,m3,nit) describe pre-existing SOURCE behavior; recorded as D8, NOT repaired (verbatim constraint + operator no-change-without-decision rule). Deferred to operator decision. m4 (our test coverage) is a safe future add that would pin current behavior."
+  },
+  "lastUpdated": "2026-06-30T00:44:00Z"
+}

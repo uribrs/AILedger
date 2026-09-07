@@ -1,0 +1,15 @@
+- VALIDATED: The data-plane / control-plane split is the architectural rationale for the rename. `Session/`, `Recovery/`, `Orchestration/` are control-plane citizens with their own identities (transport, checkpoint decision-making, composition) and stay where they are. Source: design conversation that produced this task.
+- VALIDATED: "DataPipeline" (not "Pipeline", not "HeapDefense") is the chosen umbrella name. Source: operator decision.
+- VALIDATED: `Shared/Json/` contents are in scope for the move regardless of whether each helper is used inside streaming flows. The umbrella is the data family, not the streaming subset. Source: operator decision.
+- VALIDATED: Multipart upload code, target-path conventions, and similar publishing internals are correctly classified as capabilities of the egress mechanism — they belong under `DataPipeline/Egress/` rather than being split out. Source: operator decision.
+- VALIDATED: This is one PR with exactly two commits. Source: operator decision.
+- VALIDATED: No behavior change. Pure namespace + path refactor. Source: operator decision and task framing.
+- VALIDATED: Cortex XDR XQL streaming refactor and `va_endpoints` work are out of scope. They land in separate sessions after this restructure. Source: operator decision.
+- OPEN: Exact verification command set. Candidates:
+  - `dotnet build src/Cymulate.Integration.Adapters/Cymulate.Integration.Adapters.sln --no-restore --disable-build-servers -p:UseSharedCompilation=false`
+  - `dotnet test src/Cymulate.Integration.Adapters/Cymulate.Integration.Adapters.sln --no-restore --disable-build-servers -p:UseSharedCompilation=false`
+  - Plus the targeted Cortex XDR collector test command used in the prior task (see `ai/active/2026-05-15_0004_cortex-xdr-staged-findings-resume/execution_notes.md`) as a sanity probe.
+  Orchestrator/executor confirms the actual command set against the repo's build conventions before starting.
+- OPEN: The exact placeholder file inside `DataPipeline/Ingress/`. Repo convention may be `.gitkeep`, an empty `Ingress.cs` with a namespace declaration, or an `AssemblyInfo`-style marker. Orchestrator/executor selects whichever already appears elsewhere in this codebase.
+- OPEN: Whether any `InternalsVisibleTo` attribute or `AssemblyInfo`-style namespace declaration names the moved namespaces and therefore needs updating beyond `using` statements. Executor must grep for `Cymulate.Integration.Adapters.Shared.Publishing` and `Cymulate.Integration.Adapters.Shared.Json` repo-wide before committing.
+- OPEN: Whether any documentation file under `ai/`, `docs/`, or top-level `README.md` references the moved namespaces. Executor must update or surface as a blocker before commit.

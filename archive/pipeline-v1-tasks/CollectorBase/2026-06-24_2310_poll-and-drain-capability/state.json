@@ -1,0 +1,117 @@
+{
+  "taskId": "TASK-20260624-2310",
+  "taskSlug": "poll-and-drain-capability",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "verification",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "P1",
+      "desc": "New `poll_and_drain` step kind: fused poll + interleaved drain of a growing list (newItems = drainPath - processed) running the inner per-item step immediately; exit on `until` success AND drained; in-process vs externalize wait. Profile model + RunPollAndDrainStepAsync.",
+      "status": "complete"
+    },
+    {
+      "id": "P2",
+      "desc": "Shared item-failure tolerance policy (skip + per-item retry budget + transient-vs-permanent + max_failure_ratio) used by BOTH for_each and poll_and_drain.",
+      "status": "complete"
+    },
+    {
+      "id": "P3",
+      "desc": "Terminal-status classification: fail_states set (ERROR/FAILED/CANCELLED) + resource-gone (404 -> restart fresh) on poll_and_drain (and poll_until where sensible).",
+      "status": "complete"
+    },
+    {
+      "id": "P4",
+      "desc": "best_effort flag on hydrate/fetch: on sub-fetch failure emit collected records / skip batch + continue, instead of failing the stream (distinct from P2).",
+      "status": "complete"
+    },
+    {
+      "id": "P5",
+      "desc": "Checkpoint/resume: persist processed-item set + captured handles + poll anchor; resume restores and continues draining idempotently (no re-download/skip). Reuse the per-emit-target page counter for inner fetches.",
+      "status": "complete"
+    },
+    {
+      "id": "P6",
+      "desc": "Update integrations/tenable-io.yaml findings (and assets if apt) to poll_and_drain.",
+      "status": "complete"
+    },
+    {
+      "id": "P7",
+      "desc": "Tests (in-process harness): interleaved drain during PROCESSING, item tolerance (skip+retry+ratio abort), fail_state + 404-restart, best_effort hydrate, resume mid-drain. Build clean; full suite green; conformance + remediation intact.",
+      "status": "complete"
+    },
+    {
+      "id": "P8",
+      "desc": "Live Tenable findings via poll_and_drain: chunk GETs interleaved with status polls (not all-after-FINISHED), contiguous findings_000001..N.",
+      "status": "blocked",
+      "note": "Tenable creds rotated/unavailable; interleave proven deterministically in-harness instead. Live run pending fresh creds."
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Build clean; 52/52 tests pass (43 prior + 9 new: 7 poll_and_drain, best_effort hydrate, reserved-key guard).",
+      "Verifier (review/verifier-1.md): PASS, no must-fix. Live Tenable (SC3) PENDING — creds rotated; interleave proven deterministically in-harness.",
+      "Code-reviewer (review/code-reviewer-1.md): no blockers; 2 major findings repaired (M1 per-cycle checkpoint, M2 reserved-key guard).",
+      "Repairs: removed dead FlakyStreamPublisher; statusVal via tolerant JsonNav.StringAt.",
+      "Accepted: processed-set growth is inherent to idempotent resume (native parity); ~40 lines duplicated with RunPollUntilAsync (left for a later extraction)."
+    ]
+  },
+  "lastUpdated": "2026-06-24T23:55:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-24T23:10:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-24T23:12:00Z",
+        "outputs": ["orchestration_plan.md", "state.json"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-24T23:50:00Z",
+        "outputs": [
+          "CollectorExecutor/Profile/Profile.cs",
+          "CollectorExecutor/Execution/CollectorExecutorRunner.cs",
+          "integrations/tenable-io.yaml",
+          "Tests/CollectorExecutor.Test/CollectorExecutorTests.cs",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-24T23:53:00Z",
+        "outputs": ["review/verifier-1.md"]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-24T23:54:00Z",
+        "outputs": ["review/code-reviewer-1.md"]
+      }
+    ]
+  }
+}

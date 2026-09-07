@@ -1,0 +1,165 @@
+{
+  "taskId": "TASK-20260818-0829",
+  "taskSlug": "falcon-spotlight-fetch-concurrency",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "repo": "cymulate-integration-adapters",
+  "workingDirectory": "/Users/user/Dev/cymulate-integration-adapters-falcon-concurrency",
+  "branch": "falcon-concurrency-and-server-side-retries-with-backoff",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete",
+    "orchestration_plan.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Add MaxConcurrentSpotlightBatches to configuration + clamp",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Introduce bounded producer/consumer around the frozen-key-list batch loop",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Preserve serial publish + checkpoint + AdvancePage on the single consumer",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Define and implement cancellation semantics for N in-flight batches",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Unit tests: ordering, concurrency bound, cancellation, checkpoint adjacency",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "All 9 success criteria MET (review/verifier-2.md).",
+      "Falcon suite 213/213, three consecutive runs, deterministic.",
+      "code-reviewer-2: no blockers; B1 resolved on analysis.",
+      "A6/A7/A4a remain NEVER-TESTED by design \u2014 to be observed in STG, not unit-tested."
+    ]
+  },
+  "baseRef": "1f7a2ba6c504b6f43facec08cafd4a6ffbbbd531",
+  "baseRefNote": "HEAD of falcon-concurrency-and-server-side-retries-with-backoff, identical to dev@1f7a2ba6 (branch has no commits yet). The completed User-Agent change is UNCOMMITTED in the working tree at contract time, so a diff from baseRef includes it. The verifier must treat the FalconCollectorConfigurationBuilder User-Agent hunk as pre-existing context, not as work produced by this task.",
+  "lastUpdated": "2026-08-18T10:50:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "crowdstrike-spotlight-throughput",
+        "file": "research/crowdstrike-spotlight-throughput.md",
+        "status": "complete",
+        "triggeredBy": "assumption:A3,assumption:A4",
+        "documentationStatus": "authoritative vendor docs available in-repo (FalconDocs/OfficialDocs)",
+        "outcome": "Revision 2, re-evidenced against FalconDocs/OfficialDocs (crowdstrike-auth.pdf p42-44, spotlight.pdf p19-21/p28, discover.pdf p4/p12). A3 REJECTED as written: it is a TOKEN BUCKET - 100 req/s sustained per CID, 6,000-token burst capacity, 100/s refill - pooled across all API clients and endpoints; not Spotlight-specific and not exclusively ours. A4 VALIDATED: 120s after-token TTL is vendor-documented verbatim for the exact endpoint (retracts the revision-1 claim that it was undocumented; the code comment is correct). No concurrency limit documented in any of the three PDFs (verified negative). A4a raised OPEN: spotlight.pdf p19 says an expired after token returns a 200 OK header with 404 under errors in the body, while FalconHttpFailureClassifier.cs:22 keys on the 404 status line - needs a 130s cursor probe to settle. Recommended degree default 4, clamp 16."
+      }
+    ],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "Bounded concurrent Spotlight fetch + serial consumer; config property and clamp",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Tests for the frozen behavioural contract + FakeHttpClientFactory race fix",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-18T08:29:47Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator:internal-recon",
+        "completedAt": "2026-08-18T08:45:00Z",
+        "outputs": [
+          "research/internal-recon.md",
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "technical-researcher",
+        "actor": "researcher",
+        "completedAt": "2026-08-18T09:15:00Z",
+        "topic": "crowdstrike-spotlight-throughput",
+        "outputs": [
+          "research/crowdstrike-spotlight-throughput.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "technical-researcher",
+        "actor": "researcher",
+        "completedAt": "2026-08-18T10:40:00Z",
+        "topic": "crowdstrike-spotlight-throughput (revision 2 - authoritative in-repo vendor docs)",
+        "outputs": [
+          "research/crowdstrike-spotlight-throughput.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator:verifier",
+        "completedAt": "2026-08-18T10:44:00Z",
+        "outputs": [
+          "review/verifier-1.md",
+          "review/verifier-2.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-08-18T10:38:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md",
+          "review/code-reviewer-2.md"
+        ]
+      },
+      {
+        "skill": "workflow-coordinator:closeout",
+        "completedAt": "2026-08-18T10:50:00Z",
+        "outputs": [
+          "lesson.md",
+          "~/Dev/AILedger/lessons.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-18T10:50:00Z"
+  }
+}

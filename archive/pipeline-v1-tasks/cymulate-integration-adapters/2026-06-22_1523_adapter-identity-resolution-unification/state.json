@@ -1,0 +1,140 @@
+{
+  "taskId": "TASK-20260622-1523",
+  "taskSlug": "adapter-identity-resolution-unification",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "implementation_isb_done_adapters_pending",
+  "repos": {
+    "primary": "/Users/user/Dev/IntegrationServiceBus",
+    "secondary": "/Users/user/Dev/cymulate-integration-adapters"
+  },
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Audit all ISB adapter resolution sites + maps + enum EnumMembers",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "title": "Audit adapter identity in adapters repo (Glossary + *Identification.cs, collectors + indicators)",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "title": "Harvest real-world name permutations from integrationsData.js (seed) + cybiIntegrationSetting.csv (live), keyed by `name`",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "title": "Build complete (name, topic) -> (PlatformType, Category) identification profile; flag collisions, orphan names, unregistered adapters",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "title": "Decide + document collision policy (Cisco duplicate EnumMember; Custom/Taegis; missing fallback aliases)",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "title": "Implement single resolver owning (name, topic) -> (PlatformType, Category); idempotent, total",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "title": "Simplify ProductPlatformMapper + VendorPlatformResolver to delegate; converge RegisteredAdapterPlatformResolver/FallbackPlatforms + other sites; retire duplicate maps",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "title": "Add catalog->registration contract test (every live `name` resolves to a served (PlatformType, Category))",
+      "status": "tests_written_exec_blocked_nuget"
+    },
+    {
+      "id": "S9",
+      "title": "If adapters-repo changes needed: create branch first, then align",
+      "status": "adapters_edited_branch_build_blocked_on_sdk_publish"
+    },
+    {
+      "id": "S10",
+      "title": "Build + test both repos on non-default branches",
+      "status": "pending"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "summary": "Custom collision \u2014 RESOLVED by D9 (Taegis+DefenderForCloud get dedicated PlatformTypes) + D10 (fail-closed)",
+      "status": "resolved"
+    },
+    {
+      "id": "B2",
+      "summary": "Cisco duplicate EnumMember \u2014 DEFERRED by D11 (forward resolution unaffected)",
+      "status": "deferred"
+    },
+    {
+      "id": "B3",
+      "summary": "Contract-test source \u2014 RESOLVED by D14 (adapter-set + harvested name permutations; live-catalog test parked with integrationsData)",
+      "status": "resolved"
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "ISB resolution-site inventory + contradictions",
+        "status": "complete",
+        "outputRef": "research/isb-resolution-sites.md"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Adapters-repo identity inventory (collectors + indicators)",
+        "status": "complete",
+        "outputRef": "research/adapter-identity.md"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Catalog name/topic permutation harvest (seed + live)",
+        "status": "complete",
+        "outputRef": "research/catalog-permutations.md"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-22T15:23:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false
+  },
+  "lastUpdated": "2026-06-22T16:25:00Z"
+}

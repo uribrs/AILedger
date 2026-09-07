@@ -1,0 +1,7 @@
+- VALIDATED: The aggregate handoff and distributor handoff recommend a fresh bounded contract for the concrete Query `IMatcher` slice.
+- VALIDATED: The SDK `IMatcher` contract returns `ValueTask<IReadOnlyList<Finding>>` and receives `DistributedResponse`, `QueryV2`, `Guid jobId`, and `CancellationToken`.
+- VALIDATED: SDK exposes no structured expression dialect, payload-side targeting schema, or payload-side result-type field. Structured filtering cannot be implemented without inventing semantics.
+- VALIDATED: The matcher slice is admission-only — emit one `Finding` per `DistributedResponse`, with `ResultType` taken from the matched `QueryV2`. Filtering is deferred until SDK exposes structured rules.
+- VALIDATED: `IAdapterSideMatchingCapability` is honored at pipeline composition (swap matcher for a passthrough), not by branching inside the Shared matcher. The Shared matcher already behaves as an admission passthrough.
+- VALIDATED: `distributed.QueryId != query.QueryId` is a caller bug and must fail clearly rather than silently emit a misattributed `Finding`.
+- OPEN: When SDK gains `ExpressionDialect`, structured targeting schema, or payload result-type, a follow-up slice will extend this matcher with real filtering. This slice intentionally leaves a single insertion point.

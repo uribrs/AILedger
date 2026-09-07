@@ -1,0 +1,37 @@
+{
+  "taskId": "TASK-20260625-1706",
+  "taskSlug": "g4-profile-validation",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete", "prompt_contract.md": "complete", "constraints.md": "complete",
+    "assumptions.md": "complete", "decisions.md": "complete", "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "B-M1 DONE: AccumulateList keys added to the reserved __-guard", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "DONE: shared ValidatePagination (cursor/cursor_watermark/next_url required fields); both inline checks replaced", "effort": "low", "status": "complete" },
+    { "id": "S3", "desc": "DONE: 4 tests (3 negative + 1 positive) via ProfileLoader.Load", "effort": "medium", "status": "complete" },
+    { "id": "S4", "desc": "DONE: shipped + test profiles still validate; build clean + 86/86; note written", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "not_started", "notes": [] },
+  "workflow": {
+    "executionPath": "direct", "orchestrationPlanFile": "orchestration_plan.md", "researchNeeded": false,
+    "researchTopics": [], "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T17:06:00Z", "outputs": ["task.md","prompt_contract.md","constraints.md","assumptions.md","decisions.md","state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-25T17:07:00Z", "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T17:14:00Z", "outputs": ["Profile.cs", "CollectorExecutorTests.cs", "execution_notes.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T17:20:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T17:24:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true, "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "no blocker/major; MINOR (case-insensitive strategy match) FIXED; NIT accepted"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T17:25:00Z"
+}

@@ -1,0 +1,55 @@
+{
+  "taskId": "TASK-20260729-1102",
+  "taskSlug": "capability-drift-inventory",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "kind": "read-only investigation",
+  "branch": "dev",
+  "baseCommit": "dd25c0d",
+  "arcPosition": "between task 2 (SRP decomposition, merged PR #6) and task 3 (public-surface narrowing, out of scope). Operator chose this before task 3 because narrowing ~102 public types destroys the comparison surface.",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "created",
+    "capability_diff_table.md": "pending — the primary deliverable"
+  },
+  "baseline": {
+    "measuredAt": "2026-07-29T11:02:27Z",
+    "original": {
+      "path": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Collectors/YamlCollector/Cymulate.Integration.Yaml.Engine",
+      "csFiles": 65,
+      "lines": 11364,
+      "layout": { "Models": 13, "Auth": 11, "Pagination": 10, "Mapping": 8, "Workflow": 5, "Validation": 4, "Retry": 4, "Templating": 2, "Loader": 2, "rootFiles": 6 },
+      "equivalentGitRef": "5e5ca52",
+      "shaComparison": "64 of 65 byte-identical to 5e5ca52; the sole divergence is Auth/OAuth2ClientCredentialsAuthenticator.cs",
+      "buildable": "yes — 5e5ca52 carries its own .slnx, csproj, Directory.Build.props and Directory.Packages.props, so it can be built in a git worktree and executed side by side with HEAD"
+    },
+    "current": { "csFiles": 183, "tests": { "passed": 735, "failed": 0, "skipped": 0 } },
+    "corpus": { "path": "/Users/user/Dev/cymulate-magic-integration/integrations", "definitions": 279 }
+  },
+  "seedFinding": {
+    "id": "E1-candidate",
+    "summary": "Production is AHEAD of HEAD in OAuth2ClientCredentialsAuthenticator: (a) prefix TrimEnd() absent from ours, (b) ExtraFields static_value/credential_key resolution absent from ours though the contract model declares both fields and AwsSigV4Authenticator honours them.",
+    "liveness": "latent — grep -rl 'static_value|credential_key' over the 279 definitions returns zero files",
+    "mustDo": "confirm independently, then hunt for other instances of the same shape: a config key that parses, validates, and is silently dropped on some path"
+  },
+  "steps": [
+    { "id": "I0", "title": "Build 5e5ca52 in a worktree; establish the differential harness", "status": "pending" },
+    { "id": "I1", "title": "Config surface — every YAML key the original honoured, vs HEAD", "status": "pending" },
+    { "id": "I2", "title": "Guards and defensive checks", "status": "pending" },
+    { "id": "I3", "title": "Error paths and exact user-facing message text", "status": "pending" },
+    { "id": "I4", "title": "Failure behaviour: retry/defer/externalise, cursor recovery, checkpoint field names", "status": "pending" },
+    { "id": "I5", "title": "Performance characteristics (D18 is the precedent)", "status": "pending" },
+    { "id": "I6", "title": "Host contract — what the adapter actually reads", "status": "pending" },
+    { "id": "I7", "title": "Improvements ledger — explicitly requested, two-directional", "status": "pending" },
+    { "id": "I8", "title": "Synthesize capability_diff_table.md + the under-a-minute summary", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "not_started", "notes": [] },
+  "lastUpdated": "2026-07-29T11:02:27Z"
+}

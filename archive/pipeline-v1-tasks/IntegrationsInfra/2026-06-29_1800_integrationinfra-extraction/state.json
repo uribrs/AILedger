@@ -1,0 +1,60 @@
+{
+  "taskId": "TASK-20260629-1800",
+  "taskSlug": "integrationinfra-extraction",
+  "status": "plan_ready_for_signoff",
+  "complexityTier": "full",
+  "currentPhase": "plan_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "S1", "name": "Usage census (capability-shaped vs raw-internal)", "status": "pending" },
+    { "id": "S2", "name": "Complete-vs-hybrid assessment of 15 areas", "status": "pending" },
+    { "id": "S3", "name": "Decomposition map (disposition+effort+benefit)", "status": "pending" },
+    { "id": "S4", "name": "Naming proposal", "status": "pending" },
+    { "id": "S5", "name": "Sequencing + cost/benefit", "status": "pending" },
+    { "id": "S6", "name": "Litmus / definition-of-done", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_qualifications",
+    "notes": [
+      "Verifier reproduced census numbers independently (AdapterTopics 547 vs 546; Orchestration 48 files, 10 public interfaces, Session leak real) — census measured, not guessed.",
+      "Reframe ('single entry at the composition layer') judged HONEST, not evasive.",
+      "Two must-fixes applied (text only): (1) downgraded 'all absorbable' to conditional hypothesis + named CollectorExecutor migration as the A1 proof gate that can flip to NO-GO; (2) reconciled D3 graduated-power with the zero-mechanics litmus (bottom rung reached through the bank, not via mechanics imports)."
+    ]
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "W1", "scopeSummary": "Session + TransportErrorHandling", "status": "complete", "outputRef": "research/census.md" },
+      { "id": "W2", "scopeSummary": "DataPipeline (Egress/Ingress/Json) + Converters", "status": "complete", "outputRef": "research/census.md" },
+      { "id": "W3", "scopeSummary": "Resilience + Recovery", "status": "complete", "outputRef": "research/census.md" },
+      { "id": "W4", "scopeSummary": "Events/CollectorEnvelopes + Models + Exceptions", "status": "complete", "outputRef": "research/census.md" },
+      { "id": "W5", "scopeSummary": "Orchestration + DependencyInjection", "status": "complete", "outputRef": "research/census.md" },
+      { "id": "W6", "scopeSummary": "Glossary + Contracts + Helpers + Diagnostics + Time", "status": "complete", "outputRef": "research/census.md" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-29T18:00:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json", "execution_notes.md"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-29T18:30:00Z", "outputs": ["orchestration_plan.md", "research/census.md", "execution_notes.md", "review/verifier-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": false,
+    "codeReviewerRationale": "Planning-only run produced NO code/implementation artifacts (analysis + plan markdown only). Code-reviewer is N/A; will apply when Phase-1 (CollectorHost) produces code.",
+    "verifierRun_output": "review/verifier-1.md"
+  },
+  "lastUpdated": "2026-06-29T18:35:00Z"
+}

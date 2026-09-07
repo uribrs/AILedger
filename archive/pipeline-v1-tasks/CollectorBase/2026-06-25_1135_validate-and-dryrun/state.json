@@ -1,0 +1,115 @@
+{
+  "taskId": "TASK-20260625-1135",
+  "taskSlug": "validate-and-dryrun",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "VALIDATE-CAPTURE",
+      "desc": "SetConfiguration (adapter :95 + bus delegate :164) retains the supplied config (inline yaml + creds) instead of discarding it.",
+      "status": "complete"
+    },
+    {
+      "id": "VALIDATE-PROBE",
+      "desc": "ValidateConfigurationAsync (adapter :100 + bus delegate :165) reads yaml+creds, fails closed if no yaml, else builds the session (real auth) via the preparer/session-factory and issues ONE capped probe request (first stream's first request, page_size\u21921, no publish); returns a real Success/Failure with the classified error.",
+      "status": "complete"
+    },
+    {
+      "id": "DRYRUN-WIRE",
+      "desc": "Stop discarding the request arg in the bus CollectAssets/CollectFindings delegates (:172/173); read IsDryRun (confirm exact SDK type/property); thread a dryRun bool through RunAndCountAsync \u2192 RunAsync \u2192 step loop. Also honor the direct capability methods or document why bus-only.",
+      "status": "deferred",
+      "note": "dry-run dispatch is a Bus gap (PlatformEvent carries no dryRun; capability methods unused). Legacy semantics traced; deferred until the Bus can signal a dry-run."
+    },
+    {
+      "id": "DRYRUN-CAP",
+      "desc": "When dryRun: cap to a one-page smoke run \u2014 page_size\u21921 (small N), stop after the FIRST emitting page per stream / first emitting step in a multi-step flow; still auth\u2192request\u2192map\u2192publish (true end-to-end). Do not persist a checkpoint that could poison a real run.",
+      "status": "deferred",
+      "note": "dry-run dispatch is a Bus gap (PlatformEvent carries no dryRun; capability methods unused). Legacy semantics traced; deferred until the Bus can signal a dry-run."
+    },
+    {
+      "id": "TESTS",
+      "desc": "New harness tests: validate Failure on bad creds + Success on good; fail-closed on no yaml; dry-run capped (far fewer requests/records than full) + reports success; dry-run does not corrupt a subsequent real run. Build clean; full suite green.",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Build clean; 62/62 tests pass (58 prior + 4 new validate tests incl. malformed-url).",
+      "Verifier (review/verifier-1.md): ACCEPT \u2014 validate half PASS on all in-scope criteria; dry-run deferral sound and honestly recorded.",
+      "Code-reviewer (review/code-reviewer-1.md): 1 blocker (uncaught exception \u2192 throws instead of Failure) REPAIRED + locked; 1 major (export-job side effect) ACCEPTED with rationale (auth-only fix would reintroduce false-valid).",
+      "DRY-RUN DEFERRED: Bus cannot dispatch dryRun to a bus-entrypoint collector (PlatformEvent has no dryRun; capability methods unused). ProbeAsync primitive is in place for when the platform can signal it."
+    ]
+  },
+  "lastUpdated": "2026-06-25T12:20:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-25T11:37:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-25T11:38:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-25T12:05:00Z",
+        "outputs": [
+          "CollectorExecutor/CollectorExecutorAdapter.cs",
+          "CollectorExecutor/Execution/CollectorExecutorRunner.cs",
+          "Tests/CollectorExecutor.Test/CollectorExecutorTests.cs",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-25T12:12:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-25T12:14:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "taskId": "TASK-20260727-1749",
+  "taskSlug": "yaml-engine-extraction",
+  "status": "reviewed_pending_merge",
+  "complexityTier": "full",
+  "currentPhase": "awaiting_operator_decisions",
+  "repo": "/Users/user/Dev/yaml-adapter-engine",
+  "branch": "feat/engine-extraction",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete",
+    "progress_log.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S0",
+      "name": "Baseline",
+      "phase": 1,
+      "status": "complete",
+      "summary": "Record monorepo engine-test count and pass/fail from `dotnet test` on Cymulate.Integration.Yaml.Engine.Test. This number is the gate for every later step."
+    },
+    {
+      "id": "S1",
+      "name": "Move engine verbatim",
+      "phase": 1,
+      "status": "complete",
+      "summary": "Copy 65 engine files to src/Cymulate.Integration.Yaml.Engine/ with folder structure unchanged. Rewrite csproj for CPM (no Version attributes) and keep the EmbeddedResource LogicalName exactly."
+    },
+    {
+      "id": "S2",
+      "name": "Move test project verbatim",
+      "phase": 1,
+      "status": "complete",
+      "summary": "Copy 73 test files to tests/Cymulate.Integration.Yaml.Engine.Test/, repoint ProjectReference at the new engine path."
+    },
+    {
+      "id": "S3",
+      "name": "Wire slnx and prove parity",
+      "phase": 1,
+      "status": "complete",
+      "summary": "Add both projects to Cymulate.Integration.Yaml.Engine.slnx. `dotnet test` must report the S0 baseline count, all passing."
+    },
+    {
+      "id": "S4",
+      "name": "Commit phase 1",
+      "phase": 1,
+      "status": "complete",
+      "summary": "Single commit, content unchanged, so review sees an isolated move."
+    },
+    {
+      "id": "S5",
+      "name": "Create concept folders and split types",
+      "phase": 2,
+      "status": "complete",
+      "summary": "Build the nine Concept/Contracts/Logic trees from ARCHITECTURE.md. Split every multi-type file to one top-level type per file. Dissolve Models/."
+    },
+    {
+      "id": "S6",
+      "name": "Update namespaces",
+      "phase": 2,
+      "status": "complete",
+      "summary": "Namespace tracks the concept, not the folder. Update engine files, then test-project usings."
+    },
+    {
+      "id": "S7",
+      "name": "Rename test project to .Tests",
+      "phase": 2,
+      "status": "complete",
+      "summary": "Align with README.md and convention; mirror concept folders in the test tree without the Contracts/Logic split."
+    },
+    {
+      "id": "S8",
+      "name": "Prove zero behavioural diff",
+      "phase": 2,
+      "status": "complete",
+      "summary": "`dotnet test` reports the S0 baseline count, all passing. No method body changed anywhere in the diff."
+    },
+    {
+      "id": "S9",
+      "name": "Commit phase 2",
+      "phase": 2,
+      "status": "complete",
+      "summary": "Second commit on the same branch."
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_recorded_gaps",
+    "notes": [
+      "S0 baseline 699 passed / 0 failed / 0 skipped",
+      "Post-phase-1: 699 passed. Post-phase-2: 699 passed.",
+      "All 113 engine type bodies byte-identical to phase 1 - no method body changed",
+      "Nine namespaces, one per concept; no .Contracts/.Logic segments; Models/ removed",
+      "Schema LogicalName intact; zero Cymulate.* package references; monorepo untouched"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-27T17:49:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-27T17:52:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-27T18:31:00Z",
+        "outputs": [
+          "src/**",
+          "tests/**",
+          "Cymulate.Integration.Yaml.Engine.slnx",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-28T07:07:00Z",
+        "outputs": [
+          "review/verifier-1.md",
+          "review/verifier-2.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-28T07:20:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-28T07:40:00Z",
+  "commits": {
+    "phase1": "5e5ca52",
+    "phase2": "b0e0b87"
+  },
+  "openDecisions": [
+    "runtime defects 1-3 (spill cleanup, ConcurrentDictionary, Hmac naming+tests) - phase 3 or fix branch",
+    "Microsoft.Extensions.* floors 10.0.9 -> 8.0.x before publish",
+    "VersionPrefix 1.0.0 -> 0.x/preview until phase 3",
+    "LICENSE file + SourceLink GHE host",
+    "A4: port EngineIsolationTests (rule 0 guard)",
+    "InternalsVisibleTo policy for phase 3",
+    "GenerateDocumentationFile + 46 doc defects"
+  ]
+}

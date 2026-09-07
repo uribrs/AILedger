@@ -1,0 +1,15 @@
+- Keep implementation under `Orchestration/Query/Dataflow`.
+- Use SDK Query contracts directly; do not create local duplicate contracts.
+- Implement only `IDistributor` behavior in this slice.
+- Build distribution mappings from `ExecutionPlan.TimeWindowUnits`, `ExecutionPlan.NativeUnits`, and `ExecutionPlan.SectionMembership`.
+- Fan each `RawResponse` out to every represented query id for its unit.
+- Emit one SDK `DistributedResponse` per section/query/raw-response target.
+- Preserve the original `RawResponse` instance in each emitted `DistributedResponse`.
+- Fail clearly when a raw response references an unknown unit id.
+- Fail clearly when a represented query id has no owning section in `SectionMembership`.
+- Respect cancellation while consuming input responses and emitting fan-out items.
+- Do not implement matcher, section tracker, recovery planner, resume runner, or `IExecutionPlanStore`.
+- Do not add real Query clients or fake Query clients as product code.
+- Do not add RabbitMQ, Postgres, outbox, storage, session, HTTP retry, host, or transport infrastructure.
+- Keep code small, focused, and aligned with existing Shared Query style.
+

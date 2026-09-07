@@ -1,0 +1,79 @@
+{
+  "taskId": "TASK-20260802-1423",
+  "taskSlug": "wiz-parser-envelope-correlation",
+  "status": "ready_for_execution",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "repo": "cymulate-integration-parsers",
+  "branch": "feat/wiz-parser",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "filesInScope": [
+    "libs/packages/parsers/deprecated/wiz/wizAssetsAndFindings.py",
+    "tests/test_wiz_assets_findings_split.py",
+    "libs/packages/parsers/yaml_engine/specs/wiz-assets-findings.yaml"
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Envelope correlation rewrite",
+      "status": "pending",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Replace inverted findings->asset OR-join with correlate(embed_as='vulnerabilities') + _row_asset_id on the asset row + explode."
+    },
+    {
+      "id": "S2",
+      "title": "Timestamp cast on both frames",
+      "status": "pending",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Cast first_seen/last_seen to TimestampType in process() before BaseParser shaping lowercases the ISO string."
+    },
+    {
+      "id": "S3",
+      "title": "Map tags to array<string>",
+      "status": "pending",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Flatten Wiz array<struct<key,value>> tags into array<string> as 'key=value'."
+    },
+    {
+      "id": "S4",
+      "title": "Map projects[].name to group_names",
+      "status": "pending",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Declare group_names in asset_mandatory_fields, sourced from projects[].name."
+    },
+    {
+      "id": "S5",
+      "title": "Remove dead Region mapping",
+      "status": "pending",
+      "target": "wizAssetsAndFindings.py",
+      "summary": "Delete the asset_additional_fields 'Region' entry; no region field exists on the assets lane."
+    },
+    {
+      "id": "S6",
+      "title": "Extend split test",
+      "status": "pending",
+      "target": "tests/test_wiz_assets_findings_split.py",
+      "summary": "Cover envelope shape, zero-vuln survival, asset uniqueness, non-null timestamps, tags, group_names."
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": [
+      "Local Spark cannot start (no JVM): pyspark raises 'Java gateway process exited before sending its port number'. Test execution is expected to be unavailable; static verification against sibling parsers is the fallback."
+    ]
+  },
+  "lastUpdated": "2026-08-02T14:23:05Z"
+}

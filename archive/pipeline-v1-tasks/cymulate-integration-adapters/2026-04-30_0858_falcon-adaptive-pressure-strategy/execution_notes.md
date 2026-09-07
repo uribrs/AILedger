@@ -1,0 +1,31 @@
+# Execution Notes
+
+- Created task state and contract for adaptive Falcon pressure strategy.
+- Local Falcon PDFs:
+  - `src/Cymulate.Integration.Adapters/Collectors/FalconCollector/FalconDocs/discover.pdf`
+  - `src/Cymulate.Integration.Adapters/Collectors/FalconCollector/FalconDocs/spotlight.pdf`
+- Prior task state consulted:
+  - `ai/active/2026-04-30_1022_falcon-cursor-recovery-observability/`
+  - `ai/active/2026-04-28_1500_falcon-day-segment-collection/`
+- Worker analysis completed for current behavior, CrowdStrike PDF constraints, adaptive strategy, and test/checkpoint gaps.
+- `analysis.md` synthesized the phase-1 boundary:
+  - configured Spotlight scale-up to `5000`,
+  - pressure downshift,
+  - Discover AID pre-pass capped at `1000`,
+  - active `after` chains continue with checkpoint `ApiPageSize`,
+  - autonomous runtime scale-up and dynamic window splitting deferred.
+- Programmer implementation completed phase 1.
+- Verification run:
+  - `dotnet test src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.FalconCollector.Test/Cymulate.Integration.Adapters.Collectors.FalconCollector.Test.csproj --no-restore`
+  - Initial result: passed, 57/57.
+  - `git diff --check`
+  - Result: passed.
+- First verifier found cursor-expiry and repeated-cursor fallbacks did not downshift page size.
+- Repaired cursor-expiry and repeated-cursor fallback to downshift when possible before dropping `after` and resuming from watermark.
+- Added regression tests for cursor-expiry and repeated-cursor downshift paths.
+- Final verification run:
+  - `dotnet test src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.FalconCollector.Test/Cymulate.Integration.Adapters.Collectors.FalconCollector.Test.csproj --no-restore`
+  - Result: passed, 59/59.
+  - `git diff --check`
+  - Result: passed.
+- Final verifier reported behavioral verification passed. Residual note: `FalconFindingsPageSizeLimits.cs` is a new untracked source file until staged.

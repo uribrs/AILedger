@@ -1,0 +1,9 @@
+- VALIDATED: The planning directory exists and contains the PRD, SDK descriptor, backlog, conclusions, and task state files.
+- VALIDATED: The adapters Shared project exists at `src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared`.
+- VALIDATED: The SDK Query source exists at `/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query`.
+- VALIDATED: Query Integration may use infrastructure originally named for collectors, but shared components should be renamed/generalized when that is the right ownership.
+- VALIDATED: Section/job query messages should use existing publish surfaces from Dataflow outputs.
+- OPEN: `IExecutionPlanStore` ownership intent must be inferred from SDK docs/source and existing bus boundaries before adding adapters Shared implementation.
+- OPEN: `QueryV2.ExpressionDialect` remains undecided and should not be implemented in this slice.
+- OPEN: Cloud/SaaS `QueryTargeting` dimensions remain undecided and should not be implemented in this slice.
+- OPEN: Composite `QueryV2.ResultType` rejection remains undecided and should not be implemented in this slice.

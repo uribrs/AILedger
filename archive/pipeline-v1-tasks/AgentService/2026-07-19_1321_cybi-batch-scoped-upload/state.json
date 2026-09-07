@@ -1,0 +1,75 @@
+{
+  "taskId": "TASK-20260719-1321",
+  "taskSlug": "cybi-batch-scoped-upload",
+  "status": "complete_pending_operator_review",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "branch": "colelctors-patch_id-upload",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Port BuildBatchInstanceId (UUIDv5) into Infrastructure.Common", "status": "complete" },
+    { "id": "S2", "desc": "Batch-scoping state machine in CybiBatchUploader (counter, folder close semantics, disk subdir)", "status": "complete" },
+    { "id": "S3", "desc": "Extend batch_file POST body: metadata object + sequenceId + itemCount (enabled path only)", "status": "complete" },
+    { "id": "S4", "desc": "Executor-side enable hook (CybiActionManager reads opt-in from action payload, arms uploader)", "status": "complete" },
+    { "id": "S5", "desc": "Close-open-batch-at-completion path", "status": "complete" },
+    { "id": "S6", "desc": "Unit tests (UUID vectors, counter, dormant byte-identity, wire shape, disk subdir)", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: PASS WITH GAPS (2 findings repaired, 1 recorded as server-half note)",
+      "verifier-2: PASS (repairs verified, 207/207 tests)",
+      "code-reviewer-1: no blockers; I1+I2 repaired, S1-S3 dispositioned, N1 fixed"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-19T10:21:45Z",
+        "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": ["orchestration_plan.md"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-19T11:20:00Z",
+        "outputs": ["execution_notes.md", "5 source files, 3 test files (see execution_notes.md)"]
+      },
+      {
+        "skill": "verifier-subagent",
+        "completedAt": "2026-07-19T11:45:00Z",
+        "outputs": ["review/verifier-1.md", "review/verifier-2.md"]
+      },
+      {
+        "skill": "code-reviewer-subagent",
+        "completedAt": "2026-07-19T11:55:00Z",
+        "outputs": ["review/code-reviewer-1.md"]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-19T11:58:00Z"
+}

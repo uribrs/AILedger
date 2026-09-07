@@ -1,0 +1,15 @@
+{
+  "taskId": "TASK-20260618-1255", "taskSlug": "failure-policy-seam", "status": "complete",
+  "complexityTier": "light", "currentPhase": "done",
+  "steps": [
+    { "id": "S1", "name": "Failure-policy seam in CollectorExecutor/Resilience (expression layer over Shared infra)", "status": "complete" },
+    { "id": "S2", "name": "Default + reactive cursor_expiry strategies in Strategies/Resilience; registered + profile-selected", "status": "complete" },
+    { "id": "S3", "name": "Runner routes caught vendor errors through the policy → decision vocabulary (reactive reset/defer/fail)", "status": "complete" },
+    { "id": "S4", "name": "Reactive-expiry test + behavior-preserving (6/6 green)", "status": "complete" }
+  ],
+  "blockers": [
+    { "id": "B1", "name": "Strategies classify directly; do not yet DELEGATE to Shared AdapterResilienceStrategy chain + RecoveryBudget. Next segment.", "status": "known-deferred" }
+  ],
+  "verification": { "status": "passed", "notes": ["dotnet build green", "tests 6/6 (5 prior preserved + reactive cursor_expiry)"] },
+  "lastUpdated": "2026-06-18T10:05:00Z"
+}

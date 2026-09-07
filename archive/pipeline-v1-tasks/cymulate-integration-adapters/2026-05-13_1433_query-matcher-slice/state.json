@@ -1,0 +1,86 @@
+{
+  "taskId": "TASK-20260513-1433",
+  "taskSlug": "query-matcher-slice",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created",
+    "phase_documentation.md": "created",
+    "next_agent_handoff.md": "created"
+  },
+  "sourceDocuments": {
+    "aggregateQueryState": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1238_query-domain-creation/state.json",
+    "distributorHandoff": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1413_query-distributor-slice/next_agent_handoff.md",
+    "queryReadme": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/README.md",
+    "dataflowReadme": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow/README.md",
+    "sdkMatcher": "/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Pipeline/IMatcher.cs",
+    "sdkDistributor": "/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Pipeline/IDistributor.cs",
+    "sdkAdapterSideMatching": "/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Contracts/IAdapterSideMatchingCapability.cs",
+    "sdkFinding": "/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Models/Runtime/Finding.cs",
+    "sdkRawResponse": "/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Models/Runtime/RawResponse.cs",
+    "sdkQueryV2": "/Users/user/Dev/IntegrationServiceBus/src/Cymulate.IntegrationServiceBus/Sdk/Cymulate.Integration.Sdk/Query/Models/Wire/QueryV2.cs"
+  },
+  "implementationTarget": "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow",
+  "testTarget": "src/Cymulate.Integration.Adapters/UnitTests/Query/Cymulate.Integration.Adapters.QueryIntegration.Shared.Test",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Validate aggregate state, distributor handoff, SDK matcher contract, and existing Query topology",
+      "status": "completed"
+    },
+    {
+      "id": "step-2",
+      "description": "Create execution contract for the Query matcher slice",
+      "status": "completed"
+    },
+    {
+      "id": "step-3",
+      "description": "Implement concrete SDK IMatcher in Shared Query Dataflow as admission-only stage",
+      "status": "completed"
+    },
+    {
+      "id": "step-4",
+      "description": "Add focused matcher tests for admission, ResultType propagation, JobId/SectionId/QueryId propagation, Payload pass-through, defensive QueryId mismatch, and cancellation",
+      "status": "completed"
+    },
+    {
+      "id": "step-5",
+      "description": "Run targeted Shared build and Query shared tests",
+      "status": "completed"
+    },
+    {
+      "id": "step-6",
+      "description": "Run task-orchestrator verifier and code-reviewer passes",
+      "status": "completed"
+    },
+    {
+      "id": "step-7",
+      "description": "Finalize task notes, aggregate state, and global archive",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Shared project build passed with 0 warnings and 0 errors.",
+      "Query shared test project passed 93 tests (86 prior plus 7 new matcher tests).",
+      "Test command emitted NU1900 vulnerability-source warnings because external NuGet/CodeArtifact vulnerability indexes were unavailable.",
+      "Verifier confirmed all success criteria satisfied, constraints respected, full test coverage, no drift, accurate README update.",
+      "Code-reviewer reported no blockers or majors. One minor accepted (test renamed PreservesRawResponsePayloadContent); one minor declined (distributed.Response null guard consistent with repo-wide convention and SDK boundary trust).",
+      "Hygiene precondition: QueryDistributorTests.cs was missing using directives at HEAD and would not compile; restored as part of this slice with no behavior change."
+    ]
+  },
+  "lastUpdated": "2026-05-13T14:42:00+03:00"
+}

@@ -1,0 +1,82 @@
+{
+  "taskId": "TASK-20260512-1726",
+  "taskSlug": "query-dataflow-topology-skeleton",
+  "status": "superseded_before_execution",
+  "complexityTier": "full",
+  "currentPhase": "superseded",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created",
+    "current_status_after_plan_builder.md": "created"
+  },
+  "sourceDocuments": {
+    "previousTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow",
+    "planningDirectory": "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation",
+    "primaryPrd": "QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md",
+    "sdkDescriptor": "QUERY_INTEGRATION_SDK_CONTRACT_DESCRIPTOR.md"
+  },
+  "implementationTarget": "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Validate previous handoff, planning docs, SDK contracts, and current Shared conventions",
+      "status": "completed"
+    },
+    {
+      "id": "step-2",
+      "description": "Create repo-local and global execution contract for the next slice",
+      "status": "completed"
+    },
+    {
+      "id": "step-3",
+      "description": "Implement bounded Query Dataflow topology skeleton using SDK stage contracts and existing publishing surface",
+      "status": "superseded"
+    },
+    {
+      "id": "step-4",
+      "description": "Add focused tests for topology option validation, completion propagation, cancellation, and publication flow",
+      "status": "superseded"
+    },
+    {
+      "id": "step-5",
+      "description": "Build or run targeted tests for touched projects",
+      "status": "superseded"
+    },
+    {
+      "id": "step-6",
+      "description": "Run orchestration verifier and code-reviewer passes",
+      "status": "superseded"
+    },
+    {
+      "id": "step-7",
+      "description": "Update task state, notes, and global archive",
+      "status": "completed"
+    },
+    {
+      "id": "step-8",
+      "description": "Update superseded topology documentation after completed plan-builder phase",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_applicable_superseded",
+    "notes": [
+      "No topology product code was executed from this task.",
+      "Documentation was updated after the completed plan-builder phase.",
+      "Future topology work should use a fresh contract based on the completed plan-builder task."
+    ]
+  },
+  "supersededBy": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice",
+  "supersededReason": "Read-only SDK exploration found the PRD implementation order points to plan building before Dataflow topology code.",
+  "lastUpdated": "2026-05-13T11:06:21+03:00"
+}

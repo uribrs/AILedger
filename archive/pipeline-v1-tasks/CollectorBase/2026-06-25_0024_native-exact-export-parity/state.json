@@ -1,0 +1,128 @@
+{
+  "taskId": "TASK-20260625-0024",
+  "taskSlug": "native-exact-export-parity",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "ENGINE-PASSTHROUGH",
+      "desc": "Add a verbatim full-record passthrough emit mode to the mapper/runner (emit the whole record element, not a fields subset). Default mapped-subset mode unchanged.",
+      "status": "complete"
+    },
+    {
+      "id": "ENGINE-ENVELOPE",
+      "desc": "Per-emitting-step envelope selector: verbatim (inject nothing) | typed_wrapper ({type,data}) | source_type_prefix ({sourceType, ...record}), + optional templated extra metadata fields (e.g. recommendation_reference: {{rec_id}}). Profile model + validation.",
+      "status": "complete"
+    },
+    {
+      "id": "TENABLE-PROFILE",
+      "desc": "tenable-io.yaml emits verbatim full records (no wrapper/sourceType/correlation injection) matching TenableIo{Assets,Findings}ChunkProcessor.",
+      "status": "complete"
+    },
+    {
+      "id": "DEFENDER-PARITY",
+      "desc": "defender-vm.yaml: machines/software \u2192 typed_wrapper; vulns/changes/recommendations/recVulns \u2192 source_type_prefix with native sourceType values; recVulns adds recommendationReference={{rec_id}}.",
+      "status": "complete"
+    },
+    {
+      "id": "DEFENDER-SCOPE",
+      "desc": "Complete defender-vm.yaml to native collection scope: $filter=lastSeen ge <base_date> + base-date logic, vuln-changes stage (SoftwareVulnerabilityChangesByMachine, 14d lookback), correct native endpoints/stages per DefenderVmUrlBuilder. Keep next_url (no new strategy).",
+      "status": "complete"
+    },
+    {
+      "id": "TESTS",
+      "desc": "New in-process tests: verbatim passthrough emits FULL record; typed_wrapper shape; source_type_prefix shape incl. templated recommendation_reference; mapped-subset mode unchanged. Build clean; full suite green (52 prior + new).",
+      "status": "complete"
+    },
+    {
+      "id": "PARITY-NOTE",
+      "desc": "Parity note mapping each native formatter shape \u2192 the YAML reproducing it (file:line citations); explicitly list the 3 deferred vendors (cortex-xdr, crowdstrike-falcon, qualys) as not-yet-native-exact.",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Build clean; 58/58 tests pass (52 prior + 6 new: 4 emit-shape, 1 collision, 1 negative-validation).",
+      "Verifier (review/verifier-1.md): PASS on all 5 criteria, no must-fix.",
+      "Code-reviewer (review/code-reviewer-1.md): no blockers; 2 major (M1 silently-ignored knobs, M2 sugar-path unvalidated) repaired via shared ValidateMapping + negative checks, locked with tests.",
+      "Live Defender run not executed (no creds); parity proven structurally via tests + native source citations (parity-note.md). 3 vendors (cortex-xdr, crowdstrike-falcon, qualys) deferred on mapped-subset mode."
+    ]
+  },
+  "lastUpdated": "2026-06-25T01:20:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-25T00:26:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-25T00:28:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-25T01:05:00Z",
+        "outputs": [
+          "CollectorExecutor/Profile/Profile.cs",
+          "CollectorExecutor/Interpreter/Interpreter.cs",
+          "CollectorExecutor/Execution/CollectorExecutorRunner.cs",
+          "Strategies/Pagination/NextUrlPaginationStrategy.cs",
+          "integrations/tenable-io.yaml",
+          "integrations/defender-vm.yaml",
+          "Tests/CollectorExecutor.Test/CollectorExecutorTests.cs",
+          "parity-note.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-25T01:12:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-25T01:14:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "taskId": "TASK-20260721-1426",
+  "taskSlug": "yaml-engine-falcon-correlation-gaps",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Prompt contract",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Orchestration plan",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Item 1 \u2014 cursor_recovery floor bug fix (CursorPaginator + paginator audit)",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Item 2 \u2014 merge_into group:true N:1 fan-in (opt-in)",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Item 3 \u2014 mapping first_of + regex_extract transform",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "Item 4 \u2014 opt-in one-page prefetch for paginated ops",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "Item 5 \u2014 opt-in scroll-completeness assertion",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "name": "crowdstrike-falcon.yaml consumes new capabilities + schema re-sync both repos",
+      "status": "complete"
+    },
+    {
+      "id": "S9",
+      "name": "Test gates: adapters dotnet test + magic-integration schema/catalog tests",
+      "status": "complete"
+    },
+    {
+      "id": "S10",
+      "name": "Live parity rerun (base date 2026-07-15) + comparison vs native baseline",
+      "status": "complete"
+    },
+    {
+      "id": "S11",
+      "name": "Verifier pass",
+      "status": "complete"
+    },
+    {
+      "id": "S12",
+      "name": "Code-reviewer pass",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "Item 1 \u2014 paginator recovery-state carry bug fix + audit + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Item 2 \u2014 merge_into group:true N:1 fan-in + loader + schema + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Item 3 \u2014 mapping first_of + regex_extract transform + schema + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "Items 4+5 \u2014 opt-in prefetch + scroll-completeness assertion + schema + tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w4"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-21T11:26:55Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-21T12:24:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-22T00:00:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-22T00:00:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "F1/F2/F5a repairs"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass",
+    "notes": [
+      "verifier-1: PASS-WITH-GAPS, numbers reproduced",
+      "code-reviewer-1: 1H/2M/4L; F1+F2+F5a fixed, F3/F5b/F6/F7 booked",
+      "all gates green post-repair",
+      "OPEN user decision: null-aid phantom asset (1 record) \u2014 book vs 6th capability"
+    ]
+  },
+  "lastUpdated": "2026-07-22T00:00:00Z"
+}

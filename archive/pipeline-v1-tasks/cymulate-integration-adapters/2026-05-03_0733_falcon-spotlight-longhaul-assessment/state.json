@@ -1,0 +1,52 @@
+{
+  "taskId": "TASK-20260503-0733",
+  "taskSlug": "falcon-spotlight-longhaul-assessment",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete",
+    "next_steps.md": "complete"
+  },
+  "steps": [
+    { "name": "create_task_state", "status": "completed" },
+    { "name": "validate_contract", "status": "completed" },
+    { "name": "inspect_falcon_code", "status": "completed" },
+    { "name": "research_crowdstrike_docs", "status": "completed" },
+    { "name": "synthesize_assessment", "status": "completed" },
+    { "name": "update_execution_state", "status": "completed" },
+    { "name": "add_next_steps_documentation", "status": "completed" },
+    { "name": "external_occurrence_reference_research", "status": "completed" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "completed",
+    "notes": [
+      "Assessment completed from repository code and accessible CrowdStrike/FalconPy/GoFalcon/CrowdStrike Tech Hub sources.",
+      "Follow-up extracted and reviewed local FalconDocs/spotlight.pdf with bundled pypdf.",
+      "Updated conclusions for documented 120-second after-token expiry and embedded 404-in-200 behavior.",
+      "Incorporated supplied production 401 log from 2026-05-01 Page=7817 and updated the confidence profile toward gateway-level authorization/context rejection while preserving token-refresh uncertainty.",
+      "Incorporated supplied adjacent refresh screenshot showing successful OAuth token refresh and replay before the final 401; classified the incident as Persistent401AfterRefresh.",
+      "Updated task documentation and added next_steps.md for the minimal implementation path.",
+      "Incorporated falcon401s.txt traffic evidence: 401 headers show rate limit remaining 5998/6000, no visible Retry-After or WWW-Authenticate, and CrowdStrike support is unavailable.",
+      "Inspected Cymulate.Http.Package Authentication and Session transport; refined next steps to put reauthorization outcome metadata in the shared transport before Falcon-specific recovery.",
+      "Added shared server rate-limit header awareness as an explicit next step: CrowdStrike X-Ratelimit-* headers are distinct from Retry-After and should feed conservative pacing/telemetry.",
+      "No product code modified.",
+      "No tests run because this was an assessment-only task.",
+      "Follow-up external reference research started for official/community evidence of long-running Spotlight pagination and persistent 401-after-refresh behavior.",
+      "No exact public report was found for a multi-day Spotlight combined vulnerabilities cursor chain ending in persistent 401 after successful OAuth refresh.",
+      "Found adjacent official/community evidence for scale-sensitive pagination, short Spotlight after-token expiry, 401/403 authorization semantics, page-size/record-count pressure, and rate-limit telemetry."
+    ]
+  },
+  "lastUpdated": "2026-05-03T17:49:40Z"
+}

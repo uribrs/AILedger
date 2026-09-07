@@ -1,0 +1,72 @@
+{
+  "taskId": "TASK-20260429-0012",
+  "taskSlug": "ca-71900-query-refactor",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "read-jira-ca-71900",
+      "description": "Read CA-71900 and extract exact requested integration scope.",
+      "status": "completed"
+    },
+    {
+      "id": "familiarize-integrations",
+      "description": "Inspect ElasticSiem, InsightIDR, and NetWitness query integration code and tests.",
+      "status": "completed"
+    },
+    {
+      "id": "finalize-execution-plan",
+      "description": "Finalize implementation plan from Jira requirements and local code findings.",
+      "status": "completed"
+    },
+    {
+      "id": "execute-refactor",
+      "description": "Refactor selected integrations from IOC querying to time-range querying.",
+      "status": "completed"
+    },
+    {
+      "id": "verify",
+      "description": "Run targeted tests and independent verification.",
+      "status": "completed"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "jira-unavailable",
+      "description": "Atlassian Rovo/Jira access is not exposed in this session and the private Jira URL cannot be read through generic web access.",
+      "status": "resolved_by_user_screenshot"
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "completed_with_known_gaps",
+    "notes": [
+      "Independent verifier found no blocking issues in contract/state preparation.",
+      "Local code familiarization completed.",
+      "User supplied screenshot showing parent header and child items CA-71934 ElasticSiem, CA-71936 InsightIDR, CA-71938 NetWitness.",
+      "InsightIDR targeted tests passed for EventsOnly, AlertsOnly, IncidentOnly, Complex AND, Complex OR, and EventsOnly_WithLinks.",
+      "NetWitnessApiTests passed with 2 active tests and 8 existing skipped tests.",
+      "ElasticSiem Executor test project is blocked before test execution by unrelated FastExcel/System and missing Dapper/configuration dependency errors.",
+      "Source check found no IOC callback symbols left in the three edited clients.",
+      "git diff --check passed.",
+      "Independent verifier found no blocking issues.",
+      "InsightIDR standard time-range search now omits the query parameter instead of sending an empty query value.",
+      "InsightIDR EventsOnly, AlertsOnly, IncidentOnly, Complex AND, and Complex OR passed after the URL cleanup.",
+      "Final independent verifier recheck found no findings."
+    ]
+  },
+  "lastUpdated": "2026-04-28T21:58:19Z"
+}

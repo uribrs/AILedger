@@ -1,0 +1,137 @@
+{
+  "taskId": "TASK-20260527-1435",
+  "taskSlug": "adapters-server-delay-resilience-rollout",
+  "previousSlug": "falcon-resilience-partialresult-migration",
+  "status": "ready",
+  "complexityTier": "full",
+  "currentPhase": "orchestration_pending",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "optional"
+  },
+  "steps": [
+    {
+      "id": "P1",
+      "label": "Phase 1 — Shared infra: ServerSuggestedRetryDelayPolicy + CreateDefault ordering + DummyCollector tests",
+      "status": "complete",
+      "parallelism": "single-worker",
+      "commitSha": "e11ade6"
+    },
+    {
+      "id": "P2",
+      "label": "Phase 2 — Executor migration: AdapterDeferredRecoveryRequest -> AdapterResult.PartialResult",
+      "status": "complete",
+      "parallelism": "single-worker",
+      "commitSha": "a23baf0"
+    },
+    {
+      "id": "P3",
+      "label": "Phase 3 — Bring 15 non-Falcon collectors onto the strategy (PARALLEL workers, one per collector)",
+      "status": "complete",
+      "parallelism": "parallel-workers",
+      "workerCount": 15,
+      "commitSha": "da2543e"
+    },
+    {
+      "id": "P4",
+      "label": "Phase 4 — Globally enable externalization in SessionRetryDefaults + propagate through Qualys/TenableIo custom factories",
+      "status": "complete",
+      "parallelism": "single-worker",
+      "commitSha": "492cf97"
+    },
+    {
+      "id": "PA",
+      "label": "Phase A — Foundation fixes: B1 (RecoveryHandler Continue), M1 (executor end-to-end test), M2 (MaxRetries=3)",
+      "status": "complete",
+      "parallelism": "single-worker",
+      "commitSha": "448fa11",
+      "fileScope": [
+        "Shared/.../Resilience/Policies/ServerSuggestedRetryDelayPolicy.cs (MaxRetries=3)",
+        "15 × Collectors/<X>Collector/<X>Collector.cs (RecoveryHandler swap to Continue)",
+        "UnitTests/.../DummyCollector.Test/AdapterFailureDecisionExecutorTests.cs (new executor end-to-end test)",
+        "UnitTests/.../DummyCollector.Test/AdapterResilienceStrategyTests.cs (assertions for MaxRetries=3)",
+        "UnitTests/.../{CloudGuard,Taegis,TenableSc}Collector.Test/<X>ServerSuggestedDelayTests.cs (assertions for MaxRetries=3 — out-of-original-scope but mechanically required for gate 3)"
+      ],
+      "dropped": "defaultTransportBackoff parameter on CreateDefault and MappedFailurePolicy changes — no consumer without per-vendor classifiers."
+    },
+    {
+      "id": "PB",
+      "label": "Phase B — Cleanup + docs: README rewrite for hybrid retry boundary, docstring tidy",
+      "status": "complete",
+      "parallelism": "single-worker",
+      "commitSha": "625b03a",
+      "fileScope": [
+        "Shared/Cymulate.Integration.Adapters.Shared/Resilience/README.md (rewrite for hybrid Polly+ISB boundary)",
+        "Shared/Cymulate.Integration.Adapters.Shared/Resilience/Policies/ServerSuggestedRetryDelayPolicy.cs (docstring only)",
+        "Shared/Cymulate.Integration.Adapters.Shared/Resilience/Logic/AdapterFailureDecisionExecutor.cs (docstring only)"
+      ],
+      "renamedFrom": "PC"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": [
+      "ISB host fix is treated as available: commits 3cf3381 + 5d7aaa2 on ISB fix-partial-await-gap, SDK 3.1.1 / ISB 1.0.87.",
+      "Test cadence: phase boundaries only. Build may run mid-phase; dotnet test runs at the end of each phase.",
+      "Prior round (P1-P4) is closed: verifier-1.md (pass with accepted risks) + code-reviewer-1.md (2 blockers, 3 major). This round (PA/PB/PC) closes the blockers and completes vendor classification."
+    ]
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "preflightResolved": {
+      "A10_TenableScExists": true,
+      "collectorInventoryTotal": 15,
+      "collectorInventoryNote": "InsightVmCollector (no 'Cloud' suffix) exists alongside InsightVmCloudCollector. 15 collectors total in scope for Phase B."
+    },
+    "workers": [
+      { "id": "W-P1", "scopeSummary": "Phase 1: shared ServerSuggestedRetryDelayPolicy + CreateDefault ordering + 2 tests", "status": "complete", "commitSha": "e11ade6" },
+      { "id": "W-P2", "scopeSummary": "Phase 2: executor migration to AdapterResult.PartialResult, delete dead types, update 7 test files, rewrite README", "status": "complete", "commitSha": "a23baf0" },
+      { "id": "W-P3-CloudGuard", "scopeSummary": "Phase 3: wire CloudGuardCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-CortexXdr", "scopeSummary": "Phase 3: wire CortexXdrCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-DefenderForCloud", "scopeSummary": "Phase 3: wire DefenderForCloudCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-DefenderVm", "scopeSummary": "Phase 3: wire DefenderVmCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-Guardicore", "scopeSummary": "Phase 3: wire GuardicoreCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-InsightVm", "scopeSummary": "Phase 3: wire InsightVmCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-InsightVmCloud", "scopeSummary": "Phase 3: wire InsightVmCloudCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-IsbLoadTest", "scopeSummary": "Phase 3: wire IsbLoadTestCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-MicrosoftEntraId", "scopeSummary": "Phase 3: wire MicrosoftEntraIdCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-Qualys", "scopeSummary": "Phase 3: wire QualysCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-SentinelOne", "scopeSummary": "Phase 3: wire SentinelOneCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-ServiceNowCmdb", "scopeSummary": "Phase 3: wire ServiceNowCmdbCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-Taegis", "scopeSummary": "Phase 3: wire TaegisCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-TenableIo", "scopeSummary": "Phase 3: wire TenableIoCollector onto strategy", "status": "complete" },
+      { "id": "W-P3-TenableSc", "scopeSummary": "Phase 3: wire TenableScCollector onto strategy", "status": "complete" },
+      { "id": "W-P4", "scopeSummary": "Phase 4: enable externalization in SessionRetryDefaults + Qualys/TenableIo custom factories", "status": "complete", "commitSha": "492cf97" },
+      { "id": "W-PA", "scopeSummary": "Phase A: B1 fix (RecoveryHandler=Continue across 15 collectors) + M1 (executor end-to-end test) + M2 (MaxRetries=3). Dropped from prior draft: defaultTransportBackoff plumbing (no consumer without per-vendor classifiers).", "status": "complete", "commitSha": "448fa11" },
+      { "id": "W-PB", "scopeSummary": "Phase B (renamed from PC): README rewrite for hybrid retry boundary + docstring updates on ServerSuggestedRetryDelayPolicy + AdapterFailureDecisionExecutor. No code-behavior changes.", "status": "complete", "commitSha": "625b03a" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-01T12:06:50Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"], "notes": "Initial 4-phase contract." },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-01T13:00:00Z", "outputs": ["orchestration_plan.md"], "notes": "Decomposed P1-P4; 4 commits landed." },
+      { "skill": "verifier", "completedAt": "2026-06-01T13:20:00Z", "outputs": ["review/verifier-1.md"], "verdict": "pass-with-accepted-risks", "notes": "All formal success criteria green. Accepted risks: 8 of 15 Phase 3 workers replaced pre-existing entrypoint FlowExceptionClassifier with the new trivial Resilience classifier, dropping vendor mappings (Qualys 409->QUALYS_INSTANCE_BUSY, DefenderVm rate-limit retryable, InsightVmCloud INVALID_FILTER, plus assorted NotSupported/Argument mappings). Contract-sanctioned per decisions.md but operationally meaningful." },
+      { "skill": "code-reviewer", "completedAt": "2026-06-01T13:40:00Z", "outputs": ["review/code-reviewer-1.md"], "verdict": "blockers-found", "notes": "B1: non-Falcon collectors' Decline RecoveryHandler makes executor fall through to PublishFailure instead of producing PartialResult. B2: same root cause regresses pre-existing 429 retry for 15 collectors. M1: smoke tests miss B1 because they verify policy decision, not executor output. M2: MaxRetries=1 too restrictive. Plan PA/PB/PC closes these." },
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-01T13:54:13Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"], "notes": "Extended contract for PA/PB/PC follow-on phases. Reset verifierRun/codeReviewerRun for new round." },
+      { "skill": "orchestrator-scope-revision", "completedAt": "2026-06-01T14:24:58Z", "outputs": ["state.json"], "notes": "Operator-driven scope simplification: dropped Phase B (per-vendor classifier rollout) and defaultTransportBackoff plumbing. Renamed Phase C → Phase B (cleanup + docs). Final scope: 2 sequential workers, ~21 file edits total. Rationale: any vendor without Falcon-style cursor mechanics stays on generic wait+reschedule via ISB; no per-vendor classifier additions needed." },
+      { "skill": "contract-driven-execution", "workerId": "W-PA", "completedAt": "2026-06-01T15:30:00Z", "commitSha": "448fa11", "outputs": ["ServerSuggestedRetryDelayPolicy.cs", "15 × <X>Collector.cs", "AdapterFailureDecisionExecutorTests.cs (new end-to-end test)", "AdapterResilienceStrategyTests.cs (MaxRetries assertion bump)", "3 × <X>ServerSuggestedDelayTests.cs (MaxRetries assertion bump — out-of-original-scope but mechanically required to keep gate 3 green)"], "notes": "Phase A complete. All four gates green: DummyCollector filter 17/17, solution-wide ServerSuggested 15 collector projects + DummyCollector all pass, Falcon full suite 69/69. One scope deviation: 3 collector smoke test files (CloudGuard, Taegis, TenableSc) pin MaxRetries=1 — bumped to 3 to keep gate 3 green; mechanical one-line edits, intent-aligned with M2." },
+      { "skill": "contract-driven-execution", "workerId": "W-PB", "completedAt": "2026-06-01T16:10:00Z", "commitSha": "625b03a", "outputs": ["Shared/Resilience/README.md (Overview, Hybrid Retry Boundary, expanded policy chain, Per-Vendor Classifiers, RecoverAndRetry/RequestDeferredRecovery contract sections)", "Shared/Resilience/Policies/ServerSuggestedRetryDelayPolicy.cs (class-level XML doc)", "Shared/Resilience/Logic/AdapterFailureDecisionExecutor.cs (CompleteRecoveryAttemptAsync XML doc)"], "notes": "Phase B complete. Docs-only — zero behavior changes. Build clean (0 warn / 0 err). DummyCollector 51/51, Falcon 69/69 — identical to W-PA. No out-of-partition edits." },
+      { "skill": "verifier", "run": 2, "completedAt": "2026-06-01T17:55:00Z", "outputs": ["review/verifier-2.md"], "verdict": "pass", "notes": "Run-2 verification of W-PA (448fa11) + W-PB (625b03a). B1/B2/M1/M2 all closed: 15 collectors swapped to Continue+no-op recovery hook, MaxRetries=3 in ServerSuggestedRetryDelayPolicy with matching assertion bumps in 4 test files, new AdapterFailureDecisionExecutorTests end-to-end test proves PartialWaitRequired actually fires. Docs in W-PB describe the actual pipeline (no stale AdapterDeferredRecoveryRequest/MaxRetries=1/defaultTransportBackoff refs) and the two .cs files in PB diff are docstring-only. Re-run gates green: build 0/0, DummyCollector 51/51, Falcon 69/69, solution-wide ServerSuggested filter 18 passing across 16 test projects. Operator-scope discipline held — no Falcon edits, no MappedFailurePolicy/AdapterResilienceStrategy edits, no per-vendor classifier edits, no validation classifier deletions, no ISB/Indicators touches. A13/A14 still marked OPEN in assumptions.md but effectively REJECTED (scope-dropped); docs-only follow-up recommended to reconcile the ledger." },
+      { "skill": "code-reviewer", "run": 2, "completedAt": "2026-06-01T14:50:00Z", "outputs": ["review/code-reviewer-2.md"], "verdict": "pass-with-major", "notes": "1 Major (M1: ServerSuggestedRetryDelayPolicy doesn't guard against Delay <= 0; SDK AdapterResult.PartialResult throws on non-positive resumeAfter; reachable via observed Qualys X-RateLimit-ToWait-Sec: 0 header — before 448fa11 the Decline hook short-circuited and this path was unreachable; recommend 5-line guard returning null or clamp + a test case). 4 Minor: m1 worst-case 72h wait from MaxRetries=3 × MaxServerSuggestedDelay=24h, m2 15× verbatim duplication of the Continue no-op handler, m3 README claim 'per-vendor classifiers stay trivial except Falcon' is inaccurate (several non-Falcon collectors wire validation-namespace classifiers at entrypoint), m4 README references unstable commit SHA e11ade6. 4 Observations: test coverage gaps, AdapterRecoveryContinuation Func unused on Continue path (carry-over), AdvancePage(0,0) page-counter inflation (carry-over), closure analysis OK. M1 is the only recommended pre-merge repair." }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-06-01T14:55:00Z"
+}

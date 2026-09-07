@@ -1,0 +1,6 @@
+- Implement matcher in Dataflow as the concrete stage consumed by `QueryAdapterPipeline`.
+- Admission-only behavior: emit one `Finding` per `DistributedResponse`; no filtering in this slice.
+- Take `Finding.ResultType` from `QueryV2.ResultType` directly because `RawResponse` carries no payload-side result-type.
+- Reuse the inner `RawResponse.Payload` `JsonElement` instance in `Finding.Payload` to avoid copying JSON.
+- Guard `distributed.QueryId == query.QueryId` defensively to catch upstream wiring bugs early.
+- Leave adapter-side matching short-circuit, expression/IP/type filtering, section accumulation, publication, and recovery persistence to later stages or future slices.

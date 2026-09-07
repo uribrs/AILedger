@@ -1,0 +1,36 @@
+{
+  "taskId": "TASK-20260531-1451",
+  "taskSlug": "crowdstrike-split-assets-findings-correlation",
+  "status": "ready",
+  "complexityTier": "full",
+  "currentPhase": "orchestration",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Confirm crowdstrike path/strategy plumbing (assets vs findings) and how input_mode is resolved", "status": "pending" },
+    { "id": "S2", "desc": "Replace asset field mappings with crowdstrikeAssets.py-equivalent (reuse, no host_info.*)", "status": "pending" },
+    { "id": "S3", "desc": "Build asset spine from full assets feed; per-row _row_asset_id UUID; type Host", "status": "pending" },
+    { "id": "S4", "desc": "Read findings with explicit projected schema omitting host_info/apps/suppression_info; keep cve whole", "status": "pending" },
+    { "id": "S5", "desc": "Correlate findings to assets via correlate(LEFT, embed_as=vulnerabilities) on aid; explode; asset_id=_row_asset_id", "status": "pending" },
+    { "id": "S6", "desc": "Remove hydrated path; keep finding mandatory transforms and empty finding_ids", "status": "pending" },
+    { "id": "S7", "desc": "Add/adjust tests (split correlation, all-assets-emit, projected-read-schema) following cortex/defender test conventions", "status": "pending" },
+    { "id": "S8", "desc": "Verify against lab data: 302 assets, 37034 findings correlated, no orphans, schema excludes heavy blocks", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-05-31T14:51:00Z"
+}

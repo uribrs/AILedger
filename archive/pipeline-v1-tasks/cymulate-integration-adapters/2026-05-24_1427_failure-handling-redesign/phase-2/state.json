@@ -1,0 +1,63 @@
+{
+  "taskId": "TASK-20260524-1427-P2",
+  "taskSlug": "failure-handling-phase-2-programmer-bug-and-jitter",
+  "parentTask": "ai/active/2026-05-24_1427_failure-handling-redesign",
+  "source": "../plan.md (rev 4) §6 Phase 2",
+  "phase": "P2",
+  "status": "executed_with_accepted_risks",
+  "complexityTier": "full",
+  "currentPhase": "complete",
+  "baselineCommit": "f51ed3d",
+  "predecessorPhase": "phase-1 (signed off; 6 new prod files + 4 new test files + AdapterFlowRunner edits in working tree)",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "orchestration_plan.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS-WITH-REPAIRS-NEEDED (3 LOW); state.json housekeeping repaired in-place.",
+    "codeReviewerVerdict": "REQUEST-CHANGES (4 Major, 8 Minor, 5 Nit, 3 Observations). Major #1 (programmer-bug branch unreachable via runner gating for canonical NRE/ArgEx — dormant in P2) and Major #2 (fresh-run AttemptNumber off-by-one for PickClassified — dormant until P4 fresh-run RetryInProcess) ACCEPTED as risks per D-P2-15 / scope; surfaced in execution_notes.md as P4 contract inputs. Major #1 doc honesty repair applied to DefaultFailurePolicy.cs xmldoc. Major #3 (OCE on resume path) deferred — P1-introduced behaviour, not P2 regression. Major #4 (Random thread-safety doc) accepted; production callers all use Random.Shared. Minor #5 (test rename) applied.",
+    "acceptedRisks": [
+      "code-reviewer Major #1: programmer-bug branch unreachable via runner gating for canonical NRE/ArgumentException types — operator chose D-P2-15 (do not touch IsUnknownRetryCandidate); fix point is P4 or P5.",
+      "code-reviewer Major #2: fresh-run FailureContext.AttemptNumber starts at 1 (not 0), causing PickClassified to skip RetryDelays[0]. Dormant in P2 (no fresh-run RetryInProcess caller). Bakeded into DefaultFailurePolicyTests assertion of [4m, 6m] (= 5m base). P4 contract must address."
+    ]
+  },
+  "steps": [
+    "designer:contract drafted",
+    "orchestrator:plan pending — to be written by orchestrator when execution is authorized",
+    "executor:not started",
+    "verifier:not started",
+    "code-reviewer:not started"
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "openAssumptions": [],
+  "resolvedAssumptions": ["A-P2-1", "A-P2-2", "A-P2-3", "A-P2-4", "A-P2-5", "A-P2-6", "A-P2-7", "A-P2-8", "A-P2-9", "A-P2-10", "A-P2-11", "A-P2-12", "A-P2-13", "A-P2-14"],
+  "operatorSignOff": "2026-05-24 — 'consider the contract signed off, as long as we're sticking to the plan'. Recommended options promoted to D-P2-7 through D-P2-16.",
+  "outOfScope": [
+    "marker-leak chain-walk fix (P5)",
+    "marker exclude fix in IsUnknownRetryCandidate (P4)",
+    "_retry.* checkpoint persistence (P3)",
+    "enabling classified-retry on any collector (P4)",
+    "SDK version bump",
+    "Directory.Packages.props / Directory.Build.props",
+    "all phase-0a/0b/1 artifacts",
+    "plan.md"
+  ],
+  "lastUpdated": "2026-05-24T18:32:00Z"
+}

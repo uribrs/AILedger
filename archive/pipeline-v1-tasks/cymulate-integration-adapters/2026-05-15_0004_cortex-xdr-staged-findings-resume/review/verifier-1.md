@@ -1,0 +1,24 @@
+# Verifier 1
+
+## Verdict
+fail
+
+## Findings
+- P1, `src/Cymulate.Integration.Adapters/Collectors/CortexXdrCollector/Flows/Findings/CortexXdrFindingsFlow.cs:31`, CVE-stage resume skips by `NextCveIndex` after re-running XQL, but the XQL query has no deterministic `sort` even though the task research says Cortex XDR XQL results are unordered unless explicit stages define sort behavior. A crash after publishing part of the CVE set can resume against a different row order and silently lose or duplicate `findings_*.json` rows. Required repair: make the CVE query order deterministic using stable fields available in `va_cves` before relying on row-index checkpointing, or replace index-based resume with a durable identity-based strategy; add a CVE-stage resume regression that fails when order changes.
+- P2, `src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.CortexXdrCollector.Test/CortexXdrFindingsFlowTests.cs:216`, tests cover assets-stage resume but not findings/CVE-stage resume, which is the riskiest new resume path and the one governed by the explicit XQL checkpoint decision. Required repair: add a test that resumes from `Stage=findings` with `NextCveIndex > 0`, verifies XQL is re-run, already-published CVE rows are not republished, output page numbering continues, and the checkpoint advances into the assets stage without duplication.
+- P2, `src/Cymulate.Integration.Adapters/Collectors/CortexXdrCollector/Processing/Configuration/CortexXdrIdentification.cs:16`, metadata now advertises `FindingsFlow` in `SupportedTopics`, but the description still says the adapter is only for endpoint assets via `get_endpoint`. This does not intentionally advertise the supported findings behavior requested by the contract. Required repair: update metadata text to state that findings mode publishes Cortex XDR CVE rows and endpoint asset rows separately for upstream hydration.
+- P3, `ai/active/2026-05-15_0004_cortex-xdr-staged-findings-resume/state.json:19`, task state still marks implementation and verification steps S3-S6 as `pending` and `verification.status` as `not_started`, while code and tests have been changed. Required repair: reconcile task state/execution notes with the actual completed work and validation results before handoff.
+
+## Coverage
+- Cortex XDR findings flow no longer emits joined `{ asset, vulnerability }` records: pass, `CortexXdrFindingsFlow` removed the host/CVE join path and publishes raw CVE rows through `EnumerateCveRows`; test asserts no `asset` or `vulnerability` wrapper.
+- Cortex XDR findings flow publishes CVE rows to findings output and endpoint rows to assets output: pass, findings publisher writes CVE rows to `findings_*.json` and assets publisher writes endpoint rows to `assets_*.json`; happy-path test asserts both target names and shapes.
+- Endpoint collection used by findings flow is checkpointed/resumable independently from CVE collection when applicable: pass, assets-stage resume skips XQL, uses `NextSearchFrom`, and continues `assetsPage`; test covers `Stage=assets`.
+- CVE/XQL collection has an explicit checkpoint/resume decision grounded in vendor/repo evidence: fail, task artifacts make the decision, but implementation uses index-based resume without deterministic XQL ordering, contradicting the research evidence that ordering is not implicit.
+- `CanResumeFrom` and `ResumeAsync` remain wired through Shared recovery and can re-enter the real flow: pass with caveat, checkpoint loading supports staged findings state and `ResumeFindingsAsync` delegates back into `CollectFindingsInternalAsync`; the CVE-stage re-entry semantics remain unsafe due the ordering issue above.
+- Metadata/wiring advertises the supported findings flow intentionally: fail, `SupportedTopics` includes findings but metadata description still describes only endpoint assets.
+- Tests cover corrected findings output shape, assets output during findings flow, request sequence, and checkpoint/resume state: fail, output shape/assets/request sequence and assets-stage resume are covered, but CVE-stage resume and checkpoint advancement through the CVE-to-assets boundary are not.
+- Targeted Cortex XDR tests pass, and broader build/test impact is reported: fail, no test command result or broader build/test impact is present in the task artifacts; I did not run tests because this verifier was limited to lightweight inspection commands.
+
+## Residual Risks
+- The findings flow still caps XQL CVE retrieval at 50,000 rows; this appears inherited from the prior port, but it remains a completeness risk if tenants can exceed that count.
+- Endpoint pagination semantics continue to infer continuation from `EndpointsSeen >= PageSize`; this follows existing Cortex assets behavior but was not independently verified here.

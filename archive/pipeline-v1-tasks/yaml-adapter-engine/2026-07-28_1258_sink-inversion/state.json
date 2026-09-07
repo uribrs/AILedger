@@ -1,0 +1,122 @@
+{
+  "taskId": "TASK-20260728-1258",
+  "taskSlug": "sink-inversion",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "execution",
+  "repo": "/Users/user/Dev/yaml-adapter-engine",
+  "branch": "feat/sink-inversion",
+  "baseline": {
+    "commit": "3103a30",
+    "tests": "697 passed / 0 failed / 0 skipped"
+  },
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending",
+    "defect_register.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "InMemorySink",
+      "status": "complete",
+      "summary": "Sinks/Logic/InMemorySink.cs \u2014 accumulates records for callers with no downstream consumer. Gives the Sinks concept its first Logic type."
+    },
+    {
+      "id": "S2",
+      "name": "CountingSink",
+      "status": "complete",
+      "summary": "Sinks/Logic/CountingSink.cs \u2014 decorator observing records in flight and delegating, so the runner counts and collects while the engine publishes."
+    },
+    {
+      "id": "S3",
+      "name": "Sink-less overload becomes sugar",
+      "status": "complete",
+      "summary": "The 4-arg ExecuteOperationAsync supplies an InMemorySink internally and returns its records in OperationResult.Records. No host call site breaks."
+    },
+    {
+      "id": "S4",
+      "name": "Runner supplies sinks + delete the fork (S4+S5, one commit)",
+      "status": "pending",
+      "summary": "Route sink-routed stages to CountingSink(SinkProvider sink, captureNodes: NeedsRecordNodes) and control/poll/fan-out/merge-source stages to InMemorySink, AND move WorkflowRunner:493/:691/:715 off OperationResult.Records onto the sink, in one edit. Then remove the null default, make the sink non-nullable internally and delete the fork. Proven unsliceable: 58 failures when attempted separately."
+    },
+    {
+      "id": "S6",
+      "name": "Split PublishStageRecordsAsync",
+      "status": "pending",
+      "summary": "Separate publication from counting and collecting; 9 parameters reduced per rule 5."
+    },
+    {
+      "id": "S7",
+      "name": "Pin the new behaviour",
+      "status": "pending",
+      "summary": "Tests for sink lifecycle ordering, TotalPublishedRecords sourcing, and InMemorySink equivalence with the old sink-less path."
+    },
+    {
+      "id": "S8",
+      "name": "Prove green and deterministic",
+      "status": "pending",
+      "summary": "At least 12 runs with trx capture; zero failures. A single green run proves nothing."
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "partial",
+    "notes": [
+      "A4 gate passed: ApplyCounts/CollectFromRecords need only a published count and per-page JsonNodes; a decorator suffices.",
+      "S1 InMemorySink and S2 CountingSink added; 697 passed / 0 failed / 0 skipped.",
+      "S3-S8 not started. S3-S5 must land together.",
+      "Code review run on the increment: 4 Majors, all fixed. Verifier deliberately deferred to S8 - eight of its criteria describe unstarted work.",
+      "D7 fixed (TotalRecords single meaning, matches its documentation); S3 done. 697/697."
+    ]
+  },
+  "lastUpdated": "2026-07-28T15:10:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-28T13:01:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "defect_register.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-28T13:06:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-28T13:40:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": true
+  }
+}

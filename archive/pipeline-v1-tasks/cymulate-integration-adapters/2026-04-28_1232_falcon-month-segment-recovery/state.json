@@ -1,0 +1,83 @@
+{
+  "taskId": "TASK-20260428-1232",
+  "taskSlug": "falcon-month-segment-recovery",
+  "status": "contract_ready",
+  "complexityTier": "full",
+  "currentPhase": "ready_for_execution",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "name": "create_task_state",
+      "status": "completed"
+    },
+    {
+      "name": "write_task_description",
+      "status": "completed"
+    },
+    {
+      "name": "write_constraints",
+      "status": "completed"
+    },
+    {
+      "name": "write_assumptions",
+      "status": "completed"
+    },
+    {
+      "name": "write_decisions",
+      "status": "completed"
+    },
+    {
+      "name": "write_prompt_contract",
+      "status": "completed"
+    },
+    {
+      "name": "archive_task_state",
+      "status": "completed"
+    },
+    {
+      "name": "inspect_falcon_collection_and_recovery",
+      "status": "completed"
+    },
+    {
+      "name": "implement_month_segment_collection",
+      "status": "completed"
+    },
+    {
+      "name": "add_segment_recovery_tests",
+      "status": "completed"
+    },
+    {
+      "name": "run_verification",
+      "status": "completed"
+    },
+    {
+      "name": "update_execution_state",
+      "status": "completed"
+    },
+    {
+      "name": "add_segment_query_logging_and_docs",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Contract files created and validated for non-empty constraints and success criteria.",
+      "dotnet test src/Cymulate.Integration.Adapters/UnitTests/Collectors/Cymulate.Integration.Adapters.Collectors.FalconCollector.Test/Cymulate.Integration.Adapters.Collectors.FalconCollector.Test.csproj --no-restore passed: 47 tests."
+    ]
+  },
+  "lastUpdated": "2026-04-28T10:36:01Z"
+}

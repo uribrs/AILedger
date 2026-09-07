@@ -1,0 +1,134 @@
+{
+  "taskId": "TASK-20260630-1146",
+  "taskSlug": "faultgovernance-carry",
+  "status": "complete_review_passed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Verify CollectorError + CollectorPartialCompletionMetadata drag no further deps; place in shared envelope-shapes area",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Reclaim FlowExceptionHandling + AdapterFlowFailureHandling into FaultGovernance (verbatim, ns rewrite, transport->Kernel.Transport)",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Relocate Resilience/* (25 files) -> FaultGovernance/{Logic,Models,Policies} verbatim, ns rewrite",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Fold Recovery/* (3 files) -> FaultGovernance/Recovery verbatim, ns rewrite",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Rewire transport refs in UnknownFlowFailurePolicy + RetryableTransportFailurePolicy (incl. UnknownFlowRetryClassification rename)",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "XML docs on every public member; extend FaultGovernance/README.md (recovery fold, reclaim, shared-shapes dep)",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "Establish/extend test project: chain order, DecideAsync short-circuit+fallback, reclaim conversions, ToCollectorError",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "name": "dotnet build clean + tests pass; record output in execution_notes.md; mirror to global archive",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_qualifications",
+    "notes": [
+      "Full build 0 errors; 42 tests pass (33 Kernel + 9 FaultGovernance).",
+      "Kernel untouched; 0 Shared.* refs in src; source repo unmodified.",
+      "A4 VALIDATED (DTOs clean). Finding: AdapterFlowFailureHandling is a mixed classify/publish type, carried verbatim, flagged for future separation.",
+      "Verifier PASS; SC5 (XML docs) PARTIAL \u2014 18 verbatim types undocumented (matched source; none removed). No must-fix."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-30T11:46:34Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-30T11:48:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-30T12:10:00Z",
+        "outputs": [
+          "src/IntegrationInfra/FaultGovernance/**",
+          "src/IntegrationInfra/Envelopes/Common/**",
+          "tests/IntegrationInfra.FaultGovernance.Tests/**",
+          "IntegrationInfra.slnx",
+          "FaultGovernance/README.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-30T12:14:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-30T12:20:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierRun_output": "review/verifier-1.md",
+    "codeReviewerRun_output": "review/code-reviewer-1.md",
+    "codeReviewerDisposition": "No blockers/majors; verbatim logic confirmed correct (GetDelay clamp, recovery budget, checkpoint, decision records). M4 (no tests for GetDelay/RecoveryBudgetEvaluator) + bool? assert nit ADDRESSED: added 11 tests, fixed nits (now 53 total pass). SC5 XML-doc PARTIAL addressed for the public surface (entry, decision vocabulary, backoff, handling, flagged methods, new/reclaimed types). M1/M2/M3 + remaining nits describe PRE-EXISTING verbatim source behavior -> recorded, NOT reshaped (operator no-change-without-decision rule). Remaining: per-type one-line docs on 8 policy classes + self-evident model records (offered as optional follow-up)."
+  },
+  "lastUpdated": "2026-06-30T12:22:00Z"
+}

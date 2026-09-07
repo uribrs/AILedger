@@ -1,0 +1,38 @@
+- One PR, two commits exactly. Commit 1 = retire `Publishing/`, rehome `Json/`, propagate namespace and identity-prefix type renames. Commit 2 = `Ingress/` placeholder + `DataPipeline/README.md`.
+- No behavior change. The diff is mechanical (folder paths, file paths, namespace declarations, `using` statements, project file `<Compile>` and `<ProjectReference>` items, DI registration types, identity-prefix type renames).
+- Path changes:
+  - `src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/**` → `src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/DataPipeline/Egress/**`
+  - `src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Json/**` → `src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/DataPipeline/Json/**`
+- Namespace renames (complete, no residual `Publishing` namespace anywhere):
+  - `Cymulate.Integration.Adapters.Shared.Publishing` → `Cymulate.Integration.Adapters.Shared.DataPipeline.Egress`
+  - All sub-namespaces propagate accordingly (`Publishing.Ndjson`, `Publishing.Multipart`, `Publishing.Telemetry`, etc. → `DataPipeline.Egress.Ndjson`, `DataPipeline.Egress.Multipart`, `DataPipeline.Egress.Telemetry`).
+  - `Cymulate.Integration.Adapters.Shared.Json` → `Cymulate.Integration.Adapters.Shared.DataPipeline.Json`.
+- Identity-prefix type renames (do exactly these, no others):
+  - `PublishThrottlingOptions` → `ThrottlingOptions`
+  - `PublishBufferingOptions` → `BufferingOptions`
+  - `PublishMemoryPressureOptions` → `MemoryPressureOptions`
+- Type names kept verbatim:
+  - `PublishResult` (verb-form return type)
+  - `CollectorNdjsonPublisher`, `ResultsBatchPublisher` (role-noun classes)
+  - All `Publish*Async` method names (verb-form actions)
+  - All other types under `Publishing/` and `Json/` whose names do not carry the `Publish*Options` identity prefix
+- Update every call site of the renamed option types: `PublishThrottlingOptions.Resolve(...)` → `ThrottlingOptions.Resolve(...)`, etc. Includes test projects and any sample/runner projects.
+- Do not move, rename, or modify `Session/`, `Recovery/`, or `Orchestration/`. Control-plane citizens stay where they are.
+- Do not touch the SDK's `IAdapterDataPublisher` interface or any of its members. That contract is external to this repo's data plane.
+- Do not modify the runtime behavior of any moved file. No logic edits, no method-signature changes, no formatting churn beyond what `dotnet format` would emit if it were already passing.
+- Do not delete pre-existing `README.md` files inside `Publishing/` or `Json/`. Move them with the rest of the folder. Add a one-line cross-link at the top of each moved README pointing at the new `Shared/DataPipeline/README.md`.
+- `DataPipeline/Ingress/` must contain a placeholder file so git tracks the directory. Use whichever placeholder convention already appears in this repo (`.gitkeep` or an empty marker `.cs`).
+- `DataPipeline/README.md` must include:
+  - One-paragraph statement of the data-plane role.
+  - The three sub-roles: `Ingress/`, `Json/`, `Egress/`, and what each contains.
+  - The boundary rule: "DataPipeline contains code that processes data records themselves. Code that processes control or metadata about the records lives elsewhere (`Session/` for transport, `Recovery/` for checkpoint decisions, `Orchestration/` for composition)."
+  - A short pointer that `Ingress/` is currently empty and reserved for forthcoming source-side streaming work.
+- Update every `using Cymulate.Integration.Adapters.Shared.Publishing` and `using Cymulate.Integration.Adapters.Shared.Json` statement across the entire repository, including test projects, sample projects, the `LocalAdapterRunner`, and any documentation that names those namespaces.
+- Update every `<ProjectReference>` and `<Compile Include="..." />` that names the moved paths.
+- Public API surface — for non-renamed types — type names, member names, and visibility are unchanged. Only their containing namespace changes.
+- Pre-commit hooks must run. Do not pass `--no-verify`.
+- Build verification: `dotnet build` of the solution must succeed.
+- Test verification: every test project that builds must pass. Targeted commands documented in `assumptions.md`.
+- Cortex XDR XQL streaming refactor is NOT part of this task. Do not modify `CortexXdrXqlClient.cs` or `CortexXdrFindingsFlow.cs` beyond namespace import and type-rename updates.
+- `va_endpoints` source-discriminator work is NOT part of this task.
+- If any moved/renamed type was referenced by a public-facing artifact outside the repo (NuGet consumers, etc.), surface as a blocker before proceeding.

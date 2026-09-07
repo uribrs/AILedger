@@ -1,0 +1,71 @@
+{
+  "taskId": "TASK-20260705-1030",
+  "taskSlug": "agentservice-falcon-correlated-port",
+  "status": "complete",
+  "complexityTier": "light",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "P1",
+      "name": "Port correlated findings collection to AgentService FalconCollector",
+      "status": "done"
+    },
+    {
+      "id": "P2",
+      "name": "Verify build + review",
+      "status": "done"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: PASS with reservations; all flagged items repaired or accepted in repair round 1",
+      "code-reviewer-1: 3 Major/5 Minor/2 Nit; Majors 1-2 fixed, Major 3 accepted (parser replay-idempotence), minors fixed or skipped with parity reasons",
+      "14/14 tests green; project builds; solution-level net481 failure pre-existing/unrelated"
+    ]
+  },
+  "lastUpdated": "2026-07-05T13:10:00Z",
+  "workflow": {
+    "executionPath": "direct",
+    "researchNeeded": false,
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "skillsRun": [
+      {
+        "skill": "execution",
+        "outputs": [
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier-subagent",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer-subagent",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "repair-round-1",
+        "outputs": [
+          "execution_notes.md"
+        ]
+      }
+    ]
+  }
+}

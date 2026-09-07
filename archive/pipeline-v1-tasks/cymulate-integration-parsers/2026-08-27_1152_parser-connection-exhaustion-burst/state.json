@@ -1,0 +1,39 @@
+{
+  "taskId": "TASK-20260827-1152",
+  "taskSlug": "parser-connection-exhaustion-burst",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "repo": "/Users/user/Dev/cymulate-integration-parsers",
+  "branch": "master",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    { "id": "S1", "title": "Recon: read the full psycopg2 + Spark JDBC connection lifecycle in this repo (dbManager.create_postgres_connection, SparkDAL._ensure_connection/_reconnect/execute_query/delete_query/delete_by_scope_batched/count_rows_by_scope/write_to_postgres, jobBase Spark conf, script.py call order) and record how many connections one run opens, when, and for how long", "status": "pending" },
+    { "id": "S2", "title": "Confirm or refute the append+retry duplicate-row defect by reading script.py:493-604 and sparkDAL.write_to_postgres; state the concrete row-count consequence and which lanes are affected", "status": "pending" },
+    { "id": "S3", "title": "Confirm or refute that SparkDAL._ensure_connection cannot detect a server-side drop (psycopg2 .closed semantics), and identify every call path that depends on it", "status": "pending" },
+    { "id": "S4", "title": "Reconstruct the 2026-08-18 burst arithmetic: count concurrent workflow runs from the Glue API, multiply by measured per-run connection cost (task slots, not partitions), compare against the observed 967/968 ceiling, and name every unknown term", "status": "pending" },
+    { "id": "S5", "title": "Establish what the parser contributes to connection pressure vs what the RDS Proxy, Glue MaxConcurrentRuns and the ICM batch fan-out contribute; attribute the ceiling breach", "status": "pending" },
+    { "id": "S6", "title": "Assess the Spark 3.3.0 savePartition rollback-leak claim (JdbcUtils.scala:748) against the installed Spark version and determine whether the leak is reachable from this repo's write path", "status": "pending" },
+    { "id": "S7", "title": "Assess alert fidelity: trace how a handled psycopg2 recovery in delete_query becomes a Slack 'Controller Exception', and identify what in this repo controls that", "status": "pending" },
+    { "id": "S8", "title": "Write the plan: candidate changes split repo-owned vs infrastructure-owned, each with expected effect, blast radius, and how it would be validated; plus open questions with the exact command or access needed", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "743293d2cd41a8d971fab5026f26ee1b95db44ec",
+  "lastUpdated": "2026-08-27T08:52:37Z"
+}

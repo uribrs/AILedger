@@ -1,0 +1,65 @@
+{
+  "taskId": "TASK-20260820-1209",
+  "taskSlug": "disable-batch-scoped-storage",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closeout",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "optional"
+  },
+  "steps": [
+    { "id": "contract", "status": "complete" },
+    { "id": "recon", "status": "complete" },
+    { "id": "repair", "status": "complete" },
+    { "id": "verify", "status": "complete" },
+    { "id": "review", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "InsightVM Cloud 19/19, Qualys 27/27, and TenableIo 153/153 project tests passed.",
+      "Full solution build passed with 0 warnings and 0 errors.",
+      "Production literal-true scan returned no matches."
+    ]
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "W1", "scopeSummary": "InsightVM Cloud default and tests", "status": "complete", "outputRef": "execution_notes.md#w1" },
+      { "id": "W2", "scopeSummary": "Qualys default and tests", "status": "complete", "outputRef": "execution_notes.md#w2" },
+      { "id": "W3", "scopeSummary": "TenableIo emitter, comments, and flat-path tests", "status": "complete", "outputRef": "execution_notes.md#w3" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-08-20T12:09:45Z", "outputs": ["task.md", "prompt_contract.md", "state.json", "constraints.md", "assumptions.md", "decisions.md"] },
+      { "skill": "task-orchestrator-internal-recon", "completedAt": "2026-08-20T12:13:00Z", "outputs": ["research/internal-recon.md"] },
+      { "skill": "worker-W1-dotnet-developer", "completedAt": "2026-08-20T12:16:00Z", "outputs": ["execution_notes.md#w1"] },
+      { "skill": "worker-W2-dotnet-developer", "completedAt": "2026-08-20T12:15:00Z", "outputs": ["execution_notes.md#w2"] },
+      { "skill": "worker-W3-dotnet-developer", "completedAt": "2026-08-20T12:17:00Z", "outputs": ["execution_notes.md#w3"] },
+      { "skill": "verifier", "completedAt": "2026-08-20T12:22:00Z", "outputs": ["review/verifier-1.md", "assumptions.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-08-20T12:26:00Z", "outputs": ["review/code-reviewer-1.md"] },
+      { "skill": "worker-repair-cycle", "completedAt": "2026-08-20T12:29:47Z", "outputs": ["execution_notes.md#code-review-repair-cycle"] },
+      { "skill": "verifier", "completedAt": "2026-08-20T12:34:00Z", "outputs": ["review/verifier-2.md", "assumptions.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-08-20T12:35:53Z", "outputs": ["review/code-reviewer-2.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-20T12:35:53Z"
+  },
+  "baseRef": "0c61fad68ea4add59784cb9294737c880d8676fc",
+  "lastUpdated": "2026-08-20T12:35:53Z"
+}

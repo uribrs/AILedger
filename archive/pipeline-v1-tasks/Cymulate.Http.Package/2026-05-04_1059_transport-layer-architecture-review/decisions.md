@@ -1,0 +1,5 @@
+- Create a new task directory because this is a distinct architecture-review task, not continued implementation of the previous lane work.
+- Use full task tier because the work requires architecture mapping, evidence validation, recommendation design, and durable outputs.
+- Require two output files: `transport_architecture_analysis.md` and `transport_recommendations.md`.
+- Keep the execution contract implementation-neutral: the executor may recommend no major change if evidence supports it.
+- Use local code, tests, docs, and previous task state as the evidence baseline before considering any external research.

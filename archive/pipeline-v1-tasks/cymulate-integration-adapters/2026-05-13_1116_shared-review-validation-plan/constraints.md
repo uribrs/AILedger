@@ -1,0 +1,7 @@
+- Do not modify product code.
+- Treat the shared project as high-risk shared infrastructure.
+- Separate confirmed issues, likely risks, possible concerns, observations, and style-only items.
+- Prefer repository evidence over speculation.
+- Identify when evidence must be traced to NuGet package behavior, external consumers, host/platform behavior, storage semantics, or vendor API expectations.
+- Preserve unrelated worktree changes.
+- Keep recommendations proportional to operational impact.

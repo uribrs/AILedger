@@ -1,0 +1,17 @@
+{
+  "taskId": "TASK-20260618-1240",
+  "taskSlug": "falcon-cursor-watermark-strategy",
+  "status": "complete",
+  "complexityTier": "light",
+  "currentPhase": "done",
+  "requiredFiles": { "task.md": "complete", "prompt_contract.md": "complete", "execution_notes.md": "complete" },
+  "steps": [
+    { "id": "S1", "name": "cursor_watermark strategy (depth-cap reset → watermark) registered as a default", "status": "complete" },
+    { "id": "S2", "name": "decision vocabulary live: runner honors ResetToWatermark; {{watermark}} token; watermark extraction + checkpoint persist/seed", "status": "complete" },
+    { "id": "S3", "name": "reset test (collects all, no dup, post-reset request carries watermark)", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "passed", "notes": ["dotnet build green", "tests 5/5 (4 prior preserved + cursor_watermark reset)"] },
+  "lastUpdated": "2026-06-18T09:40:00Z"
+}

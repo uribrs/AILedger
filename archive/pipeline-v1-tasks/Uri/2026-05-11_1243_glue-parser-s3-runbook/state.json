@@ -1,0 +1,54 @@
+{
+  "taskId": "TASK-20260511-1243",
+  "taskSlug": "glue-parser-s3-runbook",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "inspect-runglue",
+      "description": "Inspect RunGlue to document how Glue is triggered in practice.",
+      "status": "completed"
+    },
+    {
+      "id": "inspect-parser-inputs",
+      "description": "Inspect cymulate-integration-parsers to infer expected input file layout and parser job behavior.",
+      "status": "completed"
+    },
+    {
+      "id": "produce-runbook",
+      "description": "Create a concise planning runbook explaining S3 uploads and local-trigger workflow.",
+      "status": "completed"
+    },
+    {
+      "id": "verify-evidence",
+      "description": "Validate the runbook against code references and record residual unknowns.",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Runbook read back after creation.",
+      "RunGlue dry-run validated for Tenable.io stg and Defender VM stg without AWS execution.",
+      "DEX zip-vs-prefix behavior validated from local parser project code.",
+      "Dev artifact upload guidance added from Glue job configs and package build files.",
+      "Dev-only bypass and logging guidance added."
+    ]
+  },
+  "lastUpdated": "2026-05-11T10:20:00Z"
+}

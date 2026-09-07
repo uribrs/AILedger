@@ -1,0 +1,16 @@
+# Decisions
+
+- One publish call = one atomic object, streamed, size-unbounded — universal, no opt-in. (Pinned — user-decided; universality is free because well-behaved callers can't observe it.)
+- Small calls stay single PUTs, byte-identical to today. (Pinned — regression law.)
+- Object materializes on multipart Complete or never exists; atomicity replaces buffer-then-publish idempotence patterns. (Pinned.)
+- Fail-fast single-record rule deleted, not relaxed; observability replaces the gate. (Pinned.)
+- `MaxBytesPerBatch` = in-flight memory/buffering discipline only; never object size. (Pinned — user: "conceptual magic number to prevent pod memory bloat".)
+- Abort on failure + cancellation + dispose-without-complete. (Pinned — user-approved "abort for death and teardown".)
+- Checkpoint hook fires once per call, after Complete. (Pinned.)
+- `BatchScopedStorage` remains the only opt-in (path decoration + announcements), orthogonal to object atomicity. (Pinned.)
+- Cleanup mandate: delete every path that exists only for object splitting/fail-fast, in Shared and at collector call sites; buffering that bounds collector RAM stays. (Pinned — user: "all and any cleanup this allows"; judgment rule per behaviour-over-shape feedback.)
+- Per-record soft warning threshold default 24MB, configurable, log-only. (Provisional — threshold value may be tuned.)
+- Record slicing for Spark line discipline: deferred, separate collector-side task. (Pinned as out of scope here.)
+- No ISB changes; per-part `data.ToArray()` copy noted as future ISB micro-fix. (Pinned.)
+- Ops handoff: S3 `AbortIncompleteMultipartUpload` lifecycle rule on the data bucket — confirm/add outside this repo. (Pinned as handoff, not code.)
+- Test exclusions: ISBLoadTestCollector and DummyCollector test projects are never run for this task. (Pinned — user explicit.)

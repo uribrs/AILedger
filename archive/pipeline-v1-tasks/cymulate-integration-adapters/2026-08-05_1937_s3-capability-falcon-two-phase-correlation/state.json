@@ -1,0 +1,211 @@
+{
+  "taskId": "TASK-20260805-1937",
+  "taskSlug": "s3-capability-falcon-two-phase-correlation",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "phase_b_repairs_pending",
+  "crossRepo": true,
+  "canonicalRepo": "cymulate-integration-adapters",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S0",
+      "name": "Scope + pseudo code for all four repos, operator review gate",
+      "status": "pending"
+    },
+    {
+      "id": "S1",
+      "name": "IntegrationInfra: Client contract + guarded Ingestion facade",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "name": "IntegrationServiceBus: concrete S3 implementation + DI registration",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "name": "cymulate-integration-adapters: Falcon two-phase collector",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "name": "cymulate-integration-parsers: freshest-wins findings dedupe",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "name": "Centralized design doc + per-repo references",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "name": "Verifier + code-reviewer per repo",
+      "status": "pending"
+    }
+  ],
+  "blockers": [
+    "BLOCKER-1 ISB does not restore off-machine (orchestrator pin bump)",
+    "BLOCKER-2 GuardedObjectStore read slot held across yield return -> deadlock under memory pressure"
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "18cb69ca340732323f37f0aa3f1d134def3a6928",
+  "baseRefs": {
+    "cymulate-integration-adapters": {
+      "path": "/Users/user/Dev/cymulate-integration-adapters",
+      "base": "dev",
+      "ref": "18cb69ca340732323f37f0aa3f1d134def3a6928",
+      "branch": "feat/s3-capability-falcon-two-phase"
+    },
+    "IntegrationInfra": {
+      "path": "/Users/user/Dev/IntegrationInfra",
+      "base": "dev",
+      "ref": "a7cc32b9ba6e662b550812f72d317fb20bdfb4df",
+      "branch": "feat/s3-capability-falcon-two-phase"
+    },
+    "IntegrationServiceBus": {
+      "path": "/Users/user/Dev/IntegrationServiceBus",
+      "base": "dev",
+      "ref": "56526a58e0fbbee7d32c1e033c6d42e7204b6611",
+      "branch": "feat/s3-capability-falcon-two-phase"
+    },
+    "cymulate-integration-parsers": {
+      "path": "/Users/user/Dev/cymulate-integration-parsers",
+      "base": "master",
+      "ref": "6f046de8973e83f87f6ca5c7ebf517ee35cfa416",
+      "branch": "feat/s3-capability-falcon-two-phase"
+    }
+  },
+  "lastUpdated": "2026-08-06T00:05:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "phase": "B",
+    "phaseAGate": "WAIVED by operator 2026-08-05; P0+P1 evidence obtained before implementation",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "spotlight-batch-and-schema-limits",
+        "file": "research/spotlight-batch-and-schema-limits.md",
+        "status": "complete",
+        "triggeredBy": "assumption:A9,assumption:A14,priorart:PA1"
+      }
+    ],
+    "preImplementation": [
+      {
+        "id": "P0",
+        "scopeSummary": "Settle A1 \u2014 does a subfolder under the zip_file_key prefix get ingested by the parser",
+        "status": "complete",
+        "gates": "Phase 1 write-path design"
+      },
+      {
+        "id": "P1",
+        "scopeSummary": "Spotlight aid-batch bounds, rate limits, updated_timestamp guarantee",
+        "status": "complete"
+      }
+    ],
+    "workers": [
+      {
+        "id": "W1",
+        "repo": "IntegrationInfra",
+        "scopeSummary": "Client object-store contract + guarded Ingestion facade; no AWSSDK",
+        "status": "complete",
+        "dependencies": []
+      },
+      {
+        "id": "W2",
+        "repo": "IntegrationServiceBus",
+        "scopeSummary": "Concrete S3 impl beside S3AdapterDataPublisher + DI registration",
+        "status": "complete",
+        "dependencies": [
+          "W1"
+        ]
+      },
+      {
+        "id": "W3",
+        "repo": "cymulate-integration-adapters",
+        "scopeSummary": "Falcon two-phase collector, frozen key list, deterministic page keys, cleanup",
+        "status": "complete",
+        "dependencies": [
+          "W1",
+          "P0"
+        ]
+      },
+      {
+        "id": "W4",
+        "repo": "cymulate-integration-parsers",
+        "scopeSummary": "Freshest-wins findings dedupe over updated_timestamp",
+        "status": "complete",
+        "dependencies": []
+      },
+      {
+        "id": "W5",
+        "repo": "all",
+        "scopeSummary": "Centralized design doc + four per-repo references + mutable-field invariant",
+        "status": "pending",
+        "dependencies": [
+          "W1",
+          "W2",
+          "W3",
+          "W4"
+        ]
+      }
+    ],
+    "launchOrder": "W1 || W4 -> W2 || W3 -> W5 ; C1 spans",
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-05T19:37:15Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false,
+    "lessonsRecorded": false,
+    "archivedAt": null,
+    "contractSeamAuthoredBy": "orchestrator (main thread)",
+    "coordination": "main thread (operator allowed 'coordinate or create a coordinator subagent')",
+    "independentReviews": {
+      "code-reviewer-1.md": "IntegrationInfra + ISB + parsers (adapters NOT reviewed)",
+      "pending": [
+        "cymulate-integration-adapters",
+        "orchestrator-authored contract files"
+      ]
+    },
+    "openFindings": {
+      "blockers": 2,
+      "majors": 7,
+      "source": "review/code-reviewer-1.md"
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "taskId": "TASK-20260625-1637",
+  "taskSlug": "g3-runner-terminal-outcome",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Pinned A1 (externalize=immediate PartialResult) + A2 (failing-publisher double); discovered publish failures THROW (reviewer :350 framing incomplete)", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "A-M1 FIXED (corrected: MinExternalizedServerSuggestedDelay = MaxInProcessDelaySeconds; MaxServerSuggestedDelay = 24h clamp — first attempt mis-mapped the cap and regressed 4 tests)", "effort": "low", "status": "complete" },
+    { "id": "S3", "desc": "A-M2 FIXED: wrapped publish loop in partial-success-aware catch (throw + non-success) → emitted>0 ? PartialSuccess : TransientFailure(PUBLISH_FAILED)", "effort": "low", "status": "complete" },
+    { "id": "S4", "desc": "Tests: LongServerSuggestedDelay→PartialWaitRequired (<10s, no sleep); PublishFailure_ZeroEmitted→PUBLISH_FAILED. emitted>0 partial branch NOT harness-triggerable (byte budget won't split) — covered-by-pattern, documented", "effort": "medium", "status": "complete" },
+    { "id": "S5", "desc": "Build clean + full suite 81/81; note + execution_notes written", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "not_started", "notes": [] },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T16:37:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-25T16:38:00Z", "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T17:05:00Z", "outputs": ["CollectorExecutorSessionFactory.cs", "CollectorExecutorRunner.cs", "CollectorExecutorTests.cs", "execution_notes.md", "assumptions.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T17:12:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T17:18:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "no blockers; MAJOR (throw-path untested) + MINOR-1 (24h clamp) + MINOR-2 (log) all FIXED; 82/82"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T17:20:00Z"
+}

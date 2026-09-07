@@ -1,0 +1,9 @@
+- Follow existing .NET package conventions: small methods, focused classes, clear names.
+- Do not alter unrelated dirty files.
+- Preserve existing `Retry-After` behavior and public retry semantics unless explicitly extended.
+- Keep server response header parsing separate from `RetryPolicy` orchestration.
+- Do not make the configured client-side `RateLimiterPolicy` depend on response headers in this task.
+- Support known industry-used header families from the completed research, including standard/draft, legacy `X-RateLimit-*`, `X-Rate-Limit-*`, and selected vendor-specific retry delay hints.
+- Treat ambiguous quota metadata as telemetry/selection data, not automatic sleep time.
+- Add focused behavioral tests for retry delay resolution from headers.
+- Keep implementation compatible with nullable reference type expectations and existing project style.

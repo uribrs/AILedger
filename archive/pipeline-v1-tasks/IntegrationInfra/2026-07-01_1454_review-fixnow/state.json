@@ -1,0 +1,116 @@
+{
+  "taskId": "TASK-20260701-1454",
+  "taskSlug": "review-fixnow",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "branch": "fix/review-fixnow",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Secret leak: scrub bodySnippet + url with LogRedaction.Scrub at the AdapterHttpRequestFailedException raise site (message + stored url/bodySnippet); classifier stays raw; no double-scrub of LogError",
+      "status": "done"
+    },
+    {
+      "id": "C4",
+      "desc": "DateTimeUtc kind-switch (Utc/Local/Unspecified) + MinValue sentinel; XML doc the Unspecified=assume-UTC contract",
+      "status": "done"
+    },
+    {
+      "id": "C1a",
+      "desc": "Guard unprotected host callbacks before last-word publish (runner + AdapterBusFailurePublisher + CollectorResumeFailurePublisher): try/catch + LogWarning + continue",
+      "status": "done"
+    },
+    {
+      "id": "C1b",
+      "desc": "Terminal error/completion publishes use CancellationToken.None in AdapterBusFailurePublisher (+ resume publisher) \u2014 after confirming calls are terminal",
+      "status": "done"
+    },
+    {
+      "id": "T",
+      "desc": "Tests: S1 redaction, C4 kind-switch (Kernel), C1 throwing-callback-does-not-suppress-publish (extend Conducting invariant tests)",
+      "status": "done"
+    },
+    {
+      "id": "B",
+      "desc": "Full slnx build clean + all 7 test projects pass; diff limited to the listed files; mirror to archive",
+      "status": "done"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: SATISFIED (all 5 criteria PASS; 160 tests green; scope clean)",
+      "code-reviewer-1: no blockers (0C/0M/2m/2n); M1 (scrub context) repaired + test-covered; M2/N1/N2 accepted"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-01T14:54:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-01T14:56:00Z",
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-01T15:10:00Z",
+        "outputs": [
+          "4 src files",
+          "3 test files",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-01T15:14:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ],
+        "verdict": "SATISFIED"
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-01T15:18:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-01T15:18:00Z"
+}

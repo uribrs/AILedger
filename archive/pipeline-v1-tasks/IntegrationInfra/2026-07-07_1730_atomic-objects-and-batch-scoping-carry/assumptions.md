@@ -1,0 +1,11 @@
+# Assumptions
+
+- **A1 — All counterparts exist and predate both changesets.** Status: VALIDATED. Three-part recon verified every touched file has a 1:1 counterpart (Egress→Emission, Orchestration→Conducting, Resilience/Recovery→FaultGovernance); the package was carried 2026-06-30/07-01, before either changeset landed in the adapters repo.
+- **A2 — D7 is the only intentional Emission divergence.** Status: VALIDATED (from emission-carry decisions.md: "the only intentional behavior change in the carry; everything else remains verbatim"). Execution must still spot-verify surrounding session code before editing (see A8).
+- **A3 — No contract skew.** Status: VALIDATED. Both repos pin `Cymulate.Integration.Sdk` 3.2.0 and `Cymulate.Http.Package.Session` 2.0.2; `AdapterProgressContext`/`IAdapterDataPublisher`/`PublishResult` are the same external types.
+- **A4 — RestoreBase target classes are name-identical to source.** Status: VALIDATED. Only folders/namespaces differ; `AdapterFlowFailureHandling`/`FlowExceptionHandling` live in FaultGovernance (FaultGov D5), resume executors keep `Collector*` names in Conducting.
+- **A5 — Package test house style is plain xUnit Assert, no publisher fake exists.** Status: VALIDATED (Emission.Tests references only xunit + Test.Sdk; no FluentAssertions anywhere; `InternalsVisibleTo` wired).
+- **A6 — Envelopes/Common is a leaf both Emission and Conducting/FaultGovernance may depend on.** Status: VALIDATED for Conducting (D-charter lists Envelopes.Common as an allowed Conducting dependency). OPEN for FaultGovernance — check its carry docs at execution; STOP if forbidden.
+- **A7 — The M1 empty-residual bug exists in the package.** Status: VALIDATED. `FlushIfHasDataAsync` no-ops when `_records==0`; `ResultsBatchPublisher` reports success unconditionally — same defect class fixed in source by `FinalizeAsync` + `CommitIncomplete`.
+- **A8 — Session twins have not drifted beyond D7.** Status: OPEN (internal). Before editing, diff the package sessions against the source sessions at the pre-changeset baseline; investigate any unexpected delta rather than overwrite it.
+- **A9 — D7-supersession note wording/placement.** Status: OPEN (internal). Append-style entry in the emission-carry decisions file referencing this task; exact form at executor's judgment.

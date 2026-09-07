@@ -1,0 +1,133 @@
+{
+  "taskId": "TASK-20260701-1249",
+  "taskSlug": "conducting-carry",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "branch": "carry/conducting",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Wire-safety + boundary recon: confirm CollectorCommonDependencies + BaseFlowHandler scope; verify UnknownFlowRetryPolicy source body reconstructs verbatim vs Kernel residue",
+      "status": "done"
+    },
+    {
+      "id": "S2",
+      "desc": "Copy verbatim: 38 Orchestration files -> src/IntegrationInfra/Conducting/ (mirror sub-structure) + boundary items per S1",
+      "status": "done"
+    },
+    {
+      "id": "S3",
+      "desc": "Namespace rewrite (find -exec perl): Shared.Orchestration.* -> Conducting.*; specific-before-bare ordering",
+      "status": "done"
+    },
+    {
+      "id": "S4",
+      "desc": "Cross-concern rewires: FlowExceptionHandling/Resilience/recovery -> FaultGovernance; Diagnostics/Events -> Reporting; session -> Conversation; UnknownFlowRetryClassification -> Kernel.Transport",
+      "status": "done"
+    },
+    {
+      "id": "S5",
+      "desc": "D1: reconstruct UnknownFlowRetryPolicy.CreatePipeline in FaultGovernance (type name kept), delegating to Kernel residue",
+      "status": "done"
+    },
+    {
+      "id": "S6",
+      "desc": "Build src csproj; fix missing usings build-driven; verify Kernel/Conversation/Emission/Job/Reporting/Envelopes.Common git diff EMPTY (FaultGovernance only +CreatePipeline)",
+      "status": "done"
+    },
+    {
+      "id": "S7",
+      "desc": "XML docs on public members; write Conducting/README.md",
+      "status": "done"
+    },
+    {
+      "id": "S8",
+      "desc": "Tests project (pure units + 2 invariant tests on AdapterBusEntrypointRunner); add to slnx; InternalsVisibleTo if needed",
+      "status": "done"
+    },
+    {
+      "id": "S9",
+      "desc": "dotnet build slnx clean + dotnet test pass; record in execution_notes.md; mirror task dir to global archive",
+      "status": "done"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: SATISFIED (all 7 criteria PASS)",
+      "code-reviewer-1: no blockers (0 critical); M3 doc pass applied; M2 pre-existing-source, M1 deferred reshape"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-01T12:49:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-01T12:52:00Z",
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-01T13:20:00Z",
+        "outputs": [
+          "src/IntegrationInfra/Conducting/**",
+          "src/IntegrationInfra/FaultGovernance/Logic/UnknownFlowRetryPolicy.cs",
+          "tests/IntegrationInfra.Conducting.Tests/**",
+          "Conducting/README.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-01T13:26:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-01T13:25:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ],
+        "verdict": "SATISFIED"
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-01T13:30:00Z"
+}

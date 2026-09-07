@@ -1,0 +1,60 @@
+{
+  "taskId": "TASK-20260812-1211",
+  "taskSlug": "recovery-outcome-shape",
+  "status": "ready",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "repos": {
+    "IntegrationInfra": {
+      "path": "/Users/user/Dev/IntegrationInfra",
+      "branch": "fix/recovery-outcome-shape",
+      "baseRef": "7b2550ef2b31ca070200c3298fcc244263e3bb70"
+    },
+    "IntegrationServiceBus": {
+      "path": "/Users/user/Dev/IntegrationServiceBus",
+      "branch": "fix/recovery-outcome-shape",
+      "baseRef": "4a12c63b7431d46f1e1c8a3bc4103127d16cd3d3"
+    },
+    "cymulate-integration-adapters": {
+      "path": "/Users/user/Dev/cymulate-integration-adapters",
+      "branch": "fix/resume-live-state-authority",
+      "baseRef": "88c642299aebd82b8c281f8b20c1df0cd460acc0"
+    }
+  },
+  "steps": [
+    { "id": "S0", "name": "Repair Falcon test assembly (11 compile errors)", "status": "pending" },
+    { "id": "S1", "name": "Outcome vocabulary in IntegrationInfra", "status": "pending" },
+    { "id": "S2", "name": "Refusal reasons and Superseded stops execution (ISB)", "status": "pending" },
+    { "id": "S3", "name": "Version compatibility before claiming (ISB)", "status": "pending" },
+    { "id": "S4", "name": "Flush on cooperative yield (Falcon)", "status": "pending" },
+    { "id": "S5", "name": "One owner for position (ISB + Falcon)", "status": "pending" },
+    { "id": "S6", "name": "Measure resume waste", "status": "pending" },
+    { "id": "S7", "name": "Test the uncommitted partial-completion change", "status": "pending" }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "description": "Falcon test assembly does not compile; 11 errors from the v3 to v4 position change. Blocks all adapters testing.",
+      "status": "open"
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "88c642299aebd82b8c281f8b20c1df0cd460acc0",
+  "lastUpdated": "2026-08-12T09:11:18Z"
+}

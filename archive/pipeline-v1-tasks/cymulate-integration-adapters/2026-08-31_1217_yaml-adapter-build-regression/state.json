@@ -1,0 +1,55 @@
+{
+  "taskId": "TASK-20260831-1217",
+  "taskSlug": "yaml-adapter-build-regression",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "trace", "status": "completed" },
+    { "id": "verify", "status": "completed" },
+    { "id": "report", "status": "completed" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": ["review/verifier-2.md: PASS; no unresolved gaps"]
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "W1", "scope": "adapter-history", "status": "complete", "owns": ["research/adapter-history.md"] },
+      { "id": "W2", "scope": "engine-package-lineage", "status": "complete", "owns": ["research/engine-package-lineage.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": false,
+    "codeReviewerRequired": false,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-31T09:42:32Z",
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "artifact": "prompt_contract.md" },
+      { "skill": "task-orchestrator", "artifact": "orchestration_plan.md" },
+      { "skill": "internal-recon", "artifact": "research/internal-recon.md" }
+      ,{ "skill": "worker-adapter-history", "artifact": "research/adapter-history.md" }
+      ,{ "skill": "worker-engine-package-lineage", "artifact": "research/engine-package-lineage.md" }
+      ,{ "skill": "verifier", "artifact": "review/verifier-2.md" }
+    ]
+  },
+  "baseRef": "fd4bf1c28dbb9ccbbef6e659ac37e94808902c4c",
+  "lastUpdated": "2026-08-31T09:42:32Z"
+}

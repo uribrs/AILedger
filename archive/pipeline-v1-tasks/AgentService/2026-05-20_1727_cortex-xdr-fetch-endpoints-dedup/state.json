@@ -1,0 +1,99 @@
+{
+  "taskId": "TASK-20260520-1727",
+  "taskSlug": "cortex-xdr-fetch-endpoints-dedup",
+  "status": "execution_complete_awaiting_review",
+  "complexityTier": "full",
+  "currentPhase": "post_execution",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "stale_post_redirect",
+    "constraints.md": "stale_post_redirect",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "S1",  "label": "Read FetchEndpointsAsync + helpers (read-only inspection)",                                            "status": "complete" },
+    { "id": "S2",  "label": "Edit FetchEndpointsAsync: add per-walk HashSet<string> dedup keyed on endpoint_id",                    "status": "superseded_by_S2b" },
+    { "id": "S2b", "label": "Revert PaloAltoCortexApiBase.cs; add FetchEndpointsSortedByEndpointIdAsync in CortexXdrCollector",      "status": "complete" },
+    { "id": "S2c", "label": "Replace three FetchEndpointsAsync call sites + drop baseDate locals + drop iBaseDate param from dump",  "status": "complete" },
+    { "id": "S3",  "label": "Read XdrApiTests + IntegrationProductsTestsBase to confirm fixture shape",                            "status": "complete" },
+    { "id": "S4",  "label": "Add regression unit test simulating page-boundary drift",                                              "status": "superseded_by_S4b" },
+    { "id": "S4b", "label": "Delete obsolete XdrApiPaginationTests.cs (tested HashSet behavior that no longer exists)",             "status": "complete" },
+    { "id": "S5",  "label": "Build + run the touched test project",                                                                 "status": "complete" },
+    { "id": "S6",  "label": "Update state.json and write execution_notes.md",                                                        "status": "complete" },
+    { "id": "S7",  "label": "Verifier subagent (full context) — write review/verifier-1.md",                                        "status": "pending" },
+    { "id": "S8",  "label": "Code-reviewer subagent (minimal context) — write review/code-reviewer-1.md",                           "status": "pending" }
+  ],
+  "blockers": [
+    {
+      "id": "B2",
+      "description": "prompt_contract.md and constraints.md are stale relative to the redirected design (HashSet → sort-field swap + collector divergence). Contract refresh recommended before verifier S7.",
+      "raisedAt": "2026-05-20T18:35:00Z"
+    }
+  ],
+  "validation": {
+    "promptContractValid": false,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": ["Contract refresh needed first (B2)."]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "cortex-xdr-get-endpoint-sort-fields",
+        "file": "research/cortex-xdr-get-endpoint-sort-fields.md",
+        "status": "complete",
+        "triggeredBy": "assumption:A7"
+      }
+    ],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-05-20T17:27:24Z",
+        "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-05-20T17:27:24Z",
+        "outputs": ["orchestration_plan.md", "state.json (workflow block)"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-05-20T17:55:00Z",
+        "outputs": [
+          "Source/Application/Cymulate.Agent.Application.Actions/Actions/QueryIntegration/Logic/Clients/BaseApiClients/PaloAltoNetworks/PaloAltoCortexApiBase.cs (HashSet dedup — later reverted)",
+          "Tests/Application/Cymulate.Agent.Application.Integrations.Tests/EDR/XdrApiPaginationTests.cs (later deleted)"
+        ]
+      },
+      {
+        "skill": "technical-researcher",
+        "completedAt": "2026-05-20T18:10:00Z",
+        "outputs": ["research/cortex-xdr-get-endpoint-sort-fields.md", "assumptions.md (A7 VALIDATED, A8 added)", "decisions.md (D9, D10 added)"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-05-20T18:35:00Z",
+        "outputs": [
+          "Source/Application/Cymulate.Agent.Application.Actions/Actions/QueryIntegration/Logic/Clients/BaseApiClients/PaloAltoNetworks/PaloAltoCortexApiBase.cs (reverted)",
+          "Source/CybiCollectors/CortexXdrCollector/CortexXdrCollector.cs (new FetchEndpointsSortedByEndpointIdAsync + call site swaps + parameter trims)",
+          "Source/CybiCollectors/CortexXdrCollector/_Usings.cs (added System.Net.Mime, System.Text)",
+          "Tests/Application/Cymulate.Agent.Application.Integrations.Tests/EDR/XdrApiPaginationTests.cs (deleted)",
+          "assumptions.md (A9, A10 added)",
+          "decisions.md (D11–D13 added; D9, D10 superseded)",
+          "execution_notes.md"
+        ]
+      }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false
+  },
+  "lastUpdated": "2026-05-20T18:35:00Z"
+}

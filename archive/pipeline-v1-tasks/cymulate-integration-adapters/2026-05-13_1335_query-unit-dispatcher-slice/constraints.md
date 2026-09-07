@@ -1,0 +1,14 @@
+- Keep implementation under `Orchestration/Query/Dataflow`.
+- Use SDK Query contracts directly; do not create local duplicate contracts.
+- Implement only `IUnitDispatcher` behavior in this slice.
+- Dispatch time-window units through `IQueryAdapter.ExecuteAsync`.
+- Dispatch native units through `IQueryAdapter.ExecuteNativeAsync`.
+- Enforce `ITimeWindowQueryCapability` before dispatching time-window units.
+- Enforce `INativeQueryCapability` before dispatching native units.
+- Use a positive dispatcher default concurrency cap because current SDK `DispatchAsync` does not receive `QueryJobSettings`.
+- Stream `RawResponse` values as units produce them; do not buffer the full job output.
+- Respect cancellation tokens in scheduling and response enumeration.
+- Do not implement distributor, matcher, section tracker, recovery planner, resume runner, or `IExecutionPlanStore`.
+- Do not add real Query clients or fake Query clients as product code.
+- Do not add RabbitMQ, Postgres, outbox, storage, session, HTTP retry, host, or transport infrastructure.
+- Keep code small, focused, and aligned with existing Shared Query style.

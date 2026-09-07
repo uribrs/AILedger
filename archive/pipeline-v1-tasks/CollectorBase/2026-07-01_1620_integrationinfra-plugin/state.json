@@ -1,0 +1,124 @@
+{
+  "taskId": "TASK-20260701-1620",
+  "taskSlug": "integrationinfra-plugin",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "repo": "CollectorBase (not git \u2014 deliverable is green build + tests, no commit)",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Remove /Shared/ folder + project entry from CollectorBase.slnx",
+      "status": "done"
+    },
+    {
+      "id": "S2",
+      "desc": "Remove 4 dangling Shared ProjectReferences (Runner, CollectorExecutor, Tests x2)",
+      "status": "done"
+    },
+    {
+      "id": "S3",
+      "desc": "Add Cymulate.IntegrationInfra PackageReference to the 4 consumers (Strategies transitive via CollectorExecutor \u2014 build-driven)",
+      "status": "done"
+    },
+    {
+      "id": "S4",
+      "desc": "Directory.Packages.props: add IntegrationInfra 1.0.0-preview.2; bump Sdk 3.1.8->3.2.0",
+      "status": "done"
+    },
+    {
+      "id": "S5",
+      "desc": "Create nuget.config adding local feed ../IntegrationInfra/artifacts (no <clear/>)",
+      "status": "done"
+    },
+    {
+      "id": "S6",
+      "desc": "Rewrite 22 consumer .cs: namespace remaps + type renames (specific-before-bare)",
+      "status": "done"
+    },
+    {
+      "id": "S7",
+      "desc": "dotnet restore/build CollectorBase.slnx clean + run CollectorExecutor tests",
+      "status": "done"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: SATISFIED (all 7 criteria PASS; build 0 errors; 96/96 tests; IntegrationInfra untouched)",
+      "code-reviewer-1: sound swap (0C/0M/2m/2n). Minor: packageSourceMapping/NU1507 (defer to CI/shared use); relative sibling path (accept, local-dev). Nits: stale comments/description (cosmetic, deferred)."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-01T16:20:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-01T16:22:00Z",
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-01T16:40:00Z",
+        "outputs": [
+          "slnx",
+          "4 csprojs",
+          "Directory.Packages.props",
+          "nuget.config",
+          "22 .cs rewired",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-01T16:45:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-01T16:48:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ],
+        "verdict": "SATISFIED"
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-01T16:48:00Z"
+}

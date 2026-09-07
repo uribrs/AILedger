@@ -1,0 +1,124 @@
+{
+  "taskId": "TASK-20260702-1705",
+  "taskSlug": "falcon-correlated-findings-redesign",
+  "status": "code_complete_user_verifying",
+  "complexityTier": "full",
+  "currentPhase": "handoff",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "W1",
+      "name": "Rewrite Falcon findings flow to correlated model",
+      "status": "done"
+    },
+    {
+      "id": "W2",
+      "name": "Retire lanes/segments machinery + reshape checkpoint/recovery",
+      "status": "done"
+    },
+    {
+      "id": "W3",
+      "name": "Parser: dual-shape auto-detect, hydrated path, retire split correlation",
+      "status": "done"
+    },
+    {
+      "id": "W4",
+      "name": "Shared Egress: per-page content hash in publish-completion log",
+      "status": "done"
+    },
+    {
+      "id": "W5",
+      "name": "Docs/skills sync (FalconDocs, Collectors README, ai/skills)",
+      "status": "done"
+    },
+    {
+      "id": "W6",
+      "name": "End-to-end verification: lab-tenant collection parsed by fixed parser",
+      "status": "done"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1.md: PASS all 6 criteria; minor gaps: user-FQL test, empty-tenant test, mid-batch re-emission unpinned",
+      "Repair round 1 applied both repos; final Falcon suite run + post-repair re-review handed to user by instruction."
+    ]
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "A",
+        "scopeSummary": "Collector rewrite W1+W2+W5 (FalconCollector, tests, docs)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#worker-a"
+      },
+      {
+        "id": "B",
+        "scopeSummary": "Parser dual-shape W3 (cymulate-integration-parsers)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#worker-b"
+      },
+      {
+        "id": "C",
+        "scopeSummary": "Egress page hash W4 (Shared DataPipeline, worktree)",
+        "status": "done",
+        "outputRef": "execution_notes.md#worker-c"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-02T14:05:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "verifier-subagent",
+        "completedAt": "2026-07-03T07:55:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer-subagent",
+        "completedAt": "2026-07-03T08:40:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "repair-round-1",
+        "completedAt": "2026-07-03T09:20:00Z",
+        "outputs": [
+          "execution_notes.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-03T09:20:00Z"
+}

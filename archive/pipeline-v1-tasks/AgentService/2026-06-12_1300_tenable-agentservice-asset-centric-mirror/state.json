@@ -1,0 +1,57 @@
+{
+  "taskId": "TASK-20260612-1300",
+  "taskSlug": "tenable-agentservice-asset-centric-mirror",
+  "status": "contract_ready",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Map adapter design (endpoints/filters/lanes/co-location/checkpoint) from the spec + adapter Documentation/ to a concrete agent-service change list", "status": "pending" },
+    { "id": "S2", "desc": "Implement asset-centric rework in AgentService TenableIoCollector.cs: add /assets/export lane, remove info-severity filter, drop /assets/{id} enrichment, ACR from ratings.acr.score, co-locate lanes for a combined run", "status": "pending" },
+    { "id": "S3", "desc": "Scope + mirror the C1 mid-chunk-resume duplication fix INTENT for the agent-service engine (only if the analogous exposure exists)", "status": "pending" },
+    { "id": "S4", "desc": "Document the agent-service mirror equivalently to the adapter Documentation/", "status": "pending" },
+    { "id": "S5", "desc": "Build + verifier + isolated code-reviewer", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "W1", "scopeSummary": "Read-only: map AgentService engine + produce adapter->agent-service change-map; resolve A1/A3/A4", "status": "complete", "outputRef": "research/engine-map-and-change-plan.md" },
+      { "id": "W2", "scopeSummary": "Implement + document the mirror in AgentService TenableCollector per W1 + adapter spec (mirror sibling FalconCollector)", "status": "complete", "outputRef": "execution_notes.md#w2" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-12T13:00:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-12T13:40:00Z", "outputs": ["orchestration_plan.md", "research/engine-map-and-change-plan.md", "execution_notes.md", "review/verifier-1.md", "review/code-reviewer-1.md", "review/verifier-2.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "SATISFIED-WITH-RISKS (verifier-1 all 8 criteria PASS; verifier-2 confirms B1/M1/M2/M3 repairs + build green). Risks: parser must be DUAL_MODE split; backend cybi/{instanceId} re-run semantics; ~3x volume on blocking poll; STG-only validation.",
+    "codeReviewerVerdict": "code-reviewer-1: 1 Blocker (B1) + 3 Major (M1/M2/M3) + minors. B1/M1/M2 repaired; M3 made deliberate+documented; cleanups done. Re-verified in verifier-2.",
+    "acceptedRisks": [
+      "Cross-repo: consuming Tenable parser must be the DUAL_MODE split parser (verify before STG).",
+      "Host: backend cybi/{instanceId} re-run folder semantics bound idempotency.",
+      "~3x all-severity volume on a blocking 180-min poll, unvalidated at platform scale.",
+      "AgentService collector not runnable locally — STG validation is the final gate."
+    ]
+  },
+  "lastUpdated": "2026-06-12T13:45:00Z"
+}

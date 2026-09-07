@@ -1,0 +1,51 @@
+{
+  "taskId": "TASK-20260603-1517",
+  "taskSlug": "defensive-toolkit-i11-cleanup",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "title": "Document IResiliencePolicy vs IDefensivePolicyRunner boundary (docs-only)", "status": "complete" },
+    { "id": "S2", "title": "Extract server-delay gate (ServerSuggestedDelayGate) out of RetryPolicy (behavior-preserving relocation; resolve-count NOT deduped to preserve behavior)", "status": "complete" },
+    { "id": "S3", "title": "HTTP-first generic contract doc note added to IResiliencePolicy", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Verifier PASS (review/verifier-1.md): all sub-items met, behavior preserved, 268/268, no commit, 1.6.3.",
+      "Code-reviewer (review/code-reviewer-1.md): no blockers/majors; M1 doc-precision nit fixed; M2 double-guard kept intentionally.",
+      "Build green; dotnet test 268/268."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-03T15:17:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-03T15:18:00Z", "outputs": ["orchestration_plan.md", "state.json"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-03T15:30:00Z", "outputs": ["DefensiveToolkit/Policies/ServerSuggestedDelayGate.cs", "DefensiveToolkit/Policies/RetryPolicy.cs", "DefensiveToolkit/Contracts/Interfaces/IResiliencePolicy.cs", "DefensiveToolkit/Contracts/Interfaces/IDefensivePolicyRunner.cs", "execution_notes.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-03T15:40:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-03T15:48:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ]
+  },
+  "lastUpdated": "2026-06-03T15:30:00Z"
+}

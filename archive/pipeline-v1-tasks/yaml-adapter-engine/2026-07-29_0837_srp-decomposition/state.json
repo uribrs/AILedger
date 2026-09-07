@@ -1,0 +1,75 @@
+{
+  "taskId": "TASK-20260729-0837",
+  "taskSlug": "srp-decomposition",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "branch": "quality-upgrade",
+  "baseCommit": "df5851d",
+  "arcPosition": "task 2 of 3 (task 1 = 2026-07-28_1815_rule-compliance-decomposition, complete; task 3 = public-surface narrowing, out of scope)",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "created"
+  },
+  "baseline": {
+    "measuredAt": "2026-07-29T08:37:42Z",
+    "measuredBy": "wc -l and an ad-hoc brace counter; the counter proved UNRELIABLE (see note)",
+    "tests": {
+      "passed": 710,
+      "failed": 0,
+      "skipped": 0,
+      "durationSeconds": 0.9
+    },
+    "targets": {
+      "IntegrationEngine.cs": {
+        "lines": 1941,
+        "largestMethod": "ExecuteOperationCoreAsync",
+        "largestMethodLines": 729
+      },
+      "WorkflowRunner.cs": {
+        "lines": 952,
+        "largestMethod": "RunAsync",
+        "largestMethodLines": 155
+      },
+      "YamlIntegrationLoader.cs": {
+        "lines": 672,
+        "methodsOver100Lines": 0
+      }
+    },
+    "srcFiles": 127,
+    "testFiles": 77,
+    "ledgerDrift": {
+      "note": "ARCHITECTURE.md's outstanding-debt table understates ALL THREE targets. Claimed 1902/912/655; measured 1941/952/672. The table carries an as-of marker of C3, but its file sizes appear to date from C1 while its rule counts date from C3.",
+      "unresolved": "Rule-3 count: ledger says 3 methods over 100 lines. Two are confirmed (ExecuteOperationCoreAsync 729, RunAsync 155). The third is unconfirmed — my ad-hoc counter reported ReadStringInput at 130 and ReadStringListInput at 127, which is false: both are expression-bodied one-liners. ExecuteHydrateAsync's 120 is unverified for the same reason.",
+      "settledBy": "S0 — the committed rules_audit is the authority, not this file and not ARCHITECTURE.md"
+    }
+  },
+  "steps": [
+    { "id": "S0", "title": "Instruments: rules_audit + dependency-rule check, committed into the repo", "status": "pending", "srcChange": false },
+    { "id": "S1", "title": "Execution: extract OperationPlanFactory / OperationPlan / OperationRun", "status": "pending", "srcChange": true },
+    { "id": "S2", "title": "Execution: extract PageLoop, replace loopEndedViaBreak with PageOutcome", "status": "pending", "srcChange": true },
+    { "id": "S3", "title": "Execution: extract the page-loop leaf collaborators + OperationResultFactory", "status": "pending", "srcChange": true },
+    { "id": "S4", "title": "ExecutionRequest/ExecutionOptions collapse the overload funnel; ExecuteStageAsync onto IIntegrationEngine", "status": "pending", "srcChange": true },
+    { "id": "S5", "title": "Workflow: extract StageExecutor + MergeCoordinator", "status": "pending", "srcChange": true },
+    { "id": "S6", "title": "Definition: split YamlIntegrationLoader by responsibility", "status": "pending", "srcChange": true }
+  ],
+  "checkpoint": {
+    "after": "S4",
+    "reason": "S0-S4 is plausibly a full task on its own. Re-scope with the operator there rather than running seven steps on one contract."
+  },
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-07-29T08:37:42Z"
+}

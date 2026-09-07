@@ -1,0 +1,9 @@
+- Build a script/harness, not another narrow unit test.
+- Model the Falcon recovery harness concept as named scenarios with clear attempt/failure/resume output.
+- Keep Tenable parser code unchanged because the defect and fix are in the shared write infrastructure.
+- Prefer a script under `scripts/` so operations can run it directly against a local or controlled Postgres environment.
+- Use the fixed `SparkDAL` retry path for the second attempt to prove the actual mitigation.
+- Include a pre-fix failure simulation where possible to demonstrate why `ON CONFLICT DO NOTHING` matters.
+- Create `scripts/simulate_tenable_pkey_retry.py` as the runnable harness.
+- Include scenarios: `fixed-retry`, `pre-fix-failure`, `clean-write`, `stage-duplicate`, and `orphan-stage`.
+- Cache/materialize the parsed findings DataFrame before retry simulation so Spark-generated UUID primary keys remain stable across attempts.

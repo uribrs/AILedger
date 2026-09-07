@@ -1,0 +1,106 @@
+{
+  "taskId": "TASK-20260708-0155",
+  "taskSlug": "invariant-pin-tests",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "done",
+    "prompt_contract.md": "done",
+    "constraints.md": "done",
+    "assumptions.md": "done",
+    "decisions.md": "done",
+    "execution_notes.md": "done"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Branch off dev",
+      "status": "completed"
+    },
+    {
+      "id": "S2",
+      "name": "(a) SDK checkpoint-key pin: deferred-wait snapshot -> AdapterCheckpoint round-trip -> SeedFromPersistedState assertions (core deliverable, zero existing coverage)",
+      "status": "completed"
+    },
+    {
+      "id": "S3",
+      "name": "(b/e/f) Audit existing classifier/budget/atomicity suites vs contract list; add gap tests only (may be no-ops)",
+      "status": "completed"
+    },
+    {
+      "id": "S4",
+      "name": "(c/d) Audit AdapterBusEntrypointRunnerInvariantTests assertion depth (exactly-one completion, partialCompletion metadata, CancelledResult retryable); deepen if shallow",
+      "status": "completed"
+    },
+    {
+      "id": "S5",
+      "name": "Build + full suite green",
+      "status": "completed"
+    },
+    {
+      "id": "S6",
+      "name": "Record coverage-audit verdicts in execution_notes; update state",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: PASS; one wording note (partialCompletion pinned at executor seam, net-covered)",
+      "code-reviewer-1: no material findings; 1 style minor applied; 4 observations accepted"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-08T01:58:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-08T02:40:00Z",
+        "outputs": [
+          "execution_notes.md",
+          "branch tests/invariant-pins commit 57722ac"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-08T02:55:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-08T09:30:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-08T09:30:00Z"
+}

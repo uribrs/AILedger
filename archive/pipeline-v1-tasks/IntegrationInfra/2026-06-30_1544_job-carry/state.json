@@ -1,0 +1,133 @@
+{
+  "taskId": "TASK-20260630-1544",
+  "taskSlug": "job-carry",
+  "status": "complete_review_passed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Verify wire-safety ($type/JsonDerivedType) on the Run envelope types before renaming",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Copy 10 Job files -> Job/ + CollectorRunMetadata -> Envelopes/Common/ verbatim",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Flatten/rewrite namespaces -> Cymulate.IntegrationInfra.Job; Common->Envelopes.Common; AdapterTimeDefaults->Emission.AdapterGlobalDefaults",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "D8 neutralization: 8 Collector*->Adapter* names (types/files/refs); JsonPropertyName values unchanged",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Build clean; verify no residual Shared.*; Kernel + Emission unmodified",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "XML docs; extend Job/README.md (carried set, D8 renames, Envelopes.Common, Job->Emission flag, hydrator seam)",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "Tests: parsers, AdapterTriggerParsing, AdapterTimeDefaults, hydrator characterization",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "name": "dotnet build clean + tests pass; record output; mirror to global archive",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_qualifications",
+    "notes": [
+      "Full build 0 errors; 109 tests pass (33+20+10+15+31).",
+      "Wire-safe D8 (no $type); Kernel.Time + Emission rewires added; Kernel+Emission git-diff clean; source unmodified.",
+      "Flagged Job->Emission coupling (lookback constant); hydrator verbatim + seam deferred.",
+      "Verifier PASS (6/7); C5 XML-docs PARTIAL (verbatim source gaps, no behavior defect). 11 files byte-verbatim incl. hydrator. No must-fix."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-30T15:44:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-30T15:46:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-30T16:00:00Z",
+        "outputs": [
+          "src/IntegrationInfra/Job/**",
+          "src/IntegrationInfra/Envelopes/Common/AdapterRunMetadata.cs",
+          "IntegrationInfra.slnx",
+          "tests/IntegrationInfra.Job.Tests/**",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-30T16:05:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-30T16:08:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierRun_output": "review/verifier-1.md",
+    "codeReviewerRun_output": "review/code-reviewer-1.md",
+    "codeReviewerDisposition": "No blockers/majors. Credential handling sound (no secret exposure; errors carry only CorrelationId). Minors M1-M4 (case-sensitivity inconsistency, redundant endpoint scan, GetAny untrimmed-current, TryParseBool dead arms) + nits = PRE-EXISTING verbatim source behavior -> recorded, NOT changed (operator no-reshape rule). Test gap: ParseOrThrow (primary entry, needs SDK PlatformEvent) + ValidateOrThrow + AdapterRunActionParser untested -> tracked follow-up; reviewer says prioritize before the parse->typed-job reshape."
+  },
+  "lastUpdated": "2026-06-30T16:08:00Z"
+}

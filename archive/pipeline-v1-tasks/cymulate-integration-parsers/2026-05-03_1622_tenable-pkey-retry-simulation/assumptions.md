@@ -1,0 +1,6 @@
+- VALIDATED: The pkey fix is infrastructural in `libs/packages/dal/sparkDAL.py`, not in the Tenable.io parser.
+- VALIDATED: The repo contains Tenable.io-like sample data at `files/tenable/assets_and_findings/findings_000001.ndjson`.
+- VALIDATED: The simulation environment must provide Postgres connection settings through existing env vars or CLI arguments; the script does not store credentials.
+- OPEN: The local environment may have additional Tenable parser files beyond the current repo checkout.
+- VALIDATED: The harness may use a small deterministic subset of parsed Tenable output to keep simulation runs fast.
+- VALIDATED: The harness uses a test-specific client/instance scope and cleans it after running unless `--keep-data` is provided.

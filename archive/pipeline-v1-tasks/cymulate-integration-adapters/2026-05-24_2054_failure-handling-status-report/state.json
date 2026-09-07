@@ -1,0 +1,60 @@
+{
+  "taskId": "TASK-20260524-2054",
+  "taskSlug": "failure-handling-status-report",
+  "status": "complete",
+  "complexityTier": "light",
+  "currentPhase": "complete",
+  "sourceTaskDir": "ai/active/2026-05-24_1427_failure-handling-redesign",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "orchestration_plan.md": "complete",
+    "execution_notes.md": "complete",
+    "constraints.md": "optional",
+    "assumptions.md": "optional",
+    "decisions.md": "optional"
+  },
+  "steps": [
+    { "id": "S1", "description": "Read root state.json of source task", "status": "complete" },
+    { "id": "S2", "description": "Parallel-read phase-0a, phase-0b, phase-1 artifacts via subagents", "status": "complete" },
+    { "id": "S3", "description": "Read plan.md (rev 4) for unstarted phases P2-P5", "status": "complete" },
+    { "id": "S4", "description": "Synthesize status report", "status": "complete" },
+    { "id": "S5", "description": "Verifier pass against contract success criteria", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Verifier-1: PASS-WITH-REPAIRS-NEEDED. Two Minor (P1 code-reviewer item count 6 vs actual 5+6; phase-1 timestamp 20:31 vs 22:30Z) + two Nit (P1 LoC sub-delta arithmetic noise; P0b facade test phrasing precision).",
+      "Repaired both Minors in execution_notes.md (W3 + Synthesis) and prompt_contract.md (Context). Accepted both Nits.",
+      "Verifier-2: PASS. Source-task inconsistencies (root state staleness, P0b->P4 vs plan.md->P5 marker-leak schedule) remain open in the source task; correctly reported, not authored, here."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "W1", "scopeSummary": "Phase 0a artifact summary", "status": "complete", "outputRef": "execution_notes.md#w1" },
+      { "id": "W2", "scopeSummary": "Phase 0b artifact summary", "status": "complete", "outputRef": "execution_notes.md#w2" },
+      { "id": "W3", "scopeSummary": "Phase 1 artifact summary", "status": "complete", "outputRef": "execution_notes.md#w3" },
+      { "id": "W4", "scopeSummary": "plan.md extraction of P2-P5 scope and prereqs", "status": "complete", "outputRef": "execution_notes.md#w4" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-05-24T17:55:00Z", "outputs": ["task.md", "prompt_contract.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-05-24T17:56:00Z", "outputs": ["orchestration_plan.md", "execution_notes.md"] },
+      { "skill": "verifier-subagent", "completedAt": "2026-05-24T17:57:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "verifier-subagent", "completedAt": "2026-05-24T18:02:00Z", "outputs": ["review/verifier-2.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": false,
+    "codeReviewerSkippedReason": "Not code-bearing — status synthesis only; no production code, config, or schema modified."
+  },
+  "lastUpdated": "2026-05-24T18:02:00Z"
+}

@@ -1,0 +1,65 @@
+{
+  "taskId": "TASK-20260820-1101",
+  "taskSlug": "falcon-policy-s3-parser-e2e-validation",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Wait for and establish the terminal result of the local Falcon run",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Inspect the actual S3 manifest and emitted objects for completeness and policy envelopes",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Replay or true-run the merged CrowdStrike parser against the collected artifacts",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Verify PostgreSQL policy persistence without writing to production",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Verify receiving-repository contracts and readiness from their master branches",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "Produce an evidence-backed end-to-end report and rollout verdict",
+      "status": "complete"
+    }
+  ],
+  "blockers": [
+    "Policy edge asset_match_key uses Falcon aid but Exposure Analytics resolves against asset.value; real replay matched 0 of 47 edge keys.",
+    "All 939 rules[].value payloads are JSON objects double-encoded as JSON strings; downstream native-field extraction returned zero values."
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Independent verifier confirmed the validation evidence and documentation corrections.",
+      "Rollout verdict is NO-GO because both semantic compatibility blockers are reproduced on real data."
+    ]
+  },
+  "baseRef": "1c49066a7f63248bdef398e12b7f18661f2649a7",
+  "lastUpdated": "2026-08-20T11:31:00Z"
+}

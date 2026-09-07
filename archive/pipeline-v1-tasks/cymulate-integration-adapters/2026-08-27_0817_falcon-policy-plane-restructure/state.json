@@ -1,0 +1,148 @@
+{
+  "taskId": "TASK-20260827-0817",
+  "taskSlug": "falcon-policy-plane-restructure",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "branch": "fix/falcon-disable-prevention-policy-enrichment",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "name": "stage_ledger_replaces_policy_bool",
+      "status": "completed"
+    },
+    {
+      "name": "manifest_written_after_scroll",
+      "status": "completed"
+    },
+    {
+      "name": "policies_become_post_freeze_stage",
+      "status": "completed"
+    },
+    {
+      "name": "policy_plane_output_definitions_plus_edges",
+      "status": "completed"
+    },
+    {
+      "name": "definitions_lane_own_pgen_folder",
+      "status": "completed"
+    },
+    {
+      "name": "defense_partial_rejection_semantics",
+      "status": "completed"
+    },
+    {
+      "name": "defense_probe_no_init_fail_on_404",
+      "status": "completed"
+    },
+    {
+      "name": "defense_datapipeline_classifier_arm",
+      "status": "completed"
+    },
+    {
+      "name": "defense_midscroll_500_reanchor",
+      "status": "completed"
+    },
+    {
+      "name": "defense_write_empty_units_and_counts",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_findings",
+    "notes": [
+      "verifier-2: PASS with four findings, none a Success-Criterion breach",
+      "Full suite 357 passed / 1 failed / 2 skipped / 360; the single failure fails at baseRef b14d6d64 too"
+    ]
+  },
+  "baseRef": "b14d6d64e1f317bd6c5fae71d04f8ccca6c9e481",
+  "lastUpdated": "2026-08-27T16:05:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W0",
+        "scopeSummary": "freeze shared spine: rejection-outcome type, enricher signature, envelope edge/composed split",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w0"
+      },
+      {
+        "id": "W1",
+        "scopeSummary": "full-body read via IHttpSession, requested-vs-returned rejection, definitions sweep URL",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "DataPipelineException arm discriminating causes; prober must not fail init on 404",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "manifest first, staged ledger, policies as post-freeze stage, edge-only page, phase 2 composition, pgen paths + pruner, streaming write, mid-scroll 500 re-anchor",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "tripwire tests R1/R2/R5 and assets-unchanged proof; tests only",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w4"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-27T08:17:56Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-27T16:05:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "research/internal-recon.md",
+          "review/verifier-1.md",
+          "review/verifier-2.md",
+          "review/code-reviewer-1.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "workflow-coordinator",
+        "completedAt": "2026-08-27T16:05:00Z",
+        "outputs": [
+          "ai/done/2026-08-27_0817_falcon-policy-plane-restructure"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-27T16:05:00Z"
+  }
+}

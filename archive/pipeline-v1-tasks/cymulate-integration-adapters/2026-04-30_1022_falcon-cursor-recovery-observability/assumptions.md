@@ -1,0 +1,5 @@
+- VALIDATED: Checkpoints already store `MonthSegmentStartUtc`, `MonthSegmentEndExclusiveUtc`, `MonthSegmentFloorUtc`, `AfterToken`, `LastWatermark`, and boundary IDs.
+- VALIDATED: The local mock simulator can be extended to cover recovery scenarios without real credentials.
+- VALIDATED FOR LOCAL MOCK: The opaque-style `after` cursor can expose a sortable timestamp in its encoded payload. Production decoding remains best-effort telemetry, not a correctness dependency.
+- VALIDATED: If cursor timestamp extraction is unavailable, visibility falls back to page watermark, current floor, or segment start.
+- VALIDATED: The repeated-cursor guard can reuse existing watermark fallback behavior safely after the current page has been published; boundary IDs prevent duplicate publish of the repeated page item.

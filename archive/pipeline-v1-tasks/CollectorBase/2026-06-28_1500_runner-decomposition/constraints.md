@@ -1,0 +1,21 @@
+# Constraints
+
+- Strictly behavior-preserving — zero behavior change; pure structural move.
+- No logic changes; no new features.
+- No changes to the public adapter surface: `CollectorExecutorAdapter` calls `RunAsync`, `ProbeAsync`, `Preflight`, `CanResume`, `Fingerprint` — these entry points must keep working unchanged.
+- `CollectorExecutorStepHelpers` (294-line grab-bag) is OUT OF SCOPE.
+- No polymorphic `IStepExecutor` + registry — explicit `RunAsync` switch dispatch stays.
+- `Seams.RunContext` must NOT be renamed or merged; the scope object carries it BY REFERENCE (mutation semantics unchanged).
+- Preserve every invariant EXACTLY:
+  - checkpoint persisted BEFORE `AdvancePage`
+  - partial-success-wins (failure after ≥1 emit → partial success, not hard fail)
+  - defer/wait does NOT advance the page
+  - per-emit-target monotonic page counters (`AssetsPage`/`FindingsPage`)
+  - reset-to-watermark on cursor expiry
+  - 404 → `EXPORT_GONE` in poll_and_drain
+  - reserved `__`-prefix processed-set key
+  - next_url non-advance cycle guard
+  - preserve the fetch next_url branch (uses `GetStringAsync`, not `SendForStringAsync`)
+- net8.0; solution `CollectorBase.slnx`; generic engine, no vendor identity.
+- Incremental: build clean AND 88/88 green after EACH extraction step. If any step goes red, STOP and report.
+- NO test edits — a required test change is a red flag → STOP.

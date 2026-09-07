@@ -1,0 +1,74 @@
+{
+  "taskId": "TASK-20260513-1606",
+  "taskSlug": "query-section-publisher-wiring-slice",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "sourceDocuments": {
+    "aggregateQueryState": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1238_query-domain-creation/state.json",
+    "sectionTrackerHandoff": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1528_query-section-tracker-slice/next_agent_handoff.md",
+    "sectionTrackerContract": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1528_query-section-tracker-slice/prompt_contract.md",
+    "sectionTrackerConstraints": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1528_query-section-tracker-slice/constraints.md",
+    "sectionTrackerDecisions": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1528_query-section-tracker-slice/decisions.md",
+    "queryReadme": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/README.md",
+    "dataflowReadme": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow/README.md",
+    "publishingReadme": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/Query/README.md",
+    "queryAdapterPipeline": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow/QueryAdapterPipeline.cs",
+    "querySectionTracker": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow/QuerySectionTracker.cs",
+    "querySectionPublisher": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/Query/QuerySectionPublisher.cs",
+    "querySectionPublisherFactory": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow/QuerySectionPublisherFactory.cs"
+  },
+  "implementationTarget": "src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Dataflow",
+  "testTarget": "src/Cymulate.Integration.Adapters/UnitTests/Query/Cymulate.Integration.Adapters.QueryIntegration.Shared.Test",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Validate current pipeline composition: confirm QueryAdapterPipeline already constructs publisher via factory, iterates tracker.CompletedSections, calls PublishSectionAsync per section, and emits QueryJobCompletedV2 via PublishJobCompletedAsync at job end",
+      "status": "pending"
+    },
+    {
+      "id": "step-2",
+      "description": "Decide whether any composition gap exists (e.g. ordering, single-consumer enforcement at the wiring layer, cancellation propagation through the publisher stage). Either close the gap with minimal composition-only edits inside QueryAdapterPipeline or document that the gap was zero and proceed to test reinforcement",
+      "status": "pending"
+    },
+    {
+      "id": "step-3",
+      "description": "Add wiring-focused tests exercising the real QuerySectionTracker + real QuerySectionPublisher inside QueryAdapterPipeline (in-memory IExecutionPlanStore fake and capturing IAdapterExecutionContext fake): section emission flow end-to-end, single-consumer enforcement on tracker.CompletedSections, cancellation propagation as OperationCanceledException, QueryJobCompletedV2 emission at job end with correct counts and outcome",
+      "status": "pending"
+    },
+    {
+      "id": "step-4",
+      "description": "Update Dataflow/README.md and Publishing/Query/README.md to describe the wired tracker -> publisher flow and the QueryJobCompletedV2 boundary signal",
+      "status": "pending"
+    },
+    {
+      "id": "step-5",
+      "description": "Run dotnet build on the Shared csproj and dotnet test on the Query shared test project; capture results and any NU1900 warnings as before",
+      "status": "pending"
+    },
+    {
+      "id": "step-6",
+      "description": "Update aggregate Query state.json (move publisher wiring out of notImplemented), update next_agent_handoff.md if produced, write execution_notes.md, mirror artifacts to the global archive",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-05-13T16:06:00+03:00"
+}

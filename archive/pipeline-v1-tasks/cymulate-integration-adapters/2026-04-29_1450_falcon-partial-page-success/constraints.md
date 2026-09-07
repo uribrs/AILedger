@@ -1,0 +1,9 @@
+- Keep the change scoped to FalconCollector and its tests unless existing Shared APIs already provide the required completion payload mechanism.
+- Preserve existing retryable failure handling.
+- Preserve normal failed status behavior when no page has been collected.
+- Preserve page counters, checkpoint advancement, NDJSON output, and published records.
+- Use existing orchestration/completion publishing paths; do not add an alternate host signaling path.
+- Attach the error that caused partial completion to the DONE result payload.
+- Add a structured log line for the collected window size when partial completion is used.
+- Follow existing Falcon/Tenable/Entra collector patterns and local .NET conventions.
+- Do not touch unrelated collector behavior.

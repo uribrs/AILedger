@@ -1,0 +1,64 @@
+{
+  "taskId": "TASK-20260831-1853",
+  "taskSlug": "tenableio-glue-oversized-record",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "crossRepo": {
+    "primary": {
+      "repo": "cymulate-integration-parsers",
+      "path": "/Users/user/Dev/cymulate-integration-parsers",
+      "branchAtContract": "fix/crowdstrike-correlated-asset-identity-guards",
+      "headAtContract": "437053ba2b21ea3c235e75ac67b3db0d6da10c26"
+    },
+    "secondary": {
+      "repo": "cymulate-integration-adapters",
+      "path": "/Users/user/Dev/cymulate-integration-adapters",
+      "branchAtContract": "dev",
+      "headAtContract": "23f2f8825caad128228266a70dc8aca299786066"
+    }
+  },
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "parsers-glue-reader-fallback",
+      "repo": "cymulate-integration-parsers",
+      "summary": "Scoped try/except on the split-size Py4JJavaError in helpers.fetch_df_from_file (and fetch_df_from_strategy if it shares the risk), falling back to native spark.read.json. Plus test.",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "name": "adapters-envelope-byte-budget",
+      "repo": "cymulate-integration-adapters",
+      "summary": "Field-agnostic byte budget in TenableIoVulnPhase.SliceEnvelopes alongside FindingsPerEnvelopeCap. Plus exactly-once reconstruction unit test.",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "name": "parsers-correlated-host-lane-fix",
+      "repo": "cymulate-integration-parsers",
+      "summary": "Correct the false host-per-chunk invariant docstring and add host.isNotNull() to the assets lane in tenableAssetsAndFindingsCorrelated.pre_process.",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "437053ba2b21ea3c235e75ac67b3db0d6da10c26",
+  "lastUpdated": "2026-08-31T18:53:20Z"
+}

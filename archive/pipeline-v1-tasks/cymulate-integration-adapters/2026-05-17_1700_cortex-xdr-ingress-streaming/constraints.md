@@ -1,0 +1,62 @@
+- One PR, two commits.
+  - Commit 1: Add the `DataPipeline/Ingress/` library — `IngressStream.ReadNdjsonLinesAsync`, `IngressStream.Skip`, README, unit tests. No changes to any consumer.
+  - Commit 2: Cortex XDR refactor — `CortexXdrXqlClient`, `CortexXdrFindingsFlow`, tests.
+- Commit 1 must build and test green standalone. Reviewers can verify the library in isolation before the Cortex change.
+- Library location: `src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/DataPipeline/Ingress/`. Namespace: `Cymulate.Integration.Adapters.Shared.DataPipeline.Ingress`.
+- `IngressStream` is a single `public static class`. Two static methods. No interface, no base class, no options class.
+- `ReadNdjsonLinesAsync(Stream contentStream, CancellationToken cancellationToken)`:
+  - Returns `IAsyncEnumerable<ReadOnlyMemory<byte>>`.
+  - Uses `StreamReader` line-by-line over UTF-8.
+  - Skips empty and whitespace-only lines silently.
+  - Does NOT parse or validate JSON. Bytes pass through.
+  - Respects cancellation between lines.
+  - Does NOT take ownership of the stream — caller disposes.
+- `Skip(IAsyncEnumerable<ReadOnlyMemory<byte>> source, long count, CancellationToken cancellationToken = default)`:
+  - Returns `IAsyncEnumerable<ReadOnlyMemory<byte>>`.
+  - `count <= 0` returns the source unchanged.
+  - Counts rows from the underlying enumerator; does not buffer beyond the current row.
+  - Respects cancellation.
+- Library unit tests cover at minimum:
+  - `ReadNdjsonLinesAsync`: typical NDJSON yields each line as bytes; empty lines skipped; whitespace-only lines skipped; trailing newline handled; cancellation between lines; large line preserved without truncation; bytes match input.
+  - `Skip`: count=0 passthrough; count > source length yields zero rows; count mid-stream skips exactly the requested rows; cancellation respected; long-typed count accepted.
+- `CortexXdrXqlClient.ExecuteAsync` signature changes from `Task<List<JsonElement>>` to `IAsyncEnumerable<ReadOnlyMemory<byte>>`. The only caller is `CortexXdrFindingsFlow`; verify before changing.
+- The XQL control responses (`start_xql_query` reply, `get_query_results` poll responses) continue to be parsed with `JsonDocument.Parse` — those are small. Only the row payload streams.
+- Stream branch (`results.stream_id` present): yield rows via `IngressStream.ReadNdjsonLinesAsync` over `response.ContentStream`. Drop the existing `List<JsonElement>` accumulation and the per-line `JsonDocument.Parse` validation. Bytes pass straight through.
+- Inline branch (`results.data` array present, no stream_id): yield each array element by serializing it back to UTF-8 single-line via the existing `NormalizedUtf8Json.SerializeToSingleLine` helper. The array itself is bounded by Cortex's small-result path (<1000 rows per Cortex docs) so this is acceptable.
+- `CortexXdrFindingsFlow.CollectAsync` removes the following pieces entirely:
+  - `OrderCveRowsForResume`
+  - `BuildCveTieBreakerHash`
+  - `GetJsonSortValue`
+  - `AppendHashData`
+  - `CveSortTieBreakerFields`
+  - `CveStageResult` record
+  - `EnumerateCveRows(IReadOnlyList<JsonElement>, int, int, CancellationToken)` over a materialized list
+- Replacement page loop in `PublishCveRowsAsync`: pull from `IngressStream.Skip(xqlStream, resumeState?.NextCveIndex ?? 0)`, accumulate rows up to `_configuration.PageSize`, publish, advance checkpoint. Continue until the source ends or cancellation.
+- Trust XQL's `| sort asc cve_id, name` for resume ordering. The SHA-256 tie-breaker hash is removed. If pre-flight verification of `cve_id` uniqueness in `va_cves` reveals duplicates that could destabilize tie-order on resume, halt and surface as a blocker (see `assumptions.md` and Stop Conditions in the contract).
+- DryRun probe in `CortexXdrFindingsFlow.CollectAsync`: instantiate the XQL stream, drain only the first element via `await using` over `GetAsyncEnumerator` + `MoveNextAsync`, then dispose. Do not iterate further.
+- Checkpoint shape unchanged. `checkpointVersion = 2` stays valid. `NextCveIndex` semantics unchanged: "rows already published."
+- Test updates in `CortexXdrFindingsFlowTests` must preserve every existing assertion:
+  - Request sequence (start → poll → stream).
+  - Checkpoint state shape and contents at each page boundary.
+  - Resume from `NextCveIndex > 0` advances correctly.
+  - Cancellation between pages re-throws cleanly.
+  - Legacy joined-format checkpoint rejection (`checkpointVersion != 2`) still rejects.
+  - Empty terminal endpoint page still emits the terminal `stage=assets`, `hasMorePages=false` checkpoint.
+- New tests added in `CortexXdrFindingsFlowTests`:
+  - Streaming XQL source yields rows incrementally — flow does not pre-materialize before first publish.
+  - Resume from `NextCveIndex > 0` advances the stream past the skipped rows without re-publishing them.
+  - Behavior when the XQL stream contains malformed lines: lenient — malformed lines flow to the publisher which throws `InvalidOperationException` on bad JSON. Test asserts the failure mode is the publisher's, not the ingress helper's.
+- Test fixture for streaming XQL: use a real or mocked HTTP session that returns a `Stream` of NDJSON bytes. Static-JSON fixtures used today need rewriting to streaming form.
+- Egress tightening (Commit 2): `NdjsonUtf8BatchSession.AppendRecordAsync` (and/or the `PublishUtf8CoreAsync` driver in `ResultsBatchPublisher`, wherever the newline check currently lives) must validate every record, not only newline-containing ones. For records without newlines, run a cheap `using JsonDocument.Parse(record.Span)` validity check; on `JsonException`, throw `InvalidOperationException($"invalid JSON record: {ex.Message}", ex)` matching today's multi-line failure mode. Records with newlines continue through the existing `Utf8ResultsRecordFormatter.NormalizeToSingleLine` path unchanged.
+- The string publish path (`PublishCoreAsync` / `ResultsRecordFormatter.NormalizeToSingleLine`) is already strict for every record. No change there.
+- New Egress unit test (Commit 2): single-line malformed UTF-8 JSON record passed to `PublishFindingsUtf8PageAsync` (or the underlying session) throws `InvalidOperationException` with the existing "invalid JSON record" message shape. Today this case would silently emit invalid JSON; the new test pins the strict contract.
+- Existing Egress tests that publish valid single-line UTF-8 records must continue to pass. The cheap validity check adds one `JsonDocument.Parse` per record on the no-newline path; document and accept the modest CPU cost.
+- No new public types beyond `IngressStream`. No new abstractions in Cortex XDR or Egress.
+- Public API surface of `CortexXdrXqlClient` changes only at one method (`ExecuteAsync` return type). Public API surface of Egress is unchanged — only the internal validation contract tightens.
+- Pre-commit hooks must run. Do not pass `--no-verify`.
+- Build verification: `dotnet build` of the Cortex XDR project and the Shared project must succeed.
+- Test verification: every test project that builds must pass. Targeted Cortex XDR test command documented in `assumptions.md`.
+- Cortex XDR `va_endpoints` source and `sourceType` discriminator are NOT in scope.
+- Do not introduce a spool-to-disk wrapper, memory-pressure helper, or chunk-by-row-count helper. Deferred per `decisions.md`.
+- Do not modify `Json/`, `Session/`, `Recovery/`, or `Orchestration/` beyond their public API surface usage from inside Cortex XDR (which should not require any changes).
+- The only Egress modification permitted in this task is the validation tightening described above. Do not refactor or restructure Egress beyond that one change.

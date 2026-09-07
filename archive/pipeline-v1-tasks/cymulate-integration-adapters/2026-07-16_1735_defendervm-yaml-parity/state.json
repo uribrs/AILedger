@@ -1,0 +1,31 @@
+{
+  "taskId": "TASK-20260716-1735",
+  "taskSlug": "defendervm-yaml-parity",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "orchestration",
+  "requiredFiles": {
+    "task.md": "done", "prompt_contract.md": "done", "constraints.md": "done",
+    "assumptions.md": "done", "decisions.md": "done", "execution_notes.md": "pending"
+  },
+  "steps": [
+    {"id": "S1", "name": "engine: annotate + const mapping + schema/loader + tests", "status": "pending"},
+    {"id": "S2", "name": "defender-vm.yaml rewrite", "status": "pending"},
+    {"id": "S3", "name": "round-trip fixture gate vs native capture", "status": "pending"},
+    {"id": "S4", "name": "verifier + code-reviewer", "status": "pending"}
+  ],
+  "blockers": [],
+  "validation": {"promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true},
+  "verification": {"status": "not_started", "notes": []},
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "skillsRun": [
+      {"skill": "prompt-contract-designer", "completedAt": "2026-07-16T17:35:00Z", "outputs": ["task.md","prompt_contract.md","state.json","constraints.md","assumptions.md","decisions.md"]}
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false
+  },
+  "lastUpdated": "2026-07-16T17:35:00Z"
+}

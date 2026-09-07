@@ -1,0 +1,102 @@
+{
+  "taskId": "TASK-20260810-1624",
+  "taskSlug": "resume-live-state-authority",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "repo": "IntegrationInfra",
+      "summary": "Seed persisted collector state keys into AdapterState at resume so live state is populated and authoritative from the first instruction of a resumed leg.",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "repo": "cymulate-integration-adapters",
+      "summary": "Delete the Falcon findings resume recovery hook; reduce the assets resume hook to cursor re-anchoring only (no position/state restoration).",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "repo": "cymulate-integration-adapters",
+      "summary": "Rewrite the two enshrining continuation tests so the fixture carries live progress that diverges from WorkItem; fix the two resume-runner harness doubles.",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "repo": "cymulate-integration-adapters",
+      "summary": "Add a regression test proving a pre-publish deferral on a resumed leg preserves the persisted collector state, and that a post-publish deferral persists the advanced position.",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "repo": "both",
+      "summary": "Bump Infra package version, bump pinned Infra version in adapters, bump CollectorVersion.",
+      "status": "pending"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "summary": "RESOLVED (operator, 2026-08-10): remove the 6.1.1 clamp AND the RestoreProgress call it patches. The host already restores counters at CollectorResumeSetup.cs:59-63; the collector must not assign a sparse address into the dense page counter. Folded into S2.",
+      "blocking": null
+    },
+    {
+      "id": "B2",
+      "summary": "RESOLVED (operator, 2026-08-10): do not re-apply the hand-rolled 6.1.2 in-process 502 retry. Its justification was the defect being fixed. Any 502 absorption belongs in Falcon's session/Polly policy as a separate change. Known prod regression: prod-eu runs 6.1.2 with the retry, dev does not.",
+      "blocking": null
+    },
+    {
+      "id": "B3",
+      "summary": "RESOLVED (operator, 2026-08-10): out of scope. AidBatchSize is a config-only experiment after the fix is verified, one variable at a time.",
+      "blocking": null
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "W1", "scopeSummary": "Cross-collector conformance survey; settles A4.", "status": "in_progress", "outputRef": "execution_notes.md#w1" },
+      { "id": "W2", "scopeSummary": "Recovery-budget collateral analysis; settles A1.", "status": "in_progress", "outputRef": "execution_notes.md#w2" },
+      { "id": "W3", "scopeSummary": "Falcon hook load-bearing audit; settles A2 and A3.", "status": "in_progress", "outputRef": "execution_notes.md#w3" },
+      { "id": "W4", "scopeSummary": "Empirical reproduction of the rewind on origin/dev.", "status": "in_progress", "outputRef": "execution_notes.md#w4" },
+      { "id": "W5", "scopeSummary": "B1 dependency check and cross-collector duplication scan.", "status": "in_progress", "outputRef": "execution_notes.md#w5" },
+      { "id": "W6", "scopeSummary": "Packaging and version coordination; settles A8.", "status": "in_progress", "outputRef": "execution_notes.md#w6" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-08-10T16:24:26Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "execution_notes.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": null, "outputs": ["orchestration_plan.md"] }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false,
+    "lessonsRecorded": false,
+    "archivedAt": null
+  },
+  "status_note": "Wave 1 (evidence) dispatched. Wave 2 (implementation) is planned after synthesis.",
+  "baseRef": "6f8b58b3e39c48296d3f33d0065d18f2c20c3d5e",
+  "secondaryBaseRef": {
+    "repo": "IntegrationInfra",
+    "ref": "6dccb87e4650e9ccb2048b710d7435782f4f5526"
+  },
+  "lastUpdated": "2026-08-10T16:24:26Z"
+}

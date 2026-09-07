@@ -1,0 +1,95 @@
+{
+  "taskId": "TASK-20260716-1217",
+  "taskSlug": "yaml-engine-sequential-block-execution",
+  "status": "ready_for_review",
+  "complexityTier": "full",
+  "currentPhase": "plan_review",
+  "branch": "feature/yaml-engine-declarative-enrichment",
+  "baseCommit": "d5b0c93",
+  "predecessorTasks": [
+    "ai/active/2026-07-15_1746_yaml-engine-declarative-enrichment",
+    "ai/active/2026-07-16_1128_yaml-engine-streaming-merge"
+  ],
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "P0",
+      "desc": "Reconcile live dirty-tree baseline, characterize behavior, and resolve engine ownership/dependency decisions",
+      "status": "pending"
+    },
+    {
+      "id": "P1",
+      "desc": "Define immutable domain plan, typed outcomes, compiler, and 279-YAML compatibility suite",
+      "status": "pending"
+    },
+    {
+      "id": "P2",
+      "desc": "Implement and prove a strictly sequential execution substrate",
+      "status": "pending"
+    },
+    {
+      "id": "P3",
+      "desc": "Migrate direct-operation execution behind an internal seam and prove parity",
+      "status": "pending"
+    },
+    {
+      "id": "P4",
+      "desc": "Migrate workflow composition and preserve streaming merge semantics",
+      "status": "pending"
+    },
+    {
+      "id": "P5",
+      "desc": "Make checkpoint, resume, defer, and fingerprint semantics explicit and verified",
+      "status": "pending"
+    },
+    {
+      "id": "P6",
+      "desc": "Cut over, remove legacy orchestration, synchronize the second engine home, and document",
+      "status": "pending"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "DR1",
+      "desc": "Choose System.Threading.Tasks.Dataflow or plain TPL behind the domain executor contract",
+      "blocks": "implementation"
+    },
+    {
+      "id": "DR2",
+      "desc": "Choose the canonical engine home and synchronization strategy",
+      "blocks": "implementation"
+    },
+    {
+      "id": "DR3",
+      "desc": "Approve the temporary mutually-exclusive migration seam",
+      "blocks": "implementation"
+    },
+    {
+      "id": "DR4",
+      "desc": "Choose checkpoint compatibility/versioning policy after characterization",
+      "blocks": "checkpoint_cutover"
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "All required contract files created and cross-checked",
+      "Prompt contract contains every required heading with non-empty constraints and success criteria",
+      "Predecessor task constraints and live dirty-tree baseline are explicitly preserved",
+      "No product code was changed"
+    ]
+  },
+  "lastUpdated": "2026-07-16T09:17:00Z"
+}

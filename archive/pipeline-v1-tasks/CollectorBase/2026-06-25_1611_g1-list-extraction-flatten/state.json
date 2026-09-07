@@ -1,0 +1,46 @@
+{
+  "taskId": "TASK-20260625-1611",
+  "taskSlug": "g1-list-extraction-flatten",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Pinned A1 (drain_path left) + A2 (nits documented) + A3 (single-node unchanged)", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "Routed capture_list (StepHelpers.cs:176) + accumulate_list (:191) through ListAtFlattened; post-processing preserved", "effort": "low", "status": "complete" },
+    { "id": "S3", "desc": "Added capture_list+accumulate_list flatten/dedupe test (nested JSON); regression-lock via existing Flatten_IsRecordsOnly + green suite", "effort": "medium", "status": "complete" },
+    { "id": "S4", "desc": "Added XML host-list capture→for_each→detections harness test (4, was 0) + /qxml/hostlist mock", "effort": "medium", "status": "complete" },
+    { "id": "S5", "desc": "Build clean + full suite 77/77; note + execution_notes written", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "not_started", "notes": [] },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T16:11:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": null, "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T16:20:00Z", "outputs": ["CollectorExecutorStepHelpers.cs", "CollectorExecutorTests.cs", "execution_notes.md", "assumptions.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T16:26:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T16:32:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "CLEAN — no blocker/major/minor; 2 optional nits accepted (O(n^2) dedupe pre-existing; tests assert downstream counts)"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T16:33:00Z"
+}

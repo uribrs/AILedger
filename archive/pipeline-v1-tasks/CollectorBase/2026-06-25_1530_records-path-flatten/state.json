@@ -1,0 +1,54 @@
+{
+  "taskId": "TASK-20260625-1530",
+  "taskSlug": "records-path-flatten",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Pin A1 (implicit flatten) + A2 (array-of-arrays/scalar) + A3 (ExtractIds shares resolver) + A4 (single-object tolerance)", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "Added JsonNav.ListAtFlattened (records-only); At/StringAt/ListAt untouched", "effort": "medium", "status": "complete" },
+    { "id": "S3", "desc": "Rerouted ResponseMapper.Map + ExtractIds to the resolver; Map emit policy (objects + one-more-level array-of-arrays + skip scalars)", "effort": "low", "status": "complete" },
+    { "id": "S4", "desc": "Added 3 unit tests: multi-host→3/single-host→2, array-of-arrays→3, records-only regression-lock", "effort": "medium", "status": "complete" },
+    { "id": "S5", "desc": "Added harness test + /qualys/detections mock + QualysDetectionsProfile (4 across 2 hosts)", "effort": "medium", "status": "complete" },
+    { "id": "S6", "desc": "Build clean + full suite 75/75; no regression; flatten-note.md written", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T15:30:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": null, "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T15:50:00Z", "outputs": ["Interpreter.cs", "CollectorExecutorTests.cs", "flatten-note.md", "execution_notes.md", "assumptions.md", "decisions.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T15:58:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T16:04:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "clean — no blocker/major; 2 MINOR + NIT accepted; doc-comment recursion-bound wording tightened"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T16:05:00Z"
+}

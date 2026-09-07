@@ -1,0 +1,129 @@
+{
+  "taskId": "TASK-20260515-0004",
+  "taskSlug": "cortex-xdr-staged-findings-resume",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "completed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "description": "Finalize task contract and operator approval",
+      "status": "completed"
+    },
+    {
+      "id": "S2",
+      "description": "Research Cortex XDR XQL and endpoint segmentation/resume options",
+      "status": "completed"
+    },
+    {
+      "id": "S3",
+      "description": "Refactor Cortex XDR findings flow to publish CVEs and endpoint assets as separate files",
+      "status": "completed"
+    },
+    {
+      "id": "S4",
+      "description": "Update checkpoint/resume state for staged findings flow",
+      "status": "completed"
+    },
+    {
+      "id": "S5",
+      "description": "Add or update Cortex XDR tests for output shape, requests, and resume",
+      "status": "completed"
+    },
+    {
+      "id": "S6",
+      "description": "Run targeted verification and final review",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Verifier 1 failed on nondeterministic CVE resume-by-index; repaired with sorted XQL before limit.",
+      "Verifier 2 found closure gaps: CVE-stage resume regression coverage, metadata description, and stale task state.",
+      "Added CVE-stage resume regression and updated metadata/state artifacts.",
+      "Verifier 3 passed staged findings/resume contract.",
+      "Code reviewer 1 and 2 found technical safety issues; all blocking findings were repaired.",
+      "Verifier 5 passed after final repairs.",
+      "Code reviewer 3 found no blocking or major technical safety findings.",
+      "Targeted Cortex XDR collector tests pass: 25/25.",
+      "Targeted Cortex XDR collector build succeeds; git diff --check is clean; remaining output is NU1900 vulnerability-feed warning from CodeArtifact metadata lookup."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      {
+        "topic": "cortex-xdr-segmentation",
+        "file": "research/cortex-xdr-segmentation.md",
+        "status": "complete",
+        "triggeredBy": "assumption:xql-and-endpoint-segmentation"
+      }
+    ],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-05-14T21:04:26Z",
+        "outputs": [
+          "state.json",
+          "task.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "execution_notes.md",
+          "prompt_contract.md"
+        ]
+      },
+      {
+        "skill": "technical-researcher",
+        "completedAt": "2026-05-14T21:04:26Z",
+        "outputs": [
+          "research/cortex-xdr-segmentation.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-05-14T21:38:09Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "review/verifier-1.md",
+          "review/verifier-2.md",
+          "review/verifier-3.md",
+          "review/verifier-4.md",
+          "review/verifier-5.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-05-14T21:38:09Z",
+        "outputs": [
+          "review/code-reviewer-1.md",
+          "review/code-reviewer-2.md",
+          "review/code-reviewer-3.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-05-14T21:38:09Z"
+}

@@ -1,0 +1,3 @@
+- VALIDATED: The planning note is the source list of candidate issues to validate.
+- OPEN: Product code changes are out of scope for this turn unless explicitly requested later.
+- OPEN: External NuGet/source behavior can be reviewed in a follow-up pass if local repo evidence is insufficient.

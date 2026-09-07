@@ -1,0 +1,16 @@
+- Keep implementation under `Orchestration/Query/Dataflow`.
+- Use SDK Query contracts directly; do not create local duplicate contracts.
+- Implement only `IMatcher` behavior in this slice.
+- Emit exactly one SDK `Finding` per input `DistributedResponse`.
+- Take `Finding.JobId` from the method parameter.
+- Take `Finding.SectionId` and `Finding.QueryId` from `DistributedResponse`.
+- Take `Finding.ResultType` from the matched `QueryV2`.
+- Take `Finding.Payload` from the inner `RawResponse.Payload` without copying.
+- Fail clearly when `distributed.QueryId` does not equal `query.QueryId`.
+- Respect cancellation; honor the token before emitting the finding.
+- Do not implement expression filtering, IP/hostname filtering, or result-type filtering in this slice.
+- Do not branch on `IAdapterSideMatchingCapability` inside the matcher; that swap lives in pipeline composition.
+- Do not implement section tracker, section publisher, recovery planner, resume runner, or `IExecutionPlanStore`.
+- Do not add real Query clients or fake Query clients as product code.
+- Do not add RabbitMQ, Postgres, outbox, storage, session, HTTP retry, host, or transport infrastructure.
+- Keep code small, focused, and aligned with existing Shared Query style.

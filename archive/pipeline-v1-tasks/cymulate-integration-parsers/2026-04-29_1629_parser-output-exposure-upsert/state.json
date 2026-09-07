@@ -1,0 +1,76 @@
+{
+  "taskId": "TASK-20260429-1629",
+  "taskSlug": "parser-output-exposure-upsert",
+  "status": "completed",
+  "complexityTier": "full",
+  "currentPhase": "verification_complete",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+    ,"diagnosis_report.md": "created"
+  },
+  "steps": [
+    {
+      "id": "implement-row-conflict-defense",
+      "status": "completed",
+      "description": "Implement parser_output_exposures staged target insert with row-level ON CONFLICT DO NOTHING defense."
+    },
+    {
+      "id": "verify-row-conflict-defense",
+      "status": "completed",
+      "description": "Run focused verification for SQL behavior and Python syntax."
+    },
+    {
+      "id": "create-task-state",
+      "status": "completed",
+      "description": "Create local and global task state for the duplicate parser_output_exposures key investigation."
+    },
+    {
+      "id": "locate-origin",
+      "status": "completed",
+      "description": "Locate the code path that writes parser_output_exposures and can surface the duplicate primary key error through Spark JDBC."
+    },
+    {
+      "id": "trace-retry-behavior",
+      "status": "completed",
+      "description": "Determine whether Spark retry can reattempt a partially committed write and cause the duplicate key."
+    },
+    {
+      "id": "define-identity-comparison",
+      "status": "completed",
+      "description": "Define how to compare the current exposure object with the row already persisted in Postgres."
+    },
+    {
+      "id": "design-mitigation",
+      "status": "completed",
+      "description": "Specify where and how to make the write idempotent: identical rows succeed, divergent rows replace."
+    },
+    {
+      "id": "define-validation",
+      "status": "completed",
+      "description": "Document targeted tests or verification required before implementation."
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Diagnosis completed without product code changes.",
+      "Spark retry theory holds for the older/direct JDBC path and remains plausible as whole-write retry after target persistence in current staged path.",
+      "Current checked-out code points mitigation to _insert_staged_rows rather than direct Spark jdbc for parser_output_exposures.",
+      "Same id with different non-volatile payload is not supported by observed parser semantics and should be treated as a primary-key identity violation unless product approves replacement.",
+      "Implemented row-level ON CONFLICT DO NOTHING defense for parser_output_exposures target insert.",
+      "Focused unit tests and Python syntax verification passed."
+    ]
+  },
+  "lastUpdated": "2026-04-29T14:06:19Z"
+}

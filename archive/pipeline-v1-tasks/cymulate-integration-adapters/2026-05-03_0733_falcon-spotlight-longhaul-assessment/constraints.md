@@ -1,0 +1,12 @@
+- Assessment only; do not modify product code.
+- Facts about repository behavior must be grounded in current code references.
+- Vendor behavior must be separated into documented facts, inaccessible/uncertain areas, and explicit inference.
+- Prefer official CrowdStrike documentation and local Falcon PDFs when available.
+- Do not present hidden Falcon backend behavior as confirmed without evidence.
+- Focus recommendations on minimal changes, not a redesign.
+- Preserve the current collector architecture as the baseline.
+- Treat Spotlight `after` tokens as short-lived. The local `spotlight.pdf` documents 120-second expiry, so cooldown/resume designs must use watermark/date-anchor recovery instead of assuming cursor durability.
+- Treat confirmed 401-after-successful-refresh as a Falcon long-haul failure class, not ordinary expired-token authentication failure.
+- Keep output structured in the sections requested by the user.
+- Include ranked hypotheses with evidence for and against each.
+- Use file and method references for code-level risks.

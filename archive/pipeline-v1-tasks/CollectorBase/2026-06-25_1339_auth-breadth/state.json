@@ -1,0 +1,61 @@
+{
+  "taskId": "TASK-20260625-1339",
+  "taskSlug": "auth-breadth",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "execution",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending",
+    "orchestration_plan.md": "complete"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Resolve A1: enumerate http.package AuthSelection variants Shared exposes", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "Resolve A2: trace Guardicore/SentinelOne/ServiceNow native auth flows (file:line)", "effort": "low", "status": "complete" },
+    { "id": "S3", "desc": "Resolve A3: confirm bearer/static-token expressible as api_key+header_prefix", "effort": "low", "status": "complete" },
+    { "id": "S4", "desc": "Add username_password_token_exchange case (Guardicore). token_exchange/ServiceNow DEFERRED (Basic-on-token side-channel gap); negotiated/SentinelOne DEFERRED (composite)", "effort": "medium", "status": "complete" },
+    { "id": "S5", "desc": "Profile auth-shape validation — no change: fail-closed at session build, parity with existing 4 types", "effort": "low", "status": "complete" },
+    { "id": "S6", "desc": "Added integrations/guardicore.yaml proof profile; verified vs native (file:line)", "effort": "medium", "status": "complete" },
+    { "id": "S7", "desc": "Added 2 in-process-harness tests (good-creds emit + bad-creds fail-closed) + mock endpoints", "effort": "medium", "status": "complete" },
+    { "id": "S8", "desc": "Updated yaml-contract.md auth section; wrote auth-note.md (mapping + traces + deferred/excluded)", "effort": "low", "status": "complete" },
+    { "id": "S9", "desc": "Build clean + full suite 65/65; spot-checked no regression", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": true,
+    "researchTopics": [
+      { "topic": "auth-selection-surface", "file": "assumptions.md#A1", "status": "complete", "triggeredBy": "assumption:A1" },
+      { "topic": "target-vendor-auth-flows", "file": "assumptions.md#A2", "status": "complete", "triggeredBy": "assumption:A2" }
+    ],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T13:39:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": null, "outputs": ["orchestration_plan.md", "assumptions.md", "decisions.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T14:05:00Z", "outputs": ["CollectorExecutorSessionFactory.cs", "integrations/guardicore.yaml", "CollectorExecutorTests.cs", "yaml-contract.md", "auth-note.md", "execution_notes.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T14:12:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T14:18:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "no blockers; 1 MINOR repaired (bad-creds test asserts real PROBE_ERROR + divergence documented)"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T14:20:00Z"
+}

@@ -1,0 +1,14 @@
+- Read `state.json` before executing future work from this task.
+- Preserve existing repo conventions: small methods, focused helpers, SRP, and no forced abstraction.
+- Prefer clarity over abstraction.
+- Do not infer intent silently; mark assumptions explicitly.
+- Validate external data and database behavior before relying on it.
+- Scope the implementation to `parser_output_exposures`.
+- Keep Spark JDBC batching/staging intact.
+- Defend row-level target primary key conflicts during the Postgres-side staged insert.
+- Use `ON CONFLICT (id) DO NOTHING` for existing `parser_output_exposures` target rows.
+- Do not replace or update existing target rows in this task.
+- Fail clearly if duplicate `id` values exist inside the staging table.
+- The mitigation must not cause batch loss during Spark retry.
+- The mitigation must not hide unrelated duplicate-key or constraint violations.
+- Preserve current behavior for other tables.

@@ -1,0 +1,75 @@
+{
+  "taskId": "TASK-20260708-0050",
+  "taskSlug": "cleanup-and-indicator-carry",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "done",
+    "prompt_contract.md": "done",
+    "constraints.md": "done",
+    "assumptions.md": "done",
+    "decisions.md": "done",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "name": "Branch off main", "status": "completed" },
+    { "id": "S2", "name": "Fix 1: remove Conducting trigger-parsing duplicate (src + tests), re-verify first", "status": "completed" },
+    { "id": "S3", "name": "Fix 2: rename the two Legacy executors (behavior-based names)", "status": "completed" },
+    { "id": "S4", "name": "Fix 3: carry 7 indicator-mechanism files from Shared, namespaces rewired", "status": "completed" },
+    { "id": "S5", "name": "Minimal tests for carried pure logic (IocTypeDetector, PrivateIpDetector, IoaRuleRequestConverter)", "status": "completed" },
+    { "id": "S6", "name": "Build slnx + run full test suite", "status": "completed" },
+    { "id": "S7", "name": "Verify success criteria (grep gates + build/test green)", "status": "completed" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-1: PASS, all 8 criteria; F1 residual dup TryExtractMetadataObject (out of scope, follow-up)",
+      "code-reviewer-1: 1 Major (converter Write recursion) repaired in c94fe82; 2 minors accepted",
+      "verifier-2: PASS on repair; 227/227 tests"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-08T00:50:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "state.json", "constraints.md", "assumptions.md", "decisions.md"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-08T01:20:00Z",
+        "outputs": ["execution_notes.md", "branch chore/dedup-rename-indicator-carry"]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-08T01:45:00Z",
+        "outputs": ["review/verifier-1.md"]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-08T01:50:00Z",
+        "outputs": ["review/code-reviewer-1.md"]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-08T02:00:00Z",
+        "outputs": ["review/verifier-2.md"]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-08T00:55:00Z"
+}

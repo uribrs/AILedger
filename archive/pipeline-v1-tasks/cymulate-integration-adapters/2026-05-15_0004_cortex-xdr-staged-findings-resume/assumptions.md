@@ -1,0 +1,6 @@
+- VALIDATED: The user does not want adapter-side hydration; endpoints and CVEs are collected separately for upstream hydration.
+- VALIDATED: The current Cortex XDR findings port is suspect because it joins CVEs to endpoints and only publishes findings output.
+- REJECTED: Cortex XDR XQL support for query-level segmentation of `va_cves` and/or `va_endpoints` is sufficient for resumable collection without re-reading the full result set. Public official API docs do not expose result offset paging; see `research/cortex-xdr-segmentation.md`.
+- VALIDATED: If XQL cannot be safely segmented, re-running the XQL query and resuming from an adapter-owned output chunk/index is acceptable for CVE-stage recovery. This re-reads skipped vendor rows but does not republish them; see `research/cortex-xdr-segmentation.md`.
+- VALIDATED: Endpoint collection in findings flow can use the same `get_endpoint` paging and `search_from` checkpoint shape as the existing assets flow; see `research/cortex-xdr-segmentation.md`.
+- OPEN: Existing Cortex XDR tests are sufficient scaffolding for targeted regression coverage once updated to the corrected contract.

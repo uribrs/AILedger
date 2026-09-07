@@ -1,0 +1,65 @@
+{
+  "taskId": "TASK-20260708-1732",
+  "taskSlug": "instance-batch-id-uuid",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    { "id": "S1", "desc": "UUIDv5 helper + frozen namespace constant in BatchScopedStorage.cs", "status": "complete" },
+    { "id": "S2", "desc": "BeginPage writes UUID to Metadata[instanceBatchId]", "status": "complete" },
+    { "id": "S3", "desc": "Doc comment + Egress/README.md update", "status": "complete" },
+    { "id": "S4", "desc": "Update literal assertions in 3 test suites (5 sites asserted literals; 2 were NotContainKey and needed no change)", "status": "complete" },
+    { "id": "S5", "desc": "Add determinism pin tests (Shared suite)", "status": "complete" },
+    { "id": "S6", "desc": "Build + filtered test runs (4 suites)", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-08T17:33:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "state.json", "constraints.md", "assumptions.md", "decisions.md"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-08T17:48:00Z",
+        "outputs": ["BatchScopedStorage.cs", "Egress/README.md", "BatchScopedStorageTests.cs", "QualysBatchScopedStorageTests.cs", "InsightVmCloudBatchScopedStorageTests.cs", "execution_notes.md"]
+      },
+      {
+        "skill": "verifier-subagent",
+        "completedAt": "2026-07-08T17:55:00Z",
+        "outputs": ["review/verifier-1.md"]
+      },
+      {
+        "skill": "code-reviewer-subagent",
+        "completedAt": "2026-07-08T18:00:00Z",
+        "outputs": ["review/code-reviewer-1.md"]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-07-08T17:35:00Z"
+}

@@ -1,0 +1,34 @@
+{
+  "taskId": "TASK-20260517-1500",
+  "taskSlug": "shared-data-pipeline-restructure",
+  "status": "contract_signed",
+  "complexityTier": "full",
+  "currentPhase": "ready_for_orchestrator",
+  "requiredFiles": {
+    "task.md": "present",
+    "prompt_contract.md": "present",
+    "constraints.md": "present",
+    "assumptions.md": "present",
+    "decisions.md": "present",
+    "execution_notes.md": "optional"
+  },
+  "steps": [
+    "Commit 1: Retire Shared/Publishing/ — its contents move into Shared/DataPipeline/Egress/ with full namespace rename to Cymulate.Integration.Adapters.Shared.DataPipeline.Egress (and all sub-namespaces)",
+    "Commit 1: Rehome Shared/Json/ to Shared/DataPipeline/Json/ with namespace rename to Cymulate.Integration.Adapters.Shared.DataPipeline.Json",
+    "Commit 1: Rename identity-prefix option types: PublishThrottlingOptions -> ThrottlingOptions, PublishBufferingOptions -> BufferingOptions, PublishMemoryPressureOptions -> MemoryPressureOptions. Update every call site.",
+    "Commit 1: Update every using statement, ProjectReference, Compile include, DI registration, and documentation reference repo-wide; build + tests must pass with no behavior change",
+    "Commit 2: Add Shared/DataPipeline/Ingress/ placeholder file (using repo placeholder convention)",
+    "Commit 2: Add Shared/DataPipeline/README.md with role description, three sub-roles, boundary rule"
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-05-17T15:10:00Z"
+}

@@ -1,0 +1,16 @@
+- Do not change product code.
+- Do not produce only conversational analysis; write durable markdown files inside this task directory.
+- Read `state.json` first before executing.
+- Treat `ai/active/2026-05-03_1226_rate-limit-header-layers/` as required prior context.
+- Validate claims against source files with file and line references.
+- Distinguish verified implementation facts from interpretation and recommendations.
+- Analyze standard request, streaming request, streaming response, retry, timeout, rate limiting, circuit breaker, authentication, request replay, request options, lifecycle, disposal, telemetry, logging, and tests.
+- Account for direct DefensiveToolkit policy usage separately from Session behavior.
+- Prefer no change when major reshaping does not produce clear reliability or maintainability benefit.
+- Prefer minimal-to-medium recommendations over large rewrites.
+- Identify breaking changes and migration impact for each recommended change.
+- Keep recommendations compatible with existing .NET conventions in this repo: small methods, focused classes, no forced abstraction.
+- Use `rg`, `sed`, `nl`, and existing tests/docs as primary local evidence.
+- Browse only if an external technical uncertainty materially affects correctness.
+- Do not overwrite or mutate the previous rate-limit header task.
+- Do not stage, commit, push, or create a PR.

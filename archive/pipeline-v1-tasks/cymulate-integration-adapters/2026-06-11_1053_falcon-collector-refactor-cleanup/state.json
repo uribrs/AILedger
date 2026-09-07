@@ -1,0 +1,62 @@
+{
+  "taskId": "TASK-20260611-1053",
+  "taskSlug": "falcon-collector-refactor-cleanup",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "orchestration_plan.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "A", "summary": "Foundational shared helpers + SharedFlows analysis; rewire AssetIdsFetcher", "status": "complete" },
+    { "id": "B1", "summary": "Param-bundle DTOs + findings trio (incl. RunAsync/RunSpotlightLaneAsync repair)", "status": "complete" },
+    { "id": "B2", "summary": "Split FalconCheckpointHelper; public statics stay delegators", "status": "complete" },
+    { "id": "B3", "summary": "FalconCollectorConfigurationBuilder Build cleanup", "status": "complete" },
+    { "id": "B4", "summary": "Decompose FalconAssetsFlow CollectAsync; adopt pagination core", "status": "complete" },
+    { "id": "B5", "summary": "Extract FalconCollector recovery methods into handler class", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "baseline: 179 tests pass, build green, CodeArtifact auth OK",
+      "after Phase A: 179 pass, build green",
+      "after Phase B (+ 1 missing-using fix): 179 pass, 0 warnings, net -1014 lines",
+      "verifier-1: satisfied-with-gaps (2 param farms unreduced)",
+      "WB1 repair: RunAsync 15->4, RunSpotlightLaneAsync 17->7; 179 pass, 0 warnings",
+      "verifier-2: Criterion 2 now PASS"
+    ]
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      { "id": "WA", "scopeSummary": "Phase A foundational helpers + SharedFlows analysis + AssetIdsFetcher rewire", "status": "complete", "outputRef": "execution_notes.md#wa" },
+      { "id": "WB1", "scopeSummary": "Findings trio + param-bundle DTOs (+ RunAsync/RunSpotlightLaneAsync repair)", "status": "complete", "outputRef": "execution_notes.md#wb1" },
+      { "id": "WB2", "scopeSummary": "FalconCheckpointHelper split (delegators)", "status": "complete", "outputRef": "execution_notes.md#wb2" },
+      { "id": "WB3", "scopeSummary": "FalconCollectorConfigurationBuilder cleanup", "status": "complete", "outputRef": "execution_notes.md#wb3" },
+      { "id": "WB4", "scopeSummary": "FalconAssetsFlow decomposition", "status": "complete", "outputRef": "execution_notes.md#wb4" },
+      { "id": "WB5", "scopeSummary": "FalconCollector recovery-handler extraction", "status": "complete", "outputRef": "execution_notes.md#wb5" }
+    ],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-11T10:53:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-11T11:40:00Z", "outputs": ["orchestration_plan.md", "execution_notes.md", "review/verifier-1.md", "review/verifier-2.md", "review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "lastUpdated": "2026-06-11T11:30:00Z"
+}

@@ -1,0 +1,4 @@
+- VALIDATED: The existing LocalAdapterRunner can be reused or lightly extended to run against a local mock server and checkpoint/resume inputs.
+- VALIDATED: The previous `logs/falcon-partial-mock` setup contains enough pattern information to mirror log/output layout.
+- VALIDATED: Recovery can be simulated deterministically by injecting controlled vendor failures after checkpoint advancement.
+- VALIDATED: The scenarios should prioritize findings flow without a user FQL filter, because that is where inverted month segmentation and Spotlight cursors interact.

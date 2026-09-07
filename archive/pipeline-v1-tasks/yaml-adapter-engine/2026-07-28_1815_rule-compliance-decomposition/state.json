@@ -1,0 +1,278 @@
+{
+  "taskId": "TASK-20260728-1815",
+  "taskSlug": "rule-compliance-decomposition",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "branch": "quality-upgrade",
+  "baseCommit": "3af1248",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "created",
+    "progress_log.md": "complete",
+    "defect_register.md": "complete"
+  },
+  "baseline": {
+    "tests": {
+      "passed": 709,
+      "failed": 0,
+      "skipped": 0,
+      "verifiedAt": "2026-07-28T18:12:00Z"
+    },
+    "violations": {
+      "total": 74,
+      "rule1": 5,
+      "rule3": 3,
+      "rule4": 3,
+      "rule5": 63
+    },
+    "filesWithViolations": 24,
+    "srcFilesTotal": 118,
+    "measuredBy": "scratchpad/rules_audit.py, 192 files, 0 parse failures"
+  },
+  "target": {
+    "violations": {
+      "total": 49,
+      "rule1": 2,
+      "rule3": 3,
+      "rule4": 3,
+      "rule5": 41
+    },
+    "note": "rule3/rule4 unchanged by design. Target total was 49; measured 48 because MergePlan.Create also moved, closing a 4th rule-1 violation. Reported as a discrepancy, not reconciled."
+  },
+  "steps": [
+    {
+      "id": "C1",
+      "title": "EngineFailureClassifier parameter records",
+      "status": "committed",
+      "closes": {
+        "rule5": 5
+      },
+      "commitSha": "4059bf4",
+      "reviews": {
+        "verifier": "review/verifier-C1.md",
+        "codeReviewerA": "review/code-reviewer-C1-a.md",
+        "codeReviewerB": "review/code-reviewer-C1-b.md"
+      },
+      "measured": {
+        "rule5Before": 63,
+        "rule5After": 58,
+        "totalBefore": 74,
+        "totalAfter": 69,
+        "testsBefore": 709,
+        "testsAfter": 710,
+        "classLines": "297 -> 276",
+        "classifyResponseParams": 2,
+        "cycleRemoved": "Pagination <-> Resilience 2-cycle at the Logic layer"
+      },
+      "deviation": "decisions.md D1 amended twice: tracker first kept as a parameter (D4), then replaced by bool WatermarkAvailable on reviewer B Major 2 - ClassifyResponse ends at 2p",
+      "defectsFiled": [
+        "D1 FIXED",
+        "D2 ACCEPTED",
+        "D3 ACCEPTED",
+        "D4 FIXED",
+        "D5 OPEN",
+        "D6 OPEN",
+        "D7 HOST",
+        "D8 FIXED",
+        "D9 OPEN"
+      ]
+    },
+    {
+      "id": "C2",
+      "title": "IPaginator parameter record",
+      "status": "committed",
+      "closes": {
+        "rule5": 16
+      },
+      "commitSha": "ba02294",
+      "reviews": {
+        "verifier": "review/verifier-C2.md",
+        "codeReviewerA": "review/code-reviewer-C2-a.md",
+        "codeReviewerB": "review/code-reviewer-C2-b.md"
+      },
+      "measured": {
+        "rule5Before": 58,
+        "rule5After": 42,
+        "totalBefore": 69,
+        "totalAfter": 53,
+        "tests": 710,
+        "callSitesRewritten": 82,
+        "callSitesPredicted": 52,
+        "mutationsRun": 11,
+        "mutationsKilled": 11
+      },
+      "deviation": "HasMorePages also reshaped though already compliant (interface consistency); record class not struct (applies D6); responseHeaders default removed",
+      "defectsFiled": [
+        "D10 FIXED",
+        "D11 OPEN",
+        "D12 OPEN",
+        "D13 FIXED"
+      ]
+    },
+    {
+      "id": "C3",
+      "title": "Extract the merge-join parser out of Contracts",
+      "status": "committed",
+      "closes": {
+        "rule1": 3,
+        "rule5": 1
+      },
+      "commitSha": "a7011e7",
+      "reviews": {
+        "verifier": "review/verifier-C3.md",
+        "codeReviewerA": "review/code-reviewer-C3-a.md",
+        "codeReviewerB": "review/code-reviewer-C3-b.md"
+      },
+      "measured": {
+        "rule1Before": 5,
+        "rule1After": 1,
+        "rule5Before": 42,
+        "rule5After": 41,
+        "totalBefore": 53,
+        "totalAfter": 48,
+        "tests": 710,
+        "mergeIntoConfigLines": "296 -> 135",
+        "mergePlanLines": "64 -> 30"
+      },
+      "deviation": "rule 1 landed at 1 not 2: MergePlan.Create also moved. First justification was wrong (see A6); became correct only after the parser moved to Definition/Logic to fix D14.",
+      "defectsFiled": [
+        "D14 FIXED",
+        "D15 OPEN",
+        "D16 OPEN",
+        "D17 OPEN"
+      ]
+    },
+    {
+      "id": "DET",
+      "title": "Determinism gate: >=12 trx runs, parsed",
+      "status": "passed",
+      "runs": 13,
+      "failures": 0,
+      "evidence": "13 trx files, 9230 UnitTestResult outcomes parsed from XML, all \"Passed\", total stable at 710, 0 skipped"
+    }
+  ],
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "reviewGate": {
+      "policy": "per-commit: 1 verifier + 2 independent code reviewers, run pre-commit against the working-tree diff",
+      "passesExpected": 9,
+      "passesComplete": 9
+    },
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-28T18:20:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-28T19:05:00Z",
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "step": "C1",
+        "completedAt": "2026-07-28T18:52:00Z",
+        "outputs": [
+          "3 records",
+          "EngineFailureClassifier.cs",
+          "IntegrationEngine.cs (2 call sites)",
+          "EngineErrorRuleTests.cs (+1 test)",
+          "progress_log.md",
+          "defect_register.md",
+          "execution_notes.md",
+          "CHANGELOG.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "step": "C2",
+        "completedAt": "2026-07-28T20:05:00Z",
+        "outputs": [
+          "PaginationContext.cs",
+          "IPaginator.cs",
+          "7 paginator implementations",
+          "IntegrationEngine.cs (5 call sites)",
+          "7 Pagination test files (82 sites)",
+          "CHANGELOG.md",
+          "ARCHITECTURE.md",
+          "progress_log.md",
+          "defect_register.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_findings",
+    "notes": [
+      "C1: verifier PASS WITH FINDINGS; 2 code reviewers, no Critical, 2 Major (1 fixed, 1 surfaced as D9)",
+      "Two false claims of mine caught by the verifier (F1 fabricated SHA, F2 wrong mechanism) - both corrected",
+      "C2: verifier PASS WITH FINDINGS (5 medium, all documentation); reviewer A no Critical/Major, behaviour preservation verified by full reconstruction; reviewer B net-negative on design, filed as D12",
+      "C3: verifier PASS WITH FINDINGS (3 Major); all three reviewers independently found the Definition/Logic -> Workflow/Logic regression, fixed pre-commit (D14); behaviour preservation evidenced by a 7,518-case differential fuzz with 0 mismatches",
+      "Determinism: 13 runs, 9230 outcomes parsed from trx XML, 0 failures, 0 skipped, stable 710"
+    ]
+  },
+  "lastUpdated": "2026-07-28T22:10:00Z",
+  "final": {
+    "commits": [
+      "4059bf4",
+      "ba02294",
+      "a7011e7"
+    ],
+    "violations": {
+      "total": 48,
+      "rule1": 1,
+      "rule3": 3,
+      "rule4": 3,
+      "rule5": 41
+    },
+    "baselineViolations": {
+      "total": 74,
+      "rule1": 5,
+      "rule3": 3,
+      "rule4": 3,
+      "rule5": 63
+    },
+    "targetTotal": 49,
+    "measuredTotal": 48,
+    "discrepancy": "one better than target: MergePlan.Create moved too, closing a 4th rule-1 violation",
+    "tests": {
+      "baseline": 709,
+      "final": 710,
+      "failed": 0,
+      "skipped": 0
+    },
+    "srcFiles": 124,
+    "filesWithViolations": 13,
+    "filesClean": 111,
+    "reviewPasses": 9,
+    "defectsFiled": 17
+  }
+}

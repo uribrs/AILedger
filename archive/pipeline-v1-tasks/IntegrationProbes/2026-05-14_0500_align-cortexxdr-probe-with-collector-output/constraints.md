@@ -1,0 +1,11 @@
+- Emitted asset and finding JSON must match `MapAsset`, `mapFindingResult`, and `mapVulnerability` from the collector field-for-field, including key order and null shape.
+- `finding_id` must equal `{instanceId|cortex-xdr}:{endpointId}:{cveId}` exactly.
+- `expandCveIds` semantics (array, CVE-shaped property names, comma/semicolon/whitespace separated strings, JSON-encoded payloads) must be replicated.
+- `isDatasetReadyForQuery` short-circuit must apply before either emit probe runs.
+- No Newtonsoft.Json dependency. Use `System.Text.Json.Nodes` for the emit objects so the .csproj stays as-is.
+- No changes to `CortexXdrProbeApiClient` authentication mechanics.
+- No changes to AgentService source.
+- Discovery probes (`POST /endpoints/get_endpoint` preview, dataset inventory, 14 XQL queries) must keep emitting their current `ProbeRunItem`s unchanged.
+- Sidecar files must be written under `ProbeRunArchive.DirectoryPath`; their relative names must appear in the corresponding `ProbeRunItem.Body`.
+- The Cortex XDR XQL projection used by emit must be identical to the collector's two queries (`va_endpoints | fields endpoint_id, endpoint_name, cves, severity, severity_score | limit N` and `va_cves | fields cve_id, description, severity, severity_score | limit N`), with `N` driven by the existing probe `QueryLimit`.
+- Solution must build (`dotnet build`) with no errors or new warnings.

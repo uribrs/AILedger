@@ -1,0 +1,46 @@
+{
+  "taskId": "TASK-20260625-1627",
+  "taskSlug": "g2-resume-fingerprint",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Pinned A1 (harness) + A2 (CanResume coarse) + A3 (forced mismatch)", "effort": "low", "status": "complete" },
+    { "id": "S2", "desc": "Corrected docs/multi-step-flows.md:227 + added clarifying comment on CanResume (no behavior change)", "effort": "low", "status": "complete" },
+    { "id": "S3", "desc": "Added fingerprint-mismatch test → fresh (3 not 1; from-start fetch)", "effort": "medium", "status": "complete" },
+    { "id": "S4", "desc": "Added schemaVersion-bump test → fresh (3)", "effort": "medium", "status": "complete" },
+    { "id": "S5", "desc": "Build clean + full suite 79/79; note + execution_notes written", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": { "promptContractValid": true, "constraintsPresent": true, "successCriteriaPresent": true },
+  "verification": { "status": "not_started", "notes": [] },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-25T16:27:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": null, "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-25T16:38:00Z", "outputs": ["multi-step-flows.md", "CollectorExecutorCheckpointManager.cs", "CollectorExecutorTests.cs", "execution_notes.md", "assumptions.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-25T16:44:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-25T16:48:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "PASS",
+    "codeReviewerOutcome": "CLEAN — 1 MINOR applied (schemaVersion-bump test now asserts CanResumeFrom true for parity); NIT accepted"
+  },
+  "status": "complete",
+  "currentPhase": "done",
+  "lastUpdated": "2026-06-25T16:50:00Z"
+}

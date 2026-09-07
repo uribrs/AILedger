@@ -1,0 +1,6 @@
+- VALIDATED: The task is documentation and architecture analysis only; product code changes are out of scope.
+- VALIDATED: The current branch includes retry attempt lanes implemented in Session wiring.
+- VALIDATED: Prior task state under `ai/active/2026-05-03_1226_rate-limit-header-layers/` is relevant context.
+- OPEN: The execution agent may find the current shape is already strong enough and recommend no major changes.
+- OPEN: The optimal model may be partially achievable through naming, telemetry, or documentation rather than structural refactoring.
+- OPEN: Some future recommendations may require breaking changes if they alter public options or established Session behavior.

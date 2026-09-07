@@ -1,0 +1,160 @@
+{
+  "taskId": "TASK-20260802-0936",
+  "taskSlug": "sdk-to-client-isb-realignment",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "phase1_complete_awaiting_operator_review",
+  "scopeGate": {
+    "activePhase": "phase-1-inventory-readonly",
+    "phase1EditsAllowed": false,
+    "phase2Blocked": true,
+    "phase2Unblocker": "operator review of the Phase 1 report"
+  },
+  "requiredFiles": {
+    "task.md": "done",
+    "prompt_contract.md": "done",
+    "constraints.md": "done",
+    "assumptions.md": "done",
+    "decisions.md": "done",
+    "execution_notes.md": "done"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Read prior art: Infra absorption task, rename commit 0607e90 + bce7b15, shared-parity-carry methodology, ~/codex-state/tasks/IntegrationInfra carry tasks",
+      "status": "completed"
+    },
+    {
+      "id": "S2",
+      "name": "Bidirectional normalized drift: ISB origin/dev SDK (73 .cs) vs Infra Client (105 .cs); namespace-normalize before diff; reconcile true count vs operator's expected 22",
+      "status": "completed"
+    },
+    {
+      "id": "S3",
+      "name": "Classify every drifted file (additive / behavior / wire-serialization / cross-repo contract); flag cross-service contracts",
+      "status": "completed"
+    },
+    {
+      "id": "S4",
+      "name": "Resolve the 33 Client-only Query/Plan+Pipeline+Persistence files: where those types live in ISB now, and whether Client's copies are stale/dead/conflicting",
+      "status": "completed"
+    },
+    {
+      "id": "S5",
+      "name": "Verify Client-as-ISB-entrypoint against Infra Conducting/* and ISB AdapterLoader/AdapterActivator/AdapterManager/AdapterLoadContext/AdapterRegistry/Decorators",
+      "status": "completed"
+    },
+    {
+      "id": "S6",
+      "name": "Complete file-by-file ISB change map, separating compiler-verified from silent-runtime changes",
+      "status": "completed"
+    },
+    {
+      "id": "S7",
+      "name": "Assemble decision evidence for deferred (a) backward-compat and (b) Client consumption; take no decision",
+      "status": "completed"
+    },
+    {
+      "id": "S8",
+      "name": "Report Phase 1 and STOP for operator review",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "deferredDecisions": [
+    {
+      "id": "D-A",
+      "topic": "Backward-compat for already-published collector DLLs in S3",
+      "candidates": [
+        "restore Cymulate.Integration.Sdk.* namespaces inside the Client assembly to enable a TypeForwardedTo shim",
+        "rebuild + republish every collector against Client with S3 version-folder bumps",
+        "dual-shape loader keeping both type universes live in the host"
+      ],
+      "status": "deferred_by_operator",
+      "evidenceOwner": "S7",
+      "note": "Candidate (i) reverses a documented BREAKING decision (Infra CHANGELOG: 'no compatibility shim or type forward'). Operator must be told it is a reversal, not a free choice."
+    },
+    {
+      "id": "D-B",
+      "topic": "How ISB consumes Client",
+      "candidates": [
+        "NuGet PackageReference from CodeArtifact cym-dom/cym-repo-nuget",
+        "cross-repo ProjectReference"
+      ],
+      "status": "deferred_by_operator",
+      "evidenceOwner": "S7",
+      "note": "Client has never been published under that name and sits at 1.0.0-preview.4; Dockerfile.WebApi COPYs the in-tree Sdk path."
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "phase1_complete",
+    "notes": [
+      "W1/W2/W3/W4 all complete. Four cross-corrections applied: main thread wrong on adapters-repo migration state (dirty working tree vs mainline) and on collectors not bundling the contracts DLL; W3 wrong on TypeForwards absorbing namespace divergence and on the post-rename failure mode (premised on the main thread's bundling error).",
+      "Verifier subagent NOT run. Adversarial cross-checking happened organically between the four workers and the main thread; operator review is the gate on Phase 2.",
+      "Code-reviewer correctly skipped: Phase 1 produced no code."
+    ]
+  },
+  "lastUpdated": "2026-08-02T10:15:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "Bidirectional content drift across the same-named file pairs; namespace-normalized; true count reconciled against operator's expected ~22",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Set asymmetry: disposition of the 33 Client-only files + any ISB-only files; whether Client must shed files; IIndicatorCapability/ICollectorCapability presence",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Concept verification: does Infra Conducting/* assume in-process adapter driving while ISB drives through an isolated collectible ALC",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "Decision evidence for D-A (collector inventory, rebuild feasibility, mixed-version window, YAML vs DLL split) and D-B (nuget.config, Dockerfile.WebApi, CI, publish state)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w4"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-02T09:36:17Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-02T10:15:00Z",
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      }
+    ],
+    "verifierRun": false,
+    "codeReviewerRun": false,
+    "codeReviewerSkipReason": "Phase 1 is an analysis report with no code, configuration, migration, or contract artifact. Code-reviewer is deferred to Phase 2, which is code-bearing."
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "taskId": "TASK-20260826-1001",
+  "taskSlug": "falcon-spotlight-transport-retry",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Resolve A5/A6/A7 against source",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "name": "In-flow retry in FalconSpotlightBatchPump.FetchAsync + config knobs",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "name": "Exhaustion exception + classifier arm + resilience routing",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "name": "Unit tests (predicate, ladder, exhaustion-to-deferral, no page mint)",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "name": "Docs: 01-collection-strategy, 03-current-concerns, ai/skills",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "verifier-2: pass",
+      "code-reviewer-1: 1 major + 5 lesser, all addressed",
+      "88/88 filtered tests green"
+    ]
+  },
+  "baseRef": "77ec50cb9bab5c960dd49a860c83c05e8bfb58e1",
+  "lastUpdated": "2026-08-26T11:25:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W0",
+        "scopeSummary": "Freeze shared surface: exception type + config knobs (main thread)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w0"
+      },
+      {
+        "id": "W1",
+        "scopeSummary": "In-flow transport retry in FalconSpotlightBatchPump, both degrees; delete dead CountCompletedScrollAsync; harness + concurrency tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Classifier arm + third branch in CreateRetryableDecision reusing the unbudgeted flat 5-min plan; classifier/strategy/config-builder tests",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-26T10:01:11Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator:internal-recon",
+        "completedAt": "2026-08-26T10:15:52Z",
+        "outputs": [
+          "research/internal-recon.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator:workers",
+        "completedAt": "2026-08-26T10:42:00Z",
+        "outputs": [
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator:verifier",
+        "completedAt": "2026-08-26T11:13:00Z",
+        "outputs": [
+          "review/verifier-1.md",
+          "review/verifier-2.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-08-26T11:15:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-26T11:26:00Z"
+  }
+}

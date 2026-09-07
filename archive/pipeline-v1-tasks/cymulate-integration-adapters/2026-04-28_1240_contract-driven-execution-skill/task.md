@@ -1,0 +1,1 @@
+Create a new Codex skill from the user-provided Agent Instructions. The skill must enforce contract-driven execution: use `prompt-contract-designer` before non-trivial work, locate and read active task state before implementation, treat `prompt_contract.md` as the execution contract, and update task state after execution.

@@ -1,0 +1,32 @@
+{
+  "taskId": "TASK-20260831-1329",
+  "taskSlug": "checkpoint-availability-contract-review",
+  "status": "active",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "description": "Reconstruct the current checkpoint and resume flow in all three repositories", "status": "pending" },
+    { "id": "S2", "description": "Assess the proposed contract and identify required changes and risks", "status": "pending" },
+    { "id": "S3", "description": "Verify the report against source and branch history", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "f3d787bb0ded28189a8ff6f581c6c5a4cab6aea6",
+  "lastUpdated": "2026-08-31T13:29:11Z"
+}

@@ -1,0 +1,167 @@
+{
+  "taskId": "TASK-20260729-1706",
+  "taskSlug": "insightvm-collector-heap-retention",
+  "status": "reviewed_awaiting_user_decision",
+  "complexityTier": "full",
+  "currentPhase": "awaiting_user_decision",
+  "branch": "fix/insightvm-collector-heap-retention",
+  "jiraTicket": null,
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete",
+    "orchestration_plan.md": "complete",
+    "review/verifier-1.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "summary": "Confirm no second root retains the enriched assets (CybiBatchUploader must not stash the passed List)",
+      "status": "complete",
+      "resolution": "A1 VALIDATED by orchestrator: batchData only enumerated by WriteNdjsonFileAsync (:375-391); upload streams from disk; BatchScopeState holds counters only. No uploader change needed (D7)."
+    },
+    {
+      "id": "S2",
+      "summary": "Release master-list slots after AddAsync in processAndWriteAssetFindings batch branch",
+      "status": "complete",
+      "resolution": "Applied: master-list slots nulled after AddAsync in batch branch (+7 lines)."
+    },
+    {
+      "id": "S3",
+      "summary": "Decide nullability approach (null! at assignment vs widening collection type) and apply",
+      "status": "complete",
+      "resolution": "A2 resolved: null! at assignment site. CS8602 count identical to HEAD (2/2); zero warnings in edited region; qodana.starter has no nullable escalation."
+    },
+    {
+      "id": "S4",
+      "summary": "Assess legacy StreamWriter branch; release equivalently only if provably safe",
+      "status": "complete",
+      "resolution": "A3 resolved: legacy branch release APPLIED - handleBatchWrite serializes rows to strings and clears the queue, so the JObject graph is provably dead and output-neutral. Unexercised by tests; not the customer path."
+    },
+    {
+      "id": "S5",
+      "summary": "Establish verification that enriched assets become unreachable after flush",
+      "status": "complete",
+      "resolution": "A5 resolved as option (c) reasoning + build/test. NO automated regression guard exists - method is private and widening visibility exceeds scope. Recommendation recorded, not acted on."
+    },
+    {
+      "id": "S6",
+      "summary": "Build clean; run Tests/CybiCollectors/InsightVmCollector.Tests",
+      "status": "complete",
+      "resolution": "Build: 0 errors. Tests: Passed 7, Failed 0, Skipped 0."
+    },
+    {
+      "id": "S7",
+      "summary": "Commit retention fix; commit Falcon SupportsBatchScopedUpload separately",
+      "status": "complete",
+      "resolution": "Two commits: b13762a272 (retention fix), 419bf1e31f (Falcon, separate). ai/ left untracked."
+    },
+    {
+      "id": "S8",
+      "summary": "Apply code-review repairs (I2 doc, S1 dedup, N1 exact bound)",
+      "status": "complete",
+      "resolution": "Commit 02aacf46eb. Build 0 errors; tests 7/7. No behavior change."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "summary": "I1 page pinning: whether to land the JToken.Parent detach in this PR is the user's scope call (D8 currently defers it). NOTE: the reviewer's suggested one-liner is DEFECTIVE as written - array.RemoveAll() placed after the collection foreach zeroes array.Count, so the `if (array.Count < pageSize) break;` at :537 fires and pagination stops after page 1 (100 assets instead of 5,541). Correct form must capture the count BEFORE unparenting.",
+      "owner": "user"
+    },
+    {
+      "id": "B2",
+      "summary": "Commit message of b13762a272 still overstates the bound as O(one batch). Unpushed; amending needs history rewrite (reset --soft HEAD~3 + recommit). User's call.",
+      "owner": "user"
+    },
+    {
+      "id": "B3",
+      "summary": "I3 Falcon: MaxFilesPerBatchScope defaults to 1 while the findings emitter flushes on bytes with no aid-boundary awareness, so one aid's chunk envelopes can straddle two batch scopes. Needs backend confirmation that per-batch parse tolerates chunk continuation. Belongs to task 2026-07-19_1321_cybi-batch-scoped-upload, not this one.",
+      "owner": "user"
+    }
+  ],
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-29T14:06:23Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-29T14:09:10Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json",
+          "assumptions.md#A1",
+          "decisions.md#D7"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-29T14:15:30Z",
+        "outputs": [
+          "Source/CybiCollectors/InsightVmCollector/InsightVmCollector.cs",
+          "execution_notes.md",
+          "assumptions.md",
+          "state.json",
+          "commit:b13762a272",
+          "commit:419bf1e31f"
+        ]
+      },
+      {
+        "skill": "verifier (subagent)",
+        "completedAt": "2026-07-29T14:24:07Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer (subagent, minimal context)",
+        "completedAt": "2026-07-29T14:33:49Z",
+        "outputs": [
+          "review/code-reviewer-1.md",
+          "commit:02aacf46eb"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "verifier_pass_with_gaps",
+    "verifierFile": "review/verifier-1.md",
+    "notes": [
+      "verifier-1 verdict: PASS WITH GAPS. 1 material + 5 minor + 1 informational.",
+      "MATERIAL (repaired in artifacts, not code): stated bound was O(one batch); real bound is one parse page (~100 assets) because JToken.Parent lets a surviving asset root its whole page. Bug still fixed - retention is constant, not growing. A4, contract Goal, and execution_notes corrected; commit message of b13762a272 still overstates it (unpushed, amendment is the user's call).",
+      "Independently re-verified by verifier: byte-identical output, index safety incl. final partial batch, no null can reach processSingleAsset, legacy-branch release genuinely output-neutral, deferred scope untouched, commit hygiene clean, A1 correct.",
+      "Build 0 errors; InsightVmCollector.Tests 7/7 passed (reproduced by verifier).",
+      "Open: no regression guard (A5); legacy release unexercised; ~53h fan-out vs 48h executionTimeout remains (D4).",
+      "Informational: List<T> indexer bumps _version - would throw on any enumerator live across the assignment. None exists today (.ToList() materializes first); a future change dropping .ToList() would violate it silently.",
+      "code-reviewer-1 (isolated, no contract/verifier context): 0 blockers, 3 important, 5 suggestions, 1 nit. INDEPENDENTLY found the same JToken.Parent page-pinning root as verifier-1 - convergent from a cold read with its own WeakReference probe. I2 and N1 and S1 applied in 02aacf46eb; I1 and I3 escalated to the user."
+    ],
+    "codeReviewFile": "review/code-reviewer-1.md"
+  },
+  "lastUpdated": "2026-07-29T14:36:00Z"
+}

@@ -1,0 +1,4 @@
+- VALIDATED: Current built-in header-aware behavior only uses `Retry-After`; broader rate-limit headers are not parsed by the package.
+- VALIDATED: The existing local rate limiter is configured client-side and should remain separate from server header feedback in this task.
+- VALIDATED: Public API additions are acceptable when small, documented, and necessary for strategy/header selection.
+- VALIDATED: Header-driven proactive pacing is out of scope for this implementation; response headers now inform retry delay only.

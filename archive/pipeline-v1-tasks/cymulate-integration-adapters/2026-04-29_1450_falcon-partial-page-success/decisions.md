@@ -1,0 +1,6 @@
+- Use main-thread implementation because the change is tightly coupled across Falcon flow result, runner, and tests.
+- Treat retryable/recoverable errors as unchanged; only terminal failures after page progress become DONE-with-error-context.
+- Add an optional Shared orchestration partial-success hook so Falcon can keep using the standard success completion path.
+- Count completed pages as `AdapterProgressContext.CurrentPage - 1` because the SDK progress context starts at page 1.
+- Attach partial error context to the returned DONE `AdapterResult` payload; do not publish an `ErrorRequest` for partial success.
+- Document partial-success as an opt-in collector contract across repo docs and repo-local collector skills so future collectors do not inherit it accidentally.

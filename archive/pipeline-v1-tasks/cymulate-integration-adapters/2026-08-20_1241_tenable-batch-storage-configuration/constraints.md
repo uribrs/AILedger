@@ -1,0 +1,7 @@
+- Keep the default value `false`.
+- Remove the hard-coded TenableIo emitter boolean in favor of collector configuration.
+- Follow existing TenableIo configuration construction and flow wiring patterns.
+- Add only the tests needed to prove default and propagation.
+- Do not change InsightVM Cloud or Qualys beyond their existing boolean flips.
+- Do not alter storage layout, checkpoint, retry, or resume semantics.
+- Preserve the current three-file worktree changes.

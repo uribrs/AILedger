@@ -1,0 +1,46 @@
+{
+  "taskId": "TASK-20260513-1116",
+  "taskSlug": "shared-review-validation-plan",
+  "status": "in_progress",
+  "complexityTier": "full",
+  "currentPhase": "complete",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "read-planning-note",
+      "description": "Read the shared review planning note and extract candidate issues.",
+      "status": "completed"
+    },
+    {
+      "id": "create-validation-contract",
+      "description": "Create execution-ready validation contract and state files.",
+      "status": "completed"
+    },
+    {
+      "id": "prepare-validation-approach",
+      "description": "Prepare an evidence-based approach for validating each candidate issue and identifying external traces.",
+      "status": "completed"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Validation approach prepared from planning note plus sampled source/package evidence.",
+      "No product code was modified."
+    ]
+  },
+  "lastUpdated": "2026-05-13T08:16:40Z"
+}

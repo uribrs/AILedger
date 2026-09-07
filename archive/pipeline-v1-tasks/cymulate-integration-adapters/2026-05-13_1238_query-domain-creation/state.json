@@ -1,0 +1,221 @@
+{
+  "taskId": "TASK-20260513-1238",
+  "taskSlug": "query-domain-creation",
+  "status": "active",
+  "complexityTier": "full",
+  "currentPhase": "planning_stages_completed",
+  "purpose": "Single handoff entry point for Query domain creation work across planning docs, completed task slices, current README documentation, and next recommended implementation steps.",
+  "createdAt": "2026-05-13T12:38:57+03:00",
+  "lastUpdated": "2026-05-13T13:01:29+03:00",
+  "repository": {
+    "name": "cymulate-integration-adapters",
+    "root": "/Users/user/Dev/cymulate-integration-adapters"
+  },
+  "implementationStatus": {
+    "completed": [
+      "Shared concern-first Query structure established.",
+      "Query shared context, publication helpers, and checkpoint key constants exist.",
+      "SDK IPlanBuilder implemented by QueryPlanBuilder.",
+      "SDK IPlanOptimizer implemented by QueryPlanOptimizer.",
+      "SDK INativeCoalescer implemented by NativeQueryCoalescer.",
+      "First Query README documentation pass created for orchestration, planning, publishing, and recovery."
+    ],
+    "notImplemented": [
+      "Query Dataflow topology.",
+      "Dispatcher.",
+      "Distributor.",
+      "Matcher.",
+      "Section tracker and job completion tracker.",
+      "Query recovery planner and resume runner.",
+      "IExecutionPlanStore.",
+      "Query run/progress/done envelopes.",
+      "Real Query clients.",
+      "Fake Query clients as product code."
+    ],
+    "recommendedNextSlice": "Reassess Query Dataflow topology using the completed planning stages, or create a fresh bounded contract for the next pipeline stage."
+  },
+  "readFirst": [
+    "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1238_query-domain-creation/state.json",
+    "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/README.md",
+    "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Planning/README.md",
+    "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/next_agent_handoff.md",
+    "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/next_agent_handoff.md",
+    "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md",
+    "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SDK_CONTRACT_DESCRIPTOR.md"
+  ],
+  "sourcePlansSharedAtStart": {
+    "domainPlanningDirectory": {
+      "root": "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation",
+      "primaryDocs": [
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SDK_CONTRACT_DESCRIPTOR.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/latest-conclusions-summary.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_PHASE1_BACKLOG.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/crowdstrike-domain-doc-validation-report.md"
+      ],
+      "stateAndContractDocs": [
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/state.json",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/task.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/prompt_contract.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/constraints.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/assumptions.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/decisions.md",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/execution_notes.md"
+      ],
+      "referenceArtifacts": [
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_ARCHITECTURE.docx",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.docx",
+        "/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_DOMAIN_RELATIONSHIPS_DIAGRAM.svg"
+      ]
+    },
+    "initialSharedDataflowTask": {
+      "root": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow",
+      "status": "completed_foundational_shared_restructure",
+      "docs": [
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/state.json",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/task.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/prompt_contract.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/constraints.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/assumptions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/decisions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/execution_notes.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/implementation_plan.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/shared_project_current_structure.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow/next_agent_handoff.md"
+      ]
+    },
+    "supersededTopologyTask": {
+      "root": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton",
+      "status": "superseded_do_not_execute_without_new_contract",
+      "docs": [
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/state.json",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/task.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/prompt_contract.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/constraints.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/assumptions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/decisions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/execution_notes.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1726_query-dataflow-topology-skeleton/current_status_after_plan_builder.md"
+      ],
+      "note": "This task explains why topology should wait until planning stages are concrete."
+    },
+    "planBuilderTask": {
+      "root": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice",
+      "status": "completed",
+      "docs": [
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/state.json",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/task.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/prompt_contract.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/constraints.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/assumptions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/decisions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/execution_notes.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/phase_documentation.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/next_step_usage_examples.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/next_agent_handoff.md"
+      ]
+    }
+  },
+  "currentSessionTasks": {
+    "planOptimizerTask": {
+      "root": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice",
+      "status": "completed",
+      "docs": [
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/state.json",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/task.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/prompt_contract.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/constraints.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/assumptions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/decisions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/execution_notes.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/phase_documentation.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/next_step_usage_examples.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1154_query-plan-optimizer-slice/next_agent_handoff.md"
+      ]
+    },
+    "documentationTask": {
+      "root": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice",
+      "status": "completed",
+      "docs": [
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/state.json",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/task.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/prompt_contract.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/constraints.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/assumptions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/decisions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/execution_notes.md"
+      ]
+    },
+    "nativeCoalescerTask": {
+      "root": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice",
+      "status": "completed",
+      "docs": [
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/state.json",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/task.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/prompt_contract.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/constraints.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/assumptions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/decisions.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/execution_notes.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/phase_documentation.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/next_step_usage_examples.md",
+        "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/next_agent_handoff.md"
+      ]
+    }
+  },
+  "repoDocumentation": {
+    "sharedOverview": [
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/README.md",
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/README.md",
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/README.md",
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Recovery/README.md"
+    ],
+    "queryDomainDocs": [
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/README.md",
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Planning/README.md",
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/Query/README.md",
+      "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Recovery/Query/README.md"
+    ]
+  },
+  "implementationPaths": {
+    "queryOrchestration": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query",
+    "queryPlanning": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Orchestration/Query/Planning",
+    "queryPublishing": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Publishing/Query",
+    "queryRecovery": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared/Recovery/Query",
+    "querySharedTests": "/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/UnitTests/Query/Cymulate.Integration.Adapters.QueryIntegration.Shared.Test"
+  },
+  "validationStatus": {
+    "lastCodeValidation": {
+      "sourceTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1247_query-native-coalescer-slice/state.json",
+      "sharedBuild": "passed with 0 warnings and 0 errors",
+      "querySharedTests": "passed 62 tests",
+      "warnings": [
+        "NU1900 warnings emitted because external NuGet/CodeArtifact vulnerability indexes were unavailable."
+      ]
+    },
+    "lastDocumentationValidation": {
+      "sourceTask": "/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-13_1226_query-domain-documentation-slice/state.json",
+      "status": "passed",
+      "notes": [
+        "Checked new Query docs for implemented stage references, future-work markers, target paths, and deferred infrastructure warnings.",
+        "No code build was run for the Markdown-only documentation slice."
+      ]
+    }
+  },
+  "handoffInstructions": [
+    "Start by reading this aggregate state.json, then the Query domain README and Planning README.",
+    "For implementation work, read the completed optimizer and plan-builder handoffs before editing code.",
+    "Do not revive the superseded topology task unless the user explicitly asks for topology and a fresh contract is created.",
+    "The recommended next step is to reassess Query Dataflow topology or create a fresh bounded contract for the next pipeline stage.",
+    "Keep future work contract-driven and create a new task directory under ai/active for each bounded slice."
+  ],
+  "openQuestions": [
+    "Should composite QueryV2.ResultType be rejected, split, or treated as a combined result type?",
+    "Should QueryV2.Expression gain ExpressionDialect?",
+    "Should QueryTargeting gain cloud/SaaS dimensions?",
+    "Should native query normalization be more than trim-only?",
+    "What exact boundary owns INativeCoalescingOptOut decisions?",
+    "Where will per-logical-query output caps be enforced after merged physical requests?",
+    "Should SDK AdapterProgressContext.FromPlatformEvent explicitly map Query topics to AdapterCategory.Queries?"
+  ]
+}

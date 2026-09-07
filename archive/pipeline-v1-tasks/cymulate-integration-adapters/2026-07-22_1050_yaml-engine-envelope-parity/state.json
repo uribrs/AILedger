@@ -1,0 +1,164 @@
+{
+  "taskId": "TASK-20260722-1050",
+  "taskSlug": "yaml-engine-envelope-parity",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Prompt contract",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Orchestration plan",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Feature B \u2014 require_key (drop-on-null-key)",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Feature C \u2014 strip embedded-element keys",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Feature D \u2014 sort nested array (serialized_ordinal)",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "Feature A \u2014 chunk framing (1->N, count, native key order)",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "crowdstrike-falcon.yaml consumes all four + schema re-sync both repos",
+      "status": "complete"
+    },
+    {
+      "id": "S8",
+      "name": "Test gates: engine + YamlCollector adapter + magic-integration catalog/schema",
+      "status": "complete"
+    },
+    {
+      "id": "S9",
+      "name": "Live parity rerun + record-for-record comparison vs native baseline",
+      "status": "complete"
+    },
+    {
+      "id": "S10",
+      "name": "Verifier pass",
+      "status": "complete"
+    },
+    {
+      "id": "S11",
+      "name": "Code-reviewer pass",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass",
+    "notes": [
+      "verifier-1 PASS-WITH-GAPS; doc-header gap FIXED",
+      "code-reviewer-1 ship-able 0C/0H/0M/3L; F1/F2/F3 booked",
+      "all gates green; native record-for-record parity confirmed",
+      "OPEN user ratification: reject-vs-clamp on chunk.max"
+    ]
+  },
+  "lastUpdated": "2026-07-22T11:32:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W-B",
+        "scopeSummary": "Feature B require_key (drop-on-null-key)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#feature-b"
+      },
+      {
+        "id": "W-C",
+        "scopeSummary": "Feature C strip embedded-element keys",
+        "status": "complete",
+        "outputRef": "execution_notes.md#feature-c"
+      },
+      {
+        "id": "W-D",
+        "scopeSummary": "Feature D sort nested array (serialized_ordinal)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#feature-d"
+      },
+      {
+        "id": "W-A",
+        "scopeSummary": "Feature A chunk framing (1->N, count, native key order)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#feature-a"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-22T10:25:11Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-07-22T11:30:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-07-22T11:30:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-22T11:32:00Z",
+        "outputs": [
+          "header fix, dispositions"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  }
+}

@@ -1,0 +1,18 @@
+- Only modify files under `Source/.../Logic/Clients/SIEM/Falcon/Humio/` and `Tests/.../SIEM/Humio/`.
+- Do not modify `QueryMakerBase` or `AdvancedQueryMakerBase`.
+- Do not modify `IntegrationApiClientFactory`, `ApiInfoModelFactory`, or any factory registration.
+- Do not modify the `eIntegrationProducts` enum.
+- Do not modify `HumioApiInfoModel`.
+- Do not change the authentication flow (`setRequestAuthInfo`).
+- Do not change response parsing (`parseRawEventsResponse`, `parseRawAlertsResponse`, `extractAlertsResults`, `extractEventsResults`).
+- Do not change HTTP error-handling semantics in `makeApiCallAsync` paths.
+- Do not change the API endpoints being called; only the request body (`queryString`) and result-grouping callback may change.
+- After the refactor, `generateCacheByIoc` must not be referenced from `HumioApi.cs`.
+- `queryByIoc` must be removed once unreferenced.
+- New `queryByTimeRange` callback must match the `QueryByTimeRangeCallback<HumioApiInfoModel>` delegate signature exactly — no lambda wrappers, no extra captured state.
+- Do not pass an empty string or dummy keyword to an existing keyword builder; introduce a separate keyword-less code path (new helper or branch in `tryCreateQueryJobsAsync`).
+- Tests must be updated in lockstep — IOC-based test mocks/bodies converted to time-range-based; coverage for Alerts, Events, and combined runs must remain.
+- Match the existing file's naming style: legacy camelCase private method names (e.g., `queryByTimeRange`, `tryFetchQueryResultsAsync`) and the `r`/`i`/`o` prefixes already in use.
+- Follow `CLAUDE.md` coding conventions: explicit types over `var`, braces on all `if` statements, `IsNullOrWhiteSpace` over `IsNullOrEmpty`, no new `#region` blocks, new parameters appended (before `CancellationToken`).
+- Do not add NuGet packages.
+- Solution must build cleanly and `dotnet test --filter FullyQualifiedName~HumioApi` must pass.

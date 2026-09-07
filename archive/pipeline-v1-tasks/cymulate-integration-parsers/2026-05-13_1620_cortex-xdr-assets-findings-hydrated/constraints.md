@@ -1,0 +1,12 @@
+- New class must subclass `parsers.common.base_parser.BaseParser` and live under `libs/packages/parsers/cortex/`.
+- Existing `CortexXdrAssets` and `cortex-assets` registration must remain functional and unchanged.
+- Asset mandatory fields must include exactly the names enforced by `BaseParser.process_asset_mandatory_fields`: `client_id, instance_id, type, aid, value, os_type, os_version, first_seen, last_seen, finding_ids, ip_address, tags, os_build, fqdn`. Missing keys raise — do not bypass.
+- Finding mandatory fields must include: `client_id, instance_id, name, display_name, type, severity, mitigation, status, first_seen, last_seen, cve_ids, description` (mirrors `defenderVmAssetsFindings.finding_mandatory_fields` and the `parser_output_exposures` schema columns).
+- Output dataframes must have `id` (uuid) on both, and findings rows must carry `asset_id` (uuid) pointing to their parent asset row. Use `helpers.uuid_udf()`; do not preserve collector-provided composite string IDs as the row `id`.
+- Apply `_row_asset_id` join-key pattern from `defenderVmAssetsFindings` for asset↔finding linkage. Do not reverse-populate the `finding_ids[]` column on assets from `vulnerabilities[]`; leave it as the default (empty array) unless the orchestrator validates a need to do otherwise.
+- Standard `BaseParser.post_process` must run unmodified for severity / status / type / os_type normalization. Do not override these in the subclass.
+- After standard post_process, call `self.create_asset_tags`, `self.create_asset_source`, `self.add_unified_finding_name_column_for_vulnerability`, `self.create_finding_source` in the same order as `defenderVmAssetsFindings.post_process`.
+- Parser must consume Cymulate-named fields directly from the hydrated emit. No raw Cortex API field mapping in this parser.
+- Registration must be a single new key in `parsers/__init__.py` `PARSERS` map. Suggested name: `cortex-assets-findings` (final name to be confirmed with reviewer).
+- No new dependencies. No changes to `db_schema.py`, `preparation.py`, or `base_parser.py`.
+- All OPEN assumptions in `assumptions.md` must be resolved (validated or rejected) before any code-bearing step starts.

@@ -1,0 +1,5 @@
+# Assumptions
+
+- A1: The 88 existing tests fully cover the runner's behavior, so a green suite after each extraction = behavior preserved. STATUS: OPEN — LEAN TRUE (the suite drove all prior G2–G5 work). Mitigation: the verifier must READ the moved invariant code (checkpoint-before-advance, partial-success centralization, per-cycle poll_and_drain checkpoint), not only trust green tests.
+- A2: The scope object can carry `RunContext` by reference without changing its mutation semantics (executors today mutate `runCtx.Cursor/Offset/Watermark/ScrollDepth/Captures/CaptureLists/page counters`). STATUS: OPEN — MUST HOLD. Mitigation: code-reviewer confirms no accidental copy/immutability change (RunContext stays a class held by reference, not a struct or cloned).
+- A3: Moving `ExecuteDecisionAsync`/`HandlingOf` and the probe out of the Runner does not break the `_context`/`_logger`/`_httpClientFactory` wiring — these become scope/ctor dependencies of the new classes. STATUS: OPEN — verify at build.

@@ -1,0 +1,7 @@
+- Build the first adapters-repo slice under Shared, not under a concrete query client.
+- Genericize collector-named Shared infrastructure when Query Integration needs the same infrastructure; avoid parallel query-specific copies when a generic name is cleaner.
+- Make `AdapterBusEntrypointRunner` category-aware rather than adding a separate Query runner for equivalent behavior.
+- Make resume infrastructure category-aware rather than adding a separate `QueryResumeRunner` for equivalent behavior.
+- Query publication from Dataflow output should delegate to existing publish infrastructure.
+- Infer `IExecutionPlanStore` ownership from SDK documentation/source before deciding bridge, test-only implementation, or no adapters implementation.
+- Keep `ExpressionDialect`, expanded `QueryTargeting`, and composite `ResultType` policy open for later SDK/domain work.

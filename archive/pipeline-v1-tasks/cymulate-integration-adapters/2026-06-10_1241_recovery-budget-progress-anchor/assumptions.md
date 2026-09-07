@@ -1,0 +1,8 @@
+# Assumptions
+
+- [OPEN] `AdapterProgressContext.AdvancePage(0,0)` bumps the internal page counter during deferred-wait persistence. Stated by the operator; the SDK is a compiled NuGet so it is not source-verifiable here. Mitigation makes it irrelevant: the coordinate hashes `AdapterState` (which does not contain `CurrentPage`) and captures counters before the `AdvancePage` call. Execution must NOT depend on resolving this.
+- [OPEN] `CurrentPage`, `ProcessedItems`, `ProcessedFindings` are SDK-internal typed checkpoint fields, NOT entries in the `AdapterState` dictionary (so hashing `AdapterState` does not double-count them). Strongly evidenced by `CollectorResumeSetup.cs:60-63` (`RestoreProgress(currentPage, processedItems, processedFindings, sequenceId)` takes them as separate params). Confirm during execution before relying on it.
+- [OPEN] `AdvancePage(0,0)` does not change `ProcessedItems`/`ProcessedFindings` (adds 0/0), so those counters are safe to include in the coordinate even if read after the call. Confirm during execution.
+- [OPEN] Backstop config surface: whether 50/24h should be hard-coded constants or threaded through an existing options/backoff-plan type. Resolve to the least-invasive seam that keeps them configurable; default to constants in `AdapterRecoveryBudget`/strategy if no clean options seam exists.
+- [VALIDATED] Shared can read the progress coordinate inputs — `progressContext.CurrentPage` / `ProcessedItems` already used for a `HasCollectedData` check (`AdapterBusFailureContextFactory.cs:52`, `CollectorResumeStrategyExecutor.cs:190`).
+- [VALIDATED] `RecoverAndRetry.UseRecoveryBudget` defaults `true` (`AdapterFailureDecision.cs:28`); Falcon's mapped server-error path uses it, so Falcon is in scope.

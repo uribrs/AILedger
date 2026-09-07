@@ -1,0 +1,40 @@
+{
+  "taskId": "TASK-20260615-1402",
+  "taskSlug": "defender-vm-split-collection",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "sourcePlan": "/Users/user/Dev/Uri/defender-vm-split-collection-plan.md",
+  "repos": [
+    "/Users/user/Dev/AgentService",
+    "/Users/user/Dev/cymulate-integration-parsers"
+  ],
+  "steps": [
+    { "id": "S1", "desc": "AgentService: mirror adapter stage order, emit split assets_*.json / findings_*.json", "status": "pending" },
+    { "id": "S2", "desc": "AgentService: add 50MB NDJSON byte-cap batch guard (mirror Cortex pattern, 50MB cap)", "status": "pending" },
+    { "id": "S3", "desc": "AgentService: propagate SaveUploadAndDeleteBatchAsync failures", "status": "pending" },
+    { "id": "S4", "desc": "AgentService: remove hydration-only services from findings path", "status": "pending" },
+    { "id": "S5", "desc": "AgentService: preserve assets-only flow compatibility", "status": "pending" },
+    { "id": "S6", "desc": "Parsers: add defender-endpoint-assets-and-findings to DUAL_MODE_PARSERS + split pre-process", "status": "pending" },
+    { "id": "S7", "desc": "Tests: AgentService batch guard + flow tests; parser endpoint split tests", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-06-15T14:02:00Z"
+}

@@ -1,0 +1,10 @@
+- Preserve identical filter and sort while continuing a CrowdStrike `after` cursor chain.
+- Resume an active/open month cursor chain using the checkpointed `MonthSegmentEndExclusiveUtc`.
+- Only rebuild a findings date filter when dropping `after` and falling back to watermark-based recovery.
+- Prevent infinite loops if Spotlight returns the same non-empty `after` token for a non-empty page.
+- Prefer structured logs with segment, cursor, watermark, page, and progress fields.
+- Avoid logging full cursor tokens at information level.
+- Keep logs useful for local runner and production investigations.
+- Extend the local mock simulator as reference evidence for future debugging.
+- Keep code changes scoped to Falcon findings recovery, runner safety, simulator coverage, and related tests.
+- Do not call real CrowdStrike during validation.

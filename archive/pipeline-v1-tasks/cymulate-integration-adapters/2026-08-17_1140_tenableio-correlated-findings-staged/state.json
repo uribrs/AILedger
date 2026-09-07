@@ -1,0 +1,277 @@
+{
+  "taskId": "TASK-20260817-1140",
+  "taskSlug": "tenableio-correlated-findings-staged",
+  "status": "awaiting_tenant_run",
+  "complexityTier": "full",
+  "currentPhase": "complete_pending_tenant_verification",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created",
+    "research/branch-technique-and-dev-diff.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Settle Fork A \u2014 spool backend",
+      "status": "decided",
+      "gate": "operator",
+      "decidedBy": "operator",
+      "decidedAt": "2026-08-17",
+      "outcome": "STAGED \u2014 Falcon-style S3 read/write via GuardedObjectStore. Fork B follows: Falcon's manifest-as-completion-proof + coordinate resume. Overflow degrade machinery is deleted, not ported.",
+      "notes": "Remaining sizing detail for execution, not a direction question: keyed per-asset objects vs a RAM index over staged pages. Read cost bounded by A1 to one GET per asset."
+    },
+    {
+      "id": "S1a",
+      "title": "Size the staged spool layout",
+      "status": "decided",
+      "notes": "Remaining measurement is operational only: PUT throughput for the bounded write fan-out in phase 1.",
+      "outcome": "One object per asset uuid at _staging/{generation}/spine/{uuid}, via GuardedObjectStore (not PriorStateStore). Layout is forced by read amplification, not chosen."
+    },
+    {
+      "id": "S2",
+      "title": "Settle Fork C \u2014 parser shape and rollout ordering",
+      "status": "pending",
+      "gate": "operator",
+      "notes": "Read cymulate-integration-parsers to establish whether the tenable parser is split-two-lane or correlated today. Determines whether this task is adapters-only."
+    },
+    {
+      "id": "S3",
+      "title": "Port the carry-verbatim correlated core onto Infra APIs",
+      "status": "complete",
+      "notes": "Record writer, chunk bucketer, spool reader, poll helpers, chunk retry, miss lane, 2000-cap slicing, num_assets=50, both-exports-up-front, MaxSkippedChunkRatio, dry-run probe.",
+      "outcome": "Ported the phase-1 core (spool reader, poll helpers, chunk retry) onto Infra APIs."
+    },
+    {
+      "id": "S4",
+      "title": "Implement the chosen spool backend",
+      "status": "complete",
+      "notes": "Includes deleting whatever degrade machinery the chosen backend obsoletes (overflow lane, marker set, host-less chunk-1 case, overflow channel publisher).",
+      "outcome": "Staged spine implemented; overflow/budget machinery never ported (does not exist in tree)."
+    },
+    {
+      "id": "S5",
+      "title": "Implement the chosen resume model + checkpoint v2",
+      "status": "complete",
+      "notes": "Out of slice 1 \u2014 needs phases 2-3. Manifest-as-completion-proof primitive is in place and tested.",
+      "outcome": "Delivered by W3 (phases 2+3, checkpoint v2, emitter-owned batch scoping) and wired into the collector by the orchestrator."
+    },
+    {
+      "id": "S6",
+      "title": "Publisher on emitter-owned batch scoping",
+      "status": "complete",
+      "notes": "NdjsonBatchEmitter.Create(services, batchScopedStorage); no collector-side BeginPage/RestoreBase; one atomic object per vuln chunk and per sweep.",
+      "outcome": "Delivered by W3 (phases 2+3, checkpoint v2, emitter-owned batch scoping) and wired into the collector by the orchestrator."
+    },
+    {
+      "id": "S7",
+      "title": "Tests",
+      "status": "complete",
+      "notes": "xUnit + Moq + FluentAssertions. Correlated record shape, 2000-cap slicing, host resolution three-way, checkpoint refusal, batch layout, staging-path guard if staged.",
+      "outcome": "43 spine tests passing (up from 28, failure paths now covered). Full suite 57/58, the 1 failure pre-existing on origin/dev."
+    },
+    {
+      "id": "S8",
+      "title": "Docs sync",
+      "status": "complete",
+      "notes": "TenableIoCollector/Documentation/01-05, ai/skills/collector-flow-patterns + collector-recovery, Collectors/README.md if it names the output shape.",
+      "outcome": "Documentation/01 records the staged spine and the asset-complete premise incl. what the vendor does NOT promise; collector-flow-patterns records the look-up-vs-enumerate divergence from Falcon."
+    },
+    {
+      "id": "S9",
+      "title": "Local end-to-end run",
+      "status": "in_progress",
+      "notes": "Unblocked: correlated flow is the live CollectFindings path and the runner now has a filesystem object store. Needs operator Tenable credentials + a non-s3 storageUrl. Large-tenant run still needs the real tenant.",
+      "outcome": "Phase 1 confirmed on the real tenant against real S3 (run 20260817-153214): 11,646 spine objects, correct key layout, manifest correctly absent while staging, ~4 KB/asset reproducing A2 independently. Phases 2-3 not yet observed."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "title": "Fork A undecided",
+      "blocks": [
+        "S4",
+        "S5"
+      ],
+      "status": "resolved",
+      "resolution": "Operator decided STAGED (Falcon-style S3) on 2026-08-17."
+    },
+    {
+      "id": "B2",
+      "title": "Fork C unverified \u2014 parser correlated-shape support",
+      "blocks": [
+        "S9"
+      ],
+      "status": "open",
+      "notes": "Blocks any production-rollout claim, not the adapters-side implementation."
+    },
+    {
+      "id": "B3",
+      "title": "Pre-existing red test on dev: TenableIo resume publishes a failed completion",
+      "blocks": [],
+      "status": "open",
+      "notes": "ResumeAsync_Findings_WhenTransportResponseEndsPrematurely_ReturnsRetryableAdapterFailure fails identically on a clean origin/dev worktree. Probable cause: Infra 1.2.0-preview.0 removed MaxBudgetedRecoveryAge/backstop-recovery-age (see dev 06f26d3c, which followed the rework in DummyCollector only). Either a stale expectation or a real false-terminal-DONE on a retryable transport error. Not touched \u2014 out of slice."
+    },
+    {
+      "id": "B4",
+      "title": "s3:ListBucket grant unverified (A12a)",
+      "blocks": [
+        "S9"
+      ],
+      "status": "open",
+      "notes": "Without it a miss returns 403 not 404 and the contract forbids reporting that as null, so every ordinary thin-host miss becomes an exception. Hot path."
+    },
+    {
+      "id": "B5",
+      "title": "Local object store is compiled but unexercised",
+      "blocks": [],
+      "status": "open",
+      "notes": "LocalFileAdapterObjectStore implements the contract and builds clean, but nothing calls the spine yet so it has never run. First real exercise arrives with phase 2."
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "complete",
+    "passes": [
+      "review/verifier-1.md",
+      "review/verifier-2.md"
+    ],
+    "verdict": "pass 2: all six declared repairs landed; one new HIGH defect (N1) found",
+    "verifiedAt": "2026-08-17",
+    "notes": [
+      "PASS 2 (repair round 1). Re-read the rewritten TenableIoAssetSpoolPhase.cs (314 -> 495 lines); pass-1 line citations for that file are superseded.",
+      "D1 CLOSED: dedicated AdapterHttpRequestFailedException/IsTransientOrRateLimited retry branch at TenableIoAssetSpoolPhase.cs:283-291 passes ex into ComputeDelay, so Retry-After is honoured and the ex parameter is no longer dead. Tests drive a real 429 with Retry-After and real 502/503/504 and assert a second HTTP call plus zero lost assets.",
+      "D2 CLOSED as specified: EnforceSkippedChunkCeiling at :92 runs before WriteManifestAsync at :96, RunAsync has no catch, and the test asserts no manifest object and TryReadManifestAsync null. MaxSkippedChunkRatio=0.5 with >= matches both live flows verbatim. The pure ExceedsSkippedChunkRatio is asserted over 4 rows including the exact 50% boundary.",
+      "NEW DEFECT N1 (HIGH): the ceiling counts chunks that FAILED, never chunks that were never OFFERED. Nothing reconciles Processed+Excluded against TotalChunks, and FindNewChunkIds only attempts chunks in chunks_available. A FINISHED export declaring 4 chunks while listing 1 yields a quarter-full spine with a completion manifest, no warning, no failure - the same hazard D2 closed, by the other road. Demonstrated by a PASSING test: SpoolPhase_WhenAChunkIsFailedServerSide stubs total_chunks:4/available:[1]/failed:[4], leaving chunks 2 and 3 unvisited (proved by contradiction: a 404 on them would join Excluded and trip the ceiling). Makes the class doc claim 'incompleteness is bounded, not silent' false as written.",
+      "CR#3 CONFIRMED: cap is exactly 2 re-creations (:197 with MaxExportRecreations=2), a delay precedes each (:212), third 404 throws, no manifest. Test asserts creates==3 and no manifest.",
+      "D3 CLOSED: TryGetStagedAssetId locates the spine prefix inside the canonical URL (:205-210), the dead Relative() helper is gone, and unrecognized objects are counted and warned once with first-offender detail. The LocationFactory test re-spells the base with the same canonical URL and both ids come back.",
+      "D4 CLOSED AT UNIT LEVEL ONLY: RequireObjectStore/RequireBaseStorageUrl exist and throw, both tested (the latter over a real AdapterProgressContext). Still invoked by no production path, so the honest claim is 'the guard throws', not 'the flow hard-fails'.",
+      "CR#7/#8 all verified: OCE filter discriminates caller cancellation (internal OCE correctly falls through to terminal skip since the classifier returns false for OperationCanceledException); poll counting moved out of the filter; circuit-breaker failures now count toward the ceiling; test double locks all members incl. snapshot getters; GuardedObjectStore disposed via IDisposable on the test class; RunAsync decomposed with SpoolPass + TenableIoAssetSpoolRequest. All three restated doc claims (stat+read on a 4-slot semaphore with the 1-8 MiB memory-pressure caveat, the reusable-buffer rationale, the 'one path' scoping) are now accurate against Infra source.",
+      "SC8 mostly met: Documentation/01 +42 lines and collector-flow-patterns/SKILL.md +17 lines, both accurate. ai/skills/collector-recovery is still untouched - SC8 names it.",
+      "A1a now PARTIALLY closed: documentation half done (and better than asked - it states what the vendor does NOT promise); the straddle test half is still open and belongs to phase 2.",
+      "A16 REJECTED: LocalAdapterRunner DID need a structural change - new LocalFileAdapterObjectStore.cs (194 lines) plus a 16-line fallback registration, because S3ObjectStoreWiring is compiled out behind HAS_ISB_AWS.",
+      "UNDECLARED DELTA: the LocalAdapterRunner change was not in the lead's delta list and is the only tracked-file change this round. Well-built and correctly caveated, but (a) it changes local-run semantics for EVERY staged collector - Falcon previously hard-failed locally with no store and will now silently succeed against the filesystem; (b) PathFor hashes location.BaseUrl, so identical canonical URLs with different base/relative splits map to different files - the very property D3 was fixed to respect.",
+      "Test change SpoolPhase_WhenAChunkIsFailedServerSide 1-of-2 -> 1-of-4 was SHARPENED, not bent: the >=-at-0.5 boundary is inherited verbatim from both live flows and required by constraints.md, and the boundary is still covered directly by the pure theory row (4,0,2,true). But the new stub is what encodes N1 as acceptable, so it must change again once N1 is fixed.",
+      "Run-failure judgement call: AGREE with the lead, and it is not a judgement call - constraints.md requires keeping the MaxSkippedChunkRatio guard, both live flows already fail on this exact ratio, and the operator's 'no failures/no fallbacks' statement is scoped in decisions.md to designs carrying a size cliff, not to refusing bad input. The same decision explicitly accepts a hard stop at flow entry for a missing IAdapterObjectStore.",
+      "Tests re-run by me: TenableIoAssetSpineTests 43/43 passed (13 s, count independently derived from source); full suite 57 passed / 1 failed / 58 total, the failure being the pre-existing dev defect at TenableIoCollectorTests.cs:696. Solution build still 0 warnings / 81 errors, all in YamlAdapter.Test, byte-identical to baseRef - red on dev, not this work."
+    ]
+  },
+  "baseRef": "1f7a2ba6c504b6f43facec08cafd4a6ffbbbd531",
+  "baseBranch": "feat/tenableio-correlated-findings-staged",
+  "priorWorkRef": "origin/feature/tenableio-correlated-findings@999289e0",
+  "lastUpdated": "2026-08-17T12:40:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "YamlAdapter test syntax break (red solution build)",
+        "status": "complete",
+        "outputRef": "execution_notes.md"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Resume defect diagnosis; produced patch, did not apply",
+        "status": "complete",
+        "outputRef": "execution_notes.md"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Phases 2+3, checkpoint v2, correlated flow",
+        "status": "complete",
+        "outputRef": "execution_notes.md"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "Collector-level e2e contract tests + harness object store",
+        "status": "complete",
+        "outputRef": "execution_notes.md"
+      },
+      {
+        "id": "W5",
+        "scopeSummary": "Sweep soundness + durable claim ledger (blockers 1 and 2)",
+        "status": "complete",
+        "outputRef": "execution_notes.md"
+      },
+      {
+        "id": "W6",
+        "scopeSummary": "num_assets scale, retry predicate, checkpoint accounting",
+        "status": "complete",
+        "outputRef": "execution_notes.md"
+      }
+    ],
+    "sliceScope": "phase-1-only (asset spine staging). Phases 2-3 deliberately not started; operator reevaluates first.",
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-17T08:40:46Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "research/branch-technique-and-dev-diff.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-08-17T10:20:00Z",
+        "outputs": [
+          "Flows/Findings/Correlated/ (6 files)",
+          "InMemoryTenableIoStagingStore.cs",
+          "TenableIoAssetSpineTests.cs",
+          "execution_notes.md",
+          "assumptions.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-08-17T10:55:00Z",
+        "outputs": [
+          "review/verifier-1.md",
+          "assumptions.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-08-17T10:55:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-08-17T11:30:00Z",
+        "outputs": [
+          "repair round 1",
+          "LocalFileAdapterObjectStore.cs",
+          "Documentation/01-collection-strategy.md",
+          "ai/skills/collector-flow-patterns/SKILL.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": false,
+    "archivedAt": null
+  }
+}

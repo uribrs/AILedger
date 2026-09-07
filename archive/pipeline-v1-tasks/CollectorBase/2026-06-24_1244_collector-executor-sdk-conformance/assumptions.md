@@ -1,0 +1,10 @@
+# Assumptions
+
+- A1 — VALIDATED: CollectorExecutor implements BOTH `IAssetsCollectorAdapter` + `IFindingsCollectorAdapter` (generic engine serves both topics). User confirmed "generic — both".
+- A2 — VALIDATED: `AdapterBusEntrypointRunner` creates the `AdapterProgressContext` (via `AdapterBusEntrypointSetup.CreateProgressContextAsync`) and passes it to the collect delegates — confirmed by reading `Orchestration/AdapterBusEntrypointRunner.cs`.
+- A3 — VALIDATED: `ThrottlingOptions.Resolve(context.Services).MaxBytesPerBatch` is available in this repo's Shared (`DataPipeline/Egress/ThrottlingOptions.cs`) and is the value native uses (`TenableIoAssetsFlow.ProcessSingleChunkAsync`).
+- A4 — VALIDATED: One `CollectorNdjsonPublisher.PublishUtf8PageAsync` call = exactly one file named from `pageNumber` (`BuildMandatoryTargetPath`); the caller must do byte-slicing. Confirmed by reading the publisher.
+- A5 — VALIDATED: one `CheckpointState` carries both `AssetsPage` + `FindingsPage`; the runner bumps the target matching the emit. `CollectorNdjsonPublisher` = one file per publish call (path from pageNumber), so the caller does the byte-slice with `ThrottlingOptions.MaxBytesPerBatch`. Implemented + verified in S5/S6 (live Tenable run: contiguous assets_000001..N).
+- A6 — VALIDATED (design): `CollectorResumeDefinition<TState> where TState : class` accepts a custom state type + `RunAsync(TState, AdapterProgressContext, CT)->Task<int>` (runner creates+restores the progress context). `CheckpointState` is usable directly as TState; the resume RunAsync closure must capture the parsed request + platformEvent (no PlatformEvent param). Confirmed from Shared CollectorResumeDefinition.cs / CollectorResumeRunner.cs. NOT YET wired (part of unlanded S1–S4).
+- A7 — OPEN: `CollectAssetsAsync`/`CollectFindingsAsync` both real (route by resolved flow); neither a throwing stub. Unresolved because S1–S4 (adapter bus-routing) is not yet implemented.
+- A8 — VALIDATED: Big-bang (single change), approved by user; repo is a POC lab, not in git, not production — contained risk.

@@ -1,0 +1,119 @@
+{
+  "taskId": "TASK-20260707-1730",
+  "taskSlug": "atomic-objects-and-batch-scoping-carry",
+  "status": "code_complete_awaiting_commit",
+  "complexityTier": "full",
+  "currentPhase": "handoff",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Changeset B / sessions: replace D7 flag with two-flag machinery + TryAbortMultipartAsync + FinalizeAsync in both twins; delete size gates",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Changeset B / publisher+options: CommitIncomplete gate; SoftRecordWarningBytes through AdapterGlobalDefaults→ThrottlingOptions→NdjsonOptions",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "Changeset A: BatchScopedStorage into Envelopes/Common; sessions swap storageUrl literal; RestoreBase at 7 Conducting/FaultGovernance sites",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Tests: port AtomicStreamedObjectsTests + BatchScopedStorageTests, plain Assert, shared RecordingPublisher helper",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "Docs: Emission README; D7-SUPERSEDED append to emission-carry decisions; version 1.0.0-preview.3",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "Verification: build, full package test run, grep-clean sweep, 1:1-parity checklist in execution notes",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "repair_round_1_complete",
+    "notes": [
+      "verifier-1 PASS (12-hunk parity sampling clean, 2 LOW doc nits)",
+      "code-reviewer-1: 1 Major (M1 string-twin coverage gap) + 2 no-action minors",
+      "M1 fixed: 6 critical state-machine facts parameterized [Theory] over PublishMode{String,Utf8}; string session now directly covered",
+      "LOW doc nits fixed in execution_notes.md (Emission breakdown 15+14+14; history-hit count 4)",
+      "post-repair: build 0 errors; all 7 suites green 194/194 (Emission 49 = 15 pre-existing + 20 atomic + 14 batch-scoped)"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-07T14:34:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": null,
+        "outputs": ["orchestration_plan.md"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-07T18:20:00Z",
+        "outputs": [
+          "src/IntegrationInfra/Emission/Ndjson/NdjsonBatchSession.cs",
+          "src/IntegrationInfra/Emission/Ndjson/NdjsonUtf8BatchSession.cs",
+          "src/IntegrationInfra/Emission/Ndjson/NdjsonOptions.cs",
+          "src/IntegrationInfra/Emission/ThrottlingOptions.cs",
+          "src/IntegrationInfra/Emission/AdapterGlobalDefaults.cs",
+          "src/IntegrationInfra/Emission/ResultsBatchPublisher.cs",
+          "src/IntegrationInfra/Emission/README.md",
+          "src/IntegrationInfra/Envelopes/Common/BatchScopedStorage.cs",
+          "src/IntegrationInfra/Conducting/AdapterBusEntrypointRunner.cs",
+          "src/IntegrationInfra/Conducting/AdapterPlatformEventFactory.cs",
+          "src/IntegrationInfra/Conducting/Bus/Logic/AdapterBusPartialSuccessPublisher.cs",
+          "src/IntegrationInfra/Conducting/Collectors/Recovery/CollectorResumeLegacyExecutor.cs",
+          "src/IntegrationInfra/Conducting/Collectors/Recovery/CollectorResumePartialSuccessPublisher.cs",
+          "src/IntegrationInfra/Conducting/Collectors/Recovery/CollectorResumeStrategyExecutor.cs",
+          "src/IntegrationInfra/FaultGovernance/AdapterFlowFailureHandling.cs",
+          "src/IntegrationInfra/FaultGovernance/Logic/AdapterFailureDecisionExecutor.cs",
+          "src/IntegrationInfra/IntegrationInfra.csproj",
+          "tests/IntegrationInfra.Emission.Tests/AtomicStreamedObjectsTests.cs",
+          "tests/IntegrationInfra.Emission.Tests/BatchScopedStorageTests.cs",
+          "tests/IntegrationInfra.Emission.Tests/RecordingPublisher.cs",
+          "tests/IntegrationInfra.Emission.Tests/EmissionTestDoubles.cs",
+          "ai/active/2026-06-30_1328_emission-carry/decisions.md",
+          "execution_notes.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "reviewFindings": {
+    "verifier1": "PASS (review/verifier-1.md) — 12-hunk parity sampling zero deviation; twins byte-identical on carried logic; D7 fully replaced; storageUrl audit clean; DAG intact; independent 188/188. 2 LOW doc-count nits in execution_notes.",
+    "codeReviewer1": "1 Major + 2 minors (review/code-reviewer-1.md). M1: critical multipart state-machine tests run only through the UTF-8 twin — string twin uncovered. m1 CommitIncomplete belt kept (defensive + source parity); m2 wire-contract literals deliberate. State machine, call sites, DAG hygiene, twin code consistency all confirmed.",
+    "repairRound1": "Dispatched — M1 twin test coverage (critical facts through both publish paths) + verifier LOW doc-count fixes. m1/m2 no-action by decision.",
+    "verifier2": "PASS (review/verifier-2.md) — six critical facts genuinely [Theory] over both publish modes with real string-session routing verified; round was test-only (mtime-proven); independent re-run 194/194 (Emission 49); doc fixes confirmed. Accepted residuals consolidated. One immaterial doc nit (exempt-hit count 5 not 4) noted, no further round."
+  },
+  "lastUpdated": "2026-07-07T20:50:00Z"
+}

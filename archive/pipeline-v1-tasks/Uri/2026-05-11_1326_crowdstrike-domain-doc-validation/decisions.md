@@ -1,0 +1,4 @@
+- Use a full task state because the work is multi-agent validation with persisted findings.
+- Treat local implementation files as the source of truth when comparing documentation claims.
+- Produce a report rather than editing domain docs unless the mediator finds a targeted correction is explicitly needed.
+- Do not edit domain documentation in this pass; publish correction guidance in the planning report.

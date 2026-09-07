@@ -1,0 +1,9 @@
+- Use `analysis.md` as the durable handoff artifact before implementation.
+- Use multiple bounded analysis workers before programming.
+- Keep the main thread responsible for synthesis and final implementation decisions.
+- Verifier must inspect `analysis.md`, `prompt_contract.md`, and the actual code changes.
+- Current task will not change requested Falcon URL shape beyond volume controls.
+- Phase 1 scale-up means configured Spotlight page sizes above `1000` up to `5000`; autonomous runtime scale-up is deferred.
+- If a checkpoint has an active Spotlight `after`, continue that chain with the checkpoint `ApiPageSize`; do not rebuild the cursor URL with a different configured limit.
+- Pressure downshift may change `limit` only after dropping `after`, or before a cursor chain exists.
+- Filtered findings must use a Discover AID pre-pass limit capped at `1000`, independent from Spotlight vulnerability page size.

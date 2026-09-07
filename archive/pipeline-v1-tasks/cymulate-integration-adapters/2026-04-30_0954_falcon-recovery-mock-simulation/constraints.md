@@ -1,0 +1,12 @@
+- Use `ai/active/2026-04-29_1450_falcon-partial-page-success` only as a concept reference.
+- Build a local runnable simulation, not only unit tests.
+- Use a local mock server or equivalent local HTTP endpoint that the Falcon collector can call through normal HTTP/session paths.
+- Exercise recovery behavior, not partial-exit/DONE-with-error strategy.
+- Include month segmentation behavior in the simulated data.
+- Include 2-3 interruption and recovery scenarios.
+- Preserve normal collector request, checkpoint, publish, and local runner logging paths where practical.
+- Produce inspectable local logs and published batch outputs under `logs/`.
+- Do not use real CrowdStrike credentials or real vendor network calls.
+- Keep product-code changes minimal and scoped to simulation support if needed.
+- Do not change unrelated collectors.
+- Do not silently assume recovery semantics; document observed behavior from logs and outputs.

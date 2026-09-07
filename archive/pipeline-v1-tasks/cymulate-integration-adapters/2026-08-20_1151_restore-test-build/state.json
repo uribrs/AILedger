@@ -1,0 +1,75 @@
+{
+  "taskId": "TASK-20260820-1151",
+  "taskSlug": "restore-test-build",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closeout",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "optional"
+  },
+  "steps": [
+    { "id": "contract", "status": "complete" },
+    { "id": "diagnose", "status": "complete" },
+    { "id": "repair", "status": "complete" },
+    { "id": "verify", "status": "complete" },
+    { "id": "review", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "Focused Defender tests passed: 27/27.",
+      "Full adapter solution build passed with 0 warnings and 0 errors."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-20T11:51:38Z",
+        "outputs": ["task.md", "prompt_contract.md", "state.json", "constraints.md", "assumptions.md", "decisions.md"]
+      },
+      {
+        "skill": "task-orchestrator-internal-recon",
+        "completedAt": "2026-08-20T11:54:00Z",
+        "outputs": ["research/internal-recon.md"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-08-20T11:56:11Z",
+        "outputs": ["execution_notes.md", "src/Cymulate.Integration.Adapters/UnitTests/Indicators/Cymulate.Integration.Adapters.Indicators.Defender.Test/Cymulate.Integration.Adapters.Indicators.Defender.Test.csproj"]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-08-20T11:59:00Z",
+        "outputs": ["review/verifier-1.md", "assumptions.md"]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-08-20T12:00:16Z",
+        "outputs": ["review/code-reviewer-1.md"]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-20T12:00:16Z"
+  },
+  "baseRef": "a7b5121b548201fc8da9690a20ee7cde0419f80c",
+  "lastUpdated": "2026-08-20T12:00:16Z"
+}

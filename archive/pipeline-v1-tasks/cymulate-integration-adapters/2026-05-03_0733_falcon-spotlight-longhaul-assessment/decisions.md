@@ -1,0 +1,17 @@
+- Treat persistent 401 after refresh as a separate behavioral class from ordinary expired-token authentication failure.
+- Treat cursor pagination as the normal progress mechanism and watermark/date anchor as the recovery mechanism.
+- Treat published chunks and checkpoints as the durable progress boundary for long-haul operation.
+- Recommendations should prioritize periodic checkpointing, voluntary cooldown, 401 classification, backend-protection detection, and partial publishing.
+- Do not classify persistent 401-after-refresh as proof of bad credentials when the same credentials already passed validation and long traversal succeeded.
+- Prefer adding a narrow Falcon-specific long-haul failure classifier before changing pagination architecture.
+- Treat documented 120-second `after` token expiry as the governing Spotlight cursor durability limit.
+- After voluntary cooldown longer than roughly two minutes, resume from watermark/date anchor by default instead of attempting to reuse `after`.
+- Treat the supplied 2026-05-01 production record as evidence of a gateway-level 401 during deep Spotlight traversal, not an embedded Spotlight pagination error.
+- Treat the supplied adjacent refresh screenshot as confirmation of `Persistent401AfterRefresh`: OAuth token refresh succeeded and the replayed Spotlight GET still failed with 401.
+- Deprioritize ordinary token expiry for the observed incident; keep credential/scope/subscription edge cases and gateway rejection of a long-running cursor/query context as the remaining plausible auth-layer explanations.
+- Treat `Persistent401AfterRefresh` as primarily a shared transport/auth-result classification concern, with Falcon-specific recovery layered on top.
+- Prefer exposing reauthorization outcome metadata from `Cymulate.Http.Package` over having collectors infer refresh/replay exhaustion from logs or mutable request options.
+- Treat CrowdStrike `X-Ratelimit-*` response headers as server-side rate-limit telemetry that is distinct from standard `Retry-After`.
+- Add shared rate-limit header awareness to `Cymulate.Http.Package` rather than baking Falcon-only parsing into the collector; Falcon can supply a vendor header profile.
+- Use server rate-limit headers conservatively as a pacing/dampening signal, not as permission to exceed configured client-side limits.
+- Do not reclassify the observed 2026-05-01 failure as a rate-limit breach solely because rate-limit headers are present; the captured responses still report `X-Ratelimit-Remaining=5998` out of `6000`.

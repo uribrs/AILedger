@@ -1,0 +1,122 @@
+{
+  "taskId": "TASK-20260827-1153",
+  "taskSlug": "failed-checkpoint-retention-and-retry",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Recon ISB checkpoint lifecycle: write, retention, sweep, cleanup, resume entry",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "desc": "Recon adapters repo: resume-state shapes, CanResumeFrom uniformity, decline taxonomy",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "desc": "Recon IntegrationInfra: staleness threshold, contracts package, parameterization surface",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "desc": "Identify collection trigger owner and the retry request path it would use",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "desc": "Map wire-contract surface (AdapterDoneMessage and consumers) and cross-repo release cost",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "desc": "Produce recon report: minimal ISB service-hub change plus per-repo obligations",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass_with_gaps",
+    "notes": [
+      "F1 and F2 repaired in recon_report.md",
+      "code-reviewer not run: recon-only, no code-bearing artifact"
+    ]
+  },
+  "baseRef": "b5e7ba22d0262be3406a5eef66425bae0a86dd47",
+  "lastUpdated": "2026-08-27T09:25:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "ISB checkpoint lifecycle + minimal service-hub change",
+        "status": "complete",
+        "outputRef": "research/isb-checkpoint-lifecycle.md"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Collector resume-state landscape + decline taxonomy",
+        "status": "complete",
+        "outputRef": "research/collector-resume-landscape.md"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Staleness threshold, parameterization surface, wire contract",
+        "status": "complete",
+        "outputRef": "research/infra-staleness-and-contracts.md"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "Collection trigger ownership",
+        "status": "complete",
+        "outputRef": "research/trigger-ownership.md"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-27T08:53:58Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-27T09:25:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "recon_report.md",
+          "research/*.md",
+          "review/verifier-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": false,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-27T09:26:00Z"
+  }
+}

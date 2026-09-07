@@ -1,0 +1,117 @@
+{
+  "taskId": "TASK-20260730-0728",
+  "taskSlug": "engine-api-contract",
+  "formerlyKnownAs": "task 3 (public-surface narrowing)",
+  "status": "contract_ready",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "repo": "/Users/user/Dev/yaml-adapter-engine",
+  "branch": "dev",
+  "baseCommit": "dd25c0d",
+  "arcPosition": "Third and last of the three quality tasks mapped onto this repo's CLAUDE.md. Task 1 = rules 5/1 (2026-07-28_1815). Task 2 = rules 3/4/7, SRP decomposition, merged PR #6 (2026-07-29_0837). Between them the capability-drift inventory ran (2026-07-29_1102), deliberately before this task because narrowing destroys the comparison surface.",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete",
+    "surface_decisions.md": "pending"
+  },
+  "baseline": {
+    "measuredAt": "2026-07-30T07:28:03Z",
+    "publicTypes": 103,
+    "publicTypesByNamespace": {
+      "Authentication": 21,
+      "Mapping": 16,
+      "Workflow": 16,
+      "Resilience": 15,
+      "Pagination": 14,
+      "Definition": 13,
+      "Execution": 3,
+      "Sinks": 2,
+      "Templating": 2,
+      "Diagnostics": 1
+    },
+    "engineTestsPassing": 735,
+    "internalsVisibleToPresent": false,
+    "rule3Violations": 0,
+    "rule4Violations": 0,
+    "consumer": {
+      "project": "Cymulate.Integration.Adapters.YamlAdapter",
+      "consumesVia": "PackageReference Cymulate.Integration.Yaml.Engine 1.0.0-preview.1",
+      "testsPassing": 167,
+      "typesNamedByProduction": 13,
+      "typesNamedByTestsOnly": 0,
+      "typesNamedByLocalRunnerOnly": 1
+    },
+    "rawData": ["measurements/engine_public_types.json", "measurements/surface_reach.json"]
+  },
+  "keyFinding": {
+    "id": "F1",
+    "summary": "The engine is composed from YAML at runtime, so static C# reference counting measures entry points rather than the required public surface.",
+    "evidence": "Every authenticator (6) is constructed only in AuthenticatorFactory.cs; every paginator (6) only in PaginatorFactory.cs. Selection is by authentication.type / pagination.strategy. grep -rln 'new <Type>(' src/ returns exactly one file for each of the 12.",
+    "consequence": "Those families must be REGISTERED, not PUBLIC. Their contract is the YAML key. Composition is proven by a corpus conformance test, not by visibility.",
+    "retracts": "An earlier '13 reachable vs 89 unreachable' framing, which measured names in consumer source only."
+  },
+  "operations": {
+    "narrow": "the bulk — public -> internal. Non-breaking; reveals the surface that was already true.",
+    "decompose": "3 items — IExecutionSink split; ExecuteOperationAsync overload chain -> request/options records; WorkflowRunner's two delegates -> IWorkflowHost. Breaking.",
+    "add": "1 item — OAuth static_value/credential_key resolution + prefix TrimEnd() forward-port. Behavioural, not surface.",
+    "remove": "NOTHING. No type is deleted under this task (D7)."
+  },
+  "validationLegs": {
+    "a": "static C# reachability from the consumer — done, 13 entry points. INSUFFICIENT ALONE.",
+    "b": "per-member traversal through public signatures — decides most cases. NOT YET COMPUTED; step S1.",
+    "c": "YAML-driven dispatch — measured; argues FOR internal, proven by corpus conformance rather than visibility."
+  },
+  "phases": [
+    {
+      "id": "P1",
+      "title": "API form: the three decompositions + the OAuth forward-port",
+      "status": "pending",
+      "rationale": "These reshape the surface being narrowed. Doing them first means one breaking release instead of two (D3).",
+      "criteria": [5, 6, 7]
+    },
+    {
+      "id": "P2",
+      "title": "Narrowing: compute the required-public set, then narrow everything else",
+      "status": "pending",
+      "gatedBy": ["A1", "A4"],
+      "criteria": [1, 2, 3, 4, 11]
+    },
+    {
+      "id": "P3",
+      "title": "Guards: corpus conformance + public-surface pin",
+      "status": "pending",
+      "criteria": [8, 9, 10]
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B1",
+      "blocks": "P2",
+      "assumption": "A1",
+      "detail": "The consumer set must be confirmed by the operator before anything is narrowed. YamlLocalRunner names 1 extra type; the old Collectors/YamlCollector compiles the engine as SOURCE so it is not visibility-constrained and must not be used as evidence; the Shared/SDK retirement in IntegrationInfra may add a host."
+    },
+    {
+      "id": "B2",
+      "blocks": "P2",
+      "assumption": "A4",
+      "detail": "The InternalsVisibleTo decision needs the count of test files that fail to compile after narrowing. Narrow in a scratch branch, count, report, then decide. Do not add it by reflex."
+    }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true,
+    "criteriaCount": 13
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "openAssumptions": ["A1", "A2", "A3", "A4", "A5", "A6"],
+  "resolvedAssumptions": ["A7", "A8"],
+  "lastUpdated": "2026-07-30T07:28:03Z"
+}

@@ -1,0 +1,7 @@
+- D1 — Add emit alongside the existing discovery probes, do not replace them.
+- D2 — Write emitted asset and finding records as sidecar files in `ProbeRunArchive.DirectoryPath` (one JSONL per probe). The discovery `ProbeRunItem.Body` points to the sidecar path.
+- D3 — `cymulate_instanceId` / `cymulate_clientId` are optional; fall back to the collector's null instance / `"cortex-xdr"` finding-id-prefix behaviour when absent.
+- D4 — Keep probe-friendly limits: XQL `QueryLimit` (default 10, max 1000) and a single page of `/endpoints/get_endpoint` (`search_to = QueryLimit`). Do not paginate, do not raise to 50 000.
+- D5 — Use `System.Text.Json.Nodes` (`JsonObject`/`JsonArray`/`JsonNode`) for emit. No Newtonsoft.Json package.
+- D6 — Port mapper logic into a new `CortexXdrEmitMapper` static class; do not bloat `CortexXdrProbeRunner`.
+- D7 — Direct execution path (single contributor, single repo, no decomposition).

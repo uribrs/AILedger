@@ -1,0 +1,3 @@
+- VALIDATED: "page number is greater than 0" means the Falcon flow has successfully published at least one page before the terminal failure.
+- VALIDATED: The Falcon DONE AdapterResult payload can carry error context without changing host completion envelope contracts.
+- VALIDATED: Focused Falcon unit tests can simulate terminal failures after the first page without a live vendor API.

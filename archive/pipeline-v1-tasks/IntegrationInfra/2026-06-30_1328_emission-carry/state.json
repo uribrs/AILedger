@@ -1,0 +1,129 @@
+{
+  "taskId": "TASK-20260630-1328",
+  "taskSlug": "emission-carry",
+  "status": "complete_review_passed_h1_fixed",
+  "complexityTier": "full",
+  "currentPhase": "review_complete",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Copy DataPipeline/Egress/* (18, incl. Multipart/Ndjson/Telemetry) + Glossary/CollectorGlobalDefaults -> Emission/ verbatim",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "name": "Namespace substitution: Egress(.Ndjson/.Multipart/.Telemetry)->Emission.*; Exceptions->Kernel.Exceptions; DataPipeline.Telemetry->Kernel.Telemetry; Glossary->Emission; (Json->Kernel.Json if present)",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "name": "D8 naming neutralization: CollectorGlobalDefaults/CollectorOutputDefaults/CollectorNdjsonPublisher -> Adapter*; values unchanged; all refs updated",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "name": "Build-driven package resolution: add Microsoft.Extensions.Configuration.Abstractions (or other) PackageReference+PackageVersion at floor version if not transitive; verify no residual Shared.* refs",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "name": "XML docs on public members; extend Emission/README.md (carried set, rewires, D8 renames, deferred ISink reshape, JSON-validator invariant)",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "name": "Tests for testable pure units (formatters, options, MultipartPartPlanner, defaults, byte-budget/NDJSON logic)",
+      "status": "complete"
+    },
+    {
+      "id": "S7",
+      "name": "dotnet build clean + tests pass; record output; mirror to global archive",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed_with_qualifications",
+    "notes": [
+      "Full build 0 errors; 78 tests pass (33+20+10+15).",
+      "A-pkg/A-json closed clean (no package add; no Json ref). D8 renames applied; values unchanged.",
+      "Kernel untouched; 0 Shared.* refs; source unmodified. ISink reshape deferred.",
+      "Verifier PASS (7/7; SC5 XML-docs PARTIAL, verbatim). Code-reviewer no blockers except H1 (pre-existing verbatim multipart-abort-on-dispose bug). COMMIT GATED on operator H1 decision (a fix-now / b defer / c hold).",
+      "H1 fixed in-carry per operator D7 (multipart abort-on-dispose, both Ndjson sessions); deliberate divergence from source; build+78 tests green. H1 regression test deferred per A-test (needs 5MiB+fake-publisher harness)."
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-30T13:28:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-30T13:30:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-06-30T13:45:00Z",
+        "outputs": [
+          "src/IntegrationInfra/Emission/**",
+          "src/IntegrationInfra/IntegrationInfra.csproj",
+          "IntegrationInfra.slnx",
+          "tests/IntegrationInfra.Emission.Tests/**",
+          "execution_notes.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer",
+        "completedAt": "2026-06-30T15:07:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md"
+        ]
+      },
+      {
+        "skill": "verifier",
+        "completedAt": "2026-06-30T15:18:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "codeReviewerRun_output": "review/code-reviewer-1.md",
+    "codeReviewerDisposition": "H1 (HIGH, reviewer: merge-blocking): NdjsonBatchSession/NdjsonUtf8BatchSession DisposeAsync does not abort an initiated multipart upload on cancel/throw -> orphaned S3 incomplete-multipart. PRE-EXISTING VERBATIM source behavior -> NOT auto-fixed (logic change needs operator decision + must also fix source). SURFACED to operator before commit. M1 (int cast / MaxBytesPerBatch no upper bound), M2 (sub-5MiB buffering floor = doc surprise) = pre-existing source behavior -> recorded. M3 (test coverage thin on batch-session/multipart/byte-budget/Utf8 formatter) -> our deliverable; tracked follow-up (contract scoped narrow on DI/streaming units). Lows/nits no action.",
+    "verifierRun_output": "review/verifier-1.md"
+  },
+  "lastUpdated": "2026-06-30T15:30:00Z"
+}

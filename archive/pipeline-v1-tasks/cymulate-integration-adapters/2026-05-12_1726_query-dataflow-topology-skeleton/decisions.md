@@ -1,0 +1,9 @@
+- Supersede this Dataflow topology skeleton task before product-code execution.
+- Use `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice` as the replacement completed task.
+- Do not use this folder as an active execution contract.
+- Do not start topology before `IPlanOptimizer` has a contract, implementation, and tests.
+- Treat `INativeCoalescer` as the likely slice after optimizer and before topology.
+- Preserve plan-builder behavior when later topology composes SDK stages.
+- Keep topology code in `Orchestration/Query` unless implementation reveals a stronger concern boundary.
+- Use SDK stage contracts directly where the skeleton invokes query pipeline stages.
+- Use delegate/test doubles only in tests; do not add fake vendor clients as product code.

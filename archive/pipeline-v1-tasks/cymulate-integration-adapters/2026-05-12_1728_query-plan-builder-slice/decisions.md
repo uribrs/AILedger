@@ -1,0 +1,6 @@
+- Implement the plan-builder slice before Dataflow topology because the PRD recommended order lists plan builder and validation first.
+- Keep plan-building code under `Orchestration/Query/Planning` to preserve concern-first Shared structure.
+- Use SDK models directly for inputs and outputs.
+- Generate deterministic unit ids locally using stable canonical content because SDK 2.0.28 exposes no helper for this.
+- Reject structurally invalid jobs, duplicate section ids, duplicate query ids, missing time windows for time-window queries, and blank native expressions.
+- Leave composite `ResultType` values accepted because that product policy remains intentionally open.

@@ -1,0 +1,124 @@
+{
+  "taskId": "TASK-20260827-1245",
+  "taskSlug": "failed-checkpoint-retention-ttl-column",
+  "status": "closed",
+  "complexityTier": "full",
+  "currentPhase": "closed",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Domain: RetainUntilUtc on CheckpointEntry, config key for retention hours",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "desc": "Postgres: DbContext mapping, migration, upsert SQL, GetRecoverableAsync and DeleteExpiredAsync predicates",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "desc": "InMemory repository parity for all changed predicates",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "desc": "Application: set retention on the failure arm; guard the unhandled-exception delete",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "desc": "Cleanup job wiring for the second cutoff",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "desc": "Tests across all changed predicates and both delete paths",
+      "status": "pending"
+    },
+    {
+      "id": "S7",
+      "desc": "Build and run affected test projects",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass_with_gaps",
+    "notes": [
+      "Build clean; Application.UnitTests 93/93; Infrastructure.Core.UnitTests 419/419; API.UnitTests Docker-free checkpoint tests 25/25.",
+      "Postgres side entirely runtime-unverified: Docker unavailable, ~37 CheckpointRepositoryTests never executed, MigrateAsync never ran.",
+      "verifier-2 predates the final predicate revert and credential strip; A4 re-disposed by orchestrator, final state confirmed by direct inspection and full test run rather than a third verifier pass."
+    ]
+  },
+  "baseRef": "d53e347d48b71d7befa9bce6b9086b909a547093",
+  "lastUpdated": "2026-08-27T11:30:00Z",
+  "branch": "feat/failed-checkpoint-retention-ttl",
+  "notes": [
+    "baseRef rebased b5e7ba22 -> d53e347d after pulling dev; the pull's ConfigurationKeys edit was in the Query block, Checkpoint block lines 340-358 unchanged."
+  ],
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "schema + persistence",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "lifecycle stamping + :880 guard + R4 comments",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "all tests + decorator forwarding members",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-08-27T09:45:00Z",
+        "outputs": [
+          "prompt_contract.md",
+          "assumptions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-08-27T11:30:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "review/verifier-1.md",
+          "review/verifier-2.md",
+          "review/code-reviewer-1.md",
+          "review/code-reviewer-2.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "lessonsRecorded": true,
+    "archivedAt": "2026-08-27T11:31:00Z"
+  }
+}

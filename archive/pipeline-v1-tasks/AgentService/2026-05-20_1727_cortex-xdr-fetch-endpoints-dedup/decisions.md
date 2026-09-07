@@ -1,0 +1,15 @@
+# Decisions
+
+- D1: Fix at the source (`PaloAltoCortexApiBase.FetchEndpointsAsync`), not at the collector. Covers both assets and findings paths with one change and stops duplicates before they enter the endpoints temp file.
+- D2: Dedup strategy is an in-method `HashSet<string>` keyed on `endpoint_id` (case-insensitive). One set per `FetchEndpointsAsync` invocation; not promoted to a field, not shared across calls.
+- D3: Preserve `"field": "last_seen", "keyword": "DESC"` and the `lastSeenDate < iBaseDate` early-break. The fix neutralizes drift; it does not alter the CA-48775 incremental-walk optimization.
+- D4: Page accounting (`endpointsFound++`) increments BEFORE the dedup skip. The end-of-list condition (`endpointsFound < pageSize → break`) must reflect what the server actually sent, not the post-filter count.
+- D5: On a duplicate hit, skip both the emit (callback / writer) and the `lastSeenDate` check — the original row already drove both decisions when it was first seen.
+- D6: Skipped duplicates are logged at `eLogLevels.Info` via the existing `tryLogWithProductName` helper, with the `endpoint_id` and current `searchFrom` so operators can correlate with API page boundaries.
+- D7: Regression test goes into the existing test project for `PaloAltoCortexApiBase` if one exists. If no host project exists, executor stops and reports — no ad-hoc project creation.
+- D8: No `git` mutations. Leave the change uncommitted; the operator decides the target branch.
+- D9: ~~Ship the HashSet dedup as a cosmetic + uploaded-bytes fix only~~ **SUPERSEDED by D11.** See operator redirect 2026-05-20.
+- D10: ~~Keep `last_seen DESC` sort and the `lastSeenDate < iBaseDate` early-break~~ **SUPERSEDED by D11/D12.**
+- D11: **Integrity-first fix instead of the HashSet band-aid.** Revert all changes to `PaloAltoCortexApiBase.cs`; implement a new private method `FetchEndpointsSortedByEndpointIdAsync` inside `CortexXdrCollector` that sorts by `endpoint_id DESC` and walks to natural end-of-tenant. The base class is left untouched to avoid cascading effects on any current or future consumer. Reason given: "we can't foresee what cascading effect it will have over its other consumers."
+- D12: **No `iBaseDate` filter anywhere in the collector flow.** "Collect everything from both endpoints, we don't sort by last_seen, we don't dedup." Local `baseDate` variables and the `iBaseDate` parameter on `dumpEndpointsToTempAsync` are removed. The CA-48775 incremental-walk optimization is dropped in favor of a full-tenant walk per cycle. `iBaseDate` remains on the public `CollectAssetsAsync` / `CollectFindingsAsync` signatures because the interface contract requires it; the parameter is unused inside the collector but interface compatibility is preserved.
+- D13: **Delete the obsolete `XdrApiPaginationTests.cs`** since both tests in it exercised the HashSet dedup behavior that no longer exists. No replacement test is added in this change — the new method is a near-copy of the established `FetchEndpointsAsync` body with only the sort field and the early-break differing, so structural correctness can be verified at code review.

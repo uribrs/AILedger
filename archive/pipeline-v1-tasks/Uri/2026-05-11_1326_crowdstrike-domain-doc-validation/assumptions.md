@@ -1,0 +1,4 @@
+- VALIDATED: `/Users/user/Dev/Uri/IntegrationsDomainDocs` exists and contains Markdown documentation.
+- VALIDATED: `/Users/user/Dev/AgentService/Source/Application/Cymulate.Agent.Application.Actions/Actions/QueryIntegration/Logic/Clients/EDR/CrowdStrike` exists and contains the CrowdStrike client implementation.
+- VALIDATED: The requested report may create new planning documentation but should not alter source docs or client code.
+- VALIDATED: If no exact line-level implementation evidence exists for a documentation claim, the final report should classify it as unsupported rather than false.

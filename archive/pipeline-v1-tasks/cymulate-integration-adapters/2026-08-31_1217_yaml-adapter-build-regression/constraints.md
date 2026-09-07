@@ -1,0 +1,5 @@
+- Investigation only; do not modify product source or repository branches.
+- Attribute the first broken adapter commit and its merge PR.
+- Distinguish engine source availability from published NuGet package availability.
+- Use commit timestamps, ancestry, package contents, and reproducible builds as evidence.
+- Preserve both repositories' existing working trees.

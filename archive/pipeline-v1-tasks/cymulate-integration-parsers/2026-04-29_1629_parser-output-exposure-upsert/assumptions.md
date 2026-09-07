@@ -1,0 +1,7 @@
+- VALIDATED: `parser_output_exposures` is written by code in this repository through `jobs/cybi-parser/script.py` and `libs/packages/dal/sparkDAL.py`.
+- PARTIALLY VALIDATED: A duplicate key can occur after partial target persistence followed by retry. In current code the target-table duplicate is most likely at `_insert_staged_rows`; in older/direct code it can occur inside Spark `.jdbc()`.
+- VALIDATED: The primary key on `parser_output_exposures` is the `id` column in `libs/packages/parsers/schemas/db_schema.py`.
+- OPEN: "Identical object" means equality across the persisted business payload columns, excluding generated or volatile columns if any exist.
+- REJECTED: Replacing a differing row is automatically safe. Code evidence shows `id` is a generated surrogate row identity, so same `id` with different payload is a primary-key contract violation unless product explicitly approves last-write-wins.
+- VALIDATED: A database-side upsert or staging-table merge is preferable to application-side row-by-row conflict handling because the current write path already batches through a staging table for UUID tables.
+- OPEN: `created_at` should be included in equality comparison only if product semantics treat it as part of the object rather than volatile write metadata.

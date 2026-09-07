@@ -1,0 +1,133 @@
+{
+  "taskId": "TASK-20260624-1410",
+  "taskSlug": "collector-executor-conformance-audit",
+  "status": "execution_complete",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "A1",
+      "desc": "Read core native collectors (Falcon/TenableIo/Qualys/DefenderVm/CortexXdr) + their Shared usage; produce native-reference baseline doc",
+      "status": "complete"
+    },
+    {
+      "id": "A2",
+      "desc": "Cross-verifier: YamlCollector AND CollectorExecutor vs the baseline per subsystem; skeptically re-test the conformance claims; flag 'looks-conformant-but-isn't'",
+      "status": "complete"
+    },
+    {
+      "id": "A3",
+      "desc": "Three independent, isolated code-reviewers over the CollectorExecutor implementation",
+      "status": "complete"
+    },
+    {
+      "id": "A4",
+      "desc": "Synthesis: real conformance gaps + material code findings, separated from minor/accepted",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "complete",
+    "notes": [
+      "cross-verifier: conform 8/8, overstated 1 (low), false 0",
+      "3 code reviews: 0 blocking; convergent majors mostly pre-existing interpreter robustness gaps + RunAsync/Preflight dup (ours)"
+    ]
+  },
+  "lastUpdated": "2026-06-24T14:30:00Z",
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "native-reference baseline",
+        "status": "complete",
+        "outputRef": "review/native-reference-baseline.md"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "adversarial cross-verifier",
+        "status": "complete",
+        "outputRef": "review/cross-verifier-1.md"
+      },
+      {
+        "id": "W3a",
+        "scopeSummary": "code review (correctness)",
+        "status": "complete",
+        "outputRef": "review/code-reviewer-1.md"
+      },
+      {
+        "id": "W3b",
+        "scopeSummary": "code review (data/edge)",
+        "status": "complete",
+        "outputRef": "review/code-reviewer-2.md"
+      },
+      {
+        "id": "W3c",
+        "scopeSummary": "code review (maintainability)",
+        "status": "complete",
+        "outputRef": "review/code-reviewer-3.md"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-06-24T14:10:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-06-24T14:30:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "verifier(cross)",
+        "completedAt": "2026-06-24T14:30:00Z",
+        "outputs": [
+          "review/cross-verifier-1.md",
+          "review/native-reference-baseline.md"
+        ]
+      },
+      {
+        "skill": "code-reviewer x3",
+        "completedAt": "2026-06-24T14:30:00Z",
+        "outputs": [
+          "review/code-reviewer-1.md",
+          "review/code-reviewer-2.md",
+          "review/code-reviewer-3.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "verifierVerdict": "CollectorExecutor conforms on 8/8 subsystems; 1 overstated (low: resume double-restore) + 1 low telemetry; 0 false. YamlCollector is the real divergence (bypasses substrate).",
+    "codeReviewerVerdict": "0 blocking across 3 reviews. Convergent majors: non-string cursor crash, page_size=0 hang, sparse-page truncation, watermark-string-only (all pre-existing interpreter gaps); dead FetchSignal seam w/ misleading comments; RunAsync/Preflight duplication + 18-arg methods (ours)."
+  }
+}

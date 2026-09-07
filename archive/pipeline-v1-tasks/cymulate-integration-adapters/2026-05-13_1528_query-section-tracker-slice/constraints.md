@@ -1,0 +1,19 @@
+- Keep implementation under `Orchestration/Query/Dataflow`.
+- Use SDK Query contracts directly; do not create local duplicate contracts.
+- Implement only `ISectionTracker` behavior in this slice.
+- Constructor takes `ExecutionPlan`, `IExecutionPlanStore`, and `QuerySectionTrackerOptions`.
+- Accumulate findings thread-safely per `(SectionId, QueryId)` and preserve their arrival order in the emitted result.
+- Attribute `RecordUnitFailureAsync` to every `(SectionId, QueryId)` pair whose `QueryId` is in the failing unit's `RepresentedQueryIds` and in the section's membership.
+- Emit each `SectionResultV2` exactly once through `CompletedSections`.
+- A section is ready to emit only when every member query's representing units are all in terminal states (`Completed`/`Failed`/`Cancelled`) per `IExecutionPlanStore.GetUnitStatesAsync` AND every representing unit in `Failed`/`Cancelled` has a matching `RecordUnitFailureAsync` call recorded.
+- Build `QueryResultV2.Findings` as inline `FindingRefV2` with `InlinePayload` set to the finding payload, `S3Uri` null, `ByteSize` set to the UTF-8 byte count of the inline payload's raw JSON text, and `StreamedBatchCount` null.
+- Set `QueryResultV2.Error` to the first recorded `QueryErrorV2` for any of the query's representing units; null when no failure was recorded.
+- Set `SectionResultV2.EmittedAt` to `DateTimeOffset.UtcNow` at emission.
+- Use a bounded `Channel<SectionResultV2>` for the output stream.
+- Re-evaluate completion on every record call and on a polling tick driven by `QuerySectionTrackerOptions.PollInterval` (default 1 second).
+- Respect cancellation in `RecordFindingAsync`, `RecordUnitFailureAsync`, and `CompletedSections`.
+- Do not implement publication transport, Spillover (inline-vs-S3), section publisher, recovery planner, resume runner, or `IExecutionPlanStore` itself.
+- Do not emit `QueryJobCompletedV2`.
+- Do not add real Query clients or fake Query clients as product code.
+- Do not add RabbitMQ, Postgres, outbox, storage, session, HTTP retry, host, or transport infrastructure.
+- Keep code small, focused, and aligned with existing Shared Query style.

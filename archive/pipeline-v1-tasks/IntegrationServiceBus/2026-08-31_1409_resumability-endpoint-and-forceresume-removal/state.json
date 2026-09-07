@@ -1,0 +1,41 @@
+{
+  "taskId": "TASK-20260831-1409",
+  "taskSlug": "resumability-endpoint-and-forceresume-removal",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S0", "description": "Resolve the blocking prerequisite: does ResumeAsync seed its progress counter from AdapterCheckpoint.CurrentSequenceId", "status": "pending" },
+    { "id": "S1", "description": "ISB: resumability evaluator in the application layer over ICheckpointRepository plus the adapter registry", "status": "pending" },
+    { "id": "S2", "description": "ISB: batch resumability endpoint in EventsController", "status": "pending" },
+    { "id": "S3", "description": "ISB: point gate 4 of ExecuteWithResumeAsync at the evaluator in-process", "status": "pending" },
+    { "id": "S4", "description": "ISB: delete ReadForceResume, ProcessEventCommand.ForceResume and the three call sites", "status": "pending" },
+    { "id": "S5", "description": "ISB: stop renewing the retention clock on the RESUME_DECLINED_RETAINED_CHECKPOINT path", "status": "pending" },
+    { "id": "S6", "description": "ISB: index correlation_id", "status": "pending" },
+    { "id": "S7", "description": "Admin: replace canResumeFailed with the endpoint result, keep the nine server-side refusals", "status": "pending" },
+    { "id": "S8", "description": "cymulate-integrations: fresh branch off master carrying only the cancel-sweep startedAt guard and the slot-idempotency check", "status": "pending" },
+    { "id": "S9", "description": "Write the design documentation: three-repo current state, why forceResume is removable, the shared evaluator, the livelock", "status": "pending" }
+  ],
+  "blockers": [
+    { "id": "B1", "description": "S0 must resolve before S1-S8. AdapterProgressContext.NextSequenceId lives in Cymulate.Integration.Client, outside all three repos.", "status": "open" }
+  ],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "f3d787bb0ded28189a8ff6f581c6c5a4cab6aea6",
+  "lastUpdated": "2026-08-31T14:09:16Z"
+}

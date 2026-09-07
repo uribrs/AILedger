@@ -1,0 +1,129 @@
+{
+  "taskId": "TASK-20260707-1507",
+  "taskSlug": "egress-atomic-streamed-objects",
+  "status": "code_complete_awaiting_commit",
+  "complexityTier": "full",
+  "currentPhase": "handoff",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Egress sessions/publishers: one call = one atomic object; multipart escalation; Abort on failure/cancel/dispose",
+      "status": "done"
+    },
+    {
+      "id": "S2",
+      "name": "Delete fail-fast single-record rule + object-rotation branches; MaxBytesPerBatch demoted to memory discipline",
+      "status": "done"
+    },
+    {
+      "id": "S3",
+      "name": "Cleanup sweep: dead pre-splitting paths in Shared + collector call sites (behaviour-over-shape judgment)",
+      "status": "done"
+    },
+    {
+      "id": "S4",
+      "name": "Observability: Hash= log gains size+records; soft-threshold record warning (24MB default, configurable)",
+      "status": "done"
+    },
+    {
+      "id": "S5",
+      "name": "Tests: regression (small=single PUT byte-identical), multipart escalation/atomicity/abort, hasher invariant, giant record, BatchScopedStorage interplay",
+      "status": "done"
+    },
+    {
+      "id": "S6",
+      "name": "Docs sync (Egress README/Stable Output Rules, session docs, ai/skills) + ops handoff note (S3 abort lifecycle rule)",
+      "status": "done"
+    },
+    {
+      "id": "S7",
+      "name": "Build + vstest verification (exclusions: ISBLoadTestCollector, DummyCollector; known-hang via vstest only)",
+      "status": "done"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "repaired_and_reverified",
+    "notes": [
+      "Repair round 1: M1 (major) finalization-vs-residual-buffer data-loss bug fixed in both twins (FinalizeAsync + CommitIncomplete gate); m2/m3 tests added; m1 docs scoped; LOW-1 merge note recorded",
+      "Build: 0 warnings, 0 errors",
+      "Shared.Tests 75/75 (14 atomic incl new M1+m2 tests); FalconCollector.Test 167/167; JsonTests 44/44 isolated",
+      "JsonTests batched run had 1 non-deterministic GC-retention-trend failure on the INGRESS reader (AggressiveStreamingBehaviorTests) under machine load; passes in isolation; unrelated to egress change"
+    ]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-07T12:10:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md",
+          "state.json"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-07T16:20:00Z",
+        "outputs": [
+          "orchestration_plan.md"
+        ]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-07-07T16:20:00Z",
+        "outputs": [
+          "execution_notes.md",
+          "state.json",
+          "Shared/DataPipeline/Egress/Ndjson/NdjsonBatchSession.cs",
+          "Shared/DataPipeline/Egress/Ndjson/NdjsonUtf8BatchSession.cs",
+          "Shared/DataPipeline/Egress/Ndjson/NdjsonOptions.cs",
+          "Shared/DataPipeline/Egress/ResultsBatchPublisher.cs",
+          "Shared/DataPipeline/Egress/ThrottlingOptions.cs",
+          "Shared/Glossary/CollectorGlobalDefaults.cs",
+          "Shared/DataPipeline/Egress/README.md",
+          "Shared/DataPipeline/Egress/README.Publishing.md",
+          "UnitTests/Shared/.../DataPipeline/Egress/AtomicStreamedObjectsTests.cs",
+          "UnitTests/.../FalconCollector.Test/ResultsBatchPublisherConstraintsTests.cs"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "reviewFindings": {
+    "verifier1": "PASS (review/verifier-1.md) \u2014 independently re-ran build + 3 suites (73/167/44); guards fully deleted, abort semantics verified, scope clean, A7 deviation ACCEPTED (byte-identity test > hash-equality; no hot-path hasher invented). 1 LOW: missing merge-reconciliation note re Falcon branch hasher.",
+    "codeReviewer1": "1 Major + 3 minors (review/code-reviewer-1.md). M1: finalization gated on residual records \u2014 multipart ending on a post-append flush never Completes yet returns Success; new dispose-abort makes the pre-existing latent loss deterministic. Minors: README over-claim vs ThrottlingAdapterExecutionContext; missing Complete-throws abort test; missing M1-path test. Twins in lockstep, abort state machine otherwise correct, tests behavior-focused.",
+    "repairRound1": "Dispatched \u2014 M1 finalize-independent-of-buffer + success gated on (started \u21d2 completed), m2/m3 tests, m1 doc scoping, verifier LOW-1 note.",
+    "verifier2": "PASS (review/verifier-2.md) \u2014 M1 fix verified in both twins (lockstep, correct flag ordering, no spurious Complete); CommitIncomplete belt verified on both paths; m3 proven to fail on pre-fix logic; docs accurate; JsonTests flake judged pre-existing/unrelated; independent re-run 75/167/44. Accepted residuals consolidated (direct-route cap, Falcon hasher merge reconciliation, GC-trend flake, S3 abort lifecycle ops handoff)."
+  },
+  "lastUpdated": "2026-07-07T17:05:00Z",
+  "codeReviewFindings": {
+    "round": 1,
+    "blockers": 0,
+    "majors": 1,
+    "minors": 3,
+    "observations": 5,
+    "allResolved": true
+  }
+}

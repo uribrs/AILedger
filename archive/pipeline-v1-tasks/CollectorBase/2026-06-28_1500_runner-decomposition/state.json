@@ -1,0 +1,51 @@
+{
+  "taskId": "TASK-20260628-1500",
+  "taskSlug": "runner-decomposition",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "complete"
+  },
+  "steps": [
+    { "id": "S1", "desc": "StepRequestSender (collapse 4x HTTP build); 4 callsites rewired", "effort": "medium", "status": "complete", "note": "88/88 green; dropped unused System.Text using" },
+    { "id": "S2", "desc": "StepOutcomeFactory (partial-success-wins single home via PartialOrElse) + FailureResolutionRunner (ExecuteDecisionAsync/HandlingOf)", "effort": "medium", "status": "complete", "note": "88/88 green; ErrorSeverity resolves via Sdk.Events; 8 ternaries + 3 decision calls rewired" },
+    { "id": "S3", "desc": "FetchStepExecutor (split into SendQuery/MapRecords/AdvanceWatermark/PublishSlices/HandleHttpFailure) + StepExecutionScope", "effort": "high", "status": "complete", "note": "merged with S4 (mutually dependent via scope); build clean first try + 88/88" },
+    { "id": "S4", "desc": "ItemToleranceRunner + ForEachStepExecutor + PollUntilStepExecutor + PollAndDrainStepExecutor; RunAsync builds scope + dispatches", "effort": "high", "status": "complete", "note": "88/88" },
+    { "id": "S5", "desc": "ConnectionProbe; Runner reduced to conductor; final build + 88/88; execution_notes responsibility map", "effort": "medium", "status": "complete", "note": "Runner 811->193 lines; no new warnings" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass",
+    "notes": ["verifier-1: PASS all 6 criteria + 3 invariants; build clean; 88/88; no test edits; no drift"]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-28T15:00:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-28T15:02:00Z", "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-28T15:40:00Z", "outputs": ["Steps/StepRequestSender.cs", "Steps/StepExecutionScope.cs", "Steps/FetchStepExecutor.cs", "Steps/ItemToleranceRunner.cs", "Steps/ForEachStepExecutor.cs", "Steps/PollUntilStepExecutor.cs", "Steps/PollAndDrainStepExecutor.cs", "Outcomes/StepOutcomeFactory.cs", "Outcomes/FailureResolutionRunner.cs", "ConnectionProbe.cs", "CollectorExecutorRunner.cs", "execution_notes.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-28T15:45:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-28T15:50:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "codeReviewerOutcome": "APPROVE; 3 extraction claims confirmed; no BLOCKER/MAJOR. MINOR-1 (step>0 partial-success reports only that step's counts) is a PRE-EXISTING carry-over, NOT introduced — left as-is to honor behavior-preservation. NITs accepted.",
+    "acceptedRisks": ["MINOR-1: cross-step partial-success count reporting is unchanged from the original (behavior-preserving); revisit only if multi-step partial reporting becomes a requirement."]
+  },
+  "lastUpdated": "2026-06-28T15:40:00Z"
+}

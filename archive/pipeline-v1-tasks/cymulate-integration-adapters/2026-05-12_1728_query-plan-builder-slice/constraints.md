@@ -1,0 +1,13 @@
+- Use the previous handoff at `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow` as implementation state.
+- Use `/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md` as the primary product/design source.
+- Target `/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared`.
+- Keep Shared concern-first; place plan-building code under `Orchestration/Query/Planning`.
+- Implement SDK `IPlanBuilder`; do not create a duplicate local plan-builder contract.
+- Do not add a real Query Integration client.
+- Do not add a fake vendor client as product code.
+- Do not implement optimizer, dispatcher, distributor, matcher, section tracker, Dataflow topology, recovery planner, or plan-store persistence in this slice.
+- Do not recreate RabbitMQ, Postgres, outbox, storage upload, session, HTTP retry, ServiceBus host, or transport infrastructure.
+- Do not decide or implement `QueryV2.ExpressionDialect`, expanded cloud/SaaS `QueryTargeting`, or composite `ResultType` policy.
+- Do not reject composite `QueryV2.ResultType` values in this slice.
+- Keep classes and methods small, focused, and consistent with existing Shared conventions.
+- Preserve existing user changes.

@@ -1,0 +1,32 @@
+{
+  "taskId": "TASK-20260629-2335",
+  "taskSlug": "shared-substrate-decomposition",
+  "status": "draft",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Extract floor (TransportErrorHandling) into Kernel unit; rewire importers", "status": "pending" },
+    { "id": "S2", "desc": "Move cross-cutting envelope shapes (CollectorError, partial-completion DTOs) into Kernel (gated on A3)", "status": "pending" },
+    { "id": "S3", "desc": "Reclaim FlowExceptionHandling + AdapterFlowFailureHandling from Orchestration into Resilience (gated on A4)", "status": "pending" },
+    { "id": "S4", "desc": "Design doc: target layout + rationale for upstream replay", "status": "pending" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-06-29T23:35:00Z"
+}

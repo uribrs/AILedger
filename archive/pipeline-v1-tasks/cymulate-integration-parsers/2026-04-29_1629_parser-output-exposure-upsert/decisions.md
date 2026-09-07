@@ -1,0 +1,11 @@
+- Create a full task contract because the work spans code tracing, Spark retry semantics, Postgres write behavior, and implementation design.
+- The current task stops at documentation and planning; product code changes require a separate explicit instruction.
+- Future investigation must identify the actual writer before choosing between a table-specific upsert, a shared write helper change, or a Spark staging-table merge.
+- The target behavior is idempotent retry handling, not a blanket conversion of duplicate primary key errors into success.
+- The current checked-out mitigation point is `libs/packages/dal/sparkDAL.py` at `_insert_staged_rows`, because `parser_output_exposures` is already written through a staging table.
+- The preferred safe mitigation is a table-specific `ON CONFLICT (id)` path for `parser_output_exposures` that no-ops identical rows and raises a diagnostic error for differing rows unless product explicitly approves last-write-wins replacement.
+- The observed `o1411.jdbc` wrapper points more strongly to the older direct Spark JDBC writer or another direct writer than to the current staged target insert.
+- Same `id` with different non-volatile payload is not a normal parser outcome in the current code model; treat it as a primary-key identity violation by default.
+- Implement the requested pragmatic row-level defense as `ON CONFLICT (id) DO NOTHING` for `parser_output_exposures`; this skips existing target rows and preserves Spark batch/staging behavior.
+- Do not add compare-and-replace behavior in this implementation.
+- Treat duplicate `id` values inside the staging table as a clear failure, because those are not target retry conflicts.

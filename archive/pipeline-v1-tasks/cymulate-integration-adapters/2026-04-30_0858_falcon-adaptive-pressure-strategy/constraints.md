@@ -1,0 +1,12 @@
+- Do not change Falcon request shape except amount/volume controls such as `limit`, segmentation/window size, retry/backoff, pacing, and cursor fallback behavior.
+- Do not remove or add Spotlight facets as part of this task.
+- Do not change Discover or Spotlight sort semantics unless explicitly justified and approved.
+- Preserve cursor-chain invariants: `after` may only be used with the exact query shape that created it.
+- Changing `limit` mid-chain requires dropping `after` and resuming from a deterministic watermark.
+- Treat `updated_timestamp.asc` as the default replica-safe Spotlight sort.
+- Treat `1000` Spotlight page size as the known stable baseline.
+- Treat `5000` Spotlight page size as an allowed maximum, not automatically safe.
+- Use CrowdStrike PDFs in `src/Cymulate.Integration.Adapters/Collectors/FalconCollector/FalconDocs/` as primary local documentation evidence.
+- Verifier must receive the task documentation path: `ai/active/2026-04-30_0858_falcon-adaptive-pressure-strategy/`.
+- Keep code aligned with existing FalconCollector conventions: small focused methods, local helpers, no forced abstraction.
+- Work with existing user changes; do not revert unrelated edits.

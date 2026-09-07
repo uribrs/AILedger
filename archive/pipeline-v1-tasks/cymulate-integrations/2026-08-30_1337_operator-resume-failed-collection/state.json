@@ -1,0 +1,72 @@
+{
+  "taskId": "TASK-20260830-1337",
+  "taskSlug": "operator-resume-failed-collection",
+  "status": "ready",
+  "complexityTier": "full",
+  "currentPhase": "orchestration",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Instance marker field + revive helper in cymulate-integrations (findOneAndUpdate on status:'failed', same _id)",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "desc": "Carry forceResume to the envelope ROOT in prepareCollectorEnvelope as a real JSON boolean",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "desc": "Defensively strip the marker in scheduleNextInstance beside `delete newInstance._id`",
+      "status": "pending"
+    },
+    {
+      "id": "S4",
+      "desc": "Guard cancelPendingInstances so a concurrent same-flow failure cannot cancel a revived resume",
+      "status": "pending"
+    },
+    {
+      "id": "S5",
+      "desc": "Admin: route + controller action modeled on stopClientIntegrationInstance",
+      "status": "pending"
+    },
+    {
+      "id": "S6",
+      "desc": "Admin: Resume button in the instances DataTable status column + click handler",
+      "status": "pending"
+    },
+    {
+      "id": "S7",
+      "desc": "Tests for the revive precondition, the wire shape, and the retention-window gate",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "baseRef": "f83d5b017a25b2623fff20644a68c73e4076c812",
+  "baseRefNote": "cymulate-integrations HEAD at contract time (primary repo). The task also modifies /Users/user/Dev/Admin, whose HEAD at contract time is d2827dcc82b5f87c07742cfc21ac391d33d38a25 \u2014 a second working tree the verifier must diff separately.",
+  "secondaryRepos": [
+    {
+      "path": "/Users/user/Dev/Admin",
+      "baseRef": "d2827dcc82b5f87c07742cfc21ac391d33d38a25",
+      "branch": "master"
+    }
+  ],
+  "lastUpdated": "2026-08-30T10:40:00Z"
+}

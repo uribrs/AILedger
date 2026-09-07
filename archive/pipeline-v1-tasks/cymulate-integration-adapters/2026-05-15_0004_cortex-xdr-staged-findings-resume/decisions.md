@@ -1,0 +1,6 @@
+- The task is a full-tier migration/fix because it changes flow contract, recovery semantics, vendor behavior, and tests.
+- The nearest exemplar for staged findings that also emits assets is `DefenderVmCollector`.
+- The nearest existing Cortex endpoint paging behavior is `CortexXdrAssetsFlow`.
+- The partial edits already made in this thread are not treated as approved implementation; execution must reconcile, keep, amend, or revert them according to the finalized contract.
+- XQL CVE-stage resume will use adapter-owned row/chunk checkpointing after re-running an explicitly sorted XQL query because public official XQL result APIs do not document an offset/page parameter.
+- Endpoint-stage resume will use `get_endpoint` paging with `search_from/search_to`.

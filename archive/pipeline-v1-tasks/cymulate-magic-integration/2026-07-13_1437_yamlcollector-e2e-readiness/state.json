@@ -1,0 +1,131 @@
+{
+  "taskId": "TASK-20260713-1437",
+  "taskSlug": "yamlcollector-e2e-readiness",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "desc": "Trace backend run-message ingress into ISB (tenable.io use case)",
+      "status": "complete"
+    },
+    {
+      "id": "S2",
+      "desc": "Trace ISB dispatch -> adapter activation (how YamlCollector is selected/invoked)",
+      "status": "complete"
+    },
+    {
+      "id": "S3",
+      "desc": "Trace YamlCollector pre-collection phase (YAML resolution, credentials, checkpoint/resume)",
+      "status": "complete"
+    },
+    {
+      "id": "S4",
+      "desc": "Trace tenable.io collection execution (auth, pagination/export, batching, S3, events, completion)",
+      "status": "complete"
+    },
+    {
+      "id": "S5",
+      "desc": "Assess correctness + readiness vs ADR-0001/0002/0003; enumerate gaps/bugs",
+      "status": "complete"
+    },
+    {
+      "id": "S6",
+      "desc": "Produce end-to-end write-up + detailed flow diagram",
+      "status": "complete"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass_with_gaps",
+    "notes": [
+      "verifier-1: PASS-WITH-GAPS; all Success Criteria MET; 13 spot-checks confirmed; 3 low citation/labeling issues \u2014 repaired in report",
+      "code-reviewer: NOT RUN \u2014 work is read-only analysis (no code, config, or contract artifacts produced); not code-bearing per task-orchestrator definition",
+      "post-verifier addition: Finding #2b (tenable.yaml auth value_field:api_keys vs platform accessKey/secretKey) \u2014 evidence gathered first-hand in main thread from CustomHeaderAuthenticator.cs + TenableIoCollector sources, prompted by user follow-up"
+    ]
+  },
+  "repoPaths": {
+    "magic": "/Users/user/Dev/cymulate-magic-integration",
+    "isb": "/Users/user/Dev/IntegrationServiceBus",
+    "adapters": "/Users/user/Dev/cymulate-integration-adapters"
+  },
+  "workflow": {
+    "executionPath": "decompose",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [
+      {
+        "id": "W1",
+        "scopeSummary": "ISB ingress+dispatch trace (phases A+B)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w1"
+      },
+      {
+        "id": "W2",
+        "scopeSummary": "Adapters YamlCollector activation+collection trace (phases C+D)",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w2"
+      },
+      {
+        "id": "W3",
+        "scopeSummary": "Magic repo: tenable YAML + ADR expectations + engine surface",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w3"
+      },
+      {
+        "id": "W4",
+        "scopeSummary": "Main-thread engine drift diff + repo snapshots",
+        "status": "complete",
+        "outputRef": "execution_notes.md#w4"
+      }
+    ],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-07-13T14:40:00Z",
+        "outputs": [
+          "task.md",
+          "prompt_contract.md",
+          "state.json",
+          "constraints.md",
+          "assumptions.md",
+          "decisions.md"
+        ]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-07-13T15:05:00Z",
+        "outputs": [
+          "orchestration_plan.md",
+          "execution_notes.md",
+          "yamlcollector-readiness-report.md"
+        ]
+      },
+      {
+        "skill": "verifier-subagent",
+        "completedAt": "2026-07-13T15:20:00Z",
+        "outputs": [
+          "review/verifier-1.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": false
+  },
+  "lastUpdated": "2026-07-13T15:25:00Z"
+}

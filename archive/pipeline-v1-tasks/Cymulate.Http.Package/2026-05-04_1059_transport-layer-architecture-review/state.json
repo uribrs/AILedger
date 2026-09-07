@@ -1,0 +1,65 @@
+{
+  "taskId": "TASK-20260504-1059",
+  "taskSlug": "transport-layer-architecture-review",
+  "status": "ready",
+  "complexityTier": "full",
+  "currentPhase": "handoff_ready",
+  "requiredFiles": {
+    "task.md": "created",
+    "prompt_contract.md": "created",
+    "constraints.md": "created",
+    "assumptions.md": "created",
+    "decisions.md": "created",
+    "execution_notes.md": "created",
+    "transport_architecture_analysis.md": "pending",
+    "transport_recommendations.md": "pending"
+  },
+  "steps": [
+    {
+      "id": "load-state",
+      "description": "Read state, constraints, assumptions, decisions, prompt contract, and prior lane task context",
+      "status": "pending"
+    },
+    {
+      "id": "map-code",
+      "description": "Map current transport, session, retry, timeout, rate limiter, circuit breaker, auth, streaming, and telemetry code paths",
+      "status": "pending"
+    },
+    {
+      "id": "validate-claims",
+      "description": "Validate or reject architecture claims with file and line evidence",
+      "status": "pending"
+    },
+    {
+      "id": "model-transport",
+      "description": "Define the current mental model and compare it to an optimal transport-layer model",
+      "status": "pending"
+    },
+    {
+      "id": "evaluate-change-options",
+      "description": "Evaluate no-change, minimal-change, and medium-change recommendations with benefits, risks, and breaking-change impact",
+      "status": "pending"
+    },
+    {
+      "id": "write-analysis",
+      "description": "Write complete architecture analysis and recommendations inside the task directory",
+      "status": "pending"
+    },
+    {
+      "id": "verify",
+      "description": "Verify documentation completeness, evidence coverage, and internal consistency",
+      "status": "pending"
+    }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-05-04T07:59:51Z"
+}

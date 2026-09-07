@@ -1,0 +1,77 @@
+{
+  "taskId": "TASK-20260531-1250",
+  "taskSlug": "falcon-findings-assets-stage",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      {
+        "skill": "prompt-contract-designer",
+        "completedAt": "2026-05-31T12:50:00Z",
+        "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"]
+      },
+      {
+        "skill": "task-orchestrator",
+        "completedAt": "2026-05-31T12:52:00Z",
+        "outputs": ["orchestration_plan.md", "state.json"]
+      },
+      {
+        "skill": "contract-driven-execution",
+        "completedAt": "2026-05-31T13:20:00Z",
+        "outputs": [
+          "src/.../FalconCollector/Recovery/FalconCheckpointState.cs",
+          "src/.../FalconCollector/Recovery/FalconCheckpointHelper.cs",
+          "src/.../FalconCollector/Flows/Findings/FalconFindingsStage.cs",
+          "src/.../FalconCollector/Flows/Findings/AssetIdsFetcher.cs",
+          "src/.../FalconCollector/Flows/Findings/FalconFindingsAssetsStage.cs",
+          "src/.../FalconCollector/Flows/Findings/FalconFindingsCheckpointWriter.cs",
+          "src/.../FalconCollector/Flows/Findings/FalconFindingsFlow.cs",
+          "src/.../FalconCollector.Test/FalconCollectorTests.cs",
+          "execution_notes.md"
+        ]
+      }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true
+  },
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "optional"
+  },
+  "steps": [
+    { "id": "S1", "desc": "Extend FalconFindingsCheckpointState with assets-stage fields", "status": "complete" },
+    { "id": "S2", "desc": "Extend FalconCheckpointHelper save/load for new keys; legacy stage absent -> findings; backward-compatible defaults", "status": "complete" },
+    { "id": "S3", "desc": "AssetIdsFetcher additive opt-in host-row capture + startWatermarkIds seed + MaxLastSeenIds; default off", "status": "complete" },
+    { "id": "S4", "desc": "New FalconFindingsAssetsStage helper (+ FalconFindingsStage constants): page hosts, publish assets_*.json, checkpoint via writer, emit events", "status": "complete" },
+    { "id": "S5", "desc": "FalconFindingsCheckpointWriter.OnAssetsStagePagePublished + thread Stage/TotalAssetsCollected through OnPagePublished", "status": "complete" },
+    { "id": "S6", "desc": "Orchestrate stages in FalconFindingsFlow.CollectAsync (assets->findings, resume-aware); findings logic untouched", "status": "complete" },
+    { "id": "S7", "desc": "Tests in FalconCollectorTests.cs (filter+nofilter assets, unchanged findings, checkpoint round-trip/legacy, resume skips assets)", "status": "complete" },
+    { "id": "S8", "desc": "Build + run FalconCollector unit tests", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "passed",
+    "notes": [
+      "dotnet build FalconCollector + LocalAdapterRunner: success",
+      "dotnet test FalconCollector.Test: 64 passed, 0 failed",
+      "verifier-2: PASS (criterion-5 gap repaired)",
+      "code-reviewer-1: H1 (dup-data) + M3 fixed; M1/M2/L1-L3 accepted (see execution_notes.md)"
+    ]
+  },
+  "lastUpdated": "2026-05-31T13:40:00Z"
+}

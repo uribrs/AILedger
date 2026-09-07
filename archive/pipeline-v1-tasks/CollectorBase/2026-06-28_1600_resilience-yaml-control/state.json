@@ -1,0 +1,50 @@
+{
+  "taskId": "TASK-20260628-1600",
+  "taskSlug": "resilience-yaml-control",
+  "status": "complete",
+  "complexityTier": "full",
+  "currentPhase": "done",
+  "requiredFiles": {
+    "task.md": "complete",
+    "prompt_contract.md": "complete",
+    "constraints.md": "complete",
+    "assumptions.md": "complete",
+    "decisions.md": "complete",
+    "execution_notes.md": "pending"
+  },
+  "steps": [
+    { "id": "A", "desc": "Watermark seed: PaginationSpec.WatermarkSeed + FetchStepExecutor fresh-run seeding (resume wins); seed falcon profile; test fresh-vs-resume", "effort": "medium", "status": "complete", "note": "90/90; 2 tests" },
+    { "id": "B1", "desc": "VERIFY RetryOptions header-strategy surface; wire server_delay_strategy if settable, else document honestly", "effort": "low-medium", "status": "complete", "note": "REJECTED — package exposes only getters; no settable strategy. No code; docs corrected. No faked knob." },
+    { "id": "B2", "desc": "ResilienceSpec.rate_limit + circuit_breaker specs; SessionFactory maps to SessionSpec.RateLimiter/CircuitBreaker; OPT-IN null-preserves-default; SessionFactory unit tests", "effort": "high", "status": "complete", "note": "92/92; present→populated, absent→null unit-tested" },
+    { "id": "C", "desc": "Runner runs-root anchored to repo root (walk up to CollectorBase.slnx; fallback CWD); --out override preserved", "effort": "low", "status": "complete", "note": "verified from Runner/ → repo-root/runs" },
+    { "id": "DOCS", "desc": "Update capabilities.md + yaml-contract.md (new knobs + B1 truth); falcon profile seeded", "effort": "low", "status": "complete" }
+  ],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "pass",
+    "notes": ["verifier-1: PASS all 6 criteria; build clean; 92/92 no test edits; no-regression gate genuine (absent knobs→null); B1 REJECTED-and-documented (no faked knob); watermark seed fresh-vs-resume correct"]
+  },
+  "workflow": {
+    "executionPath": "direct",
+    "orchestrationPlanFile": "orchestration_plan.md",
+    "researchNeeded": false,
+    "researchTopics": [],
+    "workers": [],
+    "skillsRun": [
+      { "skill": "prompt-contract-designer", "completedAt": "2026-06-28T16:00:00Z", "outputs": ["task.md", "prompt_contract.md", "constraints.md", "assumptions.md", "decisions.md", "state.json"] },
+      { "skill": "task-orchestrator", "completedAt": "2026-06-28T16:02:00Z", "outputs": ["orchestration_plan.md"] },
+      { "skill": "contract-driven-execution", "completedAt": "2026-06-28T16:30:00Z", "outputs": ["Profile.cs", "FetchStepExecutor.cs", "CollectorExecutorSessionFactory.cs", "Runner/Program.cs", "integrations/crowdstrike-falcon.yaml", "docs/capabilities.md", "docs/yaml-contract.md", "CollectorExecutorTests.cs", "execution_notes.md"] },
+      { "skill": "verifier", "completedAt": "2026-06-28T16:36:00Z", "outputs": ["review/verifier-1.md"] },
+      { "skill": "code-reviewer", "completedAt": "2026-06-28T16:44:00Z", "outputs": ["review/code-reviewer-1.md"] }
+    ],
+    "verifierRun": true,
+    "codeReviewerRun": true,
+    "codeReviewerOutcome": "APPROVE; 3 claims confirmed (null-preservation, fresh-only seed, field mapping). MAJOR (no load-time range-check on the new int knobs → opaque package throw) REPAIRED: added ValidateResilience fail-closed at load + test (93/93). MINOR/NIT (sub-1-rps not expressible; no queue-vs-burst cross-check) accepted."
+  },
+  "lastUpdated": "2026-06-28T16:30:00Z"
+}

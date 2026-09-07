@@ -1,0 +1,22 @@
+- This task is superseded and must not be used as an active execution contract.
+- Use `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice` as the current completed Query planning state.
+- Read `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/phase_documentation.md` before planning topology.
+- Read `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1728_query-plan-builder-slice/next_agent_handoff.md` before planning topology.
+- Use the previous handoff at `/Users/user/Dev/cymulate-integration-adapters/ai/active/2026-05-12_1420_query-integration-shared-dataflow` as historical implementation state.
+- Use `/Users/user/Dev/Uri/Planning/2026-05-11_1326_crowdstrike-domain-doc-validation/QUERY_INTEGRATION_SHARED_DATAFLOW_BLUEPRINT_PRD.md` as the primary product/design source.
+- Target `/Users/user/Dev/cymulate-integration-adapters/src/Cymulate.Integration.Adapters/Shared/Cymulate.Integration.Adapters.Shared`.
+- Keep Shared concern-first; place query topology code under the owning Shared concern.
+- Prefer existing SDK Query contracts over local duplicate contracts.
+- Do not add a real Query Integration client.
+- Do not add a fake vendor client as product code.
+- Do not recreate RabbitMQ, Postgres, outbox, storage upload, session, HTTP retry, ServiceBus host, or transport infrastructure.
+- Do not implement adapters-repo `IExecutionPlanStore` storage.
+- Do not decide or implement `QueryV2.ExpressionDialect`, expanded cloud/SaaS `QueryTargeting`, or composite `ResultType` policy.
+- Do not start Dataflow topology directly from this superseded contract.
+- Implement and verify `IPlanOptimizer` before returning to Dataflow topology.
+- Strongly consider implementing and verifying `INativeCoalescer` before returning to Dataflow topology.
+- Preserve `QueryPlanBuilder` behavior: draft plans only, no optimizer/coalescer behavior, per-original-query/chunk draft `UnitId`s, exact-result-type `WindowsByResultType` splitting only, UTC time-window payloads, canonical targeting, strict private IPv4 validation, and `MaxUnitsPerPlan` guardrails.
+- Dataflow blocks must use explicit cancellation, bounded capacity, explicit parallelism, explicit ordering, and completion propagation.
+- Query publication must use existing `IAdapterExecutionContext.PublishAsync` surfaces through the existing Query publisher.
+- Keep classes and methods small, focused, and consistent with existing Shared conventions.
+- Preserve existing user changes.

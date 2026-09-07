@@ -1,0 +1,82 @@
+{
+  "taskId": "TASK-20260518-1713",
+  "taskSlug": "humio-ioc-to-timerange",
+  "status": "contract_ready",
+  "complexityTier": "full",
+  "currentPhase": "contract_design",
+  "repo": "AgentService",
+  "taskPath": "/Users/user/Dev/AgentService/ai/active/2026-05-18_1713_humio-ioc-to-timerange",
+  "archivePath": "/Users/user/codex-state/tasks/AgentService/2026-05-18_1713_humio-ioc-to-timerange",
+  "requiredFiles": {
+    "task.md": "done",
+    "prompt_contract.md": "done",
+    "constraints.md": "done",
+    "assumptions.md": "done",
+    "decisions.md": "done",
+    "execution_notes.md": "optional"
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "Resolve OPEN external-behavior assumption A1 (Humio keyword-less query string)",
+      "status": "pending",
+      "owner": "technical-researcher"
+    },
+    {
+      "id": "S2",
+      "name": "Refactor HumioApi.cs: replace generateCacheByIoc with generateCacheByTimeRange and add queryByTimeRange callback",
+      "status": "pending",
+      "owner": "contract-driven-execution"
+    },
+    {
+      "id": "S3",
+      "name": "Introduce keyword-less query builder/branch in tryCreateQueryJobsAsync (or sibling helper)",
+      "status": "pending",
+      "owner": "contract-driven-execution"
+    },
+    {
+      "id": "S4",
+      "name": "Remove queryByIoc and any now-dead IOC plumbing in HumioApi.cs",
+      "status": "pending",
+      "owner": "contract-driven-execution"
+    },
+    {
+      "id": "S5",
+      "name": "Update HumioApiTests mocks to expect keyword-less queryString in request bodies; keep response assertions",
+      "status": "pending",
+      "owner": "contract-driven-execution"
+    },
+    {
+      "id": "S6",
+      "name": "Run dotnet build and dotnet test --filter FullyQualifiedName~HumioApi; record results",
+      "status": "pending",
+      "owner": "contract-driven-execution"
+    },
+    {
+      "id": "S7",
+      "name": "Verifier pass (full context)",
+      "status": "pending",
+      "owner": "verifier"
+    },
+    {
+      "id": "S8",
+      "name": "Code-reviewer pass (isolated, minimal context)",
+      "status": "pending",
+      "owner": "code-reviewer"
+    }
+  ],
+  "openAssumptions": ["A1", "A2"],
+  "validatedAssumptions": ["A3", "A4", "A5"],
+  "rejectedAssumptions": [],
+  "blockers": [],
+  "validation": {
+    "promptContractValid": true,
+    "constraintsPresent": true,
+    "successCriteriaPresent": true
+  },
+  "verification": {
+    "status": "not_started",
+    "notes": []
+  },
+  "lastUpdated": "2026-05-18T14:13:39Z"
+}

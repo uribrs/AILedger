@@ -1,0 +1,8 @@
+- VALIDATED: The local Spotlight PDF documents `/spotlight/combined/vulnerabilities/v1` `limit` as `1-5000`, default `100`, with `after` pagination.
+- VALIDATED: The local Spotlight PDF documents `after` token expiry as 120 seconds after a call is made.
+- VALIDATED: The local Spotlight PDF recommends reducing returned records with `limit` when requests time out.
+- VALIDATED: Prior task state says cursor chains are authoritative only within the exact filter/sort used to create them.
+- VALIDATED: Prior task state says watermark fallback is the recovery mechanism after cursor rejection, repetition, or unsafe cursor state.
+- OPEN: The implementation may need to persist current adaptive page size in checkpoint state to safely resume after configuration changes.
+- OPEN: The implementation may need dynamic sub-segmentation if page-size downshift alone cannot stabilize a heavy segment.
+- OPEN: The optimal default starting size is likely between `1000` and `3000`, but must be selected after tradeoff analysis.

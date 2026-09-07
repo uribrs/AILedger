@@ -1,0 +1,7 @@
+- Change the three production opt-ins identified in InsightVM Cloud, Qualys, and TenableIo to `false`.
+- Preserve the shared `BatchScopedStorage` capability and Falcon's existing opt-in configuration mechanism.
+- Do not alter collector data retrieval, parsing, checkpoint, or publication behavior beyond storage scoping.
+- Update tests that intentionally encode the old enabled-by-default behavior.
+- Keep collector-specific changes and tests close to their existing files.
+- Preserve unrelated work; the worktree was clean at contract creation.
+- Follow existing .NET and repository conventions.
