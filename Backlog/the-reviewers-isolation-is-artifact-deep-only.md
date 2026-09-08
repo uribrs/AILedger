@@ -44,6 +44,23 @@ verifier's three findings verbatim. run `R8`'s predecessor `R7` refused:
 it inspected no files and made no statement about the code, which is precisely what the skill told
 it to do. the orchestration was wrong and the agent was right.
 
+## it fails in the other direction too
+
+`R18` refused with the verifier brief already superseded, so the contamination this entry was
+written about was gone. it refused anyway, on broader ground:
+
+> It includes the task goal and implementation framing, which the skill explicitly forbids, and it
+> supplies no code artifact paths or diff, risk classification, change type, stack bundle, or
+> accepted tradeoffs. Reviewing the repository by discovery would both invent the review target and
+> preserve the anchoring the isolated pass exists to avoid.
+
+so the manifest gives a reviewer too much *and* none of what it needs. the skill's required inputs
+are the exact paths or diff, a risk classification, a change type, a stack indicator, the accepted
+tradeoffs, and `taskPath`. the manifest supplies none of the first five.
+
+that means a reviewer that does review has discovered its own target — and the skill says a
+discovered target is an invented one. removing the verifier brief was necessary and not sufficient.
+
 ## what this costs retrospectively
 
 every code review this repository has run was given more than the skill permits. `RC1` — the public
