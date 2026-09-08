@@ -1127,6 +1127,57 @@ internal static class TaskTransitionValidator
         }
 
         ValidateManifestRecord(completed.ManifestHash, completed.ManifestArtifactCount);
+        ValidateCostRecord(
+            completed.Turns, completed.OutputTokens, completed.MillisecondsToFirstLedgerWrite,
+            completed.TokensInUncached, completed.TokensInCacheWrite, completed.TokensInCacheRead);
+    }
+
+    // Mirrors RunRules.EnsureCostRecordIsWellFormed. Safe to write here by construction rather than
+    // by exemption, on exactly the terms the manifest pair set: each check fires only on a value
+    // that is present, and no run.completed already on disk carries any of the six. A history
+    // recorded before they existed replays unchanged, and a forged one is still refused.
+    //
+    // Nothing here may require any of them to be present. Turns is genuinely absent for a provider
+    // that reports no turn count (D4, IC1), a null time to first ledger write is the measurement
+    // rather than a gap — it says the run never reached the ledger at all — and a stream that
+    // carried no usage object yields no bucket.
+    private static void ValidateCostRecord(
+        int? turns,
+        long? outputTokens,
+        long? millisecondsToFirstLedgerWrite,
+        long? tokensInUncached,
+        long? tokensInCacheWrite,
+        long? tokensInCacheRead)
+    {
+        if (turns < 0)
+        {
+            throw new GovernanceException("A run's turn count cannot be negative.");
+        }
+
+        if (outputTokens < 0)
+        {
+            throw new GovernanceException("A run's output token count cannot be negative.");
+        }
+
+        if (millisecondsToFirstLedgerWrite < 0)
+        {
+            throw new GovernanceException("A run's time to first ledger write cannot be negative.");
+        }
+
+        if (tokensInUncached < 0)
+        {
+            throw new GovernanceException("A run's uncached input token count cannot be negative.");
+        }
+
+        if (tokensInCacheWrite < 0)
+        {
+            throw new GovernanceException("A run's cache write input token count cannot be negative.");
+        }
+
+        if (tokensInCacheRead < 0)
+        {
+            throw new GovernanceException("A run's cache read input token count cannot be negative.");
+        }
     }
 
     // Mirrors RunRules.EnsureManifestRecordIsWellFormed. Safe to write here by construction rather

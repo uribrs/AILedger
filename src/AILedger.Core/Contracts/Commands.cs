@@ -154,7 +154,23 @@ public sealed record CompleteRunCommand(
     string? LaunchToken = null,
     // The brief this run was handed, known to the launcher only after the run started.
     string? ManifestHash = null,
-    int? ManifestArtifactCount = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    int? ManifestArtifactCount = null,
+    // What the run cost. All but the first-write time are read off the provider's terminal event by
+    // RunCostReader; that one the launcher measures. Every one of them is known only once the run
+    // has ended, which is why they arrive here rather than on StartRunCommand.
+    int? Turns = null,
+    long? OutputTokens = null,
+    long? MillisecondsToFirstLedgerWrite = null,
+    // The model the provider actually served, when the launcher could read it. Absent leaves the
+    // model recorded at run.started standing.
+    string? Model = null,
+    // The three input buckets, mapped per provider by RunCostReader and never summed into one
+    // total: C7 measured them billed at roughly 1x, 1.25x and 0.1x (D3, D4, C6). 64-bit for the
+    // reason RunCost gives: token counters are already in the millions and the largest runs are the
+    // ones a 32-bit counter would drop (RC2).
+    long? TokensInUncached = null,
+    long? TokensInCacheWrite = null,
+    long? TokensInCacheRead = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RequestStageTransitionCommand(
     ActorId ActorId,

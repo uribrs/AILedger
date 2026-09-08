@@ -168,7 +168,21 @@ public sealed class TaskReducer : ITaskReducer
             // Absent on every run completed before these fields existed, and absent on a launch that
             // failed before its manifest was built. Both read as "no brief recorded", correctly.
             ManifestHash = completed.ManifestHash,
-            ManifestArtifactCount = completed.ManifestArtifactCount
+            ManifestArtifactCount = completed.ManifestArtifactCount,
+            // Absent on every run completed before these existed, and absent on a run whose provider
+            // stream produced no terminal event to read them from. Both read as "nobody measured
+            // this", correctly. Turns is additionally absent for a provider that states no turn
+            // count of its own, which is codex, and there the absence is the measurement (D4, IC1).
+            Turns = completed.Turns,
+            OutputTokens = completed.OutputTokens,
+            MillisecondsToFirstLedgerWrite = completed.MillisecondsToFirstLedgerWrite,
+            TokensInUncached = completed.TokensInUncached,
+            TokensInCacheWrite = completed.TokensInCacheWrite,
+            TokensInCacheRead = completed.TokensInCacheRead,
+            // The served model wins over the requested one, because the record should say which
+            // cognition ran rather than which was asked for. Absent leaves run.started's value
+            // standing rather than erasing it.
+            Model = completed.Model ?? state.Runs[completed.RunId].Model
         };
 
         var workItems = state.WorkItems;

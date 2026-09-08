@@ -140,13 +140,19 @@ internal static class RunRules
         }
     
         EnsureManifestRecordIsWellFormed(command.ManifestHash, command.ManifestArtifactCount);
+        EnsureCostRecordIsWellFormed(
+            command.Turns, command.OutputTokens, command.MillisecondsToFirstLedgerWrite,
+            command.TokensInUncached, command.TokensInCacheWrite, command.TokensInCacheRead);
 
         var launcherAuthorized = EnsureLauncherAuthorizedCompletion(state, command, run);
         return
         [
             new RunCompleted(
                 command.RunId, command.Status, providerSessionId, now, launcherAuthorized,
-                TrimOrNull(command.ManifestHash), command.ManifestArtifactCount)
+                TrimOrNull(command.ManifestHash), command.ManifestArtifactCount,
+                command.Turns, command.OutputTokens, command.MillisecondsToFirstLedgerWrite,
+                TrimOrNull(command.Model),
+                command.TokensInUncached, command.TokensInCacheWrite, command.TokensInCacheRead)
         ];
     }
 
@@ -230,6 +236,58 @@ internal static class RunRules
         if (artifactCount < 0)
         {
             throw new GovernanceException("A run's manifest artifact count cannot be negative.");
+        }
+    }
+
+    // Mirrors TaskTransitionValidator.ValidateCostRecord, on the same terms as the manifest pair.
+    //
+    // The six are independent, unlike the manifest pair: a run can report turns and output tokens
+    // and still never reach the ledger, a provider that states no turn count reports none (D4), and
+    // each absence means something on its own. So there is no all-or-nothing rule here, only the one
+    // thing a count cannot be.
+    private static void EnsureCostRecordIsWellFormed(
+        int? turns,
+        long? outputTokens,
+        long? millisecondsToFirstLedgerWrite,
+        long? tokensInUncached,
+        long? tokensInCacheWrite,
+        long? tokensInCacheRead)
+    {
+        if (turns < 0)
+        {
+            throw new GovernanceException("A run's turn count cannot be negative.");
+        }
+
+        if (outputTokens < 0)
+        {
+            throw new GovernanceException("A run's output token count cannot be negative.");
+        }
+
+        // Zero stays legal: a run that reached the ledger inside the first millisecond measured
+        // zero, and that is a different fact from never having reached it, which is null.
+        if (millisecondsToFirstLedgerWrite < 0)
+        {
+            throw new GovernanceException("A run's time to first ledger write cannot be negative.");
+        }
+
+        // The uncached bucket is the one a mapping can drive negative, because for codex it is a
+        // subtraction (C6). None of the six checks here is relaxed for a provider that reports
+        // nonsense: C15 is that the reader's accepted set has to be the subset, so RunCostReader
+        // returns nothing rather than any value this rule refuses, and a negative arriving here is
+        // a caller that did its own arithmetic. A direct or forged caller stays guarded.
+        if (tokensInUncached < 0)
+        {
+            throw new GovernanceException("A run's uncached input token count cannot be negative.");
+        }
+
+        if (tokensInCacheWrite < 0)
+        {
+            throw new GovernanceException("A run's cache write input token count cannot be negative.");
+        }
+
+        if (tokensInCacheRead < 0)
+        {
+            throw new GovernanceException("A run's cache read input token count cannot be negative.");
         }
     }
 }

@@ -346,4 +346,35 @@ public sealed record AgentRun(
     // construction, or a run started outside provider launch. That absence is the measurement, so
     // it must stay distinguishable from a manifest of zero artifacts.
     string? ManifestHash = null,
-    int? ManifestArtifactCount = null);
+    int? ManifestArtifactCount = null,
+    // What the run cost. Null is a third state and not a zero: it means nobody measured this, which
+    // is true of every run recorded before these fields existed and of a launch that died before its
+    // provider stream produced a terminal event.
+    //
+    // Turns is not one unit across providers. Claude states num_turns on its result event; codex
+    // states no turn count at all, and counting its turn.completed events yields one by construction
+    // (IC1). Null for codex is therefore the honest value, not a gap to be filled.
+    int? Turns = null,
+    // The provider's own output_tokens, unaltered, and one field for both providers. Codex
+    // additionally reports reasoning_output_tokens; C9 settles that it is a subset breakdown of
+    // output_tokens rather than an addend, and that both providers count every generated token here
+    // and bill it at the output rate. So the number is comparable across providers, and adding the
+    // reasoning count to it would double-count (E13, E14).
+    //
+    // 64-bit, and so are the three buckets below. Turns is not: a turn count is a provider's own
+    // iteration count in the tens to low hundreds, while E5 already recorded 8796519 input tokens on
+    // one run. RC2 is that a 32-bit token counter records nothing above its limit, and the runs that
+    // cross it are the expensive ones, so the loss falls exactly where the measurement matters.
+    long? OutputTokens = null,
+    // How long the run took to reach the ledger for the first time, measured by the launcher rather
+    // than reported by the provider, so it means the same thing for both. Null means the run made no
+    // ledger write at all — the observability hole this measures — and is deliberately distinct from
+    // zero, which means it wrote within the first millisecond.
+    long? MillisecondsToFirstLedgerWrite = null,
+    // Input tokens in three buckets, never one total: C7 measured them billed at roughly 1x, 1.25x
+    // and 0.1x, so a sum is not proportional to what the run cost. Each provider reports them under
+    // its own property names and its own convention about what the input total contains, and
+    // RunCostReader holds that mapping in one place with C6 beside it (D3, D4).
+    long? TokensInUncached = null,
+    long? TokensInCacheWrite = null,
+    long? TokensInCacheRead = null);
