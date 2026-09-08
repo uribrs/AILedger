@@ -78,6 +78,62 @@ derived from what the task turned out to be (code-bearing, single-provider, numb
 which stages it used) or it is declared at opening and will be wrong. derived is the only version
 that can be computed for the four already-archived tasks, which is also the only way to test it.
 
+## the lesson says who found it and never who needs it
+
+`LessonActor` is `Researcher` / `Executor` / `Verifier` / `Recon`. read the comment on it and the
+field is unambiguous: "which cognition established the lesson". it is provenance, not address.
+
+    actor   verifier 111    executor 6    unset 12
+
+111 of 129 lessons were established by a verifier, and the manifest hands every one of them to every
+role without distinction. `ContextAssembler.IsAllowedForRole` filters exactly two things: skills, by
+role, and six artifact kinds withheld from a code reviewer. `ContextArtifactKind.Lesson` is in the
+always-included set and is never filtered by anything.
+
+so a lesson a verifier learned about how to verify reaches the worker, the researcher, the planning
+lead and the reviewer identically, and it spends one of the ten slots in each of their manifests.
+
+this matters more for the second lesson kind than the first. a domain lesson about the code is
+useful to everyone touching that code, which is why the absence of an audience has cost little so
+far. a workflow lesson is addressed by construction — "research should have activated earlier for
+this task shape" is for whoever routes work, "a code-bearing work item must not become completed
+before its code-reviewer run" is for the kernel and the operator, and neither is for the worker
+whose ten slots they would occupy.
+
+### the shape
+
+an audience alongside the kind, not instead of it. nullable, trailing, and read as "everyone" when
+absent — which is what all 129 existing lessons mean:
+
+    --audience worker|verifier|code-reviewer|planning-lead|implementation-lead|researcher|operator
+
+repeatable, because a lesson can legitimately address two roles, and checked against `RoleKind`
+rather than against `LessonActor`. those two vocabularies are deliberately different — the comment
+on `LessonActor` says so, and says why — and conflating them would make the address wrong for
+exactly the roles that have no `LessonActor` equivalent: operator, planning lead, worker, code
+reviewer.
+
+then `IsAllowedForRole` gains one clause: a lesson carrying an audience reaches only the roles it
+names. a lesson carrying none reaches everyone, as today.
+
+### why this is the piece the teaching goal needs
+
+the stated end goal for this feature is lessons that teach the next Claude and the next Codex how to
+work better. a lesson with no address cannot teach: it arrives in every brief, competes with the
+lessons that describe the code, and the role that could act on it has no way to tell it apart from
+the 110 others a verifier happened to establish.
+
+`did-the-lesson-matter` measures whether a lesson changed anything. this is the other half — whether
+it reached anyone who could change something.
+
+### cost
+
+one nullable repeatable field on `Lesson` and `LessonMark`, one clause in `IsAllowedForRole`, and one
+flag on `lesson mark`. no recall change: the audience narrows what a manifest carries, it does not
+alter which lessons the store selects. do it in the same change as the kind field, because both are
+trailing nullable fields on the same two records and splitting them means paying the replay-safety
+review twice.
+
 ## what should not be built
 
 the lifecycle the document describes — recurrence count, supporting future tasks, refuting future
