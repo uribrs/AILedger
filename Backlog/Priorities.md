@@ -8,7 +8,7 @@ Status as of 2026-09-08. `done` means the governed task reached stage `archive`.
 | 2 | did-the-lesson-matter | `2026-09-07_2136-lesson-citations` | **done** | archived with no waiver. Reviewer ran before `work complete`. 7 runs, 10 claims all validated, 4 lessons. Its code reviewer also found and fixed three defects in item 3's code. |
 | 3 | make-status-say-what-is-owed | `2026-09-07_2136-status-owed` | **done** | archived with no waiver. 5 runs, 10 claims all validated, 4 lessons. The verifier found VC1 (one citation cleared the whole lesson debt) and the reviewer found KC4 (cited and recalled counts drawn from different populations) and KC5 (no test that the projection agrees with the gate). The waiver count is withdrawn from scope by accepted decision LD1: state carries no durable waiver record. |
 | 4 | kernel-version-stamp | `2026-09-07_2136-kernel-version-stamp` | **done** | archived with no waiver. The version half already shipped in `install.sh`; this added `ailedger version` and the staleness warning. 5 runs, 4 lessons. Eight defects found by the working, verifier and reviewer runs — including the feature being entirely non-functional on a clean tree, and four separate tests that passed while proving nothing. Scoped to `src/AILedger.Cli` and `tests` only, ahead of self-scoring, because scope occupancy is per-task (LC2). |
-| 5 | record-the-refusals | `2026-09-08_1048-refusal-journal` | W1 done, W2 verifying | **blocks 9.** 291 `GovernanceException` sites in the kernel, 141 reachable at command time, and 0 of the 2,125 events in this repository is a refusal — while 366 of them mention one in prose. agents already hand-transcribe the telemetry into claims and evidence. a journal beside the log, not an event. |
+| 5 | record-the-refusals | `2026-09-08_1048-refusal-journal` | **done** | archived with no waiver. 16 runs, 2 work items, 42 claims, 62 evidence, 8 decisions, 11 alternatives, 2 challenges, 10 lessons. Both write sites shipped: 141 command-time rules at the service, and the seven authority-and-scope refusals `ResolveProviderGrants` decides before `run.start`. Two repair cycles — a concurrent append that unit tests passed over, and a public method that verification passed over. Seven new backlog entries came out of it, items 21 to 24 plus three earlier. |
 | 6 | see-inside-a-run | not opened | open | **blocks 9.** `AgentRunResult` carries the provider's own event stream — turns, tool calls, tokens — and `CliApplication.cs:939` writes it to stdout and drops it. 114 runs, 0 models recorded. the governance-cost dimension is unmeasurable without it. |
 | 7 | measure-before-scoring | not opened | open | **blocks 9.** the deterministic half of the retrospective: counts, durations and the causal chains the log can already join. no model, no scores. also the diagnostic — 198 of 205 resolved claims validated, 11 refuting evidence records in 558, 2 causal-chain events in the whole corpus. reads 5 and 6. |
 | 8 | route-the-workflow-lesson | not opened | open | **blocks 9's output half.** a WorkflowLesson has no kind field and no recall route; recall is repo-tag filtered with 10 slots, so one either never matches or displaces the domain lessons that describe the code. independent of 5, 6 and 7. |
@@ -42,7 +42,11 @@ Items 19 and 20 were found while working items 1 and 2 and sat unranked in their
 now. Placing them at the end preserves every existing relative order rather than asserting a new
 one; both are small and both are live pain, so moving them up is a reasonable call to make.
 
-Items 6 to 8 and 19 to 24 have no governed task yet. Only an operator may open one.
+Items 6 to 8 and 19 to 24 have no governed task yet.
+
+Item 5 is done. Its own numbers are the first measured baseline for what a governed pass costs:
+1h51m of agent execution across 16 runs, 3h20m wall clock, for a 78-line writer plus two
+catch blocks. Five of those runs were `Cancelled` and four of the five had succeeded — see item 24. Only an operator may open one.
 
 `self-scoring.md` has no row of its own. It is the rubric item 9 is built to satisfy, not a
 separate piece of work, and it stays the authority on what the dimensions mean.
