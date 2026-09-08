@@ -7,6 +7,13 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+
+    <!-- The assembly is also the probe process RefusalJournalTests spawns to prove that two
+         operating-system processes writing one refusal journal both land a complete row. That needs
+         an entry point, so the test SDK's generated empty one is replaced by Program.cs. The test
+         runners load the assembly and never call Main, so nothing else changes. -->
+    <OutputType>Exe</OutputType>
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>

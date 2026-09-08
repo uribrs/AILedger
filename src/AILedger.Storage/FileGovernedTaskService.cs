@@ -26,6 +26,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private readonly ITaskProjectionWriter _projectionWriter;
     private readonly TaskWorkspaceLayout _layout;
     private readonly TaskMutationLock _mutationLock = new();
+    // Telemetry, not truth. It is constructed rather than injected because nothing may vary it:
+    // a task's refusals belong beside that task's event log or nowhere.
+    private readonly RefusalJournal _refusalJournal = new();
     private readonly JsonSerializerOptions _eventJson = LedgerJson.CreateOptions();
     // The event log carries artifact bodies; state.json is a projection of it and carries their
     // metadata and size instead. Both the write and the currency comparison below go through these
@@ -85,7 +88,27 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             Path.Combine(taskDirectory, _layout.LockFileName), cancellationToken).ConfigureAwait(false);
 
         var currentState = await ReplayAsync(taskId, taskDirectory, cancellationToken).ConfigureAwait(false);
-        var outcome = _commandHandler.Handle(currentState, command, DateTimeOffset.UtcNow);
+        CommandOutcome outcome;
+        try
+        {
+            outcome = _commandHandler.Handle(currentState, command, DateTimeOffset.UtcNow);
+        }
+        catch (GovernanceException exception)
+        {
+            // Every command-time rule refusal leaves through this one call, which is why the
+            // journal has a single write site here rather than one per rule. The version recorded
+            // is the one the refused attempt was made against, and the exception is rethrown
+            // unchanged: the caller sees the same refusal it would have seen without a journal.
+            await _refusalJournal.TryAppendAsync(taskDirectory, new RefusalRecord(
+                DateTimeOffset.UtcNow,
+                command.ActorId,
+                command.GetType().Name,
+                RefusalSite.Service,
+                currentState?.Version ?? 0,
+                exception.Message)).ConfigureAwait(false);
+            throw;
+        }
+
         ValidateOutcome(taskId, currentState, outcome);
         if (outcome.State.Version > _maximumEventsPerTask)
         {
