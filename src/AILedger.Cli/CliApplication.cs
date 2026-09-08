@@ -126,6 +126,15 @@ public sealed class CliApplication
                     ? Path.Combine(lessonHome, "lessons")
                     : FileLessonStore.DefaultRoot()));
             var service = _serviceFactory(root, lessonRoot);
+            // Before the work, not after: a launch briefs an agent, and an agent briefed by a stale
+            // launcher is the failure this warning exists to catch. Reads are exempt because a stale
+            // tool reads a ledger correctly and a warning on every status is a warning nobody sees.
+            if (!ReadOnlyCommands.Contains(command) &&
+                KernelVersion.StalenessWarning(DiscoverLedgerHome()) is { } staleness)
+            {
+                await _error.WriteLineAsync(staleness).ConfigureAwait(false);
+            }
+
             await DispatchAsync(command, input, service, root, cancellationToken).ConfigureAwait(false);
             return 0;
         }
@@ -168,6 +177,9 @@ public sealed class CliApplication
                     // duplicate, and collapses an empty list to "untagged"; trimming or de-duplicating
                     // here would be a second copy of that rule, and one that hides its refusal.
                     Tags: input.Many("tag")), cancellationToken).ConfigureAwait(false);
+                break;
+            case "version":
+                await _output.WriteLineAsync(KernelVersion.Describe()).ConfigureAwait(false);
                 break;
             case "who":
                 await WriteWhoAsync(service, input, cancellationToken).ConfigureAwait(false);
@@ -1166,6 +1178,15 @@ public sealed class CliApplication
         return kind;
     }
 
+    // Every command that only reads. Listed positively on purpose: a command added later warns by
+    // default, which is the safe direction — a needless warning is noise, a missing one is the
+    // silence this whole entry is about.
+    private static readonly IReadOnlySet<string> ReadOnlyCommands = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "version", "status", "task status", "who", "audit", "history", "task history",
+        "context build", "artifact show", "artifact list"
+    };
+
     // The ledger home is a real repository the operator opens a session in, so the root is found by
     // walking up from the working directory for a `.ailedger` directory. Without this every command
     // needs --root, and a command issued from a subdirectory silently writes to the per-user path
@@ -1233,6 +1254,7 @@ public sealed class CliApplication
                 "supersedes", "cause", "correlation"),
             ["artifact show"] = Options("root", "task", "actor", "id", "json"),
             ["artifact list"] = Options("root", "task", "actor", "work", "kind"),
+            ["version"] = Options(),
             ["claim add"] = Options(
                 "root", "task", "actor", "id", "statement", "consequence", "from-lesson", "cause", "correlation"),
             ["claim resolve"] = Options(
@@ -1375,6 +1397,7 @@ public sealed class CliApplication
                         --lesson-root PATH (default: platform local application data/AILedger/lessons)
         Every mutation requires an explicit --actor ID. Repeat list options once per value.
 
+        version            (no options)   what this build was made from
         task open          --task ID --actor ID --title TEXT --goal TEXT [--tag TAG]
         status             --task ID
         who                --task ID   (actors, roles, live runs, role coverage, occupied areas)
