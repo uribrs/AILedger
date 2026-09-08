@@ -10,6 +10,10 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
+    // Ten slots divided by three is the four source tasks a recall must reach. The limit above stays
+    // where it is: the manifest is what every launched agent pays for in tokens, so the fix is to
+    // spend the ten slots on more tasks, not to buy more slots.
+    private const int TaggedRecalledLessonsPerSourceTaskLimit = 3;
     // Measured on this ledger an event costs 577 to 1061 bytes, averaging near a kilobyte now that
     // artifacts carry their bodies inline, so ten thousand events is about ten megabytes and the
     // byte bound stays the looser of the two rather than becoming the surprise limit. Replay is the
@@ -249,20 +253,65 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             .Select(lesson => lesson.SupersedesLessonId!.Value)
             .ToHashSet();
 
-        return candidates
+        var ordered = candidates
             .Where(lesson => !superseded.Contains(lesson.Id))
             .Where(lesson => lesson.Tags?.Any(requestedTags.Contains) == true)
             // Cross-repository task-id collisions produce the same lesson id. Keep the newest
             // copy before applying the cap so a collision cannot consume a recall slot.
             .GroupBy(lesson => lesson.Id)
             .Select(group => MostRecentLesson(group))
-            .OrderByDescending(lesson => lesson.Provenance.RecordedAt)
+            // How many of the tags this task asked for the lesson carries, counted over the
+            // requested set rather than the lesson's, so a store row that repeats a tag cannot
+            // inflate its own rank. One broad tag shared with the opening is enough to match, and
+            // recency alone then let ten lessons that matched only 'kernel' displace one that
+            // matched 'recall' and 'lessons' as well. Overlap decides first; recency, which is
+            // still the right answer between two lessons about the same subject, breaks the tie.
+            .OrderByDescending(lesson => MatchedTagCount(lesson, requestedTags))
+            .ThenByDescending(lesson => lesson.Provenance.RecordedAt)
             .ThenByDescending(lesson => lesson.SourceTaskId.Value, StringComparer.Ordinal)
-            .ThenBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
-            .Take(TaggedRecalledLessonLimit)
+            .ThenBy(lesson => lesson.Id.Value, StringComparer.Ordinal);
+
+        return TakeAcrossSourceTasks(ordered)
             .OrderBy(lesson => lesson.Id.Value, StringComparer.Ordinal)
             .ToArray();
     }
+
+    /// <summary>
+    /// Fills the recall budget in the given order, refusing more than
+    /// <see cref="TaggedRecalledLessonsPerSourceTaskLimit"/> lessons from any one source task.
+    /// </summary>
+    /// <remarks>
+    /// The cap is hard: a store holding fewer than four matching source tasks returns fewer than
+    /// ten lessons rather than letting one task fill the rest. Backfilling those slots would restore
+    /// exactly the single-task recall this exists to prevent, and a shorter manifest costs the next
+    /// agent nothing it needed.
+    /// </remarks>
+    private static List<Lesson> TakeAcrossSourceTasks(IEnumerable<Lesson> ordered)
+    {
+        var takenPerSourceTask = new Dictionary<TaskId, int>();
+        var selected = new List<Lesson>(TaggedRecalledLessonLimit);
+        foreach (var lesson in ordered)
+        {
+            if (selected.Count == TaggedRecalledLessonLimit)
+            {
+                break;
+            }
+
+            takenPerSourceTask.TryGetValue(lesson.SourceTaskId, out var taken);
+            if (taken == TaggedRecalledLessonsPerSourceTaskLimit)
+            {
+                continue;
+            }
+
+            takenPerSourceTask[lesson.SourceTaskId] = taken + 1;
+            selected.Add(lesson);
+        }
+
+        return selected;
+    }
+
+    private static int MatchedTagCount(Lesson lesson, HashSet<string> requestedTags) =>
+        requestedTags.Count(tag => lesson.Tags!.Contains(tag, StringComparer.Ordinal));
 
     private static IReadOnlyList<Lesson> SelectLegacyRecalled(IReadOnlyList<Lesson> candidates)
     {
