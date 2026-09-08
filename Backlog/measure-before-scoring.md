@@ -184,3 +184,39 @@ timestamps are written with however many fractional-second digits .NET had — `
 digits. python's `datetime.fromisoformat` accepts three or six and rejects five, so every external
 reader of this log needs a normalising step. the C# projection will not hit it; anything scripted
 around the log will.
+
+## the whole-ledger baseline, 2026-09-09
+
+so a later recomputation has something to compare against. 26 tasks carrying events:
+
+    events                3255        runs                187
+    claims                 550        lesson marks          46      minted 45
+    stage transitions      110        waivers               17      15% of transitions
+    refusals journalled     33
+
+    run status      completed 144   failed 18   cancelled 18   active 5   protocolError 2
+    providers       codex 95        claude 81   none 10        claude-code 1
+    claims          validated 346   open 192    rejected 8     superseded 4
+
+three of these are worth watching rather than just recording.
+
+**the refutation rate has not moved.** 8 rejected of 358 resolved is 2.2%, and it was 2.9% when this
+entry was first written with 6 of 205. a full day of work that found real defects added two rejected
+claims. the rubric's central instruction is to reward detected and corrected wrongness, and the
+ledger still records almost none of it — the defects land as challenges, as artifacts, and as new
+validated claims about the fix. that is the reading this entry opened with and a day of evidence has
+not settled it.
+
+**192 open claims, 35% of all claims.** `TaskDebt` counts them and `open-claims-block-archive.md` is
+why a task cannot close while they sit there. the rubric says an open claim carrying substantial
+supporting evidence is not the same as an ignored one; the count alone cannot tell them apart, and
+`TaskDebt.OpenClaimsWithSupportingEvidence` is the field that can.
+
+**`protocolError` is a fifth meaning and it is still happening.** two runs carry it: `ledger-learning/RV7`,
+a verifier on 2026-09-06, and `2026-09-08_1909-standalone-memory-index/RW1`, a codex worker that ran
+66 seconds tonight. `cancelled-means-four-different-things.md` classified `cancelled` and `failed`
+and stopped there. this status is not in that classification and is not rare enough to ignore.
+
+the odd provider string is the one thing here that needs nothing: `claude-code` appears on exactly
+one run, `ledger-learning/RF1` from 2026-09-06, which was recorded by hand before `provider launch`
+existed. it is history, not an inconsistency to reconcile.
