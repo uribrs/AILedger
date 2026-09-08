@@ -73,3 +73,28 @@ skill selection, a `single-agent-relaxation` keyed on stage, an `attention-items
 
 That is the reason this is worth an entry rather than a note: the stage field is being treated as
 task progress by work that has not been built yet, and it is not measuring that today.
+
+## the cost, observed rather than argued
+
+`2026-09-08_1428-run-cost` holds these artifacts:
+
+    orchestrationPlan  4      verifierOutput  5      codeReviewOutput  4
+    promptContract     0      userRequest     0
+
+Both missing kinds are the ones the Scope and Execution arms require. The task never transitioned, so
+neither was ever asked for, and 20 runs proceeded without them.
+
+Its fifth verifier said so itself, unprompted, in the first paragraph of its report:
+
+> There is no `prompt_contract.md`, and `state.json.baseRef` is null. This pass therefore compares
+> the two-file W2 diff against the task goal, K13–K15, decisions D5–D7, orchestration plan A7,
+> execution notes, and independent test runs.
+
+That is a verifier reconstructing its own success criteria from six scattered sources because the one
+artifact whose job is to state them does not exist. It did good work anyway — it found a command
+injection — but it spent the first part of its pass establishing what it was checking against.
+
+This is what the entry above predicted and it is worth recording as measured rather than reasoned: the
+arms are not merely unfired, and the missing state is not merely unrecorded. A downstream role
+notices the absence and pays for it, every pass, and the ledger shows no waiver and no refusal to
+explain why.
