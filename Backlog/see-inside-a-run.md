@@ -100,3 +100,47 @@ labels itself.
 
 one file write on a path that already has the object. three nullable fields on an existing event
 and its command-time twin. one regression fix.
+
+## two things on the same event that this item did not take
+
+both found while settling the served-model question in `2026-09-08_1428-run-cost`, both read off the
+providers' own schemas rather than guessed, and both on the terminal event the launcher already has
+in hand.
+
+### claude states the price and codex does not
+
+claude's result event carries `total_cost_usd` beside `duration_api_ms` and `modelUsage`. codex's
+exec stream carries no cost field in any currency — eleven occurrences of `total_token_usage` and
+nothing else (C24, E32, E33).
+
+that is a direct money figure, which is stronger than reconstructing cost from three token buckets
+at rates that change. it is also asymmetric in a way the token buckets are not: C6 settled that the
+two providers' token conventions are documented and opposite, so they map. there is no mapping for a
+number one provider simply does not state.
+
+so a dollar field would be populated for claude and null for codex, and any comparison across
+providers reads as "the claude runs are the ones that cost money". record it if it is recorded at
+all as what it is — one provider's own price for its own run, never a cross-provider measure — and
+keep the token buckets as the comparable figure.
+
+### the subagent count is already on the stream
+
+claude's result event carries `subagent_stats`, optional, beside `permission_denials` and
+`queued_turn_count`, and the object holds a `subagentCount` and a `transcript_ref` naming a session
+file and a project directory key (C25, E34).
+
+`CLAUDE.md` says a harness-spawned agent is invisible to this ledger and cites the measurement: one
+day, eight harness-spawned agents, zero runs recorded. that is still true of what those agents *did*.
+it is no longer true that the kernel cannot know they existed. the provider counted them and the
+launcher throws the count away with the rest of the stream.
+
+one launched run is not one cognition. a run that spawned six subagents cost roughly seven agents'
+worth of tokens and the ledger records it as one run, which is a governance-cost error in a known
+direction, the same direction as the coordinator's invisibility in `measure-before-scoring.md`.
+
+### why neither is in this item
+
+both are fields on `run.completed`, which is `AILedger.Core`, and that half shipped as W1. W2 holds
+`src/AILedger.Cli` and `tests`. Adding an event field to close a work item that is already completed
+would mean reopening the replay-safety review for two fields nobody has yet needed. they are the
+natural third work item on this task, after the populating half proves the reader works at all.
