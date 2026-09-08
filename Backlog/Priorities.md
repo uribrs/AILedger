@@ -8,7 +8,7 @@ Status as of 2026-09-08. `done` means the governed task reached stage `archive`.
 | 2 | did-the-lesson-matter | `2026-09-07_2136-lesson-citations` | **done** | archived with no waiver. Reviewer ran before `work complete`. 7 runs, 10 claims all validated, 4 lessons. Its code reviewer also found and fixed three defects in item 3's code. |
 | 3 | make-status-say-what-is-owed | `2026-09-07_2136-status-owed` | **done** | archived with no waiver. 5 runs, 10 claims all validated, 4 lessons. The verifier found VC1 (one citation cleared the whole lesson debt) and the reviewer found KC4 (cited and recalled counts drawn from different populations) and KC5 (no test that the projection agrees with the gate). The waiver count is withdrawn from scope by accepted decision LD1: state carries no durable waiver record. |
 | 4 | kernel-version-stamp | `2026-09-07_2136-kernel-version-stamp` | **done** | archived with no waiver. The version half already shipped in `install.sh`; this added `ailedger version` and the staleness warning. 5 runs, 4 lessons. Eight defects found by the working, verifier and reviewer runs — including the feature being entirely non-functional on a clean tree, and four separate tests that passed while proving nothing. Scoped to `src/AILedger.Cli` and `tests` only, ahead of self-scoring, because scope occupancy is per-task (LC2). |
-| 5 | record-the-refusals | `2026-09-08_1048-refusal-journal` | at Research | **blocks 9.** 291 `GovernanceException` sites in the kernel, 141 reachable at command time, and 0 of the 2,125 events in this repository is a refusal — while 366 of them mention one in prose. agents already hand-transcribe the telemetry into claims and evidence. a journal beside the log, not an event. |
+| 5 | record-the-refusals | `2026-09-08_1048-refusal-journal` | W1 done, W2 verifying | **blocks 9.** 291 `GovernanceException` sites in the kernel, 141 reachable at command time, and 0 of the 2,125 events in this repository is a refusal — while 366 of them mention one in prose. agents already hand-transcribe the telemetry into claims and evidence. a journal beside the log, not an event. |
 | 6 | see-inside-a-run | not opened | open | **blocks 9.** `AgentRunResult` carries the provider's own event stream — turns, tool calls, tokens — and `CliApplication.cs:939` writes it to stdout and drops it. 114 runs, 0 models recorded. the governance-cost dimension is unmeasurable without it. |
 | 7 | measure-before-scoring | not opened | open | **blocks 9.** the deterministic half of the retrospective: counts, durations and the causal chains the log can already join. no model, no scores. also the diagnostic — 198 of 205 resolved claims validated, 11 refuting evidence records in 558, 2 causal-chain events in the whole corpus. reads 5 and 6. |
 | 8 | route-the-workflow-lesson | not opened | open | **blocks 9's output half.** a WorkflowLesson has no kind field and no recall route; recall is repo-tag filtered with 10 slots, so one either never matches or displaces the domain lessons that describe the code. independent of 5, 6 and 7. |
@@ -25,6 +25,9 @@ Status as of 2026-09-08. `done` means the governed task reached stage `archive`.
 | 19 | review-before-complete | not opened | open | `work complete` requires a verifier but not a reviewer, and completing the item makes the review impossible. cost item 1 its only waiver. found while working items 1 and 2; unranked until now. |
 | 20 | research-needs-an-open-claim | not opened | open | Discovery's only exit is Research, and that arm refuses without an open claim. hit on both of items 1 and 2. see 16 — closing every claim currently locks a task out of Archive, which 16 would make worse. found while working items 1 and 2; unranked until now. |
 | 21 | the-coordinators-run-cannot-close | not opened | open | filing a PromptContract or OrchestrationPlan needs an active producer run, and an operator-held run can never be closed `completed` because it has no provider session. found at Design on item 5, which had to close its run `cancelled` after the run filed two artifacts successfully. |
+| 22 | the-reviewers-approval-goes-stale | not opened | open | the completion gate asks `HasVerifierRunAfterLatestWork`; the Learn arm asks only whether *some* reviewer run completed. found on item 5: R9 reviewed W1, R10 repaired what R9 asked for, and `work complete` was accepted with an approval that describes different code. |
+| 23 | attention-items-are-task-wide-but-work-is-not | not opened | open | `ValidateVerifierOutput` reads attention ids from the one current plan and demands every verifier dispose all of them. item 5 had six for W1 and three for W2, so its second verifier either writes six `not-applicable` rows or the plan stops describing the task. |
+| 24 | cancelled-means-four-different-things | not opened | open | item 5 holds five `Cancelled` runs: four operator filing runs that succeeded, and one nine-minute verification the host killed for memory. `self-scoring` asks for failed and retried runs as a cost signal and would read five where the true number is one. |
 
 ## Ordering notes
 
@@ -39,14 +42,14 @@ Items 19 and 20 were found while working items 1 and 2 and sat unranked in their
 now. Placing them at the end preserves every existing relative order rather than asserting a new
 one; both are small and both are live pain, so moving them up is a reasonable call to make.
 
-Items 6 to 8, 19, 20 and 21 have no governed task yet. Only an operator may open one.
+Items 6 to 8 and 19 to 24 have no governed task yet. Only an operator may open one.
 
 `self-scoring.md` has no row of its own. It is the rubric item 9 is built to satisfy, not a
 separate piece of work, and it stays the authority on what the dimensions mean.
 
 ## Kernel state
 
-`2.0.28 from 53f29d8`, installed and current — `ailedger version` reports it and warns when the
+`2.0.29-dirty from 7db26d5` as of 12:05 UTC, reinstalled by concurrent work outside this task — `ailedger version` reports it and warns when the
 tree has moved past the installed build. Carries the manifest hash on `run.completed`,
 `--from-lesson` on claim/decision/alternative, and the `owed` block on `status`.
 
