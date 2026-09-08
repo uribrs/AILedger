@@ -144,3 +144,49 @@ both are fields on `run.completed`, which is `AILedger.Core`, and that half ship
 `src/AILedger.Cli` and `tests`. Adding an event field to close a work item that is already completed
 would mean reopening the replay-safety review for two fields nobody has yet needed. they are the
 natural third work item on this task, after the populating half proves the reader works at all.
+
+### and a defect the same reading turned up, which outranks both
+
+One stdout line that is valid JSON but **not an object** aborts the entire provider run (C27, E36,
+E37).
+
+`ProviderProtocol.GetString` calls `element.TryGetProperty` before checking `ValueKind`, and
+`TryGetProperty` throws `InvalidOperationException` on anything that is not an object. Both
+`ParseCodex` and `ParseClaude` call it on the root as their first act, so `[]`, `"text"`, `42`,
+`true` or `null` on one line throws.
+
+The chain from there:
+
+    DrainAsync awaits the line callback with no handler   → the stdout task faults
+    AwaitFailFastAsync                                    → propagates
+    RethrowAfterCleanupAsync                              → kills the child, rethrows the original
+    AgentAdapterBase catches OperationCanceledException
+      and InvalidDataException only                       → InvalidOperationException escapes
+    CliApplication's catch-all                            → run closed Failed, launch throws
+
+Every event already collected is discarded, the child is killed, and the operator gets a generic
+launch failure.
+
+**The asymmetry is the point.** A line that is not JSON at all — a bare `{` — is caught as
+`JsonException`, sets `parseFailure`, and the run keeps collecting and then ends with
+`"Malformed provider JSONL: …"`, which is exactly the right behaviour and is already written. A line
+that is valid JSON of the wrong shape is fatal. The adapter has a designed tolerant path for a bad
+line and it only covers half the ways a line can be bad.
+
+With W2 in place the loss grows: the cost read and the provider sidecar both live on the terminal
+path, so an aborted stream now throws away the measurements as well as the events.
+
+**The fix is one line** — add `InvalidOperationException` to the catch at
+`AgentAdapterBase.cs:125`, so the case takes the path that already exists for it. ALT8 records the
+alternative and why it lost: guarding `ValueKind` inside `ProviderProtocol` would make the line parse
+as type `unknown` and swallow genuinely broken output, adding a second mechanism where one already
+works.
+
+**The test that proves it** must assert the tolerant behaviour, not just the absence of a throw: a
+stream of three lines where the middle one is `[]` must produce a run whose events include the first
+and third, whose failure message names malformed JSONL, and whose status is `Failed` — not a run that
+threw out of `RunAsync`.
+
+Not fixed on the spot because `tests` is held by W2 and a one-line change to the provider stream
+without a test is how the four tests that passed while proving nothing got written. It is the first
+thing in W3.
