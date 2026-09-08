@@ -62,16 +62,46 @@ separate piece of work, and it stays the authority on what the dimensions mean.
 six nullable trailing fields on `run.completed`, `Model`, `RunCostReader` and the per-provider
 mapping. 512 tests.
 
-**W2 is the next work, and it is not created yet.** Its scope is `src/AILedger.Cli` and `tests`.
-It must populate the six fields from `AgentRunResult` into `CompleteRunCommand`, measure
-milliseconds to the run's first ledger write, and write the whole result to
-`.ailedger/tasks/<id>/runs/<run-id>.json` — including for a failed run, because a run that dies can
-still have changed the tree. Until it lands, every field W1 added stays null on every real run and
-the feature reads as shipped while measuring nothing (IC4).
+**W2 exists and its worker run is done.** Scope `src/AILedger.Cli` and `tests`, owner
+`claude-impl`, not split because ALT7. R19 completed clean after 30 minutes: `CliApplication.cs`
++224/-13 and `tests/AILedger.Tests/Cli/RunCostLaunchTests.cs`, 418 lines and 16 tests. Suite 526
+passed / 2 failed with the change and 510 / 2 without it, the same two pre-existing `KernelVersion`
+build-stamp failures in both, and 8 of the 16 new tests fail without the change — the negative
+control that makes "green" mean something.
 
-One decision W2 must not defer: nothing renders any of the six fields. `ManifestArtifactCount` has
-had the same gap since it shipped. Either W2 takes a third scope for the markdown projection and
-`status`, or it becomes its own item — the verifier disposed that as `accepted-risk`, not resolved.
+The design was settled before dispatch and is in the record: D5 carries the run id as the child's
+correlation id on the command line the briefing hands it, with `correlation` added to
+`GlobalOptions` because the child's first commands are reads (C22); D6 keeps the whole
+`AgentRunResult` at `.ailedger/tasks/<id>/runs/<run-id>.json`; D7 records the served model only when
+the provider names exactly one. ALT5 and ALT6 record the two approaches that lost — attributing by
+actor and time window measures the coordinator, and the request environment is a redaction target,
+so the run id would come back `[REDACTED]` inside the file this item writes (C23).
+
+**Where it stands:** R20, the codex verifier, is running against W2. Then the reviewer, then
+`work complete`. `IC18` — "the suite is green" — is deliberately left open: it is the implementer's
+own test run and the verifier confirms or refutes it.
+
+**The step that must not be skipped, C26:** the launcher that closed R19 is the installed tool,
+packed before this change, so every field this item populates reads null on R19 itself. That is
+expected, not a defect, and not proof either. Sequence the proof for free — `sh scripts/install.sh`
+after R20 closes, then launch the reviewer with the reinstalled tool and read its own record. If the
+completion path throws instead, that is the defect found before `work complete`.
+
+**Still deferred:** nothing renders the six fields. `ManifestArtifactCount` has had the same gap
+since it shipped. `status` needs no change — it serialises state and the fields appear once
+populated — so the gap is `MarkdownTaskProjectionWriter` alone, which is `src/AILedger.Storage` and a
+third scope. It is W3's, alongside the two things found while settling the model question (claude's
+`total_cost_usd`, its `subagent_stats`) and C27.
+
+**C27, found while verifying the model claims, and it outranks all of the above.** One stdout line
+that is valid JSON but not an object aborts the whole provider run: `ProviderProtocol` throws
+`InvalidOperationException`, the line callback catches only `JsonException`, and nothing between
+there and the launcher's catch-all holds it. Every event already collected is discarded and the child
+is killed. A line that is *not* JSON at all is tolerated and reported as "Malformed provider JSONL",
+which is the behaviour already written — so the designed tolerant path covers half the ways a line
+can be bad. One line to fix, at `AgentAdapterBase.cs:125`; ALT8 records why guarding
+`ProviderProtocol` instead lost. Not fixed on the spot because `tests` is held by W2. First thing in
+W3.
 
 ### What W1 cost, the sharpest datapoint here
 
@@ -88,8 +118,9 @@ verifier pass.
 
 ## Kernel state
 
-`2.0.29-dirty from 7db26d5` as of 12:05 UTC, reinstalled by concurrent work outside this task — `ailedger version` reports it and warns when the
-tree has moved past the installed build. Carries the manifest hash on `run.completed`,
+`2.0.39 from b6646ce`, which is behind this branch's HEAD — the launch of R19 printed the staleness
+warning and was right to. It must be reinstalled before the fields can be seen on a real run (C26).
+`ailedger version` reports the stamp and warns when the ledger home has moved past it. Carries the manifest hash on `run.completed`,
 `--from-lesson` on claim/decision/alternative, and the `owed` block on `status`.
 
 ## Estimates
