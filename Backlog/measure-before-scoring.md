@@ -102,3 +102,85 @@ one projection over an already-parsed event stream, in `AILedger.Core/Applicatio
 what it deliberately excludes: anything requiring judgement. "did the role contribute or merely
 run", ceremony candidates, epistemic quality, brief concreteness. four dimensions of the ten, and
 they wait for the scoring agent.
+
+## the check was run by hand, and it changes the plan
+
+three archived tasks, projected by hand from `state.json` and `events.jsonl` with no new code:
+`2026-09-08_1048-refusal-journal` (309 events, 16 runs), `2026-09-08_1430-recall-diversity`
+(104 events, 6 runs), `2026-09-07_0957-stage-arms` (336 events, 22 runs).
+
+| rubric dimension | answerable from the log today |
+|---|---|
+| 1 governance effectiveness | partly. refusals are counted only for tasks after item 5 shipped |
+| 2 capability utilization | yes for "role ran". a usable proxy exists for "role contributed" |
+| 3 epistemic quality | yes, and it discriminates. see below |
+| 4 planning and decision quality | partly. supersessions and invalidations are counted; brief quality is not |
+| 5 execution quality | partly. scope is recorded; duplicated work is not derivable |
+| 6 verification and review quality | yes. role, provider, order and repair cycles are all present |
+| 7 operator burden | yes, and it is the most damning number available |
+| 8 governance cost | **no.** every cost field is null on every run in all three tasks |
+| 9 learning behaviour | yes, and it scores every task the same, which means it scores nothing |
+| 10 outcome quality | no. nothing in the log says whether the delivered result works |
+
+### dimension 8 is empty, which fixes the ordering
+
+    runs with cost recorded    0 of 16     0 of 6      0 of 22
+
+wall clock and agent minutes *are* derivable — 3.5h/183 agent-minutes, 2.3h/131, 3.1h/259 — so the
+dimension is not entirely dark. tokens, turns and time-to-first-write are absent from every run ever
+recorded. item 6 is a hard prerequisite of item 9 and this is the measurement that proves it.
+
+### the coordinator is invisible, and it is the largest cost
+
+events by actor:
+
+    refusal-journal     operator 240 of 309   (78%)
+    recall-diversity    operator  81 of 104   (78%)
+    stage-arms          operator 140 of 336   (42%)
+
+the coordinating session writes most of the record and holds no run, so it has no `startedAt`, no
+`endedAt`, no provider, no model and no cost — by construction, for the reason in
+`the-coordinators-run-cannot-close.md`. every number dimension 8 would report describes the agents
+that were dispatched and none of the agent doing the dispatching.
+
+that is not a rounding error. the coordinator is one of the three cognitions on the machine and the
+only one whose spend the retrospective cannot see. a governance-cost score computed without it is
+wrong in a known direction and will read as cheap governance.
+
+### dimension 9 cannot discriminate yet
+
+    recalled 10  cited 2      refusal-journal
+    recalled 10  cited 0      recall-diversity
+    recalled  0  cited 0      stage-arms
+
+`--from-lesson` exists and is used twice in three tasks. a dimension that returns the same score for
+a task that learned and a task that did not is not measuring learning, it is measuring whether
+anyone typed the flag. either the citation becomes routine first, or dimension 9 is scored as
+"not measurable" rather than as 0.
+
+### "role contributed" has a cheap proxy after all
+
+the entry above listed this as one of the four dimensions that must wait for a scoring agent. events
+written per role, divided by runs held, separates them without judgement:
+
+    refusal-journal   claude-impl 32 events / 4 runs     codex-verify 28 / 5
+                      codex-research 5 / 1               codex-review 4 / 2
+
+a code reviewer that wrote four events across two runs and a researcher that wrote five in one are
+visibly thinner than the worker and the verifier. that is not a quality verdict and should not be
+presented as one, but it is a count, and it is the count a scoring agent would be reading anyway.
+
+### the validation set does not fully exist
+
+the four archived tasks this entry proposed as the validation set cannot all be scored. `stage-arms`
+predates the refusal journal and predates `manifestHash`, so two of dimension 1's sharpest inputs
+are simply absent from it — `manifest delivered: 0 of 22`, `no journal`. retroactive scoring is
+therefore partial by construction, and calibration has to happen forward, on tasks run after item 6
+lands, not backward over the four already closed.
+
+### one interop detail for whoever writes the projection
+
+timestamps are written with however many fractional-second digits .NET had — `.45326+00:00`, five
+digits. python's `datetime.fromisoformat` accepts three or six and rejects five, so every external
+reader of this log needs a normalising step. the C# projection will not hit it; anything scripted
+around the log will.
