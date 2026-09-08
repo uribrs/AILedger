@@ -177,7 +177,11 @@ With W2 in place the loss grows: the cost read and the provider sidecar both liv
 path, so an aborted stream now throws away the measurements as well as the events.
 
 **The fix is one line** — add `InvalidOperationException` to the catch at
-`AgentAdapterBase.cs:125`, so the case takes the path that already exists for it. ALT8 records the
+`AgentAdapterBase.cs:125`, so the case takes the path that already exists for it. That one catch is
+complete cover: `ProviderProtocol.ReadString` and `ReadNestedString` share the same unguarded
+`TryGetProperty` on the root, but both are reached only through `ReadFinalOutput`, which is called
+inside that same try, and only once `GetString(root, "type")` has already succeeded — so a
+non-object root can never get that far. ALT8 records the
 alternative and why it lost: guarding `ValueKind` inside `ProviderProtocol` would make the line parse
 as type `unknown` and swallow genuinely broken output, adding a second mechanism where one already
 works.
