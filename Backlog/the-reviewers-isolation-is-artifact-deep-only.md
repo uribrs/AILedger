@@ -162,3 +162,32 @@ of this entry and the reason R18 refused. An allow-list that admits constraints 
 again. Either constraints are withheld from a reviewer too — and then a repair brief has no channel
 to it at all — or the repair brief stops being a constraint. That is a real decision and it belongs
 to whoever opens this item, not to this entry.
+
+## the reviewer notices half the time, and that is worse than always refusing
+
+Four code-reviewer runs on `2026-09-08_1428-run-cost`, all given a manifest built the same way:
+
+    CR7   "Not performed. The invocation violated the mandatory isolation boundary"    refused
+    CR8   "Change type: shared library... Risk: High... Verdict: Changes requested"    reviewed
+    CR13  "Code review 3 — negative provider counts can strand completion"             reviewed
+    CR18  "BLOCKED — no technical code review was performed"                           refused
+
+The manifest breached the skill's contract in all four. Two runs noticed and two did not.
+
+The two that proceeded were not idle. CR13's finding became RC3, a real defect: a provider reporting
+a negative count could strand a run's completion. That review was worth having.
+
+So the cost of this defect is not "the reviewer refuses and no review happens". It is worse and much
+harder to see: **the reviews that do happen have unknown independence.** CR8 and CR13 read the task
+goal, the claims, the decisions and the repair history before forming a verdict. Their findings may be
+excellent — RC3 was — and nothing in the record says whether they were reached independently or
+anchored by what the manifest told them the team already believed.
+
+A mechanism that fails loudly half the time and silently the other half cannot be assessed by whether
+its output looks useful. `self-scoring` asks whether verifier and reviewer "contribute distinct
+value"; on this evidence the honest answer for the reviewer is that nobody can tell, and that is the
+finding.
+
+It also means the refusals are the healthy outcome and should not be read as reviewer failure. Two
+runs applied their own contract correctly against a kernel that violated it. The other two did the
+work anyway.
