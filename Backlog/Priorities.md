@@ -29,6 +29,7 @@ Status as of 2026-09-08. `done` means the governed task reached stage `archive`.
 | 23 | attention-items-are-task-wide-but-work-is-not | not opened | open | `ValidateVerifierOutput` reads attention ids from the one current plan and demands every verifier dispose all of them. item 5 had six for W1 and three for W2, so its second verifier either writes six `not-applicable` rows or the plan stops describing the task. |
 | 24 | cancelled-means-four-different-things | not opened | open | item 5 holds five `Cancelled` runs: four operator filing runs that succeeded, and one nine-minute verification the host killed for memory. `self-scoring` asks for failed and retried runs as a cost signal and would read five where the true number is one. |
 | 25 | a-productive-task-starves-its-successor | not opened | open | **blocks 8, and degrades every task now.** recall orders by recency and takes ten. item 5 minted ten lessons and consumed item 6's entire budget: 38 lessons matched its tags, all ten slots went to lessons twenty minutes old, and the four closest matches in the store — including *do not put a field on run.started that the launcher learns later* — were crowded out and had to be copied in by hand. |
+| 26 | the-reviewers-isolation-is-artifact-deep-only | not opened | open | **blocks 9's capability-utilization dimension.** `ReviewerExclusions` withholds five artifact kinds but the manifest still hands a reviewer the task goal, every claim, decision, alternative and their evidence — and the skill forbids the user's intent by name. Worse, a coordinator writing verifier findings into a constraint routes them past the filter: item 6's reviewer refused to review for exactly that reason and was right to. |
 
 ## Ordering notes
 
@@ -43,7 +44,7 @@ Items 19 and 20 were found while working items 1 and 2 and sat unranked in their
 now. Placing them at the end preserves every existing relative order rather than asserting a new
 one; both are small and both are live pain, so moving them up is a reasonable call to make.
 
-Items 6 to 8 and 19 to 25 have no governed task yet.
+Items 6 to 8 and 19 to 26 have no governed task yet.
 
 Item 5 is done. Its own numbers are the first measured baseline for what a governed pass costs:
 1h51m of agent execution across 16 runs, 3h20m wall clock, for a 78-line writer plus two
