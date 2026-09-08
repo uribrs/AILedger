@@ -139,8 +139,15 @@ internal static class RunRules
             }
         }
     
+        EnsureManifestRecordIsWellFormed(command.ManifestHash, command.ManifestArtifactCount);
+
         var launcherAuthorized = EnsureLauncherAuthorizedCompletion(state, command, run);
-        return [new RunCompleted(command.RunId, command.Status, providerSessionId, now, launcherAuthorized)];
+        return
+        [
+            new RunCompleted(
+                command.RunId, command.Status, providerSessionId, now, launcherAuthorized,
+                TrimOrNull(command.ManifestHash), command.ManifestArtifactCount)
+        ];
     }
 
     private static bool EnsureLauncherAuthorizedCompletion(
@@ -189,5 +196,40 @@ internal static class RunRules
         }
     
         throw new GovernanceException($"Only run actor '{run.ActorId}' or an operator can complete run '{run.Id}'.");
+    }
+
+    // Mirrors TaskTransitionValidator.ValidateManifestRecord. Deliberately duplicated, not shared:
+    // D13 holds that the two copies must agree, not that they must be one function.
+    //
+    // The pair is all-or-nothing because a hash with no count says a brief was handed over but not
+    // how large it was, and a count with no hash cannot be matched to any manifest. Neither half
+    // answers the question the fields exist for.
+    internal const int ManifestHashLength = 64;
+
+    private static void EnsureManifestRecordIsWellFormed(string? manifestHash, int? artifactCount)
+    {
+        var hash = TrimOrNull(manifestHash);
+        if (hash is null && artifactCount is null)
+        {
+            return;
+        }
+
+        if (hash is null || artifactCount is null)
+        {
+            throw new GovernanceException(
+                "A run's manifest hash and manifest artifact count must be recorded together.");
+        }
+
+        if (hash.Length != ManifestHashLength || !hash.All(character =>
+                character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+        {
+            throw new GovernanceException(
+                $"A run's manifest hash must be {ManifestHashLength} lowercase hexadecimal characters.");
+        }
+
+        if (artifactCount < 0)
+        {
+            throw new GovernanceException("A run's manifest artifact count cannot be negative.");
+        }
     }
 }

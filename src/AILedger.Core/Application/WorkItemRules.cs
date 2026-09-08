@@ -282,7 +282,10 @@ internal static class WorkItemRules
     // A null SubjectRole does not count — it predates the field, so the kernel did not see the role
     // and cannot now claim it did.
 
-    private static bool HasCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
+    // Internal, not private, because TaskDebt must answer this with the gate's own predicate. KC1:
+    // it previously listed the working roles positively and so reported no debt for an item whose
+    // only completed working run was a Researcher or a PlanningLead, while work complete refused it.
+    internal static bool HasCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
             run.Status is AgentRunStatus.Completed &&
@@ -337,7 +340,9 @@ internal static class WorkItemRules
     // from one work item to the next. Provider, not model or version — a newer build of the same
     // model shares the reasoning that produced the work, which is the thing being guarded against.
 
-    private static string? ProviderThatVerifiedItsOwnWork(GovernedTaskState state, WorkItemId workItemId)
+    // Internal for the same reason as HasCompletedWorkingRun: the debt projection models all three
+    // verifier gates or it is least trustworthy in the repair cycle it exists to cover (KC2).
+    internal static string? ProviderThatVerifiedItsOwnWork(GovernedTaskState state, WorkItemId workItemId)
     {
         if (LatestCompletedWorkingRun(state, workItemId) is not { } worked)
         {

@@ -201,7 +201,8 @@ public sealed class CliApplication
             case "claim add":
                 await ExecuteAsync(service, input, new AddClaimCommand(
                     Actor(input), Cause(input), Correlation(input), new ClaimId(input.Required("id")),
-                    input.Required("statement"), input.Optional("consequence")), cancellationToken).ConfigureAwait(false);
+                    input.Required("statement"), input.Optional("consequence"),
+                    OptionalId(input.Optional("from-lesson"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "claim resolve":
                 await ExecuteAsync(service, input, new ResolveClaimCommand(
@@ -222,7 +223,8 @@ public sealed class CliApplication
                     Actor(input), Cause(input), Correlation(input), new DecisionId(input.Required("id")),
                     input.Required("statement"), input.Required("rationale"),
                     input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(),
-                    OptionalId(input.Optional("supersedes"), value => new DecisionId(value))), cancellationToken).ConfigureAwait(false);
+                    OptionalId(input.Optional("supersedes"), value => new DecisionId(value)),
+                    OptionalId(input.Optional("from-lesson"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "decision resolve":
                 await ExecuteAsync(service, input, new ResolveDecisionCommand(
@@ -269,7 +271,8 @@ public sealed class CliApplication
                 await ExecuteAsync(service, input, new RecordAlternativeCommand(
                     Actor(input), Cause(input), Correlation(input), new AlternativeId(input.Required("id")),
                     input.Required("statement"), input.Required("rejected-because"),
-                    OptionalId(input.Optional("replaced-by"), value => new DecisionId(value))), cancellationToken).ConfigureAwait(false);
+                    OptionalId(input.Optional("replaced-by"), value => new DecisionId(value)),
+                    OptionalId(input.Optional("from-lesson"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "lesson mark":
                 await ExecuteAsync(service, input, new MarkLessonBearingCommand(
@@ -583,6 +586,14 @@ public sealed class CliApplication
             }
         }
 
+        // Counts of what the task still owes, computed from the state just read. Absent when the
+        // task owes nothing, so a clean status stays as short as it is today.
+        var debt = TaskDebt.Compute(state);
+        if (!debt.IsClear)
+        {
+            projection["owed"] = JsonSerializer.SerializeToNode(debt, _json);
+        }
+
         await WriteJsonAsync(projection).ConfigureAwait(false);
     }
 
@@ -821,6 +832,11 @@ public sealed class CliApplication
             CommandHandler.HashLaunchToken(launchToken));
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
+        // Set only once the manifest exists. A launch that fails before briefing leaves both null,
+        // which is what makes "this run was never briefed" distinguishable from "briefed with
+        // nothing". They are recorded at completion because the manifest is built after run.start.
+        string? manifestHash = null;
+        int? manifestArtifactCount = null;
         AgentRunResult result;
         try
         {
@@ -828,15 +844,27 @@ public sealed class CliApplication
             // dispatches a code reviewer must not hand it an operator's view of the task.
             var manifest = await CreateContextAsync(
                 service, input, SubjectOrActor(input), cancellationToken).ConfigureAwait(false);
+            // Over the exact bytes handed to the child, not a re-serialisation of the manifest: the
+            // hash names the brief one run received, so a manifest kept outside the ledger can be
+            // matched to the run that read it. It is not a comparison between two runs — the
+            // manifest carries the task version and the assembly time, so two launches never hash
+            // alike, and normalising either one would buy a comparison the version already denies.
+            var manifestJson = JsonSerializer.Serialize(manifest, _json);
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,
                 grants.WorkingDirectory, ledgerRoot, ResolveLedgerCommandLine(),
-                JsonSerializer.Serialize(manifest, _json), sessionId, PermissionProfile.WorkspaceGoverned,
+                manifestJson, sessionId, PermissionProfile.WorkspaceGoverned,
                 input.Optional("model"), input.Optional("output-schema"),
                 grants.AdditionalDirectories,
                 new Dictionary<string, string>(),
                 TimeSpan.FromSeconds(PositiveInt(input.Optional("timeout-seconds"), 1800)));
+            // Marked delivered only once the request is fully built, because building it is fallible
+            // — the timeout argument is parsed inside the constructor call above and throws on a bad
+            // value. Assigning earlier recorded a brief for a run the adapter never received, which
+            // is the opposite of what the absence is meant to mean. Found by RV1 as VC1/VCH1.
+            manifestHash = HashManifest(manifestJson);
+            manifestArtifactCount = manifest.Artifacts.Count;
             result = await adapter.RunAsync(request, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception launchException)
@@ -847,7 +875,8 @@ public sealed class CliApplication
                     ? AgentRunStatus.Cancelled
                     : AgentRunStatus.Failed;
                 await CompleteRunWithFreshTokenAsync(
-                    service, input, start.RunId, sessionId, status, startedEventId, launchToken).ConfigureAwait(false);
+                    service, input, start.RunId, sessionId, status, startedEventId, launchToken,
+                    manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
             {
@@ -870,7 +899,8 @@ public sealed class CliApplication
         try
         {
             await CompleteRunWithFreshTokenAsync(
-                service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken).ConfigureAwait(false);
+                service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken,
+                manifestHash, manifestArtifactCount).ConfigureAwait(false);
         }
         catch (GovernanceException exception) when (
             result.Status == AgentRunStatus.Completed &&
@@ -882,7 +912,7 @@ public sealed class CliApplication
             {
                 await CompleteRunWithFreshTokenAsync(
                     service, input, start.RunId, result.ProviderSessionId, AgentRunStatus.Failed,
-                    startedEventId, launchToken).ConfigureAwait(false);
+                    startedEventId, launchToken, manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
             {
@@ -929,11 +959,14 @@ public sealed class CliApplication
         string? sessionId,
         AgentRunStatus status,
         EventId causationId,
-        string launchToken)
+        string launchToken,
+        string? manifestHash = null,
+        int? manifestArtifactCount = null)
     {
         using var completion = new CancellationTokenSource(TerminalPersistenceDeadline);
         var command = new CompleteRunCommand(
-            Actor(input), causationId, Correlation(input), runId, status, sessionId, launchToken);
+            Actor(input), causationId, Correlation(input), runId, status, sessionId, launchToken,
+            manifestHash, manifestArtifactCount);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -949,6 +982,11 @@ public sealed class CliApplication
             }
         }
     }
+
+    private static string HashManifest(string manifestJson) =>
+        Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(manifestJson))).ToLowerInvariant();
 
     private static ProviderGrants ResolveProviderGrants(
         GovernedTaskState state,
@@ -1196,7 +1234,7 @@ public sealed class CliApplication
             ["artifact show"] = Options("root", "task", "actor", "id", "json"),
             ["artifact list"] = Options("root", "task", "actor", "work", "kind"),
             ["claim add"] = Options(
-                "root", "task", "actor", "id", "statement", "consequence", "cause", "correlation"),
+                "root", "task", "actor", "id", "statement", "consequence", "from-lesson", "cause", "correlation"),
             ["claim resolve"] = Options(
                 "root", "task", "actor", "id", "status", "evidence", "superseded-by", "cause", "correlation"),
             ["evidence add"] = Options(
@@ -1204,7 +1242,7 @@ public sealed class CliApplication
                 "cause", "correlation"),
             ["decision propose"] = Options(
                 "root", "task", "actor", "id", "statement", "rationale", "depends-on", "supersedes",
-                "cause", "correlation"),
+                "from-lesson", "cause", "correlation"),
             ["decision resolve"] = Options(
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["challenge raise"] = Options(
@@ -1222,7 +1260,7 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "status", "resolution", "cause", "correlation"),
             ["alternative record"] = Options(
                 "root", "task", "actor", "id", "statement", "rejected-because", "replaced-by",
-                "cause", "correlation"),
+                "from-lesson", "cause", "correlation"),
             ["lesson mark"] = Options(
                 "root", "task", "actor", "kind", "source", "class", "repo", "tag", "supersedes",
                 "verify", "do-not", "lesson-actor", "cause", "correlation"),
@@ -1350,12 +1388,13 @@ public sealed class CliApplication
         artifact show      --task ID --id ID [--json]
         artifact list      --task ID [--work ID] [--kind KIND]
         claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
+                           [--from-lesson LESSON-ID]
         claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
                            [--superseded-by CLAIM]   (required when --status superseded)
         evidence add       --task ID --actor ID --id ID --source-type TYPE --citation TEXT --summary TEXT
                            [--supports CLAIM] [--refutes CLAIM]
         decision propose   --task ID --actor ID --id ID --statement TEXT --rationale TEXT
-                           [--depends-on CLAIM] [--supersedes DECISION]
+                           [--depends-on CLAIM] [--supersedes DECISION] [--from-lesson LESSON-ID]
         decision resolve   --task ID --actor ID --id ID --status accepted|superseded
         challenge raise    --task ID --actor ID --id ID --target-type TYPE --target-id ID --reason TEXT
                            [--evidence ID]
@@ -1370,7 +1409,7 @@ public sealed class CliApplication
                            --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
         escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]
         alternative record --task ID --actor ID --id ID --statement TEXT --rejected-because TEXT
-                           [--replaced-by DECISION]
+                           [--replaced-by DECISION] [--from-lesson LESSON-ID]
         lesson mark        --task ID --actor ID --source ID --repo NAME
                            --kind validated-claim|rejected-claim|rejected-alternative|
                                   resolved-escalation

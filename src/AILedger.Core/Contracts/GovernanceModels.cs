@@ -183,7 +183,12 @@ public sealed record Claim(
     IReadOnlyList<EvidenceId> EvidenceIds,
     string? ConsequenceIfWrong,
     Provenance Provenance,
-    ClaimId? SupersededByClaimId = null);
+    ClaimId? SupersededByClaimId = null,
+    // The lesson that prompted this record, when one did. Optional on purpose: the honest answer is
+    // usually that no lesson caused it, and a required field would collect a plausible id rather
+    // than a true one. An optional citation that is sometimes used is data; a mandatory one is a
+    // field. Validated against the lessons this task recalled, never against the foreign store.
+    LessonId? FromLesson = null);
 
 public sealed record Evidence(
     EvidenceId Id,
@@ -201,7 +206,12 @@ public sealed record Decision(
     string Rationale,
     IReadOnlyList<ClaimId> DependsOnClaims,
     DecisionId? Supersedes,
-    Provenance Provenance);
+    Provenance Provenance,
+    // The lesson that prompted this record, when one did. Optional on purpose: the honest answer is
+    // usually that no lesson caused it, and a required field would collect a plausible id rather
+    // than a true one. An optional citation that is sometimes used is data; a mandatory one is a
+    // field. Validated against the lessons this task recalled, never against the foreign store.
+    LessonId? FromLesson = null);
 
 public sealed record Challenge(
     ChallengeId Id,
@@ -243,7 +253,12 @@ public sealed record Alternative(
     string Statement,
     string RejectionRationale,
     DecisionId? ReplacedByDecisionId,
-    Provenance Provenance);
+    Provenance Provenance,
+    // The lesson that prompted this record, when one did. Optional on purpose: the honest answer is
+    // usually that no lesson caused it, and a required field would collect a plausible id rather
+    // than a true one. An optional citation that is sometimes used is data; a mandatory one is a
+    // field. Validated against the lessons this task recalled, never against the foreign store.
+    LessonId? FromLesson = null);
 
 public sealed record Constraint(
     ConstraintId Id,
@@ -321,4 +336,14 @@ public sealed record AgentRun(
     // The role the subject held when the run started. A role assignment can change afterwards, so
     // asking "was this work verified" of the current assignment answers a different question than
     // the one being asked. Null on every run recorded before this field existed.
-    RoleKind? SubjectRole = null);
+    RoleKind? SubjectRole = null,
+    // Which brief this run was handed to the adapter. The launcher builds the manifest after
+    // starting the run, so these are set at completion, not at start.
+    //
+    // What the pair establishes is delivery, not reading: the manifest was fully built and passed to
+    // the adapter for this run. It cannot show that the child consumed it, and no field here can.
+    // Null means no brief reached the adapter — a launch that failed before or during request
+    // construction, or a run started outside provider launch. That absence is the measurement, so
+    // it must stay distinguishable from a manifest of zero artifacts.
+    string? ManifestHash = null,
+    int? ManifestArtifactCount = null);

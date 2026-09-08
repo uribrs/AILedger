@@ -15,6 +15,7 @@ internal static class ClaimRules
         RequireId(command.ClaimId.Value, nameof(command.ClaimId));
         EnsureNew(state.Claims, command.ClaimId, "claim");
         RequireText(command.Statement, nameof(command.Statement));
+        LessonCitationRules.EnsureCitedLessonWasRecalled(state, command.FromLesson);
     
         var claim = new Claim(
             command.ClaimId,
@@ -22,7 +23,9 @@ internal static class ClaimRules
             ClaimStatus.Open,
             [],
             TrimOrNull(command.ConsequenceIfWrong),
-            new Provenance(command.ActorId, now, "claim.add"));
+            new Provenance(command.ActorId, now, "claim.add"),
+            null,
+            command.FromLesson);
         return [new ClaimAdded(claim)];
     }
 
