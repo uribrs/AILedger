@@ -220,3 +220,91 @@ and stopped there. this status is not in that classification and is not rare eno
 the odd provider string is the one thing here that needs nothing: `claude-code` appears on exactly
 one run, `ledger-learning/RF1` from 2026-09-06, which was recorded by hand before `provider launch`
 existed. it is history, not an inconsistency to reconcile.
+
+## the output shape, concretely
+
+Written from the hand run above, so the fields are the ones that actually came out of the log rather
+than the ones the rubric wishes for. Every field below was computed from `state.json` and
+`events.jsonl` alone. No field carries a score.
+
+    {
+      "task": "2026-09-08_1048-refusal-journal",
+      "stage": "archive",
+      "version": 309,
+      "wallClockHours": 3.5,
+      "agentMinutes": 183,
+
+      "events": { "<eventType>": <count> },
+
+      "runs": {
+        "total": 16,
+        "byStatus":  { "completed": 10, "cancelled": 5, "failed": 1 },
+        "bySubjectRole": { "researcher": 1, "operator": 4, "worker": 4,
+                           "verifier": 5, "codeReviewer": 2 },
+        "byProvider": { "codex": 8, "claude": 4, "none": 4 },
+        "briefDelivered": 12,
+        "costRecorded": 0,
+        "operatorFilingRuns": 4,
+        "diedBeforeBriefing": 0
+      },
+
+      "epistemic": {
+        "claims": { "validated": 37, "rejected": 1, "superseded": 3, "open": 0 },
+        "openClaimsWithSupportingEvidence": 0,
+        "evidence": { "total": 77, "supportsOnly": .., "refutesOnly": .., "both": .., "neither": .. },
+        "decisions": { "accepted": 4, "superseded": 2, "invalidated": 1 },
+        "alternatives": 11,
+        "challenges": { "supported": 2, "rejected": 0, "withdrawn": 0 }
+      },
+
+      "causalChains": [
+        { "kind": "rejectedClaimInvalidatedDecision", "from": "C8",  "to": "D2" },
+        { "kind": "challengeOverturnedDecision",      "from": "XC1", "to": "D2" },
+        { "kind": "claimSupersededRepointedDependents","from": "C10","to": "C21" },
+        { "kind": "lessonCitedByRecord",              "from": "L-…", "to": "C41" }
+      ],
+
+      "authorship": { "<actorId>": <events written> },
+
+      "refusals": {
+        "total": 4,
+        "bySite":   { "service": 4, "provider-launch": 0 },
+        "byActor":  { "operator": 3, "claude-impl": 1 },
+        "byCommand":{ "ResolveClaimCommand": 2, "…": 1 }
+      },
+
+      "stages": { "transitions": 16, "waivers": 0, "waiverReasons": ["…"] },
+      "artifacts": { "byKind": {…}, "supersessions": 4 },
+      "escalations": [ { "id": "VX1", "kind": "…", "openHours": 0.4, "workItem": "W1" } ],
+      "lessons": { "recalled": 10, "cited": 2, "minted": 10, "marks": 10 },
+      "workItems": [ { "id": "W1", "status": "completed", "scopeCount": 2,
+                       "verifierRanAfterLatestWork": true,
+                       "providerThatVerifiedItsOwnWork": null } ],
+
+      "notMeasured": ["governanceCost.tokens", "coordinatorCost", "outcomeQuality"]
+    }
+
+Six rules that matter more than the field list:
+
+- **`notMeasured` is a required field, not a courtesy.** The hand run's most useful result was
+  learning that four of ten dimensions are answerable. A projection that omits what it cannot see
+  invites a scoring agent to score it anyway from prose.
+- **`operatorFilingRuns` and `diedBeforeBriefing` are derived, not stored.** `provider == "none"`
+  gives the first; `manifestHash == null` **and** a duration under a minute gives the second, and the
+  duration is load-bearing because a null hash also means "recorded before that field existed".
+  `cancelled-means-four-different-things.md` has the classification.
+- **`agentMinutes` and `wallClockHours` are different numbers and both belong.** They differed by 2x
+  on every task measured, and neither includes the coordinator's own session, which holds no run at
+  all. That is what `coordinatorCost` in `notMeasured` names.
+- **`causalChains` reads events, not state.** `decision.invalidated`, `decision.overturned`,
+  `work.invalidated` and `claim.dependencies-repointed` each carry the id of what caused them, and
+  state keeps only the outcome.
+- **`openClaimsWithSupportingEvidence` comes from `TaskDebt`, not from a second implementation.**
+  KC1 and KC2 were both the same defect — a second, looser model of a rule that already existed.
+- **Normalise timestamps on the way in.** `.NET` writes however many fractional digits it had;
+  five-digit fractions are rejected by common parsers. The C# projection will not hit this, anything
+  scripted around the log will.
+
+Where it goes: `AILedger.Core/Application`, beside `TaskDebt`, read-only, no replay counterpart, for
+the reason written at `TaskDebt.cs:8`. Surfaced as `ailedger retrospective build --task <id>`, run
+after the fact and never inside the archive transition.
