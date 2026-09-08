@@ -164,7 +164,11 @@ public sealed class TaskReducer : ITaskReducer
         {
             Status = completed.Status,
             ProviderSessionId = completed.ProviderSessionId,
-            EndedAt = completed.EndedAt
+            EndedAt = completed.EndedAt,
+            // Absent on every run completed before these fields existed, and absent on a launch that
+            // failed before its manifest was built. Both read as "no brief recorded", correctly.
+            ManifestHash = completed.ManifestHash,
+            ManifestArtifactCount = completed.ManifestArtifactCount
         };
 
         var workItems = state.WorkItems;

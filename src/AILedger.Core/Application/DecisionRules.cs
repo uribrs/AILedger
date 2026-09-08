@@ -19,6 +19,7 @@ internal static class DecisionRules
         EnsureUnique(command.DependsOnClaims, "Dependent claim IDs");
         EnsureReferencesExist(state.Claims, command.DependsOnClaims, "claim");
         ClaimDependencyRules.EnsureDependenciesAreCurrent(state, command.DependsOnClaims);
+        LessonCitationRules.EnsureCitedLessonWasRecalled(state, command.FromLesson);
     
         if (command.Supersedes is { } supersededId)
         {
@@ -41,7 +42,8 @@ internal static class DecisionRules
             command.Rationale.Trim(),
             command.DependsOnClaims.ToArray(),
             command.Supersedes,
-            new Provenance(command.ActorId, now, "decision.propose"));
+            new Provenance(command.ActorId, now, "decision.propose"),
+            command.FromLesson);
         return [new DecisionProposed(decision)];
     }
 

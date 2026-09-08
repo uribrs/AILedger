@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using AILedger.Cli;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
@@ -1640,6 +1641,56 @@ public sealed class CliApplicationTests
 
     // The manifest reaches the agent as the CLI wrote it, so it is read back the same way.
     private static readonly JsonSerializerOptions ManifestJson = LedgerJson.CreateOptions();
+
+    // LC3: the owed node had no test at its call site, so acceptance criteria 5 and 6 were
+    // unproven — nothing pinned the node being absent on a clean task, and nothing pinned it
+    // carrying counts and nothing else. VC1's partial-citation defect lived in exactly that gap.
+    [Fact]
+    public async Task StatusOmitsTheOwedNodeWhenTheTaskOwesNothing()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var application = new CliApplication(
+            output, TextWriter.Null, Service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed), new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+
+        // Every command writes to the same writer, so the setup calls have to be cleared or the
+        // parse sees two documents.
+        output.GetStringBuilder().Clear();
+        await application.RunAsync(["status", "--root", root.Path, "--task", "T1"], CancellationToken.None);
+
+        Assert.Null(JsonNode.Parse(output.ToString())!["owed"]);
+    }
+
+    [Fact]
+    public async Task StatusReportsOwedCountsAndNoDerivedVerdict()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var application = new CliApplication(
+            output, TextWriter.Null, Service,
+            _ => new FixedResultAdapter(AgentRunStatus.Completed), new ContextAssembler());
+        await application.RunAsync(
+            ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--id", "C1", "--statement", "Unearned assumption"], CancellationToken.None);
+
+        output.GetStringBuilder().Clear();
+        await application.RunAsync(["status", "--root", root.Path, "--task", "T1"], CancellationToken.None);
+
+        var owed = JsonNode.Parse(output.ToString())!["owed"]!.AsObject();
+        Assert.Equal(1, owed["openClaims"]!.GetValue<int>());
+        // Counts only. No score, no colour, no health word, and no field whose value is fixed by the
+        // condition under which the node is written.
+        Assert.Equal(
+            new[] { "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "workItemsAwaitingVerification" },
+            owed.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray());
+    }
 
     private sealed class CapturingAdapter : IAgentAdapter
     {

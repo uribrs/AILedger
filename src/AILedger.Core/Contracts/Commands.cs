@@ -57,7 +57,8 @@ public sealed record AddClaimCommand(
     string CorrelationId,
     ClaimId ClaimId,
     string Statement,
-    string? ConsequenceIfWrong) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? ConsequenceIfWrong,
+    LessonId? FromLesson = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record ResolveClaimCommand(
     ActorId ActorId,
@@ -87,7 +88,8 @@ public sealed record ProposeDecisionCommand(
     string Statement,
     string Rationale,
     IReadOnlyList<ClaimId> DependsOnClaims,
-    DecisionId? Supersedes) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    DecisionId? Supersedes,
+    LessonId? FromLesson = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record ResolveDecisionCommand(
     ActorId ActorId,
@@ -149,7 +151,10 @@ public sealed record CompleteRunCommand(
     AgentRunStatus Status,
     string? ProviderSessionId,
     // Plaintext, held only in the launching process. Never persisted.
-    string? LaunchToken = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? LaunchToken = null,
+    // The brief this run was handed, known to the launcher only after the run started.
+    string? ManifestHash = null,
+    int? ManifestArtifactCount = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RequestStageTransitionCommand(
     ActorId ActorId,
@@ -187,7 +192,8 @@ public sealed record RecordAlternativeCommand(
     AlternativeId AlternativeId,
     string Statement,
     string RejectionRationale,
-    DecisionId? ReplacedByDecisionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    DecisionId? ReplacedByDecisionId,
+    LessonId? FromLesson = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RecordArtifactCommand(
     ActorId ActorId,

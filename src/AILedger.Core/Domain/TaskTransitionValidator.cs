@@ -685,6 +685,7 @@ internal static class TaskTransitionValidator
 
     private static void ValidateClaimAdded(GovernedTaskState state, LedgerEvent @event, Claim claim)
     {
+        EnsureCitedLessonWasRecalled(state, claim.FromLesson);
         RequireAuthority(state, @event.ActorId, Capability.AddClaim);
         EnsureNew(state.Claims, claim.Id, "claim");
         RequireId(claim.Id.Value, nameof(claim.Id));
@@ -801,6 +802,7 @@ internal static class TaskTransitionValidator
 
     private static void ValidateDecisionProposed(GovernedTaskState state, LedgerEvent @event, Decision decision)
     {
+        EnsureCitedLessonWasRecalled(state, decision.FromLesson);
         RequireAuthority(state, @event.ActorId, Capability.ProposeDecision);
         EnsureNew(state.Decisions, decision.Id, "decision");
         RequireId(decision.Id.Value, nameof(decision.Id));
@@ -1123,6 +1125,37 @@ internal static class TaskTransitionValidator
         {
             throw new GovernanceException("Run completion session identity does not match the started run.");
         }
+
+        ValidateManifestRecord(completed.ManifestHash, completed.ManifestArtifactCount);
+    }
+
+    // Mirrors RunRules.EnsureManifestRecordIsWellFormed. Safe to write here by construction rather
+    // than by exemption: both fields are absent on every run.completed already on disk, so a
+    // history recorded before they existed takes the early return and replays unchanged.
+    private static void ValidateManifestRecord(string? manifestHash, int? artifactCount)
+    {
+        if (manifestHash is null && artifactCount is null)
+        {
+            return;
+        }
+
+        if (manifestHash is null || artifactCount is null)
+        {
+            throw new GovernanceException(
+                "A run's manifest hash and manifest artifact count must be recorded together.");
+        }
+
+        if (manifestHash.Length != 64 || !manifestHash.All(character =>
+                character is >= '0' and <= '9' or >= 'a' and <= 'f'))
+        {
+            throw new GovernanceException(
+                "A run's manifest hash must be 64 lowercase hexadecimal characters.");
+        }
+
+        if (artifactCount < 0)
+        {
+            throw new GovernanceException("A run's manifest artifact count cannot be negative.");
+        }
     }
 
     private static void ValidateStageTransitioned(
@@ -1278,11 +1311,26 @@ internal static class TaskTransitionValidator
         }
     }
 
+    private static void ValidateAlternativeRecordedCitation(GovernedTaskState state, Alternative alternative) =>
+        EnsureCitedLessonWasRecalled(state, alternative.FromLesson);
+
+    // Mirrors LessonCitationRules.EnsureCitedLessonWasRecalled. Safe here by construction: no
+    // claim, decision or alternative already on disk carries FromLesson, so every existing history
+    // passes the null branch untouched.
+    private static void EnsureCitedLessonWasRecalled(GovernedTaskState state, LessonId? fromLesson)
+    {
+        if (fromLesson is { } lessonId)
+        {
+            _ = Get(state.Lessons, lessonId, "recalled lesson");
+        }
+    }
+
     private static void ValidateAlternativeRecorded(
         GovernedTaskState state,
         LedgerEvent @event,
         Alternative alternative)
     {
+        ValidateAlternativeRecordedCitation(state, alternative);
         RequireAuthority(state, @event.ActorId, Capability.RecordAlternative);
         EnsureNew(state.Alternatives, alternative.Id, "alternative");
         RequireId(alternative.Id.Value, nameof(alternative.Id));

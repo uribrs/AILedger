@@ -61,7 +61,14 @@ public sealed record ChallengeDisposed(ChallengeId ChallengeId, ChallengeStatus 
 public sealed record WorkItemAdded(WorkItem WorkItem) : LedgerEventData;
 public sealed record WorkItemInvalidated(WorkItemId WorkItemId, ClaimId RejectedClaimId, WorkItemStatus Status) : LedgerEventData;
 public sealed record RunStarted(AgentRun Run) : LedgerEventData;
-public sealed record RunCompleted(RunId RunId, AgentRunStatus Status, string? ProviderSessionId, DateTimeOffset EndedAt, bool LauncherAuthorized = false) : LedgerEventData;
+public sealed record RunCompleted(
+    RunId RunId,
+    AgentRunStatus Status,
+    string? ProviderSessionId,
+    DateTimeOffset EndedAt,
+    bool LauncherAuthorized = false,
+    string? ManifestHash = null,
+    int? ManifestArtifactCount = null) : LedgerEventData;
 public sealed record StagePrerequisitesWaived(TaskStage TargetStage, string Reason) : LedgerEventData;
 public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
 public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;

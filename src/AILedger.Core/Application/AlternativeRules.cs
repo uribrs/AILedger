@@ -16,6 +16,7 @@ internal static class AlternativeRules
         EnsureNew(state.Alternatives, command.AlternativeId, "alternative");
         RequireText(command.Statement, nameof(command.Statement));
         RequireText(command.RejectionRationale, nameof(command.RejectionRationale));
+        LessonCitationRules.EnsureCitedLessonWasRecalled(state, command.FromLesson);
     
         if (command.ReplacedByDecisionId is { } decisionId)
         {
@@ -27,7 +28,8 @@ internal static class AlternativeRules
             command.Statement.Trim(),
             command.RejectionRationale.Trim(),
             command.ReplacedByDecisionId,
-            new Provenance(command.ActorId, now, "alternative.record"));
+            new Provenance(command.ActorId, now, "alternative.record"),
+            command.FromLesson);
         return [new AlternativeRecorded(alternative)];
     }
 }
