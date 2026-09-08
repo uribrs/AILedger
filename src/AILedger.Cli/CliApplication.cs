@@ -28,6 +28,10 @@ public sealed class CliApplication
     private readonly IContextAssembler _contextAssembler;
     private readonly CognitiveArtifactLoader _artifactLoader;
     private readonly JsonSerializerOptions _json;
+    // Telemetry beside the event log, never part of it. Nothing here reads it back: the refusals a
+    // launch records are for a later retrospective, and a gate that scored them would be a gate an
+    // agent could optimise (K1).
+    private readonly RefusalJournal _refusalJournal = new();
 
     // A factory that takes only the ledger root builds a service with no lesson store, so recall
     // reaches this root's own archived tasks and nothing else — the behaviour before lessons crossed
@@ -831,7 +835,22 @@ public sealed class CliApplication
         var requestedWorkItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
         // Authority and scope are settled before an adapter is resolved or any process spawned: a
         // request that will be refused should cost neither.
-        var grants = ResolveProviderGrants(launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
+        ProviderGrants grants;
+        try
+        {
+            grants = ResolveProviderGrants(launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
+        }
+        catch (GovernanceException refusal)
+        {
+            // The seven authority-and-scope refusals decided here submit no command and start no
+            // run, so the journal's service site never sees them and a journal without this one
+            // reads as complete while missing the refusals a retrospective values most (C11). Three
+            // of the operator's own saved lessons were learned by hitting this method.
+            await JournalLaunchRefusalAsync(
+                input, mode, ledgerRoot, launchState.Version, refusal).ConfigureAwait(false);
+            throw;
+        }
+
         var adapter = _adapterFactory(provider);
         var executable = ExecutableResolver.Resolve(provider, input.Optional("executable"));
         // Probed before the run is recorded, so the ledger knows which cognition ran even if the
@@ -881,6 +900,16 @@ public sealed class CliApplication
         }
         catch (Exception launchException)
         {
+            // Recorded before the cleanup, because the cleanup can fail and the refusal happened
+            // either way. Only a governance refusal is journalled: --timeout-seconds is parsed
+            // inside the request construction above, so a CliUsageException arrives here too, and a
+            // malformed command line is a typing mistake rather than a gate that fired.
+            if (launchException is GovernanceException refusal)
+            {
+                await JournalLaunchRefusalAsync(
+                    input, mode, ledgerRoot, started.State.Version, refusal).ConfigureAwait(false);
+            }
+
             try
             {
                 var status = launchException is OperationCanceledException
@@ -963,6 +992,31 @@ public sealed class CliApplication
                 $"Provider run '{result.RunId}' ended with status '{result.Status}'.");
         }
     }
+
+    // The launch site holds no mutation lease, so it appends through the journal's locking method:
+    // two unsynchronised processes lose or truncate rows at every size measured. That method bounds
+    // its own wait and swallows its own failures, which is why there is no try/catch and no timeout
+    // here — on a refusal path the operator is already waiting to be told what was refused, and a
+    // telemetry row must neither delay that message nor replace it with an I/O error (R18).
+    private Task JournalLaunchRefusalAsync(
+        CommandLine input,
+        AgentLaunchMode mode,
+        string ledgerRoot,
+        long taskVersion,
+        GovernanceException refusal) =>
+        _refusalJournal.TryAppendUnderTaskLockAsync(
+            new TaskWorkspacePathResolver(ledgerRoot).Resolve(Task(input)),
+            new RefusalRecord(
+                DateTimeOffset.UtcNow,
+                // Who was refused, which is the actor that issued the launch — not the subject it
+                // would have run for. The service site records the same thing.
+                Actor(input),
+                mode == AgentLaunchMode.Resume ? "provider resume" : "provider launch",
+                RefusalSite.ProviderLaunch,
+                taskVersion,
+                // The gate's own text, verbatim. A category derived from it would be a second,
+                // looser model of what the gate requires (C5).
+                refusal.Message));
 
     private static async Task CompleteRunWithFreshTokenAsync(
         IGovernedTaskService service,

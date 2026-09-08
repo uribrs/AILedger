@@ -3,12 +3,11 @@ using AILedger.Storage;
 
 namespace AILedger.Tests;
 
-// This assembly is also a probe process. RefusalJournalTests has to prove that two operating-system
-// processes appending to one task's journal both land a complete row, and a same-process test cannot
-// prove it: the single-process path was never broken (VE5), so such a test passes against the
-// unrepaired writer as well. Nothing else in this solution both references AILedger.Storage and is
-// free to call the journal — the CLI's launch site belongs to work item W2 — so the test spawns this
-// assembly and asks it to append.
+// This assembly is also a probe process. RefusalJournalConcurrencyTests has to prove what a second
+// operating-system process appending to one task's journal sees while the task lock is held, and a
+// same-process test cannot prove it: the single-process path was never broken (VE5), so such a test
+// passes against the unrepaired lock-free writer as well. So the test holds the lock and spawns this
+// assembly as the writer.
 //
 // With no probe argument Main returns 0, which is the same empty entry point a test project has
 // anyway: the test runners load the assembly and never call it.
