@@ -10,8 +10,8 @@ Status as of 2026-09-09. `done` means the governed task reached stage `archive`.
 | 4 | kernel-version-stamp | `2026-09-07_2136-kernel-version-stamp` | **done** | archived with no waiver. The version half already shipped in `install.sh`; this added `ailedger version` and the staleness warning. 5 runs, 4 lessons. Eight defects found by the working, verifier and reviewer runs — including the feature being entirely non-functional on a clean tree, and four separate tests that passed while proving nothing. Scoped to `src/AILedger.Cli` and `tests` only, ahead of self-scoring, because scope occupancy is per-task (LC2). |
 | 5 | record-the-refusals | `2026-09-08_1048-refusal-journal` | **done** | archived with no waiver. 16 runs, 2 work items, 42 claims, 62 evidence, 8 decisions, 11 alternatives, 2 challenges, 10 lessons. Both write sites shipped: 141 command-time rules at the service, and the seven authority-and-scope refusals `ResolveProviderGrants` decides before `run.start`. Two repair cycles — a concurrent append that unit tests passed over, and a public method that verification passed over. Seven new backlog entries came out of it, items 21 to 24 plus three earlier. |
 | 6 | see-inside-a-run | `2026-09-08_1428-run-cost` | **done** | **blocks 9.** `AgentRunResult` carries the provider's own event stream — turns, tool calls, tokens — and the launcher wrote it to stdout and dropped it. 187 runs, 0 with cost recorded, which is the measurement that proves the governance-cost dimension is dark. W1 shipped the event fields and the reader; W2's worker run landed the launcher half and 16 tests and is with the verifier. Two follow-ons and two live defects came out of it: 30 and 31 below, plus claude's `total_cost_usd` and `subagent_stats` on the same event. |
-| 7 | measure-before-scoring | not opened | open | **blocks 9.** the deterministic half of the retrospective: counts, durations and the causal chains the log can already join. no model, no scores. also the diagnostic — 198 of 205 resolved claims validated, 11 refuting evidence records in 558, 2 causal-chain events in the whole corpus. reads 5 and 6. **the diagnostic has now been run by hand over three archived tasks** and the entry carries the result: 4 of 10 dimensions answerable, cost null on all 44 runs, the coordinator writing 78% of events with no run to hold them, dimension 9 scoring every task alike, and the proposed validation set only partly scoreable because `stage-arms` predates both the refusal journal and `manifestHash`. calibration has to run forward, not backward. |
-| 8 | route-the-workflow-lesson | not opened | open | **blocks 9's output half.** a WorkflowLesson has no kind field and no recall route; recall is repo-tag filtered with 10 slots, so one either never matches or displaces the domain lessons that describe the code. independent of 5, 6 and 7. |
+| 7 | measure-before-scoring | `2026-09-09_1010-retrospective-projection` | **done** | archived with four waivers — Research, Design, Scope, Execution — the same four as 6 and for the same reasons: no open claim left, no Researcher run staffed, no `PromptContract` or `UserRequest` ever filed. delivered `TaskRetrospective` and `retrospective build`: counts, durations, causal chains, refusals, stages with waiver reasons verbatim, evidence by source type, and a required `notMeasured` list. **15 runs, 4 of which bought no finding; 40 claims all validated; 58 evidence across four source types; 4 lessons minted.** the code reviewer found RC1 after three verifier passes over the same code — a present-but-partly-unreadable refusal journal read as a complete measurement — and repairing it cost a whole extra work item because scope cannot be widened (row 41). two runs died to the 1 MiB line limit (row 42). its own first output names exactly two things it cannot measure: `coordinatorCost` and `outcomeQuality`. |
+| 8 | route-the-workflow-lesson | `2026-09-09_1606-workflow-lesson-routing` | **in progress** | **blocks 9's output half.** a WorkflowLesson has no kind field and no recall route; recall reads tags now (item 25 fixed that today) but with 10 slots a workflow lesson either never matches or displaces the domain lessons that describe the code. four work items: kind plus audience on `Lesson` and `LessonMark`, a derived task shape, a separate recall budget keyed on shape, and — found by this task's own recall on its first minute — **a verify command that can fail.** `C1`: `RequireCheckableVerify` demands a runnable command and cannot demand a falsifiable one, so `stage-arms:C1` still passes its own grep while asserting the opposite of the code it cites. a stale lesson with a green check is worse than an empty slot. independent of 5, 6 and 7. |
 | 9 | score-the-governance | `2026-09-07_2136-workflow-retrospective` | open | the self-scoring capability. `self-scoring.md` is the rubric and the authority on what the dimensions mean; `score-the-governance.md` is the shape and the order. blocked on 5 to 8: its two headline dimensions — governance effectiveness and governance cost — are the two the ledger currently cannot measure. and blocked on 21 for the same reason 8 is empty: the coordinator's own cost is unrecordable while a coordinator holds no closeable run. |
 | 10 | single-agent-relaxation | `2026-09-07_2136-single-provider-mode` | open | |
 | 11 | attention-items-as-a-gate | `2026-09-07_2136-attention-item-gate` | open | |
@@ -87,72 +87,47 @@ three times.
 `self-scoring.md` has no row of its own. It is the rubric item 9 is built to satisfy, not a
 separate piece of work, and it stays the authority on what the dimensions mean.
 
-## Item 7, where to resume
+## Item 7, as it closed
 
-`2026-09-09_1010-retrospective-projection` is live at Discovery. **The code is delivered and on
-main** — `TaskRetrospective` and `retrospective build`, commits `71d271c`, `abf4c5c`, `2f99f73`,
-605 tests passing, installed as `2.0.70`. It is **not closed out**: no lesson marks, stage still
-Discovery.
+`2026-09-09_1010-retrospective-projection` is archived. Six work items: W2, W3, W4 and W6
+completed; W1 released for naming an alternative that justified nothing about scope; W5 released
+because its two areas did not reach where its own code review's finding lived.
 
-    W1  abandoned    named ALT2 as its split justification, which justifies nothing about scope
-    W2  completed    the projection — verified twice, one repair round from VC1/VC2/VC3
-    W3  completed    the command that prints it
-    W4  completed    evidence counted by source type, from the operator's retracted judgement C6
-    W5  abandoned    opened only to host a code review, because completing every item first
-                     closes every route to one (C9). released because its two areas did not
-                     reach where the review's finding lived — C10, and row 41
-    W6  active       RC1's repair, holding src/AILedger.Core, src/AILedger.Cli and tests,
-                     with ALT4 recording why the patch is not split by project
+It shipped `TaskRetrospective` and `retrospective build` — counts, durations, the causal chains the
+log can join, refusals, stage transitions with their waiver reasons verbatim, evidence keyed by
+source type, and a required `notMeasured` list. No score, no grade, no model.
 
-**The repair is running as R13 on W6.** `K15` is the brief and it is active, so a launched worker
-reads it from its own manifest. The defect, found by code reviewer R12 after three verifier passes
-over the same code: the refusal reader returns null only when the journal is absent, so a present
-journal with one malformed row is reported as a complete measurement of fewer refusals than the
-task took. Three states are needed, not two, and `notMeasured` must name the partial case the way
-it already names `coordinatorCost` and `outcomeQuality`.
+Its first output on its own record: 40 claims all validated, 58 evidence across four source types
+(test-run 18, source-read 17, live-run 13, local-probe 10), 16 refusals with zero unreadable rows,
+11 stage transitions with 4 waivers, 4 lessons minted. `notMeasured` names exactly two things —
+`coordinatorCost` and `outcomeQuality`.
 
-The reader is in `src/AILedger.Cli` and the `notMeasured` list is in `src/AILedger.Core`, which
-`W5` did not hold. Scope is fixed at `work add` and `ResolveProviderGrants` refuses anything
-outside it, so `W5` was released and `W6` opened over all three areas. That released `W5`'s
-completed verifier run and its completed review, which is the cost row 41 was opened for.
+**Four lessons minted:** C5 (one overlong line destroys a run), C6 (outcome quality belongs to the
+scorer — a retracted coordinator judgement, kept so the correction is inherited), C7 (evidence by
+source type), C9 (completing every item closes every route to a review).
 
-    launch  provider launch --subject claude-impl --run R13 --work W6 --provider claude
-            --working-directory src/AILedger.Core --add-dir src/AILedger.Cli --add-dir tests
-    then    a codex verifier on W6, then work complete W6
+**Two defects found and filed rather than fixed:** row 41, scope cannot be widened, so a
+cross-project review finding costs a whole work-item cycle; row 42, one line above 1 MiB ends a run
+with nothing recorded, which killed two verifiers here.
 
-**Then closeout. The four marks are chosen and their verify commands already resolve:**
-
-    C5  one stdout line above 1 MiB destroys a whole provider run, while an unparseable
-        line is tolerated — the same asymmetry as C27, and how R6 died
-    C6  outcome quality is out of scope for the projection and in scope for the scorer;
-        a retrospective that never asks whether the result was proven optimises toward
-        ceremony. A retracted coordinator judgement, kept so the correction is inherited
-    C7  evidence by source type is the deterministic input that question needs; seventeen
-        spellings had drifted across four real kinds
-    C9  completing every work item before dispatching a reviewer closes every route to a
-        governed review — a trap row 1 of this table already recorded
-
-Four, not eight: item 5 minted ten and consumed item 6's entire recall budget, which is what item
-25 was opened to fix.
-
-**The archive walk needs four waivers**, the same four as item 6 and for the same reasons — no open
-claim is left for Research, no Researcher run was staffed, and no `PromptContract` or `UserRequest`
-was ever filed; filing them now would backdate documents to describe verified work. `Ready`,
-`Verification`, `Repair`, `Review`, `Learn` and `Archive` all pass unwaived. The graph refuses
-`Repair → Review`: you leave repair by re-verifying, so the walk is Verification → Repair →
-Verification → Review → Learn → Archive.
+**One thing that paid off unasked:** verifier R15 used W6's `baseRef` — the field this task's own
+W3 added — to define its comparison tree without being told to. A role that never requested the
+feature made it load-bearing.
 
 ### What item 7 cost
 
-    12 runs   3 worker, 5 verifier, 1 reviewer, 1 operator filing run, 1 refused launch,
-              1 killed by the 1 MiB line limit
+    15 runs   5 worker, 8 verifier, 1 code reviewer, 1 operator filing run
+              11 completed, 1 cancelled, 1 failed, 2 protocolError — a 27% loss rate
     findings  verifier 3 on W2, plus a FAIL on W4 discharged by reinstalling and proving it;
               reviewer 1 Major after three verifier passes; worker 2 volunteered as
               unpinnable-and-here-is-why (IC10, IC18)
+    tokens    94,512,182 cache read against 895,044 uncached — 106 : 1
+              389,790 output; turns measured on 5 of 12, because codex reports none
+    span      4.3h elapsed, 3.0h of it with an agent actually running
 
-Four of the twelve runs bought no finding: the operator run that structurally cannot close (item
-21), a verifier killed by the line limit (C5), a verifier refused its artifact because the
-coordinator had filed no plan, and a reviewer launch refused at a completed item (C9).
+Five of the fifteen runs bought no finding: the operator run that structurally cannot close (item
+21), **two** verifiers killed by the line limit (C5, and row 42), a verifier refused its artifact
+because the coordinator had filed no plan, and a reviewer launch refused at a completed item (C9).
 
 ## Item 6, as it closed
 
