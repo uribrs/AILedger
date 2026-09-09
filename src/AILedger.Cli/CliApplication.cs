@@ -203,6 +203,9 @@ public sealed class CliApplication
             case "task history":
                 await WriteHistoryAsync(service, input, cancellationToken).ConfigureAwait(false);
                 break;
+            case "retrospective build":
+                await WriteRetrospectiveAsync(service, input, ledgerRoot, cancellationToken).ConfigureAwait(false);
+                break;
             case "actor attach":
                 await AttachActorAsync(service, input, cancellationToken).ConfigureAwait(false);
                 break;
@@ -616,6 +619,72 @@ public sealed class CliApplication
         }
 
         await WriteJsonAsync(projection).ConfigureAwait(false);
+    }
+
+    // Read-only, run after the fact, and deliberately not fired from the archive transition:
+    // archiving mints lessons inside one event batch, and a detached process on that path buys a
+    // half-written retrospective on a successfully archived task and a failure mode with nowhere to
+    // report (ALT1). It refuses nothing and requires no capability beyond what status requires, so
+    // an archived task can be measured without being touched.
+    private async Task WriteRetrospectiveAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        string ledgerRoot,
+        CancellationToken cancellationToken)
+    {
+        var taskId = Task(input);
+        var state = await RequireStateAsync(service, taskId, cancellationToken).ConfigureAwait(false);
+        // The whole log, not a window over it: the causal chains the projection joins — which
+        // rejected claim invalidated which decision, which challenge overturned which decision —
+        // are carried in the events and are absent from state (C2).
+        var history = new List<LedgerEvent>();
+        await foreach (var @event in service.GetHistoryAsync(taskId, cancellationToken).ConfigureAwait(false))
+        {
+            history.Add(@event);
+        }
+
+        var refusals = await ReadRefusalsAsync(ledgerRoot, taskId).ConfigureAwait(false);
+        await WriteJsonAsync(TaskRetrospective.Build(state, history, refusals)).ConfigureAwait(false);
+    }
+
+    // Null when the journal is absent, so a task recorded before the journal existed reports
+    // refusals as unmeasured rather than as a measured zero. A row this reader cannot parse is
+    // skipped rather than failing the command: the journal is telemetry beside the log, nothing in
+    // the kernel gates on it, and it can be absent, stale or truncated with no consequence for task
+    // truth.
+    private static async Task<IReadOnlyList<RetrospectiveRefusal>?> ReadRefusalsAsync(
+        string ledgerRoot,
+        TaskId taskId)
+    {
+        var path = RefusalJournal.ResolvePath(new TaskWorkspacePathResolver(ledgerRoot).Resolve(taskId));
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var options = LedgerJson.CreateOptions();
+        var refusals = new List<RetrospectiveRefusal>();
+        foreach (var line in await File.ReadAllLinesAsync(path).ConfigureAwait(false))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (JsonSerializer.Deserialize<RefusalRecord>(line, options) is { } record)
+                {
+                    refusals.Add(new RetrospectiveRefusal(record.ActorId, record.Command, record.Site));
+                }
+            }
+            catch (JsonException)
+            {
+                // A row this reader cannot parse is a row it did not measure.
+            }
+        }
+
+        return refusals;
     }
 
     private async Task RecordArtifactAsync(
@@ -1463,7 +1532,7 @@ public sealed class CliApplication
     private static readonly IReadOnlySet<string> ReadOnlyCommands = new HashSet<string>(StringComparer.Ordinal)
     {
         "version", "status", "task status", "who", "audit", "history", "task history",
-        "context build", "artifact show", "artifact list"
+        "context build", "artifact show", "artifact list", "retrospective build"
     };
 
     // The ledger home is a real repository the operator opens a session in, so the root is found by
@@ -1530,6 +1599,7 @@ public sealed class CliApplication
             ["task status"] = Options("root", "task", "actor"),
             ["history"] = Options("root", "task", "actor", "follow", "since"),
             ["task history"] = Options("root", "task", "actor", "follow", "since"),
+            ["retrospective build"] = Options("root", "task", "actor"),
             ["actor attach"] = Options(
                 "root", "task", "actor", "target", "role", "capability", "cause", "correlation"),
             ["context build"] = Options("root", "task", "actor", "work", "cognitive-root", "output"),
@@ -1764,6 +1834,11 @@ public sealed class CliApplication
                            Role coverage names, per role, the actors assigned to it and whether a
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
+        retrospective build --task ID   (what governance did on one task and what it cost)
+                           Counts, durations and the causal chains the log can join, with no score,
+                           grade or overall number anywhere, and a notMeasured list naming what this
+                           task's record cannot answer. It is a read: run it after the fact, and
+                           never from inside the archive transition.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
         artifact record    --task ID --actor ID --id ID --kind KIND --title TEXT --body-stdin
