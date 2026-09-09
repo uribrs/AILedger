@@ -43,6 +43,7 @@ Status as of 2026-09-09. `done` means the governed task reached stage `archive`.
 | 36 | the-ledger-is-written-at-the-end-or-not-at-all | not opened | open | median first ledger write lands at **72% of run duration** across 249 runs (p25 36%, p75 83%); R26 wrote all ten of its records in 78 seconds after fifteen minutes of work. **50 runs recorded nothing at all** — 19 of 30 failed, 16 of 43 cancelled. `CLAUDE.md` asks for the claim before the work; measured, it arrives after. `millisecondsToFirstLedgerWrite` cannot support the follow-up because its null means four different things. |
 | 37 | what-a-run-actually-costs | measurement | **read for 7 and 9** | not work to do. the first five runs with cost fields, read: the **fixed brief is ~56%** of a run's cost, the agent's own output ~24%, everything it read with tools 22% — of which whole-file reads are 70% on a coding run and raw `events.jsonl` digging is 96% on an analysis run. the manifest measured 36,000 tokens, 92% artifacts, re-read every turn. summing the buckets overstates 7.2-8.7×, confirming C7. also carries the settled decision that the embedding index updates at run close, not per edit, and why. |
 | 38 | *no entry file* | `2026-09-09_0858-provider-launch-preflight` | open | provider launch authentication and sandbox preflight — refuse before the run exists when auth or sandbox access is unavailable. third of the three preflight concerns, alongside 28 (host capacity) and 34 (scope reachability); they are the same gate and should probably be one. |
+| 39 | standalone-semantic-memory | `2026-09-08_1909-standalone-memory-index` | **merged, disengaged** | phase 0/1 delivered and now on this branch: an explicit seven-command SQLite/FTS5 shadow index over ledger histories, lessons and refusal journals, with exact-vector fusion and an evaluation harness whose baseline is the current tag-and-recency recall. Nothing in the kernel reads it — the boundary is a package boundary and `ShadowBoundaryTests` asserts it. **The value question is untouched:** no embedding model is installed (`ollama list` holds only `phi4`, a chat model), the three database identities under the platform data directory are empty, `ailedger-memory` is not installed, and the evaluation set is ten fixtures rather than real records. Phase 2 is repository ingestion, specified and unbuilt. Activation needs a live model-identified evaluation that beats the baseline, plus explicit authorization — see the entry's activation gates. |
 
 ## Ordering notes
 
@@ -58,6 +59,11 @@ now. Placing them at the end preserves every existing relative order rather than
 one; both are small and both are live pain, so moving them up is a reasonable call to make.
 
 Items 7, 8 and 19 to 27 have no governed task yet.
+
+Item 39 is delivered and deliberately disengaged. Its code is merged so the merge cost stops
+growing — 26 commits had landed since its branch point and only this file conflicted — not
+because activation is near. Shadow mode is what makes landing it safe; the activation gates in
+its own entry are unchanged and unmet.
 
 Item 5 is done. Its own numbers are the first measured baseline for what a governed pass costs:
 1h51m of agent execution across 16 runs, 3h20m wall clock, for a 78-line writer plus two

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "durable-records-v1",
+  "cases": [
+    {
+      "id": "exact-identifier",
+      "query": "D-MEMORY-1",
+      "expectedDocumentIds": ["fixture-decision-current"],
+      "expectedCitationRecordIds": ["D-MEMORY-1"],
+      "kinds": ["Decision"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "exact-error-message",
+      "query": "Verifier run required before work completion",
+      "expectedDocumentIds": ["fixture-refusal-resolved"],
+      "expectedCitationRecordIds": ["REF-1"],
+      "kinds": ["RefusalChain"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "conceptual-paraphrase",
+      "query": "How can indexing avoid blocking governed writes?",
+      "expectedDocumentIds": ["fixture-constraint-shadow-read"],
+      "expectedCitationRecordIds": ["K-SHADOW"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "newer-superseding-decision",
+      "query": "current memory projection storage decision",
+      "expectedDocumentIds": ["fixture-decision-current"],
+      "expectedCitationRecordIds": ["D-MEMORY-1"],
+      "kinds": ["Decision"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "cross-repository-diversity",
+      "query": "durable lessons shared across repositories",
+      "expectedDocumentIds": ["fixture-lesson-alpha", "fixture-lesson-beta"],
+      "openingTags": ["durable-memory"],
+      "kinds": ["Lesson"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "resolved-refusal",
+      "query": "resolved verifier refusal",
+      "expectedDocumentIds": ["fixture-refusal-resolved"],
+      "expectedCitationRecordIds": ["REF-1"],
+      "kinds": ["RefusalChain"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "unmatched-refusal",
+      "query": "unmatched provider launch refusal",
+      "expectedDocumentIds": ["fixture-refusal-unmatched"],
+      "expectedCitationRecordIds": ["REF-2"],
+      "kinds": ["RefusalChain"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "unsupported-question",
+      "query": "What is the production database password?",
+      "expectedDocumentIds": [],
+      "expectNoSupportedAnswer": true
+    },
+    {
+      "id": "lexical-favored",
+      "query": "checkpointType RefusalJournalCheckpoint",
+      "expectedDocumentIds": ["fixture-artifact-checkpoint"],
+      "kinds": ["Artifact"],
+      "expectNoSupportedAnswer": false
+    },
+    {
+      "id": "semantic-favored",
+      "query": "keep the last good disposable read model when rebuilding fails",
+      "expectedDocumentIds": ["fixture-decision-current"],
+      "kinds": ["Decision"],
+      "expectNoSupportedAnswer": false
+    }
+  ]
+}
