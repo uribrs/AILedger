@@ -85,6 +85,65 @@ three times.
 `self-scoring.md` has no row of its own. It is the rubric item 9 is built to satisfy, not a
 separate piece of work, and it stays the authority on what the dimensions mean.
 
+## Item 7, where to resume
+
+`2026-09-09_1010-retrospective-projection` is live at Discovery. **The code is delivered and on
+main** — `TaskRetrospective` and `retrospective build`, commits `71d271c`, `abf4c5c`, `2f99f73`,
+605 tests passing, installed as `2.0.70`. It is **not closed out**: no lesson marks, stage still
+Discovery.
+
+    W1  abandoned    named ALT2 as its split justification, which justifies nothing about scope
+    W2  completed    the projection — verified twice, one repair round from VC1/VC2/VC3
+    W3  completed    the command that prints it
+    W4  completed    evidence counted by source type, from the operator's retracted judgement C6
+    W5  active       opened only to host a code review, because completing every item first
+                     closes every route to one (C9)
+
+**The next act is a repair run on W5.** `K14` is the brief and it is active, so a launched worker
+reads it from its own manifest. The defect, found by code reviewer R12 after three verifier passes
+over the same code: the refusal reader returns null only when the journal is absent, so a present
+journal with one malformed row is reported as a complete measurement of fewer refusals than the
+task took. Three states are needed, not two, and `notMeasured` must name the partial case the way
+it already names `coordinatorCost` and `outcomeQuality`.
+
+    launch  provider launch --subject claude-impl --run R13 --work W5 --provider claude
+            --working-directory src/AILedger.Core --add-dir tests
+    then    a codex verifier on W5, then work complete W5
+
+**Then closeout. The four marks are chosen and their verify commands already resolve:**
+
+    C5  one stdout line above 1 MiB destroys a whole provider run, while an unparseable
+        line is tolerated — the same asymmetry as C27, and how R6 died
+    C6  outcome quality is out of scope for the projection and in scope for the scorer;
+        a retrospective that never asks whether the result was proven optimises toward
+        ceremony. A retracted coordinator judgement, kept so the correction is inherited
+    C7  evidence by source type is the deterministic input that question needs; seventeen
+        spellings had drifted across four real kinds
+    C9  completing every work item before dispatching a reviewer closes every route to a
+        governed review — a trap row 1 of this table already recorded
+
+Four, not eight: item 5 minted ten and consumed item 6's entire recall budget, which is what item
+25 was opened to fix.
+
+**The archive walk needs four waivers**, the same four as item 6 and for the same reasons — no open
+claim is left for Research, no Researcher run was staffed, and no `PromptContract` or `UserRequest`
+was ever filed; filing them now would backdate documents to describe verified work. `Ready`,
+`Verification`, `Repair`, `Review`, `Learn` and `Archive` all pass unwaived. The graph refuses
+`Repair → Review`: you leave repair by re-verifying, so the walk is Verification → Repair →
+Verification → Review → Learn → Archive.
+
+### What item 7 cost
+
+    12 runs   3 worker, 5 verifier, 1 reviewer, 1 operator filing run, 1 refused launch,
+              1 killed by the 1 MiB line limit
+    findings  verifier 3 on W2, plus a FAIL on W4 discharged by reinstalling and proving it;
+              reviewer 1 Major after three verifier passes; worker 2 volunteered as
+              unpinnable-and-here-is-why (IC10, IC18)
+
+Four of the twelve runs bought no finding: the operator run that structurally cannot close (item
+21), a verifier killed by the line limit (C5), a verifier refused its artifact because the
+coordinator had filed no plan, and a reviewer launch refused at a completed item (C9).
+
 ## Item 6, as it closed
 
 `2026-09-08_1428-run-cost` is archived. 28 runs, three work items: W1 and W3 completed, W2 abandoned
