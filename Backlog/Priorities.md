@@ -45,6 +45,7 @@ Status as of 2026-09-09. `done` means the governed task reached stage `archive`.
 | 38 | *no entry file* | `2026-09-09_0858-provider-launch-preflight` | open | provider launch authentication and sandbox preflight — refuse before the run exists when auth or sandbox access is unavailable. third of the three preflight concerns, alongside 28 (host capacity) and 34 (scope reachability); they are the same gate and should probably be one. |
 | 39 | standalone-semantic-memory | `2026-09-08_1909-standalone-memory-index` | **merged, disengaged** | phase 0/1 delivered and now on this branch: an explicit seven-command SQLite/FTS5 shadow index over ledger histories, lessons and refusal journals, with exact-vector fusion and an evaluation harness whose baseline is the current tag-and-recency recall. Nothing in the kernel reads it — the boundary is a package boundary and `ShadowBoundaryTests` asserts it. **The value question is untouched:** no embedding model is installed (`ollama list` holds only `phi4`, a chat model), the three database identities under the platform data directory are empty, `ailedger-memory` is not installed, and the evaluation set is ten fixtures rather than real records. Phase 2 is repository ingestion, specified and unbuilt. Activation needs a live model-identified evaluation that beats the baseline, plus explicit authorization — see the entry's activation gates. |
 | 40 | staffing-is-a-name-not-a-run | `2026-09-09_1132-ready-arm-staffing` | open | **C1, confirmed in source.** the Ready arm's three staffing refusals read `state.Roles` and ask only that a role has an assigned actor — no run, no engagement. on `2026-09-09_0812-cortex-asset-duplication` Ready passed with Worker, ImplementationLead and CodeReviewer staffed solely by `probe-*` actors created while discovering the role vocabulary, all `engaged=False`, none ever holding a run. `who` already computes engagement and means *a completed run* by it — Verifier read `engaged=False` there while `RV1` existed, because `RV1` failed — so the concept, the computation and the display are all present and the arm is the only place that does not ask. distinctness is safe by construction, not by check. same class as 22, and the mirror of 29: an arm passed by decoration and an arm never reached are one hole from two sides. **cheap half:** give `actor attach` a dry run or list the roles in `--help`; the junk actors existed only because the vocabulary could not be discovered otherwise, and both `planningLead` and `planning-lead` are accepted. |
+| 41 | scope-cannot-be-widened-after-review | `2026-09-09_1010-retrospective-projection` | open | **C10, measured on item 7's own closeout.** a work item's areas are fixed at `work add` and `ResolveProviderGrants` refuses any granted directory outside them, so the item that hosted a code review cannot host the repair when the finding crosses a project boundary. `W5` held `src/AILedger.Core` and `tests`; `RC1` lives half in `src/AILedger.Cli`. releasing the item threw away its completed verifier run and its completed review — **a reviewer's cross-project finding costs a full work-item cycle, and the deeper the review looked the likelier it crossed one.** nothing distinguishes an item abandoned as a dead end from one abandoned as a mis-scope. same field failing as 34, from the other direction: occupancy and brief are two jobs on one `--scope`. |
 
 ## Ordering notes
 
@@ -96,19 +97,27 @@ Discovery.
     W2  completed    the projection — verified twice, one repair round from VC1/VC2/VC3
     W3  completed    the command that prints it
     W4  completed    evidence counted by source type, from the operator's retracted judgement C6
-    W5  active       opened only to host a code review, because completing every item first
-                     closes every route to one (C9)
+    W5  abandoned    opened only to host a code review, because completing every item first
+                     closes every route to one (C9). released because its two areas did not
+                     reach where the review's finding lived — C10, and row 41
+    W6  active       RC1's repair, holding src/AILedger.Core, src/AILedger.Cli and tests,
+                     with ALT4 recording why the patch is not split by project
 
-**The next act is a repair run on W5.** `K14` is the brief and it is active, so a launched worker
+**The repair is running as R13 on W6.** `K15` is the brief and it is active, so a launched worker
 reads it from its own manifest. The defect, found by code reviewer R12 after three verifier passes
 over the same code: the refusal reader returns null only when the journal is absent, so a present
 journal with one malformed row is reported as a complete measurement of fewer refusals than the
 task took. Three states are needed, not two, and `notMeasured` must name the partial case the way
 it already names `coordinatorCost` and `outcomeQuality`.
 
-    launch  provider launch --subject claude-impl --run R13 --work W5 --provider claude
-            --working-directory src/AILedger.Core --add-dir tests
-    then    a codex verifier on W5, then work complete W5
+The reader is in `src/AILedger.Cli` and the `notMeasured` list is in `src/AILedger.Core`, which
+`W5` did not hold. Scope is fixed at `work add` and `ResolveProviderGrants` refuses anything
+outside it, so `W5` was released and `W6` opened over all three areas. That released `W5`'s
+completed verifier run and its completed review, which is the cost row 41 was opened for.
+
+    launch  provider launch --subject claude-impl --run R13 --work W6 --provider claude
+            --working-directory src/AILedger.Core --add-dir src/AILedger.Cli --add-dir tests
+    then    a codex verifier on W6, then work complete W6
 
 **Then closeout. The four marks are chosen and their verify commands already resolve:**
 
