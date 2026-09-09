@@ -218,7 +218,8 @@ public static class TaskRetrospective
                 evidence.Count(item => item.Supports.Count > 0 && item.Refutes.Count == 0),
                 evidence.Count(item => item.Refutes.Count > 0 && item.Supports.Count == 0),
                 evidence.Count(item => item.Supports.Count > 0 && item.Refutes.Count > 0),
-                evidence.Count(item => item.Supports.Count == 0 && item.Refutes.Count == 0)),
+                evidence.Count(item => item.Supports.Count == 0 && item.Refutes.Count == 0),
+                CountBy(evidence, item => CanonicalSourceType(item.SourceType))),
             new RetrospectiveDecisions(
                 state.Decisions.Values.Count(decision => decision.Status == DecisionStatus.Proposed),
                 state.Decisions.Values.Count(decision => decision.Status == DecisionStatus.Accepted),
@@ -487,6 +488,50 @@ public static class TaskRetrospective
         return notMeasured;
     }
 
+    // How the evidence was obtained, which is the one deterministic input the outcome dimension of
+    // self-scoring needs and the projection did not hold (C7). A task whose claims all rest on source
+    // reads, with no test run and no live run anywhere, demonstrated nothing empirical — and until
+    // this count existed nothing in the record said so.
+    //
+    // It is a count and it stays one (D2, ALT2). The keys are emitted in the same alphabetical order
+    // CountBy gives every other map here, deliberately not in order of evidential strength; no key is
+    // weighted, and nothing combines them into a single figure. Ranking them into tiers is the
+    // scoring agent's step, and it has the operator's own evidence hierarchy to rank them with. A
+    // tier ordering stated here would be the number ALT2 refuses, wearing a different name.
+    //
+    // Nine of the seventeen spellings E8 found name three kinds between them, so spelling is
+    // canonicalised and nothing else: the four documentation spellings collapse onto doc-read,
+    // live-probe joins local-probe, and the three community spellings collapse onto
+    // community-consensus. The surviving key in each group is a spelling the corpus already uses, so
+    // this map invents no vocabulary. source-read, local-probe, test-run and live-run stay as
+    // themselves — E8 counted 1324 records under those four and thirteen further spellings sharing
+    // what was left — and they are listed here rather
+    // than left to the fallback only so that case is folded for them as it is for the rest.
+    private static readonly IReadOnlyDictionary<string, string> CanonicalSourceTypes =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["source-read"] = "source-read",
+            ["local-probe"] = "local-probe",
+            ["live-probe"] = "local-probe",
+            ["test-run"] = "test-run",
+            ["live-run"] = "live-run",
+            ["doc-read"] = "doc-read",
+            ["vendor-doc"] = "doc-read",
+            ["official-doc"] = "doc-read",
+            ["vendor-adjacent-doc"] = "doc-read",
+            ["community-consensus"] = "community-consensus",
+            ["community-report"] = "community-consensus",
+            ["community-evidence"] = "community-consensus",
+        };
+
+    // An unrecognised spelling survives verbatim rather than being dropped or bucketed as `other`.
+    // The field is free text — EvidenceRules:17 requires only that it is non-empty — so a spelling
+    // this map does not know is drift in the vocabulary, and drift is the data. A bucket would report
+    // it as noise and hide which way it went; dropping it would make the map's own total disagree
+    // with the evidence total beside it.
+    private static string CanonicalSourceType(string sourceType) =>
+        CanonicalSourceTypes.TryGetValue(sourceType, out var canonical) ? canonical : sourceType;
+
     private static IReadOnlyDictionary<string, int> CountBy<T>(
         IEnumerable<T> items, Func<T, string> key)
     {
@@ -570,8 +615,17 @@ public sealed record RetrospectiveCost(
 
 public sealed record RetrospectiveClaims(int Open, int Validated, int Rejected, int Superseded);
 
+// BySourceType counts the same records as Total, keyed by how each was obtained and canonicalised for
+// spelling only, so the two always agree in sum. The keys are alphabetical and unranked on purpose:
+// which kinds of evidence are worth more is the reader's judgement to make and the scoring agent's
+// step to take, not a figure a projection derives (D2, ALT2).
 public sealed record RetrospectiveEvidence(
-    int Total, int SupportsOnly, int RefutesOnly, int Both, int Neither);
+    int Total,
+    int SupportsOnly,
+    int RefutesOnly,
+    int Both,
+    int Neither,
+    IReadOnlyDictionary<string, int> BySourceType);
 
 public sealed record RetrospectiveDecisions(int Proposed, int Accepted, int Superseded, int Invalidated);
 

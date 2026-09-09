@@ -311,6 +311,172 @@ public sealed class TaskRetrospectiveTests
         Assert.Equal(1, report.Epistemic.Evidence.Neither);
     }
 
+    // C7: a task whose claims all rest on source reads, with no test run and no live run anywhere,
+    // demonstrated nothing empirical. This count is the fact that says so, and this is the shape it
+    // has to have for that reading to be possible at all.
+    [Fact]
+    public void EvidenceIsCountedByHowItWasObtained()
+    {
+        var log = new Log();
+        log.WithEvidence("E1", sourceType: "source-read");
+        log.WithEvidence("E2", sourceType: "source-read");
+        log.WithEvidence("E3", sourceType: "test-run");
+
+        var report = log.Build();
+
+        Assert.Equal(2, report.Epistemic.Evidence.BySourceType["source-read"]);
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["test-run"]);
+
+        // No key for a kind this task never recorded. An absent key means the task obtained no
+        // evidence that way, which is unambiguous — unlike a null cost field, so this map needs no
+        // zeroes to be honest and gets none, for the reason the event count map gets none.
+        Assert.DoesNotContain("live-run", report.Epistemic.Evidence.BySourceType.Keys);
+    }
+
+    // The map counts the same records as Total, so the two agree in sum whatever the spellings were.
+    // A dropped spelling shows up here as the disagreement it is.
+    [Fact]
+    public void NoSpellingIsDroppedSoTheCountsAgreeWithTheEvidenceTotal()
+    {
+        var log = new Log();
+        var spellings = CorpusSourceTypeSpellings;
+        for (var index = 0; index < spellings.Length; index++)
+        {
+            log.WithEvidence($"E{index + 1}", sourceType: spellings[index]);
+        }
+
+        var report = log.Build();
+
+        Assert.Equal(spellings.Length, report.Epistemic.Evidence.Total);
+        Assert.Equal(report.Epistemic.Evidence.Total, report.Epistemic.Evidence.BySourceType.Values.Sum());
+    }
+
+    // D2: canonicalising the spelling is normalisation and stays a count. Nine of the seventeen
+    // spellings E8 found in the corpus name three kinds between them, and the surviving key in each
+    // group is a spelling the corpus already uses rather than a name invented here.
+    [Theory]
+    [InlineData("doc-read", "doc-read")]
+    [InlineData("vendor-doc", "doc-read")]
+    [InlineData("official-doc", "doc-read")]
+    [InlineData("vendor-adjacent-doc", "doc-read")]
+    [InlineData("local-probe", "local-probe")]
+    [InlineData("live-probe", "local-probe")]
+    [InlineData("community-consensus", "community-consensus")]
+    [InlineData("community-report", "community-consensus")]
+    [InlineData("community-evidence", "community-consensus")]
+    [InlineData("source-read", "source-read")]
+    [InlineData("test-run", "test-run")]
+    [InlineData("live-run", "live-run")]
+    public void ASpellingOfAKnownKindIsCountedUnderThatKind(string spelling, string expectedKey)
+    {
+        var log = new Log();
+        log.WithEvidence("E1", sourceType: spelling);
+
+        var report = log.Build();
+
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType[expectedKey]);
+        Assert.Single(report.Epistemic.Evidence.BySourceType);
+    }
+
+    // The four kinds that carry almost the whole corpus survive as themselves, and the four
+    // documentation spellings arrive as one key rather than four. Both halves in one task, because
+    // that is how a real record reads: a mixture, and the reading C7 wants is which kinds are absent.
+    [Fact]
+    public void TheFourKindsThatCarryTheCorpusStayThemselvesWhileTheDocSpellingsCollapse()
+    {
+        var log = new Log();
+        log.WithEvidence("E1", sourceType: "source-read");
+        log.WithEvidence("E2", sourceType: "local-probe");
+        log.WithEvidence("E3", sourceType: "test-run");
+        log.WithEvidence("E4", sourceType: "live-run");
+        log.WithEvidence("E5", sourceType: "vendor-doc");
+        log.WithEvidence("E6", sourceType: "official-doc");
+        log.WithEvidence("E7", sourceType: "doc-read");
+        log.WithEvidence("E8", sourceType: "vendor-adjacent-doc");
+
+        var report = log.Build();
+
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["source-read"]);
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["local-probe"]);
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["test-run"]);
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["live-run"]);
+        Assert.Equal(4, report.Epistemic.Evidence.BySourceType["doc-read"]);
+        Assert.Equal(5, report.Epistemic.Evidence.BySourceType.Count);
+    }
+
+    // Case is spelling, so it is folded for the spellings this projection claims to know. The corpus
+    // is entirely lower case today (E8), which is why this changes no count and is here anyway: a
+    // second spelling of a known kind must not open a second key.
+    [Fact]
+    public void ASpellingOfAKnownKindIsMatchedWithoutRegardToCase()
+    {
+        var log = new Log();
+        log.WithEvidence("E1", sourceType: "source-read");
+        log.WithEvidence("E2", sourceType: "Source-Read");
+
+        var report = log.Build();
+
+        Assert.Equal(2, report.Epistemic.Evidence.BySourceType["source-read"]);
+        Assert.Single(report.Epistemic.Evidence.BySourceType);
+    }
+
+    // The field is free text, so a spelling this projection does not know is drift in the vocabulary
+    // rather than noise, and drift is the data. A bucket named `other` would report which records
+    // drifted and hide which way they went; dropping them would break the agreement with Total.
+    [Fact]
+    public void AnUnrecognisedSpellingSurvivesAsItselfRatherThanBeingBucketedAway()
+    {
+        var log = new Log();
+        log.WithEvidence("E1", sourceType: "command-output");
+        log.WithEvidence("E2", sourceType: "operator-statement");
+        log.WithEvidence("E3", sourceType: "source-read");
+
+        var report = log.Build();
+
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["command-output"]);
+        Assert.Equal(1, report.Epistemic.Evidence.BySourceType["operator-statement"]);
+        Assert.DoesNotContain("other", report.Epistemic.Evidence.BySourceType.Keys);
+        Assert.DoesNotContain("unknown", report.Epistemic.Evidence.BySourceType.Keys);
+        Assert.DoesNotContain("unrecorded", report.Epistemic.Evidence.BySourceType.Keys);
+        Assert.Equal(3, report.Epistemic.Evidence.BySourceType.Values.Sum());
+    }
+
+    // D2 draws the line here: the counts are reported and the kinds are not ranked into tiers of
+    // evidential strength. Alphabetical order is the evidence that no ordering was imposed — a map
+    // whose keys came out strongest-first would be ALT2's score with the number left off.
+    [Fact]
+    public void TheSourceTypeCountsAreOrderedAlphabeticallyAndNotByEvidentialStrength()
+    {
+        var log = new Log();
+        var spellings = CorpusSourceTypeSpellings;
+        for (var index = 0; index < spellings.Length; index++)
+        {
+            log.WithEvidence($"E{index + 1}", sourceType: spellings[index]);
+        }
+
+        var keys = log.Build().Epistemic.Evidence.BySourceType.Keys.ToArray();
+
+        Assert.Equal(keys.OrderBy(key => key, StringComparer.Ordinal).ToArray(), keys);
+
+        // The operator's own hierarchy puts source and documentation reads first and community
+        // consensus fourth (RULES.md, the Evidence Hierarchy). Alphabetically community-consensus
+        // comes before both, so this fails the moment that hierarchy is applied here rather than by
+        // the reader.
+        Assert.True(
+            Array.IndexOf(keys, "community-consensus") < Array.IndexOf(keys, "source-read"),
+            "The keys are ordered by evidential strength rather than alphabetically.");
+    }
+
+    // The seventeen spellings E8 tallied across every state.json under .ailedger/tasks. Held here as
+    // one list so a spelling added to the corpus is added in one place.
+    private static string[] CorpusSourceTypeSpellings =>
+    [
+        "source-read", "local-probe", "test-run", "live-run", "command-output", "vendor-doc",
+        "doc-read", "official-doc", "live-probe", "vendor-adjacent-doc", "test-attempt",
+        "operator-statement", "ledger-state", "cross-task", "community-report", "community-evidence",
+        "community-consensus"
+    ];
+
     // An operator's filing run is a real run with no agent behind it. It holds no manifest and ends
     // in the instant it started, so it satisfies both halves of the died-before-briefing test while
     // describing the opposite thing.
@@ -723,9 +889,15 @@ public sealed class TaskRetrospectiveTests
                 new Provenance(new ActorId(actor), Start, "claim.add"), null, fromLesson)),
                 new ActorId(actor));
 
-        public void WithEvidence(string id, string? supports = null, string? refutes = null) =>
+        // The source type defaults to source-read, which is what the corpus records most (E8), so a
+        // test about the direction evidence points does not have to state how it was obtained.
+        public void WithEvidence(
+            string id,
+            string? supports = null,
+            string? refutes = null,
+            string sourceType = "source-read") =>
             Reduce(new EvidenceAdded(new Evidence(
-                new EvidenceId(id), "source-read", $"a.cs:{id}", "summary",
+                new EvidenceId(id), sourceType, $"a.cs:{id}", "summary",
                 supports is null ? [] : [new ClaimId(supports)],
                 refutes is null ? [] : [new ClaimId(refutes)],
                 new Provenance(_operator, Start, "evidence.add"))), _operator);
