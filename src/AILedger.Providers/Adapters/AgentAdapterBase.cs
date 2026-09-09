@@ -112,7 +112,13 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                         }
 
                         var output = ReadFinalOutput(providerEvent);
-                        events.Add(providerEvent with { RawJson = redactor.RedactJson(providerEvent.RawJson) });
+                        // Stamped where the line is read rather than inside ParseEvent, which is pure
+                        // parsing and is exercised by tests that assert on shape.
+                        events.Add(providerEvent with
+                        {
+                            RawJson = redactor.RedactJson(providerEvent.RawJson),
+                            RecordedAt = DateTimeOffset.UtcNow
+                        });
                         finalOutput = output is null ? finalOutput : redactor.RedactText(output);
                         // Progress, as it happens, on stderr so stdout stays the single JSON result.
                         // Without this a launch is silent until it ends, and an agent that is working

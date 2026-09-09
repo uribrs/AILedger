@@ -39,7 +39,17 @@ public sealed record ProviderEvent(
     string RawJson,
     string? SessionId,
     bool IsTerminal,
-    bool IsError);
+    bool IsError,
+    // When the launcher read this line. Sequence orders the stream and says nothing about how long
+    // anything took, so a retained stream could show what an agent did and never when — the run's
+    // own timing lived only in the provider's private store, and for codex that store is deleted with
+    // the governed CODEX_HOME at run end (C32).
+    //
+    // Read by nothing that replays: ProviderEvent is not a ledger event and appears only inside the
+    // sidecar, so this is additive with no compatibility surface. Nullable and trailing so every
+    // sidecar already on disk still deserialises, and so the eighteen construction sites compile
+    // untouched.
+    DateTimeOffset? RecordedAt = null);
 
 public sealed record AgentRunResult(
     RunId RunId,
