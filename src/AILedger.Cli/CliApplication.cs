@@ -17,6 +17,10 @@ public sealed class CliApplication
     private const int MaximumArtifactBodyBytes = 1024 * 1024;
     private static readonly TimeSpan TerminalPersistenceDeadline = TimeSpan.FromSeconds(65);
     private static readonly TimeSpan TerminalPersistenceRetryDelay = TimeSpan.FromMilliseconds(100);
+    // How long the launcher will spend reading the log to find the child's first write. Bounded
+    // because the read is telemetry and the run it belongs to is already over: the closing command
+    // behind it must not queue behind an unbounded read.
+    private static readonly TimeSpan FirstLedgerWriteReadDeadline = TimeSpan.FromSeconds(15);
     // How long a governed agent's work can sit in the log before the feed shows it. Short enough to
     // read as live, long enough that polling a small file costs nothing against a writing agent.
     private static readonly TimeSpan FollowPollInterval = TimeSpan.FromMilliseconds(250);
@@ -342,7 +346,7 @@ public sealed class CliApplication
                 break;
             case "run complete":
                 await ExecuteAsync(service, input, new CompleteRunCommand(
-                    Actor(input), Cause(input), Correlation(input), new RunId(input.Required("run")),
+                    Actor(input), Cause(input), Correlation(input), ExistingRun(input),
                     EnumValue<AgentRunStatus>(input, "status"), input.Optional("session")), cancellationToken).ConfigureAwait(false);
                 break;
             case "stage transition":
@@ -624,7 +628,7 @@ public sealed class CliApplication
         var kind = EnumValue<GovernedArtifactKind>(input, "kind");
         var title = input.Required("title");
         var workItemId = OptionalId(input.Optional("work"), value => new WorkItemId(value));
-        var producerRunId = OptionalId(input.Optional("run"), value => new RunId(value));
+        var producerRunId = OptionalExistingRun(input);
         var supersedesArtifactId = OptionalId(input.Optional("supersedes"), value => new ArtifactId(value));
         if (!input.Flag("body-stdin"))
         {
@@ -863,6 +867,12 @@ public sealed class CliApplication
             CommandHandler.HashLaunchToken(launchToken));
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
+        // The instant the kernel recorded the run, which is what the first-write time is measured
+        // from. Read off the same event as the id above, not from a clock here and not by looking
+        // the run up: the envelope's timestamp and the run's StartedAt are the one 'now' the command
+        // was handled with, so both ends of the interval come from the same source and this line
+        // cannot fail where the line above it succeeded.
+        var runStartedAt = started.Events[^1].RecordedAt;
         // Set only once the manifest exists. A launch that fails before briefing leaves both null,
         // which is what makes "this run was never briefed" distinguishable from "briefed with
         // nothing". They are recorded at completion because the manifest is built after run.start.
@@ -884,7 +894,7 @@ public sealed class CliApplication
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,
-                grants.WorkingDirectory, ledgerRoot, ResolveLedgerCommandLine(),
+                grants.WorkingDirectory, ledgerRoot, ResolveLedgerCommandLine(start.RunId),
                 manifestJson, sessionId, PermissionProfile.WorkspaceGoverned,
                 input.Optional("model"), input.Optional("output-schema"),
                 grants.AdditionalDirectories,
@@ -897,6 +907,24 @@ public sealed class CliApplication
             manifestHash = HashManifest(manifestJson);
             manifestArtifactCount = manifest.Artifacts.Count;
             result = await adapter.RunAsync(request, cancellationToken).ConfigureAwait(false);
+            // The result says which run it belongs to, and everything read off it below is attributed
+            // to the run this process started: the cost and the served model are recorded on
+            // start.RunId, while the sidecar is named after the result's. The production adapters echo
+            // the request's id (AgentAdapterBase:169) and this launcher must not assume it — a result
+            // naming another run would write that run's stream under its name, overwriting a genuine
+            // one, and close this run from a stream that is not its own (RC5).
+            //
+            // Refused here rather than repaired downstream, because there is no correct way to split
+            // one result between two runs. Thrown inside this try so the catch below closes the run as
+            // failed, which is what every other adapter fault does: nothing from the foreign result
+            // reaches the record and no file is written.
+            if (result.RunId != start.RunId)
+            {
+                throw new AgentAdapterException(
+                    $"Provider '{provider}' returned a result for run '{result.RunId}' while run " +
+                    $"'{start.RunId}' was launched. The provider result was not kept and the run was " +
+                    "closed as failed.");
+            }
         }
         catch (Exception launchException)
         {
@@ -915,8 +943,17 @@ public sealed class CliApplication
                 var status = launchException is OperationCanceledException
                     ? AgentRunStatus.Cancelled
                     : AgentRunStatus.Failed;
+                // No AgentRunResult exists on this path — the adapter threw rather than returning
+                // one — so there is no stream to read a cost off and no result to keep beside the
+                // log. The one measurement that survives is the first-write time: a child can reach
+                // the ledger and then die, and a launch that failed after the agent worked is
+                // exactly the run worth telling apart from one that failed before it started.
                 await CompleteRunWithFreshTokenAsync(
                     service, input, start.RunId, sessionId, status, startedEventId, launchToken,
+                    RunCost.Unmeasured,
+                    await MeasureFirstLedgerWriteAsync(
+                        service, input, start.RunId, runStartedAt).ConfigureAwait(false),
+                    servedModel: null,
                     manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
@@ -928,6 +965,17 @@ public sealed class CliApplication
 
             throw;
         }
+
+        // Kept before the run is closed, so the stream survives a completion that strands: the whole
+        // reason this file exists is that the launcher held the stream and dropped it (C3, E4, D6).
+        await WriteProviderResultAsync(ledgerRoot, Task(input), result).ConfigureAwait(false);
+        // What the run cost, read off the stream the provider already emitted. Read here and passed
+        // through untouched: RunCostReader's accepted set is a subset of what the completion rule
+        // accepts, and the arithmetic that could break that lives inside the reader (C15).
+        var cost = RunCostReader.Read(result.Events);
+        var servedModel = ReadServedModel(result.Events);
+        var firstLedgerWrite = await MeasureFirstLedgerWriteAsync(
+            service, input, start.RunId, runStartedAt).ConfigureAwait(false);
 
         var requiredOutputKind = launchState.Roles[SubjectOrActor(input)].Role switch
         {
@@ -941,6 +989,7 @@ public sealed class CliApplication
         {
             await CompleteRunWithFreshTokenAsync(
                 service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken,
+                cost, firstLedgerWrite, servedModel,
                 manifestHash, manifestArtifactCount).ConfigureAwait(false);
         }
         catch (GovernanceException exception) when (
@@ -951,9 +1000,13 @@ public sealed class CliApplication
             missingOutputKind = kind;
             try
             {
+                // The same cost, on the run that is being closed as failed instead: what the run
+                // spent is what it spent, and a run refused for filing no output is one whose cost
+                // a retrospective most wants to see.
                 await CompleteRunWithFreshTokenAsync(
                     service, input, start.RunId, result.ProviderSessionId, AgentRunStatus.Failed,
-                    startedEventId, launchToken, manifestHash, manifestArtifactCount).ConfigureAwait(false);
+                    startedEventId, launchToken, cost, firstLedgerWrite, servedModel,
+                    manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
             {
@@ -1018,6 +1071,10 @@ public sealed class CliApplication
                 // looser model of what the gate requires (C5).
                 refusal.Message));
 
+    // The cost is a required parameter rather than an optional one, because the defect this item
+    // exists to fix is six fields that shipped with nothing populating them (IC4). A new closing
+    // path that has no cost to record has to say so as RunCost.Unmeasured, which is a decision a
+    // reader can see, rather than by leaving an argument off.
     private static async Task CompleteRunWithFreshTokenAsync(
         IGovernedTaskService service,
         CommandLine input,
@@ -1026,13 +1083,18 @@ public sealed class CliApplication
         AgentRunStatus status,
         EventId causationId,
         string launchToken,
+        RunCost cost,
+        long? millisecondsToFirstLedgerWrite,
+        string? servedModel,
         string? manifestHash = null,
         int? manifestArtifactCount = null)
     {
         using var completion = new CancellationTokenSource(TerminalPersistenceDeadline);
         var command = new CompleteRunCommand(
             Actor(input), causationId, Correlation(input), runId, status, sessionId, launchToken,
-            manifestHash, manifestArtifactCount);
+            manifestHash, manifestArtifactCount,
+            cost.Turns, cost.OutputTokens, millisecondsToFirstLedgerWrite, servedModel,
+            cost.TokensInUncached, cost.TokensInCacheWrite, cost.TokensInCacheRead);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -1048,6 +1110,168 @@ public sealed class CliApplication
             }
         }
     }
+
+    // How long the child took to reach the ledger — the one cost dimension no provider reports, and
+    // the one that tells a run which burned tokens and recorded nothing from a run which did the
+    // work. Measured from the instant the kernel recorded the run to the earliest event the child
+    // wrote.
+    //
+    // The child's writes are the events carrying the run id as their correlation id, which the
+    // launcher put on the command line the briefing hands over. The child has nothing to understand
+    // and nothing to opt into: it copies that command line, and one that rewrites it falls back to a
+    // fresh id per invocation, so this measurement goes absent rather than wrong.
+    private static async Task<long?> MeasureFirstLedgerWriteAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        RunId runId,
+        DateTimeOffset runStartedAt)
+    {
+        // The launcher's own events would carry the same correlation as the child's, and its
+        // run.started is always the earlier of the two. The field would then report how fast this
+        // process wrote its own record, which measures the coordinator and not the agent (ALT5).
+        if (string.Equals(Correlation(input), runId.Value, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        // Its own deadline on its own token, never the launch's. A cancelled launch arrives here
+        // with a cancelled token, and a run must never stay active because its telemetry could not
+        // be read — the completion beside it takes the same precaution for the same reason.
+        using var read = new CancellationTokenSource(FirstLedgerWriteReadDeadline);
+        try
+        {
+            DateTimeOffset? firstWrite = null;
+            await foreach (var @event in service.GetHistoryAsync(Task(input), read.Token).ConfigureAwait(false))
+            {
+                // Only what was written after the run was recorded. A correlation id is whatever its
+                // caller passed and has no uniqueness relation to a run id, so an earlier command can
+                // already carry this one — the id is composed by the operator before the run exists.
+                // Such an event is not this run's write, and taking it as the earliest made the
+                // interval negative, which the floor below then recorded as no first write at all:
+                // a run that did reach the ledger, filed as one that never did (RC6).
+                if (@event.RecordedAt >= runStartedAt &&
+                    string.Equals(@event.CorrelationId, runId.Value, StringComparison.Ordinal) &&
+                    (firstWrite is null || @event.RecordedAt < firstWrite))
+                {
+                    firstWrite = @event.RecordedAt;
+                }
+            }
+
+            if (firstWrite is not { } reached)
+            {
+                return null;
+            }
+
+            // Floored at nothing rather than passed on negative. This method is called inside the
+            // path that closes the run, and the completion rule refuses a negative interval, so a
+            // value it refuses would abort completion and strand a finished run as active. That is
+            // the class C15 records — found four times, and new arithmetic here is where a fifth
+            // would come from. An interval that comes back negative describes no run this kernel can
+            // measure, so it records nothing. Kept as the second line of defence now that the
+            // selection above excludes the events that produced a negative interval (RC6): the floor
+            // answers a clock this process does not own, the exclusion answers the correlation.
+            var elapsed = (reached - runStartedAt).TotalMilliseconds;
+            return elapsed < 0 ? null : (long?)Math.Round(elapsed);
+        }
+        catch (Exception exception) when (
+            exception is IOException or InvalidDataException or JsonException or OperationCanceledException)
+        {
+            // A log this process cannot read, or cannot finish reading inside the deadline, measured
+            // nothing. Named types rather than a widened catch: a real fault must still surface,
+            // which is the finding RC1 and RE1 left on the reader (C15).
+            return null;
+        }
+    }
+
+    // Which cognition actually served, when the stream says so. Claude states it on its terminal
+    // event as the keys of 'modelUsage', and states no scalar model there — the provider's own
+    // schema documents each entry's canonical id as possibly differing from "the raw model string
+    // this entry is keyed by" (IC14, IE21, IE22). Codex states no model anywhere in the exec stream
+    // the adapter reads: its TurnCompletedEvent carries 'usage' and nothing else (IC13, IE20). So
+    // one property name covers both providers with no provider branch, and codex is answered by the
+    // absence rather than by a guess taken from the request (K14).
+    //
+    // Exactly one key, or nothing. A run two models served has no single served model, and the field
+    // would otherwise name whichever key enumerated first. The whole map is in the sidecar either
+    // way, so declining here loses nothing.
+    private static string? ReadServedModel(IReadOnlyList<ProviderEvent> events)
+    {
+        if (events.LastOrDefault(providerEvent => providerEvent.IsTerminal) is not { } terminal)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(terminal.RawJson);
+            // A terminal event is a JSON object only by the provider's convention, and
+            // TryGetProperty throws on anything else. RC1 was this exact throw reaching a
+            // completion path from the cost read beside this one.
+            if (document.RootElement is not { ValueKind: JsonValueKind.Object } root ||
+                !root.TryGetProperty("modelUsage", out var served) ||
+                served.ValueKind is not JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var models = served.EnumerateObject().Select(property => property.Name).Take(2).ToArray();
+            return models.Length == 1 && !string.IsNullOrWhiteSpace(models[0]) ? models[0] : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    // The provider's whole result, kept beside the event log instead of only written to standard
+    // output and dropped — which is what the launcher did with it, holding the entire stream in hand
+    // (C3, E4, D6). Not in the event log itself: replay byte-compares what it reads and would then
+    // have to accept every shape any provider version ever emitted (ALT2). Nothing replays this file.
+    //
+    // Best effort, and said out loud. The run has already ended and its stream also went to standard
+    // output, so failing to keep a copy must not turn a finished run into a failed launch; but the
+    // operator is told which path could not be written rather than left to discover the gap.
+    private async Task WriteProviderResultAsync(string ledgerRoot, TaskId taskId, AgentRunResult result)
+    {
+        if (!IsSafeFileName(result.RunId.Value))
+        {
+            await _error.WriteLineAsync(
+                $"Run '{result.RunId}' has an identifier that is not a safe file name; " +
+                "its provider result was not kept beside the log.").ConfigureAwait(false);
+            return;
+        }
+
+        var path = Path.Combine(
+            new TaskWorkspacePathResolver(ledgerRoot).Resolve(taskId), "runs", result.RunId.Value + ".json");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // CancellationToken.None deliberately, as the completion beside it is: a launch that was
+            // cancelled is exactly the run whose stream is worth reading, and passing the launch's
+            // token here would drop it precisely then.
+            await File.WriteAllTextAsync(
+                path, JsonSerializer.Serialize(result, _json), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            await _error.WriteLineAsync(
+                $"Provider result for run '{result.RunId}' could not be written to '{path}': {exception.Message}")
+                .ConfigureAwait(false);
+        }
+    }
+
+    // A run id becomes a path segment here. No launch can reach this check any more: Run(input)
+    // refused an unsafe '--run' before the run was opened, and the caller above now refuses a result
+    // whose run id is not the one it started, so the value is always that same checked id. It stays
+    // because the write must not depend on its caller having checked — the run id arrives on a result
+    // from an injected IAgentAdapter, and coupling a filesystem write to a guard in another method is
+    // how the traversal comes back. TaskWorkspacePathResolver guards the task id for the same reason.
+    private static bool IsSafeFileName(string value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value is not ("." or "..") &&
+        value.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
+        !value.Contains(Path.DirectorySeparatorChar) &&
+        !value.Contains(Path.AltDirectorySeparatorChar);
 
     private static string HashManifest(string manifestJson) =>
         Convert.ToHexString(
@@ -1287,7 +1511,12 @@ public sealed class CliApplication
     // Accepted by every command, on top of what that command allows. '--root' predates this and is
     // still listed per command; '--lesson-root' is here because the store it selects is read when a
     // task opens and written when one archives, which is not one command's business to declare.
-    private static readonly IReadOnlySet<string> GlobalOptions = Options("lesson-root");
+    //
+    // '--correlation' is here because a launched agent carries its run id there on every command it
+    // issues, and the first commands it issues are reads — 'context build', 'status'. Those declare
+    // no correlation option of their own and would refuse the flag the launcher put in front of it,
+    // which would break the agent's first act rather than lose a measurement (C22, D5).
+    private static readonly IReadOnlySet<string> GlobalOptions = Options("lesson-root", "correlation");
 
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> AllowedOptions =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
@@ -1395,7 +1624,7 @@ public sealed class CliApplication
         string? providerVersion = null,
         string? launchTokenHash = null) =>
         new(
-            Actor(input), Cause(input), Correlation(input), new RunId(input.Required("run")),
+            Actor(input), Cause(input), Correlation(input), Run(input),
             OptionalId(input.Optional("work"), value => new WorkItemId(value)),
             provider ?? input.Required("provider"), sessionId ?? input.Optional("session"),
             input.Optional("model"), providerVersion, launchTokenHash, Subject(input));
@@ -1407,21 +1636,73 @@ public sealed class CliApplication
     // The actor whose role filters the manifest and whose provenance the run carries.
     private static ActorId SubjectOrActor(CommandLine input) => Subject(input) ?? Actor(input);
     private static TaskId Task(CommandLine input) => new(input.Required("task"));
+    // The run id is the one identifier this CLI hands to another program as text: the briefing
+    // interpolates it into '--correlation "<run-id>"' on the command line the child copies (D5), and
+    // the sidecar makes it a path segment. An embedded double quote closes that argument, changes the
+    // correlation the child records and appends shell text the child would run (VC6); a separator
+    // walks the sidecar out of the runs directory. One alphabet answers both, because a value that
+    // needs no quoting in a shell also needs no escaping in a file name.
+    //
+    // Not in RunId's constructor: replay reads it, and replay must keep accepting every history that
+    // was ever legal, so a constructor that refused a value would make an older event unreadable
+    // rather than refusing a new command (ALT9). Command-time rules may tighten; replay-time rules
+    // may not. Every run id this ledger has ever recorded is already inside this alphabet.
+    //
+    // Only where a run identity is created, which is 'run start' and both provider launch modes.
+    private static RunId Run(CommandLine input) => SafeRunId(input.Required("run"));
+    // Where '--run' names a run that already exists, the value is looked up rather than made, and
+    // the alphabet above must not be applied to it (RC4). A tightening reaches only what it creates:
+    // an id recorded before that guard existed still replays, so imposing it on a lookup would leave
+    // such a run impossible to complete and impossible to file its mandatory review artifact
+    // against — a stranded active run, which blocks the next run on its work item and blocks
+    // Archive. The lookup in the domain decides whether the run exists.
+    private static RunId ExistingRun(CommandLine input) => new(input.Required("run"));
+    private static RunId? OptionalExistingRun(CommandLine input) =>
+        OptionalId(input.Optional("run"), value => new RunId(value));
+    // A leading hyphen is refused on top of the alphabet, because the child reads this value as an
+    // argument and not as text: the briefing emits it as '--correlation "<run-id>"', the shell strips
+    // the quotes, and CommandLine.ReadFollowingValue refuses a value that begins with '--' as a
+    // missing one. Every ledger command the child issues would then fail at parse — a child that
+    // cannot record anything, not a lost measurement (IC22). One hyphen is refused with two, because
+    // the position is what makes the value an option and this parser is not the only one that reads
+    // it. '-' inside the id stays legal, which is what 'R-research-2' needs.
+    private static RunId SafeRunId(string value) =>
+        value is not ("." or "..") && !value.StartsWith('-') && value.All(IsSafeRunIdCharacter)
+            ? new RunId(value)
+            : throw new CliUsageException(
+                $"Run id '{value}' is not allowed. A run id may contain only letters, digits, '-', '_' " +
+                "and '.', may not begin with '-', and may not be '.' or '..'.");
+
+    private static bool IsSafeRunIdCharacter(char character) =>
+        char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.';
+
     private static EventId? Cause(CommandLine input) => OptionalId(input.Optional("cause"), value => new EventId(value));
     // A launched agent runs inside its own work scope, never the Ledger repository, so a relative
     // "--project src/AILedger.Cli" would not resolve. Hand it this process's own absolute entry point.
-    private static string ResolveLedgerCommandLine()
+    //
+    // The run id rides along as the correlation id, because the briefing interpolates this string
+    // into every command example the child copies (C21), and CommandLine.Parse routes an option to
+    // the option set wherever it appears, so one in front of the subcommand parses the same as one
+    // behind it. That is what makes the child's writes attributable to its run and nothing else:
+    // attributing by actor and time window would measure the coordinator, which writes as the same
+    // actor while the run is live (ALT5). A child that drops the flag falls back to a fresh id per
+    // invocation, so the measurement goes absent rather than wrong.
+    //
+    // Not through AgentLaunchRequest.Environment: every value there is a redaction target, so the
+    // run id would come back as [REDACTED] throughout the captured stream and the sidecar (C23, ALT6).
+    private static string ResolveLedgerCommandLine(RunId runId)
     {
         var assembly = Path.Combine(AppContext.BaseDirectory, "AILedger.Cli.dll");
         var host = Environment.ProcessPath;
-        if (host is null)
-        {
-            return $"dotnet \"{assembly}\"";
-        }
-
-        return Path.GetFileNameWithoutExtension(host).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
-            ? $"\"{host}\" \"{assembly}\""
-            : $"\"{host}\"";
+        var invocation = host is null
+            ? $"dotnet \"{assembly}\""
+            : Path.GetFileNameWithoutExtension(host).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+                ? $"\"{host}\" \"{assembly}\""
+                : $"\"{host}\"";
+        // Quoted like the paths beside it. The quotes are not what makes this safe — Run(input)
+        // refused anything outside a shell-safe alphabet before the run was opened, so nothing
+        // reaching here can close them.
+        return $"{invocation} --correlation \"{runId.Value}\"";
     }
 
     private static string Correlation(CommandLine input) => input.CorrelationId;
