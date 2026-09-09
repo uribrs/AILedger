@@ -12,6 +12,14 @@ Requirements:
 
 - .NET 8 SDK
 - For live provider runs, an installed and authenticated `codex` or `claude` CLI with the capabilities described in [Provider operation](docs/operator-guide.md#provider-operation)
+- Nothing else. The kernel is one dotnet global tool and depends on no external service.
+
+The semantic memory index at `src/AILedger.Memory` is **dormant and optional**. Activating it would
+add a local Ollama service and a 669 MB embedding model, and `ollama pull` currently fails on this
+network for a reason worth knowing before you try. Every dependency, what stops working without it,
+and that failure and its workaround are in
+[ExternalDependencies](ExternalDependencies/README.md) — kept as one list so a move to another
+machine is not an archaeology exercise.
 
 Build and test:
 
