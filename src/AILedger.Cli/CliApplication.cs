@@ -647,12 +647,18 @@ public sealed class CliApplication
         await WriteJsonAsync(TaskRetrospective.Build(state, history, refusals)).ConfigureAwait(false);
     }
 
-    // Null when the journal is absent, so a task recorded before the journal existed reports
-    // refusals as unmeasured rather than as a measured zero. A row this reader cannot parse is
-    // skipped rather than failing the command: the journal is telemetry beside the log, nothing in
-    // the kernel gates on it, and it can be absent, stale or truncated with no consequence for task
-    // truth.
-    private static async Task<IReadOnlyList<RetrospectiveRefusal>?> ReadRefusalsAsync(
+    // Three states, not two (RC1). Null when the journal is absent, so a task recorded before the
+    // journal existed reports refusals as unmeasured rather than as a measured zero. A row this
+    // reader cannot parse is still skipped rather than failing the command — the journal is telemetry
+    // beside the log, nothing in the kernel gates on it, and it can be absent, stale or truncated
+    // with no consequence for task truth — but the skip is counted and handed over, because a
+    // present-and-partly-readable journal is not the same fact as a present-and-whole one.
+    //
+    // Only this side of the boundary can count it: the projection is handed rows and never sees the
+    // file, so a reader that returned the parseable rows alone would present a task's refusal count
+    // as complete when it was a floor. That is the founding rule broken in the direction opposite to
+    // an absent measurement summed as zero, and it is the same rule.
+    private static async Task<RetrospectiveRefusalJournal?> ReadRefusalsAsync(
         string ledgerRoot,
         TaskId taskId)
     {
@@ -664,8 +670,13 @@ public sealed class CliApplication
 
         var options = LedgerJson.CreateOptions();
         var refusals = new List<RetrospectiveRefusal>();
+        var unreadable = 0;
         foreach (var line in await File.ReadAllLinesAsync(path).ConfigureAwait(false))
         {
+            // A blank line is not an unreadable row. The writer appends one row per line and never a
+            // bare newline, so a blank line is the trailing separator or whitespace left by an editor
+            // — nothing was written there to lose, and counting it would report a partial journal for
+            // a whole one.
             if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
@@ -677,14 +688,21 @@ public sealed class CliApplication
                 {
                     refusals.Add(new RetrospectiveRefusal(record.ActorId, record.Command, record.Site));
                 }
+                else
+                {
+                    // A row that parsed as JSON null yielded no record, which is a row this reader
+                    // did not measure exactly as a malformed one is.
+                    unreadable++;
+                }
             }
             catch (JsonException)
             {
-                // A row this reader cannot parse is a row it did not measure.
+                // A row this reader cannot parse is a row it did not measure — and now it says so.
+                unreadable++;
             }
         }
 
-        return refusals;
+        return new RetrospectiveRefusalJournal(refusals, unreadable);
     }
 
     private async Task RecordArtifactAsync(

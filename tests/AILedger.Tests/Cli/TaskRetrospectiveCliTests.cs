@@ -189,6 +189,80 @@ public sealed class TaskRetrospectiveCliTests
             1, refusals.GetProperty("byCommand").GetProperty(nameof(ResolveClaimCommand)).GetInt32());
     }
 
+    // The third state, over the real file, because it is the reader and not the projection that can
+    // see it (RC1). Storage permits the journal to be stale or truncated, so a row that will not
+    // parse is a fact about this file that the count of parseable rows cannot express. A reader that
+    // dropped it silently would print `total: 1` for a task that took two refusals and leave
+    // `notMeasured` empty of the dimension, which reads as a complete measurement of fewer refusals.
+    [Fact]
+    public async Task AJournalWithARowThatWillNotParseIsCountedAsPartlyReadAndNotAsComplete()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var application = Create(output, TextWriter.Null);
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "An unearned assumption"],
+            CancellationToken.None);
+        // One real refusal, so the journal exists and holds a row the reader can read: what is under
+        // test is a partly readable file, which an empty one could not be.
+        var refusedExit = await application.RunAsync(
+            ["claim", "resolve", .. common, "--id", "C1", "--status", "validated"], CancellationToken.None);
+
+        // Appended rather than written over the row above, and truncated mid-object rather than made
+        // up: this is the shape a journal takes when a write was cut short, which is the case Storage
+        // says the file is allowed to be in.
+        var journal = RefusalJournal.ResolvePath(
+            new TaskWorkspacePathResolver(root.Path).Resolve(new TaskId("T1")));
+        await File.AppendAllTextAsync(journal, "{\"recordedAt\":\"2026-09-09T10:10:00" + Environment.NewLine);
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(["retrospective", "build", .. common], CancellationToken.None);
+
+        Assert.Equal(1, refusedExit);
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var refusals = document.RootElement.GetProperty("refusals");
+        Assert.Equal(1, refusals.GetProperty("total").GetInt32());
+        Assert.Equal(1, refusals.GetProperty("unreadableRows").GetInt32());
+        Assert.Contains(
+            "refusals",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+    }
+
+    // The whole file still reports as whole, which is what makes the assertion above mean anything:
+    // a reader that counted every row as unreadable would satisfy it and measure nothing. A trailing
+    // newline is present in every journal the writer produces and is not a lost row.
+    [Fact]
+    public async Task AJournalWhoseEveryRowParsesIsReportedAsFullyRead()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var application = Create(output, TextWriter.Null);
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "An unearned assumption"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "resolve", .. common, "--id", "C1", "--status", "validated"], CancellationToken.None);
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(["retrospective", "build", .. common], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var refusals = document.RootElement.GetProperty("refusals");
+        Assert.Equal(1, refusals.GetProperty("total").GetInt32());
+        Assert.Equal(0, refusals.GetProperty("unreadableRows").GetInt32());
+        Assert.DoesNotContain(
+            "refusals",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+    }
+
     // ValidateOptions refuses any command absent from AllowedOptions, so the entry is what makes the
     // command exist at all — and an entry with the wrong option set refuses a caller for an option
     // it should take, or accepts one it should not. Both directions are asserted, because the map

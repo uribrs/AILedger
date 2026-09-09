@@ -576,6 +576,45 @@ public sealed class TaskRetrospectiveTests
         Assert.DoesNotContain("refusals", report.NotMeasured);
     }
 
+    // The third state. A journal that was read in part reports the rows it got as a floor and says
+    // how many it lost, and NotMeasured names the dimension — because a count of fewer refusals,
+    // presented as complete, is the same error as an absent cost summed to zero (RC1, C4).
+    [Fact]
+    public void APartlyReadableRefusalJournalReportsTheRowsItLostAndIsNotMeasured()
+    {
+        var report = new Log().Build(
+            refusals: [new RetrospectiveRefusal(new ActorId("operator"), "ResolveClaimCommand", "service")],
+            unreadableRows: 2);
+
+        Assert.NotNull(report.Refusals);
+        Assert.Equal(1, report.Refusals!.Total);
+        Assert.Equal(2, report.Refusals.UnreadableRows);
+        Assert.Contains("refusals", report.NotMeasured);
+    }
+
+    // Absent and partial both refuse the dimension, so NotMeasured alone cannot tell them apart and
+    // is not asked to: Refusals being null against UnreadableRows being above zero is what separates
+    // them, and a fully readable journal is the only one of the three that is measured.
+    [Fact]
+    public void TheThreeJournalStatesAreDistinguishableFromEachOther()
+    {
+        var row = new RetrospectiveRefusal(new ActorId("operator"), "ResolveClaimCommand", "service");
+        var absent = new Log().Build(refusals: null);
+        var partial = new Log().Build(refusals: [row], unreadableRows: 1);
+        var whole = new Log().Build(refusals: [row]);
+
+        Assert.Null(absent.Refusals);
+        Assert.Contains("refusals", absent.NotMeasured);
+
+        Assert.NotNull(partial.Refusals);
+        Assert.True(partial.Refusals!.UnreadableRows > 0);
+        Assert.Contains("refusals", partial.NotMeasured);
+
+        Assert.NotNull(whole.Refusals);
+        Assert.Equal(0, whole.Refusals!.UnreadableRows);
+        Assert.DoesNotContain("refusals", whole.NotMeasured);
+    }
+
     [Fact]
     public void RefusalsAreCountedBySiteActorAndCommand()
     {
@@ -868,8 +907,15 @@ public sealed class TaskRetrospectiveTests
 
         public List<LedgerEvent> History { get; } = [];
 
-        public TaskRetrospectiveReport Build(IReadOnlyList<RetrospectiveRefusal>? refusals = null) =>
-            TaskRetrospective.Build(State, History, refusals);
+        // A null list is the absent journal and an empty one is the empty journal, which is the
+        // distinction the caller carries; unreadableRows defaults to zero so that every test written
+        // before RC1 still describes a whole journal and asserts the same figures.
+        public TaskRetrospectiveReport Build(
+            IReadOnlyList<RetrospectiveRefusal>? refusals = null, int unreadableRows = 0) =>
+            TaskRetrospective.Build(
+                State,
+                History,
+                refusals is null ? null : new RetrospectiveRefusalJournal(refusals, unreadableRows));
 
         // An event the projection reads out of the log without the reducer having to accept it.
         public void Append(LedgerEventData data, int minutesIn = 0, string actor = "operator") =>

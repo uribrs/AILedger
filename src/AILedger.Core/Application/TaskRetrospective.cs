@@ -43,7 +43,7 @@ public static class TaskRetrospective
     public static TaskRetrospectiveReport Build(
         GovernedTaskState state,
         IReadOnlyList<LedgerEvent> history,
-        IReadOnlyList<RetrospectiveRefusal>? refusals)
+        RetrospectiveRefusalJournal? refusals)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(history);
@@ -327,17 +327,24 @@ public static class TaskRetrospective
     // distinction is the same one the cost fields keep: a task that predates the refusal journal
     // recorded no refusals because nothing was writing them down, and NotMeasured says so.
     //
+    // UnreadableRows keeps the third state apart from those two (RC1). A journal is telemetry beside
+    // the log and Storage permits it to be stale or truncated, so a row the caller could not parse is
+    // a row nobody measured. Total counts the rows that were read and is a floor rather than a
+    // measurement whenever this is above zero — which is why NotMeasured names refusals then, the
+    // same way it names a token total no run reported.
+    //
     // Sites, actors and commands are counted as the caller spelled them. The site vocabulary belongs
     // to the boundary that refused, not to this projection, so no key is invented for a site this
     // task never hit.
-    private static RetrospectiveRefusals? BuildRefusals(IReadOnlyList<RetrospectiveRefusal>? refusals) =>
+    private static RetrospectiveRefusals? BuildRefusals(RetrospectiveRefusalJournal? refusals) =>
         refusals is null
             ? null
             : new RetrospectiveRefusals(
-                refusals.Count,
-                CountBy(refusals, refusal => refusal.Site),
-                CountBy(refusals, refusal => refusal.ActorId.Value),
-                CountBy(refusals, refusal => refusal.Command));
+                refusals.Rows.Count,
+                refusals.UnreadableRows,
+                CountBy(refusals.Rows, refusal => refusal.Site),
+                CountBy(refusals.Rows, refusal => refusal.ActorId.Value),
+                CountBy(refusals.Rows, refusal => refusal.Command));
 
     // A stage prerequisite waiver leaves no durable trace in state — PendingStagePrerequisiteWaiver
     // is transient and internal, which is why TaskDebt:12-16 declines to count waivers at all. The
@@ -441,7 +448,7 @@ public static class TaskRetrospective
         GovernedTaskState state,
         RetrospectiveRuns runs,
         RetrospectiveCost cost,
-        IReadOnlyList<RetrospectiveRefusal>? refusals,
+        RetrospectiveRefusalJournal? refusals,
         TaskDebt debt)
     {
         var notMeasured = new List<string> { "coordinatorCost", "outcomeQuality" };
@@ -471,7 +478,14 @@ public static class TaskRetrospective
             notMeasured.Add("runs.bySubjectRole");
         }
 
-        if (refusals is null)
+        // Both directions of RC1, under one key, because the instruction to a reader is the same in
+        // both: do not judge this dimension. A journal that is absent measured nothing, and a journal
+        // whose rows would not parse measured only some of itself — so its total is a floor, and a
+        // total presented as complete is the founding rule broken in the second direction. Which of
+        // the two it was is answered beside it, by Refusals being null against UnreadableRows being
+        // above zero; a second key here would be a second vocabulary item carrying no further
+        // instruction.
+        if (refusals is null || refusals.UnreadableRows > 0)
         {
             notMeasured.Add("refusals");
         }
@@ -579,6 +593,20 @@ public static class TaskRetrospective
 // model of a record that already exists, and this one is a parameter list rather than a model.
 public sealed record RetrospectiveRefusal(ActorId ActorId, string Command, string Site);
 
+// What the caller found when it went looking for the journal, which is three states and not two
+// (RC1). A null journal is no file at all. A journal with UnreadableRows above zero is a file whose
+// rows did not all parse, so Rows is what could be read and not what the task took. A journal with
+// UnreadableRows at zero is the whole file.
+//
+// The count crosses the boundary because only the caller can take it: RefusalJournal lives in
+// Storage and Core cannot reference it, so the projection never sees the file and cannot tell a row
+// that was dropped from a row that was never written. A caller that handed over only the parseable
+// rows would present a partial measurement as a complete one, which is the same error as summing an
+// absent cost to zero, in the other direction.
+public sealed record RetrospectiveRefusalJournal(
+    IReadOnlyList<RetrospectiveRefusal> Rows,
+    int UnreadableRows);
+
 public sealed record RetrospectiveRuns(
     int Total,
     IReadOnlyDictionary<string, int> ByStatus,
@@ -644,8 +672,14 @@ public sealed record RetrospectiveEpistemic(
 // — and is null where the event carried nothing more.
 public sealed record RetrospectiveCausalChain(string Kind, string From, string To, string? Detail = null);
 
+// Total is the rows that were read, and UnreadableRows is the rows in the same file that were not.
+// The two together say how much of the journal this count describes: at zero, all of it; above zero,
+// Total is a floor and NotMeasured names refusals for it. Rows-in-journal is their sum, and it is
+// left as a sum rather than stated as a third figure because it is the one number here that no gate
+// and no reader needs on its own.
 public sealed record RetrospectiveRefusals(
     int Total,
+    int UnreadableRows,
     IReadOnlyDictionary<string, int> BySite,
     IReadOnlyDictionary<string, int> ByActor,
     IReadOnlyDictionary<string, int> ByCommand);
