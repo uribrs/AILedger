@@ -58,7 +58,8 @@ internal static class WorkItemRules
             WorkItemStatus.Proposed,
             command.DependsOnClaims.ToArray(),
             command.ResourceScope.Select(item => item.Trim()).ToArray(),
-            NotSplitJustification: command.NotSplitJustification);
+            NotSplitJustification: command.NotSplitJustification,
+            BaseRef: string.IsNullOrWhiteSpace(command.BaseRef) ? null : command.BaseRef.Trim());
         return [new WorkItemAdded(workItem)];
     }
 

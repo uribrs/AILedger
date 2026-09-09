@@ -126,7 +126,10 @@ public sealed record AddWorkItemCommand(
     IReadOnlyList<string> ResourceScope,
     // The recorded alternative saying why more than one area was kept in a single work item.
     // Required only when the item claims more than one; a one-area item needs no defence.
-    AlternativeId? NotSplitJustification = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    AlternativeId? NotSplitJustification = null,
+    // The commit this item's work starts from. Captured by the CLI in the item's first scope
+    // directory; null when that is not a git work tree.
+    string? BaseRef = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record StartRunCommand(
     ActorId ActorId,

@@ -233,7 +233,14 @@ public sealed record WorkItem(
     string? AbandonReason = null,
     // Carried onto the item so the justification for holding several areas lands in the log. Kept
     // only on the command, the decision the kernel demanded would be checked and then thrown away.
-    AlternativeId? NotSplitJustification = null);
+    AlternativeId? NotSplitJustification = null,
+    // The commit the item's work starts from, captured in the item's own scope directory rather than
+    // the shell's, because a scope points into whichever repository holds the work and that is rarely
+    // this one. Both the verifier and the code reviewer need it to scope a diff: the skills name it as
+    // `state.json.baseRef`, and two verifier runs in a row fell back to comparing the change against
+    // the goal and the constraints because the kernel had nowhere to put it. Null when the scope is
+    // not a git work tree, which is the state every item recorded before this field existed is in.
+    string? BaseRef = null);
 
 public sealed record Escalation(
     EscalationId Id,

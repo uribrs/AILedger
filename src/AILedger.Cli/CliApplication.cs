@@ -272,7 +272,8 @@ public sealed class CliApplication
                     Actor(input), Cause(input), Correlation(input), new WorkItemId(input.Required("id")),
                     input.Required("title"), OptionalId(input.Optional("owner"), value => new ActorId(value)),
                     input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes,
-                    OptionalId(input.Optional("not-split-because"), value => new AlternativeId(value))), cancellationToken).ConfigureAwait(false);
+                    OptionalId(input.Optional("not-split-because"), value => new AlternativeId(value)),
+                    ResolveBaseRef(input, scopes)), cancellationToken).ConfigureAwait(false);
                 break;
             case "escalation raise":
                 await ExecuteAsync(service, input, new RaiseEscalationCommand(
@@ -1557,7 +1558,7 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["work add"] = Options(
                 "root", "task", "actor", "id", "title", "owner", "depends-on", "scope",
-                "not-split-because", "cause", "correlation"),
+                "not-split-because", "base-ref", "cause", "correlation"),
             ["escalation raise"] = Options(
                 "root", "task", "actor", "id", "kind", "question", "work", "option", "recommend", "evidence",
                 "cause", "correlation"),
@@ -1675,6 +1676,30 @@ public sealed class CliApplication
 
     private static bool IsSafeRunIdCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.';
+
+    // The commit an item's work starts from. Captured in the item's first scope directory and never
+    // in this process's own, because a scope points into whichever repository holds the work and that
+    // is rarely this one: capturing the Ledger's HEAD for an item scoped into another repository
+    // would be worse than recording nothing.
+    //
+    // Command-time only. Nothing in the replay validator reads it, so every history without it stays
+    // readable, and a git that cannot answer leaves the field null — which is exactly the state every
+    // item recorded before this field existed is already in.
+    private static string? ResolveBaseRef(CommandLine input, IReadOnlyList<string> scopes)
+    {
+        if (input.Optional("base-ref") is { } supplied)
+        {
+            return string.IsNullOrWhiteSpace(supplied) ? null : supplied.Trim();
+        }
+
+        if (scopes.Count == 0)
+        {
+            return null;
+        }
+
+        var directory = ProviderDirectoryForScope(scopes[0]);
+        return KernelVersion.Git(directory, "rev-parse HEAD") is { Length: > 0 } head ? head : null;
+    }
 
     private static EventId? Cause(CommandLine input) => OptionalId(input.Optional("cause"), value => new EventId(value));
     // A launched agent runs inside its own work scope, never the Ledger repository, so a relative

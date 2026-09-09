@@ -347,7 +347,11 @@ public sealed class ContextAssembler : IContextAssembler
         new(
             ContextArtifactKind.WorkItem,
             workItem.Id.Value,
-            $"{workItem.Status}: {workItem.Title}{Environment.NewLine}Scope: {string.Join(", ", workItem.ResourceScope)}",
+            $"{workItem.Status}: {workItem.Title}{Environment.NewLine}Scope: {string.Join(", ", workItem.ResourceScope)}" +
+            // Rendered only when it exists, so an item with no baseline says nothing rather than
+            // saying "null" — a verifier reading the absence must see it as absence, and every item
+            // recorded before this field existed carries none.
+            (workItem.BaseRef is null ? string.Empty : $"{Environment.NewLine}Base ref: {workItem.BaseRef}"),
             workItem.DependsOnClaims.Select(id => id.Value).OrderBy(id => id, StringComparer.Ordinal).ToArray());
 
     private static ContextArtifact ToArtifact(Lesson lesson) =>

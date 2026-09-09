@@ -108,7 +108,9 @@ internal static class KernelVersion
 
     private static string Short(string sha) => sha.Length <= 12 ? sha : sha[..12];
 
-    private static string? Git(string workingDirectory, string arguments)
+    // Internal rather than private: 'work add' captures a scope's base ref through the same bounded
+    // invocation, so there is one git call site in this assembly and not two.
+    internal static string? Git(string workingDirectory, string arguments)
     {
         try
         {
