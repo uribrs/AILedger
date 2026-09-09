@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "durable-records-v1",
+  "sanitized": true,
+  "canonicalRoot": "Canonical",
+  "cases": "evaluation-cases.json",
+  "requiredSourceShapes": [
+    "published-lessons",
+    "accepted-and-superseded-decisions",
+    "active-and-superseded-constraints",
+    "claim-with-supporting-and-refuting-evidence",
+    "rejected-alternative",
+    "resolved-and-unmatched-refusal-chains",
+    "completed-work-and-run",
+    "artifact-metadata-and-body",
+    "torn-final-refusal-row"
+  ],
+  "requiredRetrievalCases": [
+    "exact-identifier",
+    "exact-error-message",
+    "conceptual-paraphrase",
+    "newer-superseding-decision",
+    "cross-repository-diversity",
+    "resolved-refusal",
+    "unmatched-refusal",
+    "unsupported-question",
+    "lexical-favored",
+    "semantic-favored"
+  ]
+}

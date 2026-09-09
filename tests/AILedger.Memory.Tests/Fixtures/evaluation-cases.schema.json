@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ailedger.local/schemas/memory-evaluation-cases-v1.json",
+  "title": "AILedger memory evaluation cases v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "corpusVersion", "cases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "corpusVersion": { "type": "string", "minLength": 1 },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "query", "expectedDocumentIds", "expectNoSupportedAnswer"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "query": { "type": "string", "minLength": 1 },
+          "expectedDocumentIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "expectedCitationRecordIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "openingTags": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "Lesson",
+                "Decision",
+                "Constraint",
+                "ClaimEvidence",
+                "Alternative",
+                "RefusalChain",
+                "WorkSummary",
+                "RunSummary",
+                "Artifact"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "expectNoSupportedAnswer": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}

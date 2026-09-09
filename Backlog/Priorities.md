@@ -29,6 +29,7 @@ Status as of 2026-09-08. `done` means the governed task reached stage `archive`.
 | 23 | attention-items-are-task-wide-but-work-is-not | not opened | open | `ValidateVerifierOutput` reads attention ids from the one current plan and demands every verifier dispose all of them. item 5 had six for W1 and three for W2, so its second verifier either writes six `not-applicable` rows or the plan stops describing the task. |
 | 24 | cancelled-means-four-different-things | not opened | open | item 5 holds five `Cancelled` runs: four operator filing runs that succeeded, and one nine-minute verification the host killed for memory. `self-scoring` asks for failed and retried runs as a cost signal and would read five where the true number is one. |
 | 25 | a-productive-task-starves-its-successor | not opened | open | **blocks 8, and degrades every task now.** recall orders by recency and takes ten. item 5 minted ten lessons and consumed item 6's entire budget: 38 lessons matched its tags, all ten slots went to lessons twenty minutes old, and the four closest matches in the store — including *do not put a field on run.started that the launcher learns later* — were crowded out and had to be copied in by hand. |
+| 26 | standalone-semantic-memory | `2026-09-08_1909-standalone-memory-index` | open | Phase 0/1 delivered at current bytes: explicit seven-command SQLite FTS5/exact-vector shadow index over ledger histories, lessons and refusal journals; 519/519 final normal-host tests (449 kernel and 70 memory) passed with a zero-warning/error Release build. Still no kernel/context hook, watcher, daemon, schedule, repository ingestion, classifier or model pull. Before phase 2 or activation, partial embedding coverage must become measurable and retryable without a no-op update hiding degraded health. Live Ollama evaluation and explicit operator authorization also gate activation; phases 2-4 remain backlog. |
 
 ## Ordering notes
 
@@ -43,7 +44,9 @@ Items 19 and 20 were found while working items 1 and 2 and sat unranked in their
 now. Placing them at the end preserves every existing relative order rather than asserting a new
 one; both are small and both are live pain, so moving them up is a reasonable call to make.
 
-Items 6 to 8 and 19 to 25 have no governed task yet.
+Items 6 to 8 and 19 to 25 have no governed task yet. Item 26 is deliberately unranked while the
+current kernel work is active. Its phase 0/1 isolated infrastructure is delivered at current bytes;
+activation and phases 2 to 4 remain separate work and do not block that kernel work.
 
 Item 5 is done. Its own numbers are the first measured baseline for what a governed pass costs:
 1h51m of agent execution across 16 runs, 3h20m wall clock, for a 78-line writer plus two

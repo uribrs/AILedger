@@ -188,7 +188,9 @@ public sealed class KernelVersionTests
     private static string RepositoryRoot()
     {
         var repository = new DirectoryInfo(Environment.CurrentDirectory);
-        while (repository is not null && !Directory.Exists(Path.Combine(repository.FullName, ".git")))
+        while (repository is not null
+            && !Directory.Exists(Path.Combine(repository.FullName, ".git"))
+            && !File.Exists(Path.Combine(repository.FullName, ".git")))
         {
             repository = repository.Parent;
         }
