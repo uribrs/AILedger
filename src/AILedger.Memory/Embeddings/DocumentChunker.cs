@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace AILedger.Memory.Embeddings;
 
 public sealed record DocumentChunkerOptions
@@ -26,10 +28,16 @@ public sealed class DocumentChunker
         }
     }
 
-    public IReadOnlyList<string> Split(string text)
+    public IReadOnlyList<string> Split(string text, int? maximumUtf8Bytes = null)
     {
         ArgumentNullException.ThrowIfNull(text);
-        if (text.Length <= _options.MaximumCharacters)
+        if (maximumUtf8Bytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumUtf8Bytes), "Maximum UTF-8 bytes must be positive.");
+        }
+
+        if (text.Length <= _options.MaximumCharacters &&
+            (maximumUtf8Bytes is null || Encoding.UTF8.GetByteCount(text) <= maximumUtf8Bytes))
         {
             return [text];
         }
@@ -40,6 +48,16 @@ public sealed class DocumentChunker
         {
             var remaining = text.Length - start;
             var length = Math.Min(_options.MaximumCharacters, remaining);
+            if (maximumUtf8Bytes is { } byteLimit)
+            {
+                length = MaximumCharacterLengthWithinUtf8ByteLimit(text, start, length, byteLimit);
+                if (length == 0)
+                {
+                    throw new InvalidDataException(
+                        $"The embedding input byte limit {byteLimit} cannot hold the next Unicode scalar value.");
+                }
+            }
+
             if (length < remaining)
             {
                 var lowerBound = Math.Max(1, length / 2);
@@ -56,9 +74,54 @@ public sealed class DocumentChunker
                 break;
             }
 
-            start += Math.Max(1, length - _options.OverlapCharacters);
+            // OverlapCharacters defines the ratio at MaximumCharacters (200/2000 = 10%
+            // by default). Preserve that ratio when a provider byte bound makes chunks
+            // smaller; retaining a fixed 200-character overlap would duplicate almost
+            // half of every 448-byte chunk.
+            var proportionalOverlap = (int)((long)length * _options.OverlapCharacters / _options.MaximumCharacters);
+            var overlap = Math.Min(proportionalOverlap, length - 1);
+            start += Math.Max(1, length - overlap);
+            if (start < text.Length && char.IsLowSurrogate(text[start]))
+            {
+                // The preceding chunk already contains the complete scalar. When overlap would
+                // restart inside it, move past the scalar rather than emitting invalid UTF-16.
+                start++;
+            }
         }
 
         return chunks;
+    }
+
+    private static int MaximumCharacterLengthWithinUtf8ByteLimit(
+        string text,
+        int start,
+        int maximumCharacters,
+        int maximumUtf8Bytes)
+    {
+        var length = 0;
+        var bytes = 0;
+        while (length < maximumCharacters)
+        {
+            var scalarLength = char.IsHighSurrogate(text[start + length]) &&
+                start + length + 1 < text.Length &&
+                char.IsLowSurrogate(text[start + length + 1])
+                ? 2
+                : 1;
+            if (length + scalarLength > maximumCharacters)
+            {
+                break;
+            }
+
+            var scalarBytes = Encoding.UTF8.GetByteCount(text.AsSpan(start + length, scalarLength));
+            if (bytes + scalarBytes > maximumUtf8Bytes)
+            {
+                break;
+            }
+
+            length += scalarLength;
+            bytes += scalarBytes;
+        }
+
+        return length;
     }
 }

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using AILedger.Memory.Contracts;
 
@@ -24,13 +26,28 @@ public interface IEmbeddingIdentityResolver
         CancellationToken cancellationToken = default);
 }
 
-/// <summary>Loopback-only adapter for Ollama's native batch embedding endpoint.</summary>
-public sealed class OllamaEmbeddingGenerator : IEmbeddingGenerator, IEmbeddingIdentityResolver, IDisposable
+/// <summary>Resolves a conservative provider-specific byte bound before inputs are chunked.</summary>
+public interface IEmbeddingInputLimitResolver
 {
+    Task<int> ResolveMaximumInputUtf8BytesAsync(
+        EmbeddingInputKind inputKind,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>Loopback-only adapter for Ollama's native batch embedding endpoint.</summary>
+public sealed class OllamaEmbeddingGenerator :
+    IEmbeddingGenerator,
+    IEmbeddingIdentityResolver,
+    IEmbeddingInputLimitResolver,
+    IDisposable
+{
+    private const int MinimumContextReserveTokens = 16;
+    private const int ContextReserveDivisor = 8;
     private readonly HttpClient _httpClient;
     private readonly OllamaEmbeddingOptions _options;
     private readonly Uri _embedEndpoint;
     private readonly Uri _tagsEndpoint;
+    private readonly Uri _showEndpoint;
     private readonly bool _ownsHttpClient;
 
     public OllamaEmbeddingGenerator(OllamaEmbeddingOptions options)
@@ -79,6 +96,9 @@ public sealed class OllamaEmbeddingGenerator : IEmbeddingGenerator, IEmbeddingId
         _tagsEndpoint = options.Endpoint.AbsolutePath.EndsWith("/api/embed", StringComparison.Ordinal)
             ? new Uri(options.Endpoint, "./tags")
             : new Uri(EnsureTrailingSlash(options.Endpoint), "api/tags");
+        _showEndpoint = options.Endpoint.AbsolutePath.EndsWith("/api/embed", StringComparison.Ordinal)
+            ? new Uri(options.Endpoint, "./show")
+            : new Uri(EnsureTrailingSlash(options.Endpoint), "api/show");
     }
 
     public string Provider => "ollama";
@@ -160,6 +180,36 @@ public sealed class OllamaEmbeddingGenerator : IEmbeddingGenerator, IEmbeddingId
         };
     }
 
+    public async Task<int> ResolveMaximumInputUtf8BytesAsync(
+        EmbeddingInputKind inputKind,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            _showEndpoint,
+            new OllamaShowRequest { Model = _options.Model },
+            cancellationToken).ConfigureAwait(false);
+        EnsureLoopbackResponse(response);
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<OllamaShowResponse>(
+            cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("Ollama returned an empty model-details response.");
+        var contextLength = ReadContextLength(payload.ModelInfo);
+
+        // UTF-8 bytes are a conservative tokenizer-independent upper bound for input tokens,
+        // including dense base64/minified JSON where the usual four-characters-per-token estimate fails.
+        // Reserve 12.5% (at least 16 tokens) for special tokens and tokenizer/provider overhead.
+        var reserve = Math.Max(MinimumContextReserveTokens, (contextLength + ContextReserveDivisor - 1) / ContextReserveDivisor);
+        var prefix = inputKind == EmbeddingInputKind.Document ? _options.DocumentPrefix : _options.QueryPrefix;
+        var maximumBytes = contextLength - reserve - Encoding.UTF8.GetByteCount(prefix);
+        if (maximumBytes <= 0)
+        {
+            throw new InvalidDataException(
+                $"Ollama model '{_options.Model}' context length {contextLength} leaves no input capacity after the safety reserve and prefix.");
+        }
+
+        return maximumBytes;
+    }
+
     public void Dispose()
     {
         if (_ownsHttpClient)
@@ -199,6 +249,24 @@ public sealed class OllamaEmbeddingGenerator : IEmbeddingGenerator, IEmbeddingId
         => string.Equals(candidate, _options.Model, StringComparison.Ordinal) ||
            (!_options.Model.Contains(":", StringComparison.Ordinal) &&
             string.Equals(candidate, $"{_options.Model}:latest", StringComparison.Ordinal));
+
+    private static int ReadContextLength(IReadOnlyDictionary<string, JsonElement>? modelInfo)
+    {
+        var values = modelInfo?
+            .Where(item => item.Key.EndsWith(".context_length", StringComparison.Ordinal))
+            .Select(item => item.Value.ValueKind == JsonValueKind.Number && item.Value.TryGetInt32(out var value)
+                ? value
+                : 0)
+            .Where(value => value > 0)
+            .ToArray() ?? [];
+        // Multiple architecture-specific limits can be reported. The smallest is the
+        // safe deterministic bound: undersizing costs chunks, while oversizing restores
+        // the provider 400s that this limit exists to prevent.
+        return values.Length > 0
+            ? values.Min()
+            : throw new InvalidDataException(
+                "Ollama model details did not report a positive context length.");
+    }
 
     private static HttpClient CreateRedirectSafeClient()
         => new(new SocketsHttpHandler
@@ -294,6 +362,21 @@ public sealed class OllamaEmbeddingGenerator : IEmbeddingGenerator, IEmbeddingId
         [JsonPropertyName("keep_alive")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? KeepAlive { get; init; }
+    }
+
+    private sealed record OllamaShowRequest
+    {
+        [JsonPropertyName("model")]
+        public required string Model { get; init; }
+
+        [JsonPropertyName("verbose")]
+        public bool Verbose { get; init; }
+    }
+
+    private sealed record OllamaShowResponse
+    {
+        [JsonPropertyName("model_info")]
+        public IReadOnlyDictionary<string, JsonElement>? ModelInfo { get; init; }
     }
 
     private sealed record OllamaEmbedResponse

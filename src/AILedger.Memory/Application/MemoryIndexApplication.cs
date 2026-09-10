@@ -369,9 +369,25 @@ public sealed class MemoryIndexApplication
 
     private static IEmbeddingGenerator CreateCountingGenerator(
         IEmbeddingGenerator generator,
-        Action onRequest) => generator is IEmbeddingIdentityResolver identityResolver
+        Action onRequest)
+    {
+        var identityResolver = generator as IEmbeddingIdentityResolver;
+        var inputLimitResolver = generator as IEmbeddingInputLimitResolver;
+        if (identityResolver is not null && inputLimitResolver is not null)
+        {
+            return new ResolvingCountingEmbeddingGenerator(
+                generator,
+                identityResolver,
+                inputLimitResolver,
+                onRequest);
+        }
+
+        return identityResolver is not null
             ? new IdentityResolvingCountingEmbeddingGenerator(generator, identityResolver, onRequest)
-            : new CountingEmbeddingGenerator(generator, onRequest);
+            : inputLimitResolver is not null
+                ? new InputLimitResolvingCountingEmbeddingGenerator(generator, inputLimitResolver, onRequest)
+                : new CountingEmbeddingGenerator(generator, onRequest);
+    }
 
     private class CountingEmbeddingGenerator : IEmbeddingGenerator
     {
@@ -407,6 +423,49 @@ public sealed class MemoryIndexApplication
             IEmbeddingIdentityResolver identityResolver,
             Action onRequest)
             : base(generator, onRequest)
+        {
+            _identityResolver = identityResolver;
+        }
+
+        public Task<EmbeddingIdentity> ResolveIdentityAsync(
+            int dimensions,
+            CancellationToken cancellationToken = default) =>
+            _identityResolver.ResolveIdentityAsync(dimensions, cancellationToken);
+    }
+
+    private class InputLimitResolvingCountingEmbeddingGenerator :
+        CountingEmbeddingGenerator,
+        IEmbeddingInputLimitResolver
+    {
+        private readonly IEmbeddingInputLimitResolver _inputLimitResolver;
+
+        public InputLimitResolvingCountingEmbeddingGenerator(
+            IEmbeddingGenerator generator,
+            IEmbeddingInputLimitResolver inputLimitResolver,
+            Action onRequest)
+            : base(generator, onRequest)
+        {
+            _inputLimitResolver = inputLimitResolver;
+        }
+
+        public Task<int> ResolveMaximumInputUtf8BytesAsync(
+            EmbeddingInputKind inputKind,
+            CancellationToken cancellationToken = default) =>
+            _inputLimitResolver.ResolveMaximumInputUtf8BytesAsync(inputKind, cancellationToken);
+    }
+
+    private sealed class ResolvingCountingEmbeddingGenerator :
+        InputLimitResolvingCountingEmbeddingGenerator,
+        IEmbeddingIdentityResolver
+    {
+        private readonly IEmbeddingIdentityResolver _identityResolver;
+
+        public ResolvingCountingEmbeddingGenerator(
+            IEmbeddingGenerator generator,
+            IEmbeddingIdentityResolver identityResolver,
+            IEmbeddingInputLimitResolver inputLimitResolver,
+            Action onRequest)
+            : base(generator, inputLimitResolver, onRequest)
         {
             _identityResolver = identityResolver;
         }

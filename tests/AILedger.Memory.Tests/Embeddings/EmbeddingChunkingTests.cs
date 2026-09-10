@@ -17,6 +17,168 @@ namespace AILedger.Memory.Tests.Embeddings;
 public sealed class EmbeddingChunkingTests
 {
     [Fact]
+    public void R3_DenseAndUnicodeChunksHonorUtf8ByteLimit()
+    {
+        var chunker = new DocumentChunker(new DocumentChunkerOptions
+        {
+            MaximumCharacters = 1_000,
+            OverlapCharacters = 4
+        });
+        var text = string.Concat(Enumerable.Repeat("A+/=", 20)) + "🙂🙂🙂";
+
+        var chunks = chunker.Split(text, maximumUtf8Bytes: 17);
+
+        Assert.True(chunks.Count > 1);
+        Assert.All(chunks, chunk => Assert.InRange(Encoding.UTF8.GetByteCount(chunk), 1, 17));
+        Assert.DoesNotContain(chunks, chunk =>
+            chunk.Length > 0 && (char.IsHighSurrogate(chunk[^1]) || char.IsLowSurrogate(chunk[0])));
+    }
+
+    [Fact]
+    public void VC3_ProportionalOverlapTracksProviderByteBound()
+    {
+        var chunker = new DocumentChunker(new DocumentChunkerOptions
+        {
+            MaximumCharacters = 1_000,
+            OverlapCharacters = 100
+        });
+        var text = string.Concat(Enumerable.Range(0, 250).Select(index => (char)('A' + index % 26)));
+
+        var chunks = chunker.Split(text, maximumUtf8Bytes: 100);
+
+        Assert.Equal([100, 100, 70], chunks.Select(chunk => chunk.Length));
+        Assert.Equal(text.Substring(90, 10), chunks[1][..10]);
+        Assert.Equal(text.Substring(180, 10), chunks[2][..10]);
+    }
+
+    [Fact]
+    public async Task R1_R2_OllamaLearnsModelContextAndKeepsTruncationDisabled()
+    {
+        var requests = new List<CapturedRequest>();
+        using var stream = new ScriptedHttpStream(request =>
+        {
+            requests.Add(request);
+            return request.Path switch
+            {
+                "/api/show" => "{\"model_info\":{\"bert.context_length\":32}}",
+                "/api/tags" => "{\"models\":[{\"name\":\"embed:latest\",\"digest\":\"sha256:context\"}]}",
+                _ => "{\"embeddings\":[[1,0,0]]}"
+            };
+        });
+        using var transport = new SocketsHttpHandler
+        {
+            ConnectCallback = (_, _) => ValueTask.FromResult<Stream>(stream)
+        };
+        using var generator = new OllamaEmbeddingGenerator(transport, OllamaOptions());
+        var pipeline = new DocumentEmbeddingPipeline(
+            generator,
+            new DocumentChunker(new DocumentChunkerOptions
+            {
+                MaximumCharacters = 1_000,
+                OverlapCharacters = 2
+            }),
+            new DocumentEmbeddingPipelineOptions { BatchSize = 1 });
+
+        var prepared = await pipeline.PrepareAsync(
+            [ProjectionStoreTests.Document("context", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")],
+            []);
+
+        Assert.True(prepared.Embeddings.Count > 1);
+        Assert.Equal("/api/show", requests[0].Path);
+        using (var showPayload = JsonDocument.Parse(requests[0].Body))
+        {
+            Assert.Equal("embed", showPayload.RootElement.GetProperty("model").GetString());
+            Assert.False(showPayload.RootElement.GetProperty("verbose").GetBoolean());
+        }
+
+        Assert.All(requests.Where(request => request.Path == "/api/embed"), request =>
+        {
+            using var payload = JsonDocument.Parse(request.Body);
+            Assert.False(payload.RootElement.GetProperty("truncate").GetBoolean());
+            var input = Assert.Single(payload.RootElement.GetProperty("input").EnumerateArray()).GetString()!;
+            // 32 tokens less the 12.5%/16-token reserve leaves 16 bytes including the five-byte prefix.
+            Assert.InRange(Encoding.UTF8.GetByteCount(input), 1, 16);
+        });
+    }
+
+    [Theory]
+    [InlineData(32, 11)]
+    [InlineData(64, 43)]
+    public async Task R2_ChangingReportedModelContextChangesInputBound(int contextLength, int expectedBytes)
+    {
+        using var stream = new ScriptedHttpStream(request =>
+            $"{{\"model_info\":{{\"bert.context_length\":{contextLength}}}}}");
+        using var transport = new SocketsHttpHandler
+        {
+            ConnectCallback = (_, _) => ValueTask.FromResult<Stream>(stream)
+        };
+        using var generator = new OllamaEmbeddingGenerator(transport, OllamaOptions());
+
+        var maximumBytes = await generator.ResolveMaximumInputUtf8BytesAsync(EmbeddingInputKind.Document);
+
+        Assert.Equal(expectedBytes, maximumBytes);
+    }
+
+    [Fact]
+    public async Task VC4_MultipleReportedContextLengthsUseSmallestSafeBound()
+    {
+        using var stream = new ScriptedHttpStream(_ =>
+            "{\"model_info\":{\"general.context_length\":64,\"bert.context_length\":32}}");
+        using var transport = new SocketsHttpHandler
+        {
+            ConnectCallback = (_, _) => ValueTask.FromResult<Stream>(stream)
+        };
+        using var generator = new OllamaEmbeddingGenerator(transport, OllamaOptions());
+
+        var maximumBytes = await generator.ResolveMaximumInputUtf8BytesAsync(EmbeddingInputKind.Document);
+
+        Assert.Equal(11, maximumBytes);
+    }
+
+    [Fact]
+    public async Task VC4_MissingPositiveContextLengthStillFails()
+    {
+        using var stream = new ScriptedHttpStream(_ =>
+            "{\"model_info\":{\"bert.context_length\":0,\"bert.embedding_length\":1024}}");
+        using var transport = new SocketsHttpHandler
+        {
+            ConnectCallback = (_, _) => ValueTask.FromResult<Stream>(stream)
+        };
+        using var generator = new OllamaEmbeddingGenerator(transport, OllamaOptions());
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            generator.ResolveMaximumInputUtf8BytesAsync(EmbeddingInputKind.Document));
+
+        Assert.Contains("positive context length", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task R2_ApplicationPreservesInputLimitResolverThroughRequestCounting()
+    {
+        using var directory = new TemporaryDirectory();
+        var source = await CreateEventSourceAsync(directory.Path, "T-context", "context-bound");
+        var generator = new ContextBoundRecordingGenerator(maximumUtf8Bytes: 12);
+        var application = new MemoryIndexApplication(
+            new SqliteMemoryProjectionStoreFactory(Path.Combine(directory.Path, "memory.sqlite")),
+            embeddingGenerator: generator,
+            chunker: new DocumentChunker(new DocumentChunkerOptions
+            {
+                MaximumCharacters = 1_000,
+                OverlapCharacters = 2
+            }));
+
+        var result = await application.RebuildAsync(new MemoryIndexRequest
+        {
+            Sources = [source],
+            GenerateEmbeddings = true
+        });
+
+        Assert.Equal(IndexRunOutcome.Succeeded, result.Statistics.Outcome);
+        Assert.True(generator.Inputs.Count > result.Statistics.DocumentsWritten);
+        Assert.All(generator.Inputs, input => Assert.InRange(Encoding.UTF8.GetByteCount(input), 1, 12));
+    }
+
+    [Fact]
     public async Task R5_LongDocumentsChunkWithoutSilentTruncationAndScoreBestChunk()
     {
         var generator = new RecordingGenerator();
@@ -504,6 +666,44 @@ public sealed class EmbeddingChunkingTests
             Requests++;
             throw new InvalidOperationException("planned embedding failure");
         }
+    }
+
+    private sealed class ContextBoundRecordingGenerator(int maximumUtf8Bytes) :
+        IEmbeddingGenerator,
+        IEmbeddingIdentityResolver,
+        IEmbeddingInputLimitResolver
+    {
+        public string Provider => "context-bound";
+        public string Model => "context-bound-v1";
+        public List<string> Inputs { get; } = [];
+
+        public Task<int> ResolveMaximumInputUtf8BytesAsync(
+            EmbeddingInputKind inputKind,
+            CancellationToken cancellationToken = default) => Task.FromResult(maximumUtf8Bytes);
+
+        public Task<EmbeddingIdentity> ResolveIdentityAsync(
+            int dimensions,
+            CancellationToken cancellationToken = default) => Task.FromResult(Identity());
+
+        public Task<EmbeddingBatch> GenerateAsync(
+            EmbeddingRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Inputs.AddRange(request.Inputs);
+            return Task.FromResult(new EmbeddingBatch
+            {
+                Identity = Identity(),
+                Vectors = request.Inputs.Select(_ => (ReadOnlyMemory<float>)new float[] { 1, 0, 0 }).ToArray()
+            });
+        }
+
+        private EmbeddingIdentity Identity() => new()
+        {
+            Provider = Provider,
+            Model = Model,
+            Dimensions = 3,
+            Version = "1"
+        };
     }
 
     private static async Task<IReadOnlyList<string>> ReadDocumentIdentitySnapshotAsync(string database)

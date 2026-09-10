@@ -76,6 +76,11 @@ public sealed class DocumentEmbeddingPipeline
 
         var output = new List<DocumentEmbedding>();
         var pending = new List<PendingChunk>();
+        var maximumInputUtf8Bytes = _generator is IEmbeddingInputLimitResolver inputLimitResolver
+            ? await inputLimitResolver.ResolveMaximumInputUtf8BytesAsync(
+                EmbeddingInputKind.Document,
+                cancellationToken).ConfigureAwait(false)
+            : (int?)null;
         long reused = 0;
         foreach (var document in documents)
         {
@@ -91,7 +96,7 @@ public sealed class DocumentEmbeddingPipeline
                 continue;
             }
 
-            var chunks = _chunker.Split(document.Text);
+            var chunks = _chunker.Split(document.Text, maximumInputUtf8Bytes);
             for (var index = 0; index < chunks.Count; index++)
             {
                 pending.Add(new PendingChunk(document, chunks[index], index, chunks.Count));
