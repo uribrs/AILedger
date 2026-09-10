@@ -49,6 +49,79 @@ Status as of 2026-09-09. `done` means the governed task reached stage `archive`.
 | 42 | one-long-line-destroys-a-whole-run | `2026-09-09_1010-retrospective-projection` | open | **C5, and it killed two runs in that one task.** the adapter tolerates a line it cannot *parse* — `RunCostReader` catches `JsonException` and records no measurement — and kills the run for a line it cannot *hold*. the stream and retention caps both degrade and let the run finish; only the 1 MiB per-line cap raises `ProtocolError`. R6 and R14 died that way, R14 at 7m29s with **zero ledger events and no verifier file**, on the line the xunit host printed for a full suite run — the one command a code-change verifier is certain to run. truncate the line, count it on the run, let the run finish. compounds with 36: a run that files at the end loses everything to a line printed a minute earlier. |
 | 43 | read-the-refusal-back | not opened | open | **the sharpest retrieval in the kernel and nothing uses it.** on refusal the kernel holds an exact key — command type, actor, rule, message — and 144 rows of prior occurrences whose following events record what each actor did next. so "who else hit this and what did they do" is a SQL join over existing rows: **no model, no embedding, no service, no evaluation to earn first**, unlike the semantic index. measured against 2026-09-09's four coordinator failures, two were catchable at a specific command and one at the refusal itself. carries the distinction the whole learning story rests on: retrieval handles what someone already paid for, cross-model verification handles what nobody has learned yet — and only the second is currently working. |
 
+## Where to resume, 2026-09-10 afternoon
+
+Installed `2.0.83` from `565e3f3`. `main` and the branch were level at that commit; everything since
+is uncommitted. **The skills need no install** — `cognitive/` is read from disk at runtime, so
+`install.sh` moves C# only.
+
+### The five things that changed today
+
+    the context gate    work add and provider launch refused without a context.built event
+                        carrying per-skill content hashes. Built, FAILED verification on three
+                        counts, repaired (JC1-JC6), and it has refused the coordinator five times
+    two doors           --without-brief REASON (operator only) and --with-stale-brief EVIDENCE-ID
+                        (the --not-split-because shape: the kernel checks the record exists, never
+                        that it is a good reason). Used live to launch the doors' own verifier
+    six skills          rewritten against the kernel, verified twice, W1 completed. Pre-kernel
+                        paths gone, instructions to hand-edit projections replaced with `ailedger`
+                        commands, the brain pattern kept verbatim
+    RULES.md + rubric   the two served artifacts the first pass missed, now rewritten. RULES.md
+                        reaches every role, so it mattered more than any skill
+    D1                  the pipeline skills are kernel-invoked only. Six copies retired from
+                        `$CODEX_HOME/skills` to `skills-retired-2026-09-10` with a note
+
+### In flight when this note was written
+
+    2026-09-10_0845-pipeline-mandatory   R6  codex verifier on the doors
+    2026-09-10_0907-append-in-place      R5  codex worker, the atomicity repair
+
+A persistent Monitor watches every run in every task and prints `CLOSED <task>/<run> -> <status>`.
+Its script is `runwatch.py` in the session scratchpad; re-arm it first thing if it is gone, because
+three stalls today came from hand-curated watchers.
+
+### The merge gate
+
+    R6 passes                → commit Core, Cli, tests, cognitive; merge; push; install
+    src/AILedger.Storage       stays uncommitted until R5 finishes AND verifies — a half-written
+                               atomicity fix is exactly what must not ship
+
+### Open, and each is one command or one run
+
+    XX1  memory-index    does the chunk bound reach full coverage on the live corpus?
+                         D1 there makes this the OPERATOR's measurement: no sandbox reaches loopback
+    X1   overlong-line   which Core field carries the truncated-line count? Core is free now,
+                         so re-scope W1 over Providers + Core + Cli and unblock it
+    W1   researcher-can-prove-it-ran   BLOCKED on Core, brief is K1, ready to launch
+    C11  RULES.md is outside the freshness gate — one line, fold into the next Core item
+    zero lesson marks on any live task. Every closeout is still owed
+
+### Item 9, and my estimate for it is void
+
+`2026-09-07_2136-workflow-retrospective` now holds `PA-CONTRACT-1` (PromptContract) and
+`PA-PLAN-1` (OrchestrationPlan), produced by a planning lead — the first planning-lead run of the
+session. Seven claims, all validated, three of which overturn the framing I gave it:
+
+- `PC3` — **the projection scores no dimension at all.** "Six of ten are counts and joins" is
+  wrong; ten of ten need a model, and what varies is how much evidence the log supplies per
+  dimension. My 4-5h narrow / 8-12h full estimate rests on the refuted premise.
+- `PC1` — items 1 to 4 are the **darkest-instrumented** archived tasks in the ledger. All four
+  predate the refusal journal, the run-cost fields and the projection, so calibrating against them
+  would pass by measuring nothing.
+- `PC7` — filing a `WorkflowRetrospective` through a producer run **reproduces item 21 on every
+  task forever**. `UserRequest` is the one operator-authored kind that forbids a producer run, and
+  that branch is the model to copy.
+
+Read the plan before re-estimating. It chose `decompose` over four disjoint file sets.
+
+### The behavioural correction that explains most of today
+
+`C3` on `2026-09-10_0907-append-in-place`: **the coordinator has been writing prompt contracts and
+filing them as constraints.** Every `K`-numbered brief carries a goal, constraints, success criteria
+and stop conditions, recorded through `constraint add`. No task opened this session held a
+`PromptContract` until `A2`. That is why Scope was waived four times, and skipping pipeline step 2
+is the measured cause of four mis-scoped work items in one day.
+
 ## Ordering notes
 
 Items 1 to 4 keep their numbers because the notes above and `measure-before-scoring.md` refer to
