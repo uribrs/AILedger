@@ -158,3 +158,37 @@ existing lessons keep recalling exactly as they do today.
 the shape derivation is the real work and it is worth doing on its own merits — `single-agent-relaxation`
 and `attention-items-as-a-gate` both want to key behaviour on what kind of task this is, and both
 currently have nothing to ask.
+
+## the feature is inert against the existing corpus, measured 2026-09-10
+
+`ZC4`, from a live run of the shipped command: **no row in the 167-lesson store is runnable.** Every
+one carries a `verify`, and none carries a direction, because `--verify-expects` is required only of
+marks made after it shipped. A repository-wide `lesson recheck` therefore lists 167 reasons and
+starts nothing.
+
+So the stale-lesson detection this work item was built for does not fire on any lesson that already
+exists. It fires only on lessons minted from now on. The demonstration that
+`2026-09-07_0957-stage-arms:validatedclaim:C1` is reported as no longer holding worked because the
+direction was supplied by hand for the test.
+
+That is the correct command-time rule — a replay rule requiring the field would have made every
+archived task unreadable — but it means the feature has a year-long warm-up unless the existing rows
+are dealt with.
+
+Three options, and the choice is not obvious:
+
+- **Backfill by hand.** 167 rows, each needing a human judgement about whether its verify should
+  find something or find nothing. Slow, and the judgement is exactly the thing that makes a
+  direction worth having.
+- **Backfill by inference.** A verify that greps for a symbol the lesson says is absent implies
+  `absent`; one that greps for a symbol the lesson says exists implies `present`. Mechanical, and
+  wrong in the cases that matter most — `stage-arms:C1` reads either way, which is why it went stale
+  undetected in the first place.
+- **Let it warm up.** Do nothing, and the store becomes checkable at the rate lessons are minted.
+  54 were minted in the last two days, so the corpus turns over faster than the number suggests.
+
+Recommendation: **let it warm up, and re-mark on contact.** When a task recalls a lesson and an
+agent acts on it, that is the cheapest moment to supply a direction, because someone has just read
+the lesson for a reason. A `lesson remark --id ... --verify-expects ...` that supersedes the row
+would backfill exactly the lessons that are actually being used, and leave the 100-odd nobody has
+read since import alone.
