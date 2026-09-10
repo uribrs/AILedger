@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "sourceRepositoryPath": "/Users/user/Dev/AILedger",
-  "sourceCommit": "5bdb62717f8da0b33075b704b519a9e80a4e8490",
-  "generatedAtUtc": "2026-09-05T19:10:35Z",
+  "sourceRepositoryPath": "/Users/user/Dev/Uri/localprojects/AILedger",
+  "sourceCommit": "576f734a12c42c4464e6976d03a232439bf364e6",
+  "generatedAtUtc": "2026-09-10T10:53:05Z",
   "files": [
     {
       "path": "RULES.md",
@@ -10,7 +10,7 @@
     },
     {
       "path": "code-reviewer/SKILL.md",
-      "sha256": "1d9c574cf0cada2e1364a7b312d04f6843b56021fa1faea79d7ef76cd4b483ea"
+      "sha256": "68efb169fbde80b495f4caa5fb7ee5ce6da639857fa5d418d2efa1419d6ca465"
     },
     {
       "path": "code-reviewer/references/csharp-lenses.md",
@@ -18,15 +18,15 @@
     },
     {
       "path": "contract-driven-execution/SKILL.md",
-      "sha256": "9c7cfd1e1b9fe22f9d523a0e09f040e1558428a1b27e0bcb16b64ae1d3a59771"
+      "sha256": "8d929b2bf48f5157e330e4acfd7e8cdf2985b32863afa408bda8103d9a7faa07"
     },
     {
       "path": "prompt-contract-designer/SKILL.md",
-      "sha256": "b4ae24f486c78d3841f4bfc2956256763d42c608e7372a9f356c590f4dc01271"
+      "sha256": "e9d543432d1f0c099cbaec65df494f38d82244c79c6e85bda330535d10e30530"
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "bf5eb736f0a1525837a4313d46342acc23462bb290e7969cfeae0753dbfcef2d"
+      "sha256": "d62f317b65347ca44ba1f8b1e09b71975d454548e15c7c465af0ec4100e9d5db"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
@@ -34,11 +34,11 @@
     },
     {
       "path": "technical-researcher/SKILL.md",
-      "sha256": "89dd59499509f8fcb1862654240511f62274a877c4fa46f333938afebc303dec"
+      "sha256": "3a1d537fda0de1e36037f125bafb9e90780d65264e7fe7609accffb6a6dfc199"
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "2c6028d16b24566cd849c0e2e72846fcd62ddb4de187001c7450cd224c913602"
+      "sha256": "671fa67b04d27ccc0530602be41d5ffd12803b17e2715c1148f03e578e541852"
     }
   ]
 }

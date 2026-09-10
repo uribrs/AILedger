@@ -7,33 +7,40 @@ namespace AILedger.Core.Application;
 // Replay counterparts: ValidateRunStarted and ValidateRunCompleted.
 internal static class RunRules
 {
-    internal static IReadOnlyList<LedgerEventData> StartRun(
+    // The refusals a provider launch must produce before it has cost anything, in the order they
+    // have to speak. StartRun calls this, and so does the launcher before it resolves an adapter or
+    // runs a provider binary for its version — one implementation, two moments. It was two moments
+    // and no shared implementation that let an unbriefed actor spawn a process and only then be
+    // refused (VC3).
+    //
+    // Returns the brief waiver to record when a door was opened, and null otherwise. The pre-flight
+    // discards it; StartRun records it with the run.
+    internal static ContextBriefWaived? EnsureDispatchIsPermitted(
         GovernedTaskState state,
-        StartRunCommand command,
-        DateTimeOffset now)
+        ActorId actorId,
+        ActorId? subjectActorId,
+        IReadOnlyList<ContextSkill>? servedNow,
+        bool isProviderLaunch,
+        string? withoutBriefReason = null,
+        EvidenceId? staleBriefEvidenceId = null)
     {
-        RequireId(command.RunId.Value, nameof(command.RunId));
-        EnsureNew(state.Runs, command.RunId, "run");
-        RequireText(command.Provider, nameof(command.Provider));
-    
         // A run is authorised by one actor and worked by another only when an operator dispatches
         // it. Starting the run under the working actor is what made the roles that hold no run
         // authority — researcher, worker, verifier, code reviewer — impossible to launch at all.
         // Dispatch separates the two without handing those roles authority they must not have.
-        var subjectActorId = command.SubjectActorId ?? command.ActorId;
-        ActorId? launchedBy = subjectActorId == command.ActorId ? null : command.ActorId;
-        if (launchedBy is not null)
+        var subject = subjectActorId ?? actorId;
+        if (subject != actorId)
         {
-            if (!RoleAssignmentRules.IsOperator(state, command.ActorId))
+            if (!RoleAssignmentRules.IsOperator(state, actorId))
             {
                 throw new GovernanceException(
-                    $"Only an operator can start a run on another actor's behalf; '{command.ActorId}' cannot " +
-                    $"dispatch for '{subjectActorId}'.");
+                    $"Only an operator can start a run on another actor's behalf; '{actorId}' cannot " +
+                    $"dispatch for '{subject}'.");
             }
-    
-            if (!state.Roles.ContainsKey(subjectActorId))
+
+            if (!state.Roles.ContainsKey(subject))
             {
-                throw new GovernanceException($"Run subject '{subjectActorId}' has no assigned role.");
+                throw new GovernanceException($"Run subject '{subject}' has no assigned role.");
             }
         }
 
@@ -45,11 +52,41 @@ internal static class RunRules
         // never dispatch at all should be told that, not told to go and build context first: the
         // refusal an actor reads is the instruction it acts on, so the gate that cannot be
         // satisfied has to speak before the gate that can.
-        if (command.LaunchTokenHash is not null)
+        if (isProviderLaunch)
         {
-            ContextGateRules.EnsureBriefed(
-                state, command.ActorId, command.SkillsServedNow, "launch a provider");
+            return ContextGateRules.EnsureBriefed(
+                state, actorId, servedNow, "launch a provider",
+                withoutBriefReason, staleBriefEvidenceId);
         }
+
+        // A run started by hand is not gated, so it cannot be waived either. A door offered where
+        // there is no gate would record a waiver for a refusal that never happens, and a log full
+        // of waivers nothing needed is how an override stops being read as a decision.
+        if (withoutBriefReason is not null || staleBriefEvidenceId is not null)
+        {
+            throw new GovernanceException(
+                "A run started by hand is not subject to the context gate, so there is nothing to waive. " +
+                "The doors are for 'provider launch' and 'work add'.");
+        }
+
+        return null;
+    }
+
+    internal static IReadOnlyList<LedgerEventData> StartRun(
+        GovernedTaskState state,
+        StartRunCommand command,
+        DateTimeOffset now)
+    {
+        RequireId(command.RunId.Value, nameof(command.RunId));
+        EnsureNew(state.Runs, command.RunId, "run");
+        RequireText(command.Provider, nameof(command.Provider));
+    
+        var subjectActorId = command.SubjectActorId ?? command.ActorId;
+        ActorId? launchedBy = subjectActorId == command.ActorId ? null : command.ActorId;
+        var briefWaiver = EnsureDispatchIsPermitted(
+            state, command.ActorId, command.SubjectActorId, command.SkillsServedNow,
+            isProviderLaunch: command.LaunchTokenHash is not null,
+            command.WithoutBriefReason, command.StaleBriefEvidenceId);
 
         // Which role the subject holds now, recorded on the run. Role assignments change, so asking
         // the current assignment whether a past run was a verifier's answers a different question.
@@ -103,7 +140,7 @@ internal static class RunRules
             TrimOrNull(command.LaunchTokenHash),
             launchedBy,
             subjectRole);
-        return [new RunStarted(run)];
+        return briefWaiver is null ? [new RunStarted(run)] : [briefWaiver, new RunStarted(run)];
     }
 
     internal static IReadOnlyList<LedgerEventData> CompleteRun(

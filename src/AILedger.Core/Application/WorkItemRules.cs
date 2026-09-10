@@ -13,8 +13,10 @@ internal static class WorkItemRules
     {
         // First, because it is the refusal that names what to do next. Adding work is where the
         // task is decomposed, and decomposing it without having read the two skills that say how is
-        // the gap this gate closes.
-        ContextGateRules.EnsureBriefed(state, command.ActorId, command.SkillsServedNow, "add work");
+        // the gap this gate closes. A door opened here returns the waiver to record with the item.
+        var briefWaiver = ContextGateRules.EnsureBriefed(
+            state, command.ActorId, command.SkillsServedNow, "add work",
+            command.WithoutBriefReason, command.StaleBriefEvidenceId);
         RequireId(command.WorkItemId.Value, nameof(command.WorkItemId));
         EnsureNew(state.WorkItems, command.WorkItemId, "work item");
         RequireText(command.Title, nameof(command.Title));
@@ -64,7 +66,9 @@ internal static class WorkItemRules
             command.ResourceScope.Select(item => item.Trim()).ToArray(),
             NotSplitJustification: command.NotSplitJustification,
             BaseRef: string.IsNullOrWhiteSpace(command.BaseRef) ? null : command.BaseRef.Trim());
-        return [new WorkItemAdded(workItem)];
+        // The waiver precedes the item it let through, the way a stage waiver precedes its
+        // transition: a reader sees which gate was opened before it sees what the opening bought.
+        return briefWaiver is null ? [new WorkItemAdded(workItem)] : [briefWaiver, new WorkItemAdded(workItem)];
     }
 
     internal static IReadOnlyList<LedgerEventData> CompleteWorkItem(

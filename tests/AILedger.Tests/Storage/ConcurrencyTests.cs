@@ -19,7 +19,9 @@ public sealed class ConcurrencyTests
             new OpenTaskCommand(actor, null, "open", taskId, "Task", "Goal"), CancellationToken.None);
         await ContextBrief.RecordAsync(service, taskId.Value);
         await service.ExecuteAsync(taskId,
-            new AddWorkItemCommand(actor, null, "work", new WorkItemId("W1"), "Work", actor, [], [root.Path]),
+            new AddWorkItemCommand(
+                actor, null, "work", new WorkItemId("W1"), "Work", actor, [], [root.Path],
+                SkillsServedNow: ContextBrief.Served),
             CancellationToken.None);
 
         var first = CaptureAsync(() => CreateService(root.Path).ExecuteAsync(taskId,
@@ -55,7 +57,9 @@ public sealed class ConcurrencyTests
         foreach (var id in new[] { "W1", "W2" })
         {
             await service.ExecuteAsync(taskId,
-                new AddWorkItemCommand(actor, null, $"work-{id}", new WorkItemId(id), id, actor, [], [Path.Combine(root.Path, id)]),
+                new AddWorkItemCommand(
+                    actor, null, $"work-{id}", new WorkItemId(id), id, actor, [],
+                    [Path.Combine(root.Path, id)], SkillsServedNow: ContextBrief.Served),
                 CancellationToken.None);
         }
 

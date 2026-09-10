@@ -232,7 +232,7 @@ public sealed class RefusalJournalTests
     }
 
     private static Task<CommandOutcome> Run(IGovernedTaskService service, TaskId taskId, LedgerCommand command) =>
-        service.ExecuteAsync(taskId, command, CancellationToken.None);
+        service.ExecuteAsync(taskId, ContextBrief.WithServedSkills(command), CancellationToken.None);
 
     private sealed record JournalRow(
         DateTimeOffset RecordedAt,

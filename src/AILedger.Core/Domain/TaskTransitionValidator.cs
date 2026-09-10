@@ -108,6 +108,9 @@ internal static class TaskTransitionValidator
             case ContextBuilt built:
                 ValidateContextBuilt(Require(state), @event, built);
                 break;
+            case ContextBriefWaived waivedBrief:
+                ValidateContextBriefWaived(Require(state), @event, waivedBrief);
+                break;
             default:
                 throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.");
         }
@@ -573,6 +576,51 @@ internal static class TaskTransitionValidator
             built.Skills.Count)
         {
             throw new GovernanceException("A context brief cannot serve one skill twice.");
+        }
+    }
+
+    // Safe by construction, on the same grounds as ValidateContextBuilt above and the waiver arm in
+    // ValidateWorkItemCompleted: every rule here keys on a field only a context.brief-waived event
+    // carries, and no history written before this event type existed can reach it. What must never
+    // appear is the other direction — an arm requiring a brief, or a waiver, before work.added or
+    // run.started. Every task in this ledger carries neither.
+    private static void ValidateContextBriefWaived(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        ContextBriefWaived waived)
+    {
+        RequireText(waived.Action, nameof(waived.Action));
+        if ((waived.OperatorReason is not null) == (waived.StaleBriefEvidenceId is not null))
+        {
+            throw new GovernanceException(
+                "A context brief waiver carries exactly one justification: an operator's reason for an " +
+                "absent brief, or an evidence record for a stale one.");
+        }
+
+        if (waived.OperatorReason is { } reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new GovernanceException(
+                    "Proceeding without a brief needs a reason; a blank waiver records nothing.");
+            }
+
+            if (!IsOperator(state, @event.ActorId))
+            {
+                throw new GovernanceException(
+                    $"Only an operator can {waived.Action} without a brief.");
+            }
+        }
+
+        if (waived.StaleBriefEvidenceId is { } evidenceId)
+        {
+            _ = Get(state.Evidence, evidenceId, "evidence");
+            if (!state.ContextBuilds.ContainsKey(@event.ActorId))
+            {
+                throw new GovernanceException(
+                    $"Actor '{@event.ActorId}' has no context brief at all, so there is no stale brief to " +
+                    "proceed on.");
+            }
         }
     }
 

@@ -56,6 +56,10 @@ public sealed class TaskReducer : ITaskReducer
                     new ContextBuild(
                         @event.ActorId, built.Role, built.WorkItemId, built.Skills, @event.RecordedAt))
             },
+            // Nothing to project. The waiver says a gate was opened for the event that follows it,
+            // and no rule asks the state whether one was: the stage waiver is held only because the
+            // transition beside it has to be paired with it, and this one pairs with nothing.
+            ContextBriefWaived => Require(state),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 

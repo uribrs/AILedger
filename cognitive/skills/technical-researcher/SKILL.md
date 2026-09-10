@@ -1,7 +1,7 @@
 ---
 name: technical-researcher
 version: 1.2.0
-description: Research external technical targets and produce decision-support recommendations grounded in official docs, official-adjacent artifacts, and community evidence. Use when investigation of a product, API, platform, tool, integration, library, SDK, service, or protocol is required for integration design, implementation planning, bug investigation, capability verification, migration analysis, or compatibility analysis. Typically invoked by `task-orchestrator` to resolve an OPEN external-behavior assumption recorded in `assumptions.md`.
+description: Research external technical targets and produce decision-support recommendations grounded in official docs, official-adjacent artifacts, and community evidence. Use when investigation of a product, API, platform, tool, integration, library, SDK, service, or protocol is required for integration design, implementation planning, bug investigation, capability verification, migration analysis, or compatibility analysis. Typically invoked by `task-orchestrator` to resolve an OPEN external-behavior claim in the governed task.
 ---
 
 # Technical Researcher
@@ -16,9 +16,9 @@ Treat repository context as supplementary only. Do not turn this skill into code
 
 When invoked as part of a workflow, this skill receives:
 
-- `taskPath` — path to `ai/active/<timestamp>_<task-slug>/`.
-- `topic` — short slug for the research subject (used as both the file name and the `workflow.researchTopics[].topic` value).
-- `triggeringAssumptionId` — optional. The id of the OPEN assumption in `assumptions.md` that this research is intended to resolve.
+- `taskPath` — governed task directory supplied by the kernel.
+- `topic` — short slug for the research subject, used as the file name.
+- `triggeringAssumptionId` — optional. The id of the OPEN claim that this research is intended to resolve.
 
 When invoked standalone (no `taskPath`), produce the same structured output but skip the persistence steps.
 
@@ -30,15 +30,15 @@ When `taskPath` is provided, write the research output to:
 <taskPath>/research/<topic>.md
 ```
 
-If the file already exists, update it in place rather than creating a duplicate. State.json tracks status; the file holds the content.
+If the file already exists, update it in place rather than creating a duplicate.
 
-After writing the research file, update task state:
+After writing the research file:
 
-- In `state.json`, mark the matching entry in `workflow.researchTopics` as `status: "complete"` and append a `workflow.skillsRun` entry.
-- In `assumptions.md`, resolve the triggering assumption: move it to `VALIDATED` or `REJECTED` with actor `researcher`, a one-line reason, and a citation — the vendor doc URL or source `file:line` the finding rests on, plus a pointer to the research file. A pointer to your own research file is not by itself a citation; the underlying source is.
-- In `decisions.md`, add an entry only when the research produces a stable rule that affects future execution.
+- Record each finding with `ailedger claim add` and its underlying source with `ailedger evidence add --supports CLAIM` or `--refutes CLAIM`. A pointer to your own research file is not by itself a citation; the underlying vendor URL or source `file:line` is.
+- The research document remains the run's supporting output; the claims and evidence are its governed findings.
+- Surface a stable rule that affects future execution to a lead or operator for `ailedger decision propose`; a researcher does not hand-edit the decision projection.
 
-If the triggering assumption cannot be resolved by the research (because the evidence is insufficient or contradictory), leave it `OPEN`, record the limitation in the research file, and surface this to the caller. Do not force a resolution.
+If the triggering assumption cannot be resolved by the research (because the evidence is insufficient or contradictory), leave it OPEN, record the limitation in the research file, and surface this to the caller. Do not force a resolution.
 
 ## Core Operating Rules
 
@@ -145,7 +145,7 @@ Anchor the recommendation to the evidence quality, the task type, and the unreso
 
 Use the exact output structure from [output-contract.md](./references/output-contract.md).
 
-When `taskPath` is provided, write that structured output to `<taskPath>/research/<topic>.md` and update `state.json` and `assumptions.md` as described in the Outputs section. The final response to the caller is a brief pointer to the file plus the recommended next action — not a duplicate of the file's content.
+When `taskPath` is provided, write that structured output to `<taskPath>/research/<topic>.md` and record it as described in the Outputs section. The final response to the caller is a brief pointer to the file plus the recommended next action — not a duplicate of the file's content.
 
 When `taskPath` is not provided, return the structured output inline.
 

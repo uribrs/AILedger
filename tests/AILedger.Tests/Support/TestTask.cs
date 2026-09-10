@@ -50,11 +50,24 @@ internal sealed class TestTask
     // it off and record the brief, or withhold it, deliberately.
     public bool AutoBuildContext { get; set; } = true;
 
+    // The other half of the same staging. The gate compares the brief the ledger recorded against
+    // what the cognitive layer serves the actor now, and a command carrying nothing to compare is
+    // refused — a brief that cannot be checked is not a current brief. A test driving the handler
+    // by hand has no cognitive layer, so this answers the way an unchanged one would: with the
+    // digests the recorded brief already holds. The tests whose subject is the comparison itself
+    // pass their own list, or turn this off to withhold one.
+    public bool AutoServeSkills { get; set; } = true;
+
     public CommandOutcome Apply(LedgerCommand command)
     {
         if (AutoBuildContext && NeedsBrief(command))
         {
             BuildContext(command.ActorId);
+        }
+
+        if (AutoServeSkills)
+        {
+            command = WithSkillsServedNow(command);
         }
 
         var outcome = _handler.Handle(State, command, Epoch.AddMinutes(_commandNumber));
@@ -74,6 +87,22 @@ internal sealed class TestTask
             (skills.Length == 0 ? ["workflow-coordinator", "task-orchestrator"] : skills)
                 .Select(name => new ContextSkill(name, $"hash-of-{name}"))
                 .ToArray()));
+
+    // Only for a command the gate reads, and only when it names nothing itself.
+    private LedgerCommand WithSkillsServedNow(LedgerCommand command) =>
+        command switch
+        {
+            AddWorkItemCommand { SkillsServedNow: null } add =>
+                add with { SkillsServedNow = RecordedBrief(add.ActorId) },
+            StartRunCommand { LaunchTokenHash: not null, SkillsServedNow: null } start =>
+                start with { SkillsServedNow = RecordedBrief(start.ActorId) },
+            _ => command
+        };
+
+    // Null when the actor has never been briefed, which leaves the gate's presence check to speak
+    // first — the refusal that names the command to run.
+    private IReadOnlyList<ContextSkill>? RecordedBrief(ActorId actorId) =>
+        State.ContextBuilds.TryGetValue(actorId, out var build) ? build.Skills : null;
 
     private bool NeedsBrief(LedgerCommand command) =>
         command switch

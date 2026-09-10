@@ -33,9 +33,21 @@ internal static class ContextRules
             "Served skill IDs",
             StringComparer.Ordinal);
 
-        // A repeat brief is recorded, never refused. Suppressing it belongs to the caller, which
-        // can decline to submit; refusing it here would mean two agents briefing at the same
-        // instant race for the right to be briefed, and the loser's read fails (IC2).
+        // A repeat brief appends nothing, and the decision is taken here rather than in the caller.
+        // The caller reads the state, decides, and submits, so two agents briefing at the same
+        // instant both find nothing recorded and both append (VC2). This runs inside the durable
+        // mutation lock against the state the append would be made on, so the second of two
+        // concurrent identical briefs cannot slip past it.
+        //
+        // It leaves as a ContextAlreadyBriefedException and not a GovernanceException: nothing is
+        // wrong with the command, no repair is owed, and the caller's read still succeeds. The two
+        // refusals above are the only two this command has.
+        if (ContextSkills.AlreadyRecorded(state, command.ActorId, command.Skills))
+        {
+            throw new ContextAlreadyBriefedException(
+                $"Actor '{command.ActorId}' already holds this brief on task '{state.TaskId}'.");
+        }
+
         return [new ContextBuilt(assignment.Role, command.WorkItemId, command.Skills.ToArray())];
     }
 }

@@ -16,7 +16,7 @@ When invoked by `task-orchestrator`, this skill receives **only**:
 - Risk classification and change type (see Review Calibration below).
 - Tech stack / language indicators so the reviewer can apply idiomatic checks.
 - Accepted tradeoffs that genuinely constrain what is reviewable (for example, a vendor library pinned at an old version).
-- `taskPath` — only so the review output can be written to the correct location.
+- `taskPath`, `task`, `actor`, `run`, and `work` — only so the review output can be written to the governed task directory and filed by its producer run.
 
 This skill **must NOT receive**:
 
@@ -36,7 +36,7 @@ Required input:
 
 Optional input (when running inside a workflow):
 
-- `taskPath` — `ai/active/<timestamp>_<task-slug>/`.
+- `taskPath` — governed task directory supplied by the kernel.
 
 When `taskPath` is provided, write the review output to:
 
@@ -45,6 +45,16 @@ When `taskPath` is provided, write the review output to:
 ```
 
 Where `N` is the next available numeric suffix (1 for the first review, 2 for a re-review after repairs, and so on). Never overwrite an existing `code-reviewer-N.md`; always increment.
+
+File the completed review while its producer run is active:
+
+```bash
+ailedger artifact record --task TASK --actor ACTOR --run RUN --work WORK \
+  --id ARTIFACT-ID --kind CodeReviewOutput --title TITLE --body-stdin \
+  < <taskPath>/review/code-reviewer-N.md
+```
+
+When revising a current review, use a new artifact id and add `--supersedes ARTIFACT-ID`.
 
 When `taskPath` is not provided, return the review inline using the same structure.
 

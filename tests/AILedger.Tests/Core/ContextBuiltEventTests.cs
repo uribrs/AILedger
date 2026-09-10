@@ -80,6 +80,31 @@ public sealed class ContextBuiltEventTests
         Assert.Equal(1, await CountContextBuiltAsync(root.Path, "T1"));
     }
 
+    // VC2, and it is the same rule under the condition it was written for. Suppressing the repeat
+    // in the caller — read the state, decide, then submit — leaves both of two simultaneous callers
+    // deciding to append, and four agents briefing at the same instant is not hypothetical in this
+    // repository. The decision is now taken inside the mutation lock, so only one append survives
+    // and every caller still gets its brief.
+    // No brief exists when the eight start, and that is the whole condition. Eight repeats of an
+    // already recorded brief cannot show anything: every one of them reads a state that already
+    // holds it and suppresses, so the test passes against the caller-side check as well. It is the
+    // first brief that races.
+    [Fact]
+    public async Task EightConcurrentFirstBriefsAppendOneEvent()
+    {
+        using var root = new TemporaryDirectory();
+        await OpenAsync(root.Path, "T1", "operator");
+        var afterOpening = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => ContextBrief.BuildAsync(root.Path, "T1")));
+        var afterConcurrent = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+
+        // BuildAsync throws on a non-zero exit, so eight successful returns are eight briefs that
+        // were served: the suppression must not be a refusal any of them reads as a failure.
+        Assert.Equal(afterOpening!.Version + 1, afterConcurrent!.Version);
+        Assert.Equal(1, await CountContextBuiltAsync(root.Path, "T1"));
+    }
+
     // The other half of the same rule: a brief that is genuinely different is recorded. Without
     // this the test above would pass against a command that never writes at all.
     [Fact]
@@ -142,7 +167,7 @@ public sealed class ContextBuiltEventTests
         Assert.Contains("has not built its context", refusal.Message, StringComparison.Ordinal);
     }
 
-    private static async Task<ContextManifest> BuildAsync(string root, string taskId, string actorId)
+    private static async Task OpenAsync(string root, string taskId, string actorId)
     {
         var application = new CliApplication(
             TextWriter.Null, TextWriter.Null, Service,
@@ -151,7 +176,15 @@ public sealed class ContextBuiltEventTests
         Assert.Equal(0, await application.RunAsync(
             ["task", "open", "--root", root, "--task", taskId, "--actor", actorId,
              "--title", "Task", "--goal", "Goal"], CancellationToken.None));
+    }
 
+    private static async Task<ContextManifest> BuildAsync(string root, string taskId, string actorId)
+    {
+        await OpenAsync(root, taskId, actorId);
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service,
+            _ => throw new InvalidOperationException("No provider is launched here."),
+            new ContextAssembler());
         var manifestPath = Path.Combine(Path.GetTempPath(), $"manifest-{Guid.NewGuid():N}.json");
         Assert.Equal(0, await application.RunAsync(
             ["context", "build", "--root", root, "--task", taskId, "--actor", actorId,

@@ -49,29 +49,41 @@ public sealed class RunManifestLaunchTests
     // The absence is the measurement, and only the production path can show that it survives: the
     // cognitive root is read while the manifest is built, which is after the run has started. So the
     // run exists, the child never ran, and the pair must stay null rather than record a brief.
+    //
+    // Reaching that state now takes a layer that reads once and then stops reading, because a
+    // launch whose cognitive root cannot be read at all is refused before the run exists (VC1). The
+    // two reads are real — the gate compares one, the brief is built from the other — so the copied
+    // layer is removed between them, from the adapter factory, which the launcher calls after the
+    // gate and before the run. That is the window this measurement belongs to.
     [Fact]
     public async Task ALaunchThatFailsBeforeItsBriefExistsRecordsNoManifest()
     {
         using var root = new TemporaryDirectory();
         using var providerRoot = new TemporaryDirectory();
-        using var emptyCognitiveRoot = new TemporaryDirectory();
+        using var cognitiveRoot = new TemporaryDirectory();
+        var layer = Path.Combine(cognitiveRoot.Path, "cognitive");
+        CopyDirectory(FindCognitiveRoot(), layer);
         var work = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "provider-work")).FullName;
         var adapter = new CapturingAdapter(AgentRunStatus.Completed);
         var application = new CliApplication(
-            TextWriter.Null, TextWriter.Null, Service, _ => adapter, new ContextAssembler());
+            TextWriter.Null, TextWriter.Null, Service,
+            _ =>
+            {
+                Directory.Delete(layer, recursive: true);
+                return adapter;
+            },
+            new ContextAssembler());
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None);
-        // Briefed against the real cognitive layer, because an empty one has no manifest to read
-        // and cannot brief anyone. The launch below then names the empty root, so the gate's
-        // freshness comparison has nothing to compare and falls back to the presence check — which
-        // is what lets this test keep pinning what it was written to pin.
-        await ContextBrief.BuildAsync(root.Path, "T1");
+        // Briefed from the copy, so the gate's comparison finds the brief current and the launch
+        // gets as far as the run. What the child was to be briefed from is gone by then.
+        await ContextBrief.BuildAsync(root.Path, "T1", cognitiveRoot: layer);
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
-             "--working-directory", work, "--cognitive-root", emptyCognitiveRoot.Path],
+             "--working-directory", work, "--cognitive-root", layer],
             CancellationToken.None);
 
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
@@ -81,6 +93,20 @@ public sealed class RunManifestLaunchTests
         Assert.Equal(AgentRunStatus.Failed, run.Status);
         Assert.Null(run.ManifestHash);
         Assert.Null(run.ManifestArtifactCount);
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.GetFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        }
+
+        foreach (var directory in Directory.GetDirectories(source))
+        {
+            CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+        }
     }
 
     private static string HashOf(string manifestJson) =>

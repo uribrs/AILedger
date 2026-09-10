@@ -278,7 +278,9 @@ public sealed class CliApplication
                     input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes,
                     OptionalId(input.Optional("not-split-because"), value => new AlternativeId(value)),
                     ResolveBaseRef(input, scopes),
-                    await CurrentSkillsAsync(service, input, cancellationToken).ConfigureAwait(false)),
+                    await CurrentSkillsAsync(service, input, cancellationToken).ConfigureAwait(false),
+                    input.Optional("without-brief"),
+                    OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value))),
                     cancellationToken).ConfigureAwait(false);
                 break;
             case "escalation raise":
@@ -912,11 +914,20 @@ public sealed class CliApplication
         // Suppressed rather than refused. A repeat brief for the same actor and the same skills
         // appends nothing and leaves the version where it was, which is what keeps 'context build'
         // a read: three agents briefing in a row must not each move the task on (R2, IC2).
-        if (!ContextSkills.AlreadyRecorded(state, Actor(input), skills))
+        //
+        // The command is always submitted and the kernel decides, because only the kernel holds the
+        // mutation lock. Deciding here — read the state, then submit — is what let two agents
+        // briefing at the same instant both append (VC2). The exception is the kernel declining to
+        // append, not a refusal: the brief this command was asked for is already recorded, so the
+        // read below succeeds either way.
+        try
         {
             await service.ExecuteAsync(Task(input), new RecordContextBuiltCommand(
                 Actor(input), Cause(input), Correlation(input),
                 manifest.WorkItemId, skills), cancellationToken).ConfigureAwait(false);
+        }
+        catch (ContextAlreadyBriefedException)
+        {
         }
 
         var json = JsonSerializer.Serialize(manifest, _json) + Environment.NewLine;
@@ -946,21 +957,18 @@ public sealed class CliApplication
     // What the cognitive layer would serve this actor right now, for the gate to compare against
     // the brief the ledger recorded.
     //
-    // It reads the layer separately rather than sharing the read that builds the child's manifest,
-    // and it swallows an unreadable layer instead of failing. Both are deliberate: a launch whose
-    // cognitive root cannot be read must keep failing where it always failed — after the run
-    // exists, so that a run with a null manifest pair still records that it was never briefed —
-    // and moving that failure earlier would delete the run the absence is recorded on.
-    //
-    // Null therefore means unreadable, not fresh. The gate still refuses an actor that has never
-    // been briefed; only the freshness comparison is skipped, because there is nothing to compare.
+    // Null means the layer could not be read, and the gate refuses on it: a brief that cannot be
+    // checked is not a current brief. It used to mean "skip the freshness half", which made the
+    // gate optional to any caller who moved --cognitive-root somewhere empty (VC1). A launch whose
+    // cognitive root cannot be read is now refused before the run exists, and the refusal is
+    // journaled where the authority refusals are.
     private async Task<IReadOnlyList<ContextSkill>?> CurrentSkillsAsync(
         GovernedTaskState state,
         CommandLine input,
         CancellationToken cancellationToken)
     {
-        // No role means the kernel will refuse this command on its own grounds. Inventing a digest
-        // list here would replace the refusal that says so with one about stale skills.
+        // No role means the kernel will refuse this command on its own grounds, and it speaks before
+        // the gate does. Inventing a digest list here would replace the refusal that says so.
         if (!state.Roles.TryGetValue(Actor(input), out var assignment))
         {
             return null;
@@ -1006,12 +1014,24 @@ public sealed class CliApplication
 
         var launchState = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
         var requestedWorkItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
+        // Read once, here, and used for both the pre-flight refusal and the command below. Reading
+        // it twice would leave a window where the layer changed between the check and the command.
+        var servedNow = await CurrentSkillsAsync(launchState, input, cancellationToken).ConfigureAwait(false);
         // Authority and scope are settled before an adapter is resolved or any process spawned: a
         // request that will be refused should cost neither.
         ProviderGrants grants;
         try
         {
             grants = ResolveProviderGrants(launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
+            // And the brief, on the same grounds and in the order the kernel states: authority
+            // first, then the brief, then anything with a side effect. This ran only inside the
+            // command below, which the version probe already precedes, so an actor with no brief
+            // had executed a provider binary before being refused (VC3). The kernel still refuses
+            // the launch — this only moves the refusal in front of the process.
+            ProviderLaunchPreflight.EnsurePermitted(
+                launchState, Actor(input), Subject(input), servedNow,
+                input.Optional("without-brief"),
+                OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)));
         }
         catch (GovernanceException refusal)
         {
@@ -1033,8 +1053,7 @@ public sealed class CliApplication
         // the manifest, the briefing or the child's environment.
         var launchToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         var start = CreateStartRun(input, provider, sessionId, providerVersion,
-            CommandHandler.HashLaunchToken(launchToken),
-            await CurrentSkillsAsync(launchState, input, cancellationToken).ConfigureAwait(false));
+            CommandHandler.HashLaunchToken(launchToken), servedNow);
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
         // The instant the kernel recorded the run, which is what the first-write time is measured
@@ -1773,7 +1792,8 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["work add"] = Options(
                 "root", "task", "actor", "id", "title", "owner", "depends-on", "scope",
-                "not-split-because", "base-ref", "cognitive-root", "cause", "correlation"),
+                "not-split-because", "base-ref", "cognitive-root", "without-brief", "with-stale-brief",
+                "cause", "correlation"),
             ["escalation raise"] = Options(
                 "root", "task", "actor", "id", "kind", "question", "work", "option", "recommend", "evidence",
                 "cause", "correlation"),
@@ -1811,7 +1831,8 @@ public sealed class CliApplication
 
     private static IReadOnlySet<string> ProviderOptions() => Options(
         "root", "task", "actor", "subject", "run", "work", "provider", "session", "executable", "working-directory",
-        "model", "timeout-seconds", "add-dir", "cognitive-root", "output-schema", "cause", "correlation");
+        "model", "timeout-seconds", "add-dir", "cognitive-root", "output-schema", "without-brief",
+        "with-stale-brief", "cause", "correlation");
 
     private static IReadOnlySet<string> Options(params string[] names) =>
         new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
@@ -1849,7 +1870,11 @@ public sealed class CliApplication
             OptionalId(input.Optional("work"), value => new WorkItemId(value)),
             provider ?? input.Required("provider"), sessionId ?? input.Optional("session"),
             input.Optional("model"), providerVersion, launchTokenHash, Subject(input),
-            skillsServedNow);
+            skillsServedNow,
+            // Read from the same command line the pre-flight read them from, so the door the
+            // launcher was let through on is the door the kernel records.
+            input.Optional("without-brief"),
+            OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)));
 
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     // Who the run is for. Absent, an actor starts its own run and nothing changes.
@@ -2013,6 +2038,7 @@ public sealed class CliApplication
         work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
                            [--depends-on CLAIM] [--scope PATH] [--not-split-because ALT-ID]
                            [--cognitive-root PATH]
+                           [--without-brief REASON] [--with-stale-brief EVIDENCE-ID]
         work complete      --task ID --actor ID --id ID [--without-verification REASON]
         work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
         work unblock       --task ID --actor ID --id ID
@@ -2049,6 +2075,24 @@ public sealed class CliApplication
 
         Provider options: --work ID --subject ID --executable PATH --working-directory PATH --model NAME
                           --timeout-seconds N --add-dir PATH --cognitive-root PATH --output-schema VALUE
+                          --without-brief REASON --with-stale-brief EVIDENCE-ID
+
+        work add and provider launch are refused until the acting actor has built its context on the
+        task and the skills it was served still say what they said then. --cognitive-root is what the
+        digests are recomputed from, and a root that cannot be read is refused rather than waved
+        through: a brief nobody can check is not a current brief. context build itself is never
+        gated, so a fresh task is always openable.
+
+        Two doors open that gate, because an absent brief and a stale one are different failures.
+        --without-brief REASON is the operator's decision to proceed with no brief at all: only an
+        operator may pass it, a blank reason is refused, and the reason is recorded as its own event
+        before the work item or the run. Evidence cannot carry this case, because there is no
+        evidence that an unread brief was read. --with-stale-brief EVIDENCE-ID is for a brief that
+        exists and is no longer current: any actor that may run the command may pass it, and the
+        kernel checks that the evidence record exists on this task and that there is a brief for it
+        to be about — never whether the reason is a good one, the same contract as
+        --not-split-because. Passed by an actor with no brief at all it is refused, and the refusal
+        says to build context or to use the operator door.
 
         --subject dispatches a run for another actor: only an operator may pass it, and the run is
         authorised by --actor while the subject does the work, receives the manifest filtered by its

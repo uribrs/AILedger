@@ -2,12 +2,12 @@
 
 name: prompt-contract-designer
 version: 1.4.0
-description: Convert rough user tasks into structured execution contracts and minimal state files, enforcing explicit constraints, assumptions, success criteria, and handoff rules before implementation. Recalls prior lessons from the global ledger and seeds them as unverified assumptions. Records assumptions as OPEN only — validation requires evidence this skill cannot hold.
+description: Convert rough user tasks into structured execution contracts, enforcing explicit constraints, assumptions, success criteria, and handoff rules before implementation. Consumes recalled lessons from the governed context and records them as unverified claims. Records claims as OPEN only — validation requires evidence this skill cannot hold.
 
 ---
 
 Purpose:
-Convert a user task into a structured execution contract and minimal state.
+Convert a user task into a structured execution contract and governed claims.
 
 This skill does NOT execute the task.
 
@@ -45,32 +45,24 @@ Do not use this skill for:
 
 ---
 
-## State Loading Rules
+## Context Loading Rules
 
-Before creating or updating task state:
-1. Read global state from `~/Dev/AILedger/global/` if accessible.
-2. Read existing local task state from `ai/active/` if present.
-3. Preserve existing validated constraints and decisions.
-4. Do not overwrite previous state unless explicitly replacing it.
-5. Run Prior Art Recall (below).
+Before creating or updating a contract:
+1. Read the context manifest supplied by `ailedger context build`.
+2. Preserve existing validated claims, active constraints, and accepted decisions.
+3. Do not replace a current artifact or event-backed record unless explicitly revising it through the CLI.
+4. Run Prior Art Triage (below).
 
 ---
 
-## Prior Art Recall
+## Prior Art Triage
 
-Before writing the contract, check whether this operator has already learned something about this work.
+Before writing the contract, check the recalled lessons in the context manifest. Task-open tags and
+the kernel's recall rules have already selected, head-filtered, ordered, and bounded this set.
 
-1. Derive 2–4 tags from the request: repo, vendor/product, subsystem, failure class.
-2. Grep `~/Dev/AILedger/lessons.md` for those tags. If the file does not exist, go to step 6. Grep for matching lines only — never read the whole ledger.
-3. **Head-filter the matches.** A row's id is its first field, `L-<8hex>`. Collect the ids named by any `supersedes:` or `retracts:` field anywhere in the ledger and drop any matched row whose id appears among them. A superseded row is history, not current evidence; a retracted one was never evidence. Both stay in the file, and neither reaches the contract. Ids are assigned, not derived from the row's contents, so this is an exact string match — never infer an id from a row's date and tags.
-4. **Order and cap.** Sort the surviving matches date-descending and keep **at most 10**. If more matched, note the count that was dropped — a silently truncated recall reads as an exhaustive one. Then read **at most 3** of the task directories those rows point at. Both caps are hard, and together they keep recall's context cost flat as the ledger grows.
-5. Seed `assumptions.md` with one OPEN entry per relevant hit:
-   - `OPEN — <belief>. source: lessons.md#L-<8hex> (<actor>, <date>)` — copy the id from the row's first field verbatim
-6. Record the outcome in `assumptions.md` under a `## Prior Art` heading — either the seeded entries, or the single line `No prior art found for tags: <tags>.` so a skipped recall is distinguishable from an empty one. When step 4 truncated, add `Matched <n> rows, triaged the newest 10.`
-
-The ledger is the index and carries one line per entry, led by the row's id; the belief clause on that line is what you triage on. The rest — counter-evidence, citation, and the `verify:` command that would re-confirm it today — lives in `lesson.md` inside the archived task directory, and is worth opening only for the ≤3 pointers you actually follow. When a followed entry carries a `verify:` command, prefer running it over trusting the entry: a lesson that re-confirms in seconds is worth more than one taken on faith, and one whose command no longer resolves is stale on its face.
-
-Do not scan `ai/active/`, `ai/done/`, or `~/Dev/AILedger/tasks/` directory-by-directory — that cost grows with every task ever run and will crowd out the current one.
+For each relevant lesson, add an OPEN claim with `ailedger claim add --from-lesson LESSON-ID`.
+When a recalled lesson carries a runnable verification command, ask the operator to use
+`ailedger lesson recheck`; only the operator can approve and run stored commands.
 
 A recalled lesson is stale operational evidence about a system that may have changed since. It enters as OPEN, never as VALIDATED, a constraint, or a fact — the Evidence Rule applies to recall exactly as it applies to everything else. If the belief is external-behavior-dependent, the orchestrator's research decision will route it to `technical-researcher`.
 
@@ -79,102 +71,23 @@ A recalled lesson is stale operational evidence about a system that may have cha
 ## Complexity Tiers
 
 Light task:
-- create/update `state.json`
-- create/update `task.md`
-- create/update `prompt_contract.md`
+- create or revise the PromptContract artifact
 
 Full task:
-- create/update `state.json`
-- create/update `task.md`
-- create/update `constraints.md`
-- create/update `assumptions.md`
-- create/update `decisions.md`
-- create/update `prompt_contract.md`
-- create/update `execution_notes.md`
+- create or revise the PromptContract artifact
+- add any OPEN claims the contract depends on
+- propose any stable planning decisions through `ailedger decision propose`
 
 ---
 
-## State File Rule
+## Governed State Rule
 
-Every task directory must include a `state.json` file.
+The event log is the source of truth. `task.md`, `assumptions.md`, `decisions.md`, and `state.json`
+are kernel projections: read them when useful and never edit them. Record claims, evidence,
+decisions, constraints, artifacts, and escalations through their `ailedger` commands.
 
-`state.json` is the machine-readable source of truth for task execution state.
-
-It must be created before `prompt_contract.md` is finalized.
-
-`state.json` must track:
-
-- task id
-- task slug
-- task status
-- complexity tier
-- current phase
-- required files
-- step list
-- blockers
-- validation status
-- verification status
-- base ref
-- last updated timestamp
-
-`baseRef` is the commit the task starts from — `git rev-parse HEAD` at contract time. The verifier compares assumptions against the diff from this ref, so it must be captured before execution begins. If the directory is not a git repository, set it to `null`; the verifier will fall back to the artifacts named in `execution_notes.md` and say so.
-
-Agents must read `state.json` first,
-then read only the markdown files relevant to the current step.
-
-Agents must update `state.json` whenever:
-- a required file is created or updated
-- a step status changes
-- an assumption is validated or rejected
-- a blocker is discovered or resolved
-- verification passes or fails
-
-Markdown files explain task context.
-`state.json` controls execution state.
-
-If `state.json` conflicts with markdown task files:
-- STOP
-- report the conflict
-- do not continue until resolved
-
-Required minimal structure:
-
-```json
-{
-  "taskId": "TASK-YYYYMMDD-HHMM",
-  "taskSlug": "task-slug",
-  "status": "draft",
-  "complexityTier": "light",
-  "currentPhase": "contract_design",
-  "requiredFiles": {
-    "task.md": "pending",
-    "prompt_contract.md": "pending",
-    "constraints.md": "optional",
-    "assumptions.md": "optional",
-    "decisions.md": "optional",
-    "execution_notes.md": "optional"
-  },
-  "steps": [],
-  "blockers": [],
-  "validation": {
-    "promptContractValid": false,
-    "constraintsPresent": false,
-    "successCriteriaPresent": false
-  },
-  "verification": {
-    "status": "not_started",
-    "notes": []
-  },
-  "baseRef": "<git rev-parse HEAD at contract time, or null>",
-  "lastUpdated": "YYYY-MM-DDTHH:mm:ssZ"
-}
-```
-
-### Workflow Block — Reserved For Downstream Skills
-
-A `workflow` object may be added to `state.json` later by `task-orchestrator` to record execution-path choice, research topics, workers, verifier and code-reviewer status, and a `skillsRun` audit trail. The contract-designer does not create or write to that block.
-
-On idempotent re-runs, the contract-designer must preserve an existing `workflow` block. Do not delete, overwrite, or reset it. If the contract changes in a way that may invalidate prior orchestration decisions, surface the conflict to the user rather than silently clearing the block.
+The task and active producer run must already exist. The contract-designer does not create task
+directories, start or complete runs, transition stages, or complete work items.
 
 ---
 
@@ -196,13 +109,14 @@ A transition out of OPEN is invalid without **both**:
 
 This skill runs before anything executes. It holds no evidence, so it **must not write VALIDATED or REJECTED**. Every assumption it records is OPEN.
 
-Belief held at planning time is not validation. When the plan depends on an unverified belief, record it in `decisions.md` in this form:
+Belief held at planning time is not validation. When the plan depends on an unverified belief, use
+that belief as an OPEN claim's statement and record its consequence with `claim add --consequence`:
 
 - `Proceeding on unverified: <belief>. If wrong: <consequence>.`
 
-That is the honest statement of what a planning-time "validated" assumption actually is, and the orchestrator reads `decisions.md` when bounding the plan.
+That is the honest statement of what a planning-time "validated" assumption actually is, and the orchestrator reads the claim from its manifest when bounding the plan.
 
-A VALIDATED assumption may be promoted into `constraints.md` or `decisions.md` only once it carries an actor and a citation.
+A VALIDATED assumption may be promoted into a constraint or decision only once it carries evidence with a citation. Use `ailedger constraint add` or `ailedger decision propose` through an actor holding the required capability.
 
 Statuses written by the verifier pass are **terminal**. On idempotent re-runs this skill may append new assumptions, but must never rewrite, reset, or re-open a status that carries an actor and citation.
 
@@ -213,7 +127,7 @@ Statuses written by the verifier pass are **terminal**. On idempotent re-runs th
 This skill does not run after execution and does not record outcomes.
 
 - Assumption disposition (VALIDATED / REJECTED / NEVER-TESTED, with actor and citation) is produced by the verifier pass inside `task-orchestrator`.
-- Reusable lessons are transcribed to the global ledger by `workflow-coordinator`.
+- Reusable lessons are marked through `ailedger lesson mark` by `workflow-coordinator`.
 
 Do not re-open a completed task to "update state" from this skill. Read the disposition; do not rewrite it.
 
@@ -233,11 +147,11 @@ When required information is missing:
 1. If missing information may cause wrong code, wrong architecture, unsafe changes, or wasted implementation:
    - STOP
    - ask concise clarification questions
-   - do NOT produce final prompt_contract.md
+   - do NOT file a final PromptContract artifact
 
 2. If the missing information affects quality but not correctness:
    - proceed with explicit assumptions
-   - list assumptions clearly in `assumptions.md`
+   - add the assumptions as OPEN claims
    - reflect assumptions in Constraints or Context
 
 3. Never leave Constraints or Success Criteria empty.
@@ -246,7 +160,7 @@ When required information is missing:
 
 ## Validation Rule
 
-A prompt_contract.md is INVALID if:
+A PromptContract is INVALID if:
 - Constraints section is empty
 - Success Criteria section is empty
 
@@ -258,93 +172,39 @@ In this case:
 
 ## Output Requirements
 
-Always produce:
+Always write `prompt_contract.md` under `taskPath`, then file it while the producer run is active:
 
-1. state.json
-2. task.md (cleaned and clarified)
-3. prompt_contract.md (execution-ready)
+```bash
+ailedger artifact record --task TASK --actor ACTOR --run RUN --id ARTIFACT-ID \
+  --kind PromptContract --title TITLE --body-stdin < <taskPath>/prompt_contract.md
+```
 
-For non-trivial tasks, also produce:
-
-* constraints.md
-* assumptions.md
-* decisions.md
+A revision uses a new artifact id and `--supersedes ARTIFACT-ID`. Record OPEN assumptions with
+`claim add`; propose stable planning decisions with `decision propose`.
 
 ---
 
 ## File Rules
 
-Each task directory must contain `state.json`.
-Do not create `prompt_contract.md` before `state.json` exists.
-
-All local task files must be written to a unique task directory:
-
-ai/active/<timestamp>_<task-slug>/
-
-Where:
-- timestamp format: YYYY-MM-DD_HHMM
-- task-slug is lowercase, hyphen-separated, and concise
-- task-slug must describe the task, not the implementation guess
-
-Example:
-ai/active/2026-04-28_1430_insightvm-pagination-review/
-
-Create missing directories and files if they do not exist.
-Update existing files according to the state and idempotency rules.
-
-Each task directory must contain the task state files required by its complexity tier.
-
-Never write task state files directly under:
-
-ai/active/
-
-Additionally, create a matching global archive at:
-
-~/Dev/AILedger/tasks/<repo-name>/<timestamp>_<task-slug>/
-
-The local task directory and global archive directory must use the same `<timestamp>_<task-slug>` value.
+Write `prompt_contract.md` only under the supplied `taskPath`. Do not create, relocate, archive, or
+rename the governed task directory; the kernel owns its lifecycle.
 
 ### Post-Contract Artifacts — Not Owned By This Skill
 
-The full task directory layout is documented in `workflow-coordinator/SKILL.md`. The contract-designer writes only the contract-phase files (`task.md`, `prompt_contract.md`, `constraints.md`, `assumptions.md`, `decisions.md`, and the base `state.json`). Preserve every other artifact on idempotent re-runs; do not create or modify post-contract files.
+The full task directory layout is supplied by the kernel briefing. The contract-designer writes only
+`prompt_contract.md`; preserve every other owned artifact on idempotent re-runs.
 
 ---
 
 ## Task Directory Rule
 
-Each distinct task must have its own directory.
-
-Updates to the same task must remain in the same directory.
-
-Do not reuse, overwrite, or merge unrelated task directories.
-
-If the current request continues an existing task, locate and update that task directory instead of creating a new one.
+Use only the `taskPath` supplied in the briefing. If it is missing, stop; do not infer or create one.
 
 ---
 
 ## File Structure Rules
 
-Each file must follow:
-
-constraints.md:
-- bullet list only
-- no explanations unless necessary
-
-assumptions.md:
-- each entry must include a status (OPEN / VALIDATED / REJECTED / NEVER-TESTED)
-- every status other than OPEN must carry an actor and a citation
-- this skill writes OPEN only
-- a `## Prior Art` section recording the recall outcome
-
-decisions.md:
-- one decision per bullet
-- optional short justification (1 line max)
-
-task.md:
-- clear, minimal description of the task
-- no historical notes
-
-prompt_contract.md:
+`prompt_contract.md` must:
 - strictly follow defined structure
 - no extra commentary
 
@@ -360,7 +220,7 @@ Do not store:
 - temporary thoughts
 - duplicated content
 
-State should contain:
+The governed record should contain:
 - constraints
 - decisions
 - validated assumptions
@@ -375,8 +235,8 @@ When conflicts occur between sources:
 
 Priority order:
 1. Explicit user instruction (current task)
-2. Local task state (`ai/active/`)
-3. Global state (`~/Dev/AILedger/global/`)
+2. The current context manifest and artifacts
+3. Recalled lessons in the manifest
 4. Default model behavior
 
 If conflict is unclear or may impact correctness:
@@ -387,7 +247,7 @@ If conflict is unclear or may impact correctness:
 
 ## Execution Handoff Rule
 
-The generated prompt_contract.md must be immediately usable by an execution agent.
+The generated PromptContract must be immediately usable by an execution agent.
 
 It must:
 - contain all required constraints
@@ -420,7 +280,7 @@ When stopping due to missing critical information:
 - Do not exceed 5 questions
 
 After clarification is received:
-- resume task using existing state
+- resume task using the rebuilt context manifest
 - do not restart from scratch
 
 ---

@@ -324,7 +324,8 @@ public sealed class LessonRecallTests
     }
 
     private static async Task Run(FileGovernedTaskService service, TaskId taskId, LedgerCommand command) =>
-        _ = await service.ExecuteAsync(taskId, command, CancellationToken.None);
+        _ = await service.ExecuteAsync(
+            taskId, ContextBrief.WithServedSkills(command), CancellationToken.None);
 
     private static void AssertLessonEqual(Lesson expected, Lesson actual)
     {

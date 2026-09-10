@@ -398,7 +398,9 @@ public sealed class CliApplicationTests
         await ContextBrief.BuildAsync(root.Path, "T1");
         await Service(root.Path).ExecuteAsync(new TaskId("T1"), new AddWorkItemCommand(
             new ActorId("operator"), null, "seed", new WorkItemId("W1"), "Legacy work",
-            new ActorId("operator"), [], [Path.Combine(root.Path, "T2")]), CancellationToken.None);
+            new ActorId("operator"), [], [Path.Combine(root.Path, "T2")],
+            SkillsServedNow: await ContextBrief.RecordedAsync(Service(root.Path), "T1")),
+            CancellationToken.None);
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",

@@ -248,5 +248,5 @@ public sealed class NewCommandReplayTests
     }
 
     private static Task<CommandOutcome> Run(IGovernedTaskService service, TaskId taskId, LedgerCommand command) =>
-        service.ExecuteAsync(taskId, command, CancellationToken.None);
+        service.ExecuteAsync(taskId, ContextBrief.WithServedSkills(command), CancellationToken.None);
 }

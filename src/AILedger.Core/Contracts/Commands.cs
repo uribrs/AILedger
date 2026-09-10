@@ -133,9 +133,19 @@ public sealed record AddWorkItemCommand(
     string? BaseRef = null,
     // What the cognitive layer would serve this actor right now, read by the caller because the
     // kernel has no filesystem. The gate needs it to tell a current brief from a stale one; null
-    // means the caller could not read the layer, and the gate falls back to asking only whether a
-    // brief exists at all. Commands are not persisted, so this reaches no event and no replay.
-    IReadOnlyList<ContextSkill>? SkillsServedNow = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    // means the caller could not read the layer, which is a refusal rather than a pass — a brief
+    // that cannot be checked is not a current brief (VC1). Commands are not persisted, so this
+    // reaches no event and no replay.
+    IReadOnlyList<ContextSkill>? SkillsServedNow = null,
+    // The operator door. An operator's decision that this command proceeds with no brief at all,
+    // and the reason it was right. Operator-only, blank is refused, and it is recorded as its own
+    // event — the shape and the spirit of --without-verification.
+    string? WithoutBriefReason = null,
+    // The conditional door. An evidence record on this task saying why proceeding on a brief that
+    // is no longer current is correct. The kernel checks that the record exists and that a brief
+    // exists to be stale, never whether the reason is a good one — the same contract as
+    // NotSplitJustification above.
+    EvidenceId? StaleBriefEvidenceId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 // 'context build' is a read in every way that matters and stays one: it is never gated, and it
 // cannot be refused for anything but an unknown task or an actor that may not build context. This
@@ -165,7 +175,12 @@ public sealed record StartRunCommand(
     // As on AddWorkItemCommand: what the cognitive layer would serve the acting actor now. Read by
     // the gate on a provider launch only — a launch is the moment the dispatcher decomposes the
     // work, and LaunchTokenHash above is what tells a launch from a manually started run (IC3).
-    IReadOnlyList<ContextSkill>? SkillsServedNow = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    IReadOnlyList<ContextSkill>? SkillsServedNow = null,
+    // The two doors, as on AddWorkItemCommand, and read on a provider launch for the same reason
+    // SkillsServedNow is: they open the gate this command is subject to, and a manually started run
+    // is not subject to it.
+    string? WithoutBriefReason = null,
+    EvidenceId? StaleBriefEvidenceId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record CompleteRunCommand(
     ActorId ActorId,

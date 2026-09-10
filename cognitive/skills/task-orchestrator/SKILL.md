@@ -1,58 +1,54 @@
 ---
 name: task-orchestrator
 version: 1.6.0
-description: Post-contract planning brain for non-trivial work. Reads a finalized prompt contract, resolves external research, runs an internal recon pass over the codebase, then decides whether to execute directly or decompose into bounded worker subagents over disjoint file sets, writes a persistent orchestration plan, runs execution, and always finishes with a verifier subagent followed by an isolated code-reviewer subagent. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`. Best suited for coding, debugging, architecture/design, migrations, research-driven work, implementation planning, and QA/review-oriented tasks where decomposition quality, verification discipline, and independent implementation review matter.
+description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass over the codebase, then decides whether to execute directly or decompose into bounded governed work items over disjoint file sets, writes an OrchestrationPlan artifact, and specifies a verifier run followed by an isolated code-reviewer run. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`. Best suited for coding, debugging, architecture/design, migrations, research-driven work, implementation planning, and QA/review-oriented tasks where decomposition quality, verification discipline, and independent implementation review matter.
 ---
 
 # Task Orchestrator
 
-This skill is the planning brain for non-trivial work after a contract exists. It expects a finalized `prompt_contract.md` and a populated task directory under `ai/active/<timestamp>_<task-slug>/`. If that input is missing, stop and ask the coordinator to run `prompt-contract-designer` first.
+This skill is the planning brain for non-trivial work after a contract exists. It expects the current PromptContract in the context manifest and the governed task directory supplied as `taskPath`. If that input is missing, stop and ask the coordinator to run `prompt-contract-designer` first.
 
-Keep planning, decomposition, dependency reasoning, and synthesis centralized in the main thread. Finish with an independent verifier subagent, then a separate code-reviewer subagent when the result is code-bearing.
+Keep planning, decomposition, dependency reasoning, and synthesis centralized in the coordinating run. Finish with an independent verifier run, then a separate code-reviewer run when the result is code-bearing.
 
 ## Inputs
 
 The orchestrator is invoked with one required input:
 
-- `taskPath` — absolute or repo-relative path to `ai/active/<timestamp>_<task-slug>/`.
+- `taskPath` — governed task directory supplied by the kernel.
 
-Before doing anything else, read in this order:
+Before doing anything else, read the context manifest: the current PromptContract, task goal, claims,
+decisions, active constraints, recalled lessons, work items, and stop conditions.
 
-1. `state.json` — current phase, complexity tier, existing workflow block (if any).
-2. `prompt_contract.md` — Goal, Constraints, Success Criteria, Execution Rules, Stop Conditions.
-3. `assumptions.md` — every assumption and its status (OPEN / VALIDATED / REJECTED / NEVER-TESTED), including the `## Prior Art` section recall produced.
-4. `decisions.md` and `constraints.md` — if present.
-
-If `prompt_contract.md` is missing Constraints or Success Criteria, stop. The orchestrator does not execute against an invalid contract.
+If the PromptContract is missing Constraints or Success Criteria, stop. The orchestrator does not execute against an invalid contract.
 
 ## Operating Rules
 
 Follow this sequence:
 
-1. Read `state.json`, `prompt_contract.md`, and `assumptions.md` from `taskPath`.
+1. Read the context manifest.
 2. Read the contract as the sole problem statement. Classify the task provisionally; if the contract is too thin to classify, stop and name the missing information instead of rebuilding it.
 3. Resolve any OPEN external-behavior assumption that blocks useful recon.
 4. Run the **internal recon** pass for code-bearing work. It precedes the path decision, because its output determines both the solution shape and whether workers can be briefed precisely. See Internal Recon.
 5. Correct the classification against recon, identify task-specific attention items, and perform bounded classified prior-art recall.
 6. Decide whether **external** research is needed from OPEN assumptions or from a classified question that could change a live solution decision. Invoke `technical-researcher` for each required topic.
 7. Write the required Problem Classification section of `orchestration_plan.md`. Do not choose an execution path until the section is concrete and recon-corrected.
-8. Decide execution path: `decompose` (bounded workers) unless the work cannot be split into disjoint file sets. See Execution Path Decision. Complete the rest of `orchestration_plan.md` and update `state.json`.
+8. Decide execution path: `decompose` (bounded workers) unless the work cannot be split into disjoint file sets. See Execution Path Decision. Complete the rest of `orchestration_plan.md` and file it as the current OrchestrationPlan artifact.
 9. If `direct`: invoke `contract-driven-execution` with `taskPath`.
 10. If `decompose`: freeze the shared surface first, then fan workers out over disjoint file sets; synthesize in the main thread.
-11. Run the verifier subagent against `prompt_contract.md` Success Criteria and the produced artifacts. Write `review/verifier-N.md`.
+11. Have the operator launch the verifier run against the PromptContract Success Criteria and the produced artifacts. The verifier writes and files `review/verifier-N.md`.
 12. Repair verifier issues or record unresolved request-coverage gaps explicitly.
-13. For code-bearing work, run the code-reviewer subagent using the `code-reviewer` skill with **minimal context only** (see the Code-Reviewer Subagent section). Write `review/code-reviewer-N.md`.
+13. For code-bearing work, have the operator launch the code-reviewer run using the `code-reviewer` skill with **minimal context only** (see the Code-Reviewer Run section). The reviewer writes and files `review/code-reviewer-N.md`.
 14. Repair material code-review findings or record accepted technical risks explicitly.
-15. Update `state.json` (`verifierRun`, `codeReviewerRun`, `skillsRun`) and append final notes to `execution_notes.md`.
-16. Return the final assumption disposition, attention-item disposition, and decision-drift rows to the coordinator, which transcribes the lesson-bearing ones to the global ledger.
+15. Append final notes to `execution_notes.md`.
+16. Return the final assumption disposition, attention-item disposition, and decision-drift rows to the coordinator, which marks lesson-bearing records through the kernel.
 
 Roles:
 
 - Main thread: read state, plan, decide research, decompose, sequence, synthesize, decide repairs.
-- Recon subagent: map the internal ground the plan and the worker briefs are written from.
+- Recon pass: map the internal ground the plan and the worker briefs are written from.
 - Workers: execute assigned pieces.
-- Verifier subagent: full context; inspect the completed result against the contract Success Criteria.
-- Code-reviewer subagent: minimal context; inspect implementation quality in isolation. See `code-reviewer/SKILL.md`.
+- Verifier run: full context; inspect the completed result against the contract Success Criteria.
+- Code-reviewer run: minimal context; inspect implementation quality in isolation. See `code-reviewer/SKILL.md`.
 
 The verifier is not a cheerleader, not a restatement engine, not a rubber stamp.
 The code-reviewer is not a second verifier.
@@ -65,7 +61,7 @@ Before choosing an execution path, `orchestration_plan.md` must contain the Prob
 
 - **Contract sufficiency:** `sufficient`, or `blocked — <missing information>`. A blocked classification stops planning and returns to the coordinator.
 - **Classes:** zero to three normalized, ledger-compatible tags. Inspect existing ledger tags first; reuse an exact or clear semantic match, otherwise mint a lowercase slug. The vocabulary is open. `No class applies` is valid with a concrete reason.
-- **Classified prior art:** perform a delta lookup using the chosen classes under the designer's existing recall caps. Do not duplicate its `## Prior Art` block. Append only newly relevant beliefs to `assumptions.md` under `## Classified Prior Art` as OPEN assumptions, then cite their A-ids in the plan. Known failure modes are design inputs, not assumptions.
+- **Classified prior art:** inspect recalled lessons in the manifest using the chosen classes. Do not duplicate claims the designer already added. Add only newly relevant beliefs as OPEN claims with `ailedger claim add --from-lesson LESSON-ID`, then cite their claim ids in the plan. Known failure modes are design inputs, not assumptions.
 - **Recon correction:** confirm, reject, or refine the provisional classes after internal recon. Classification is revisable whenever later evidence changes the task's shape.
 - **New or changed artifacts:** list every artifact this plan introduces, or whose behavior it changes — exception type, DTO, config key, branch, retry or resilience policy, persisted state, wrapper, or a change in what an existing interface does. For each, trace it one hop into the code that already exists:
 
@@ -113,15 +109,11 @@ Research is required when either an OPEN assumption blocks correct execution or 
 
 When research is required:
 
-- First record one pending entry for the topic in `state.json.workflow.researchTopics`; do not invoke against a missing or duplicate topic.
-- Invoke `technical-researcher` with `taskPath`, a filesystem-safe `<topic-slug>`, and the exact question plus the decision it can change. Keep the source trigger separate: `assumption:<id>` or `classification:<tag>`.
-- The researcher writes to `research/<topic-slug>.md`. Assumption-triggered work resolves the triggering assumption; classification-triggered work answers the decision question and is cited from the plan.
-- Set `workflow.researchNeeded = true`; the researcher marks the matching pending entry complete.
+- Name one non-duplicate topic in the plan.
+- Have the operator launch `technical-researcher` with `taskPath`, a filesystem-safe `<topic-slug>`, and the exact question plus the decision it can change. Keep the source trigger separate: `assumption:<id>` or `classification:<tag>`.
+- The researcher writes to `research/<topic-slug>.md` and records claims and evidence through the kernel. Assumption-triggered work produces evidence supporting or refuting the triggering claim; classification-triggered work answers the decision question and is cited from the plan.
 
-When research is not required:
-
-- Set `workflow.researchNeeded = false`.
-- Record a one-line rationale in `orchestration_plan.md` under Research Decisions.
+When research is not required, record a one-line rationale in `orchestration_plan.md` under Research Decisions.
 
 Workers must not perform external research unless the plan explicitly assigns them that responsibility. Research is centralized so its output is durable.
 
@@ -134,11 +126,11 @@ Recon exists for two reasons, and the ordering follows from the first:
 1. **The path decision depends on it.** Separability and file ownership are unknowable before you know what the code looks like, so deciding first and scoring Worker clarity "low" is a verdict about the planner's information, not the task's shape.
 2. **It is what makes decomposition cheap.** The expensive part of workers is not coordination, it is duplicated discovery — N workers each re-deriving the same conventions and reaching N different answers. One recon pass, cited by every brief, replaces that. It pays for itself at two workers, and on the direct path `contract-driven-execution` reads it instead of exploring, so it is never pure overhead.
 
-Delegate it to one subagent with a bounded output contract. Recon that returns an essay has failed; recon returns a map.
+Run it as one bounded pass. Recon that returns an essay has failed; recon returns a map.
 
 **Read the durable layer first.** Most repos already carry one — a rules file (`CLAUDE.md` / `RULES.md`) and, in some, a curated how-to store (`ai/skills/<topic>/SKILL.md`). Read those before reading source, cite them rather than restating them, and cover only the delta: the specific subsystem this task touches. Never regenerate that layer as part of a task run; authoring a repo's rules file is a deliberate operator action, not a pipeline step.
 
-The recon subagent returns, and writes to `<taskPath>/research/internal-recon.md`:
+The recon pass writes to `<taskPath>/research/internal-recon.md`:
 
 ```markdown
 # Internal Recon
@@ -167,7 +159,7 @@ Skip recon only for non-code-bearing work, or when the task touches one file the
 
 ## Planning Rules
 
-Use the contract (`prompt_contract.md`, `constraints.md`, `decisions.md`) and any completed research to bound the plan.
+Use the manifest's PromptContract, constraints, decisions, and any completed research to bound the plan.
 
 The plan must identify:
 - what is in scope now
@@ -196,8 +188,8 @@ Use the direct path when recon showed the work cannot be split by file — one c
 
 On the direct path:
 
-- Invoke `contract-driven-execution` with `taskPath`. It performs the work and updates `execution_notes.md` and `state.json`.
-- After it returns, run the verifier subagent. Run the code-reviewer subagent after the verifier when the result is code-bearing.
+- Invoke `contract-driven-execution` with `taskPath`. It performs the work and updates `execution_notes.md`.
+- After it returns, have the operator launch the verifier run. Have the operator launch the code-reviewer run after the verifier when the result is code-bearing.
 
 ### 2. Decompose Path
 
@@ -211,7 +203,7 @@ Then:
 
 - Decide the output expected from each piece before delegation.
 - Capture the phase and dependencies of each worker explicitly in `orchestration_plan.md`.
-- Record each worker in `state.json` under `workflow.workers`.
+- Ask the operator to create one governed work item per disjoint scope and launch its worker run in dependency order.
 - Reassemble the finished pieces in the main thread before verification.
 
 ### Worker Continuity — Fresh vs Resumed
@@ -224,11 +216,19 @@ Resume when the worker must react to feedback on **its own output** — integrat
 
 Record the choice per worker in `orchestration_plan.md`. It is a cost decision, so it belongs in the plan rather than in the moment.
 
-If execution reveals hidden complexity, invalid assumptions, or stronger-than-expected dependencies, re-run task analysis and switch execution path. Update `orchestration_plan.md` and `state.json` when reclassifying. Reclassify early; do not continue against a flawed decomposition.
+If execution reveals hidden complexity, invalid assumptions, or stronger-than-expected dependencies, re-run task analysis and switch execution path. Revise `orchestration_plan.md` and file a new OrchestrationPlan artifact with `--supersedes` when reclassifying. Reclassify early; do not continue against a flawed decomposition.
 
 ## Orchestration Plan File
 
-After the planning decisions are made, write `orchestration_plan.md` at the task root. This file is the durable record of every orchestration decision so a future conversation can resume the work without re-deriving it.
+After the planning decisions are made, write `orchestration_plan.md` at the task root and file it
+while the producer run is active:
+
+```bash
+ailedger artifact record --task TASK --actor ACTOR --run RUN --id ARTIFACT-ID \
+  --kind OrchestrationPlan --title TITLE --body-stdin < <taskPath>/orchestration_plan.md
+```
+
+A revision uses a new artifact id and `--supersedes ARTIFACT-ID`.
 
 Required structure:
 
@@ -251,22 +251,21 @@ Required structure:
 ### Naming — ids and names travel together
 
 Every worker, attention item, and assumption carries a short `W<n>` / `R<n>` / `A<n>` key **and** a
-descriptive name. The key exists so dependency order and the close-out scripts can reference a row
-(`inputs: W0.output`, `mint-lesson.py` matching `^R\d+`). The name is what a person reads. It states
+descriptive name. The key exists so dependency order and the kernel can reference a row
+(`inputs: W0.output`). The name is what a person reads. It states
 the item's target and the question it answers — `freeze-parser-output-schema`,
 `yamladapter-sole-consumer`, `dock-mac-collision` — never a role plus a number.
 
 **Never print a key alone in anything the operator reads.** Write `R2 (dock-mac-collision)` on first
-mention in a section, and spawn every subagent under its descriptive name, not `W1`.
+mention in a section, and title every governed work item descriptively, not `W1`.
 
-The one exception is a table cell the close-out scripts parse by position. Those are marked at each
-table below and must stay bare.
+The one exception is a table cell the kernel parses. Those are marked at each table below and must
+stay bare.
 
 ### Attention Items
 
-| id | name | failure mode | causal path and impact | planned handling | source |
-|---|---|---|---|---|---|
-| R1 | <descriptive-name> | ... | ... | `test:<path>::<name>` / `guard:<file>:<line>` / `research:<topic-slug>` / `accept: <reason>` | local citation or research pointer |
+Use the attention-item table shape required by `artifact record`. The kernel owns its columns and
+R-prefixed keys; the skill owns the semantics below.
 
 The name set here is the one every later reference uses — `R1 (dock-mac-collision)`.
 
@@ -312,15 +311,8 @@ Maximum 3 rows. If there are none: `No research needed — <concrete reason>.`
 - <any task-specific verification points>
 ```
 
-Bind key fields to `state.json`:
-
-- `workflow.executionPath`
-- `workflow.orchestrationPlanFile` = `"orchestration_plan.md"`
-- `workflow.researchNeeded`
-- `workflow.researchTopics[]` (when applicable)
-- `workflow.workers[]` (decompose path only)
-
-`orchestration_plan.md` is the human-readable narrative. `state.json` is the machine-readable status. They are two views of the same truth and must not conflict. If they do, stop and reconcile.
+The filed OrchestrationPlan artifact is the durable plan. Work items, runs, claims, decisions, and
+constraints are separate governed records and must not be duplicated as writable task state.
 
 ## Workstream Design
 
@@ -333,10 +325,10 @@ The main thread owns:
 - resolving contradictions
 - deciding whether repair is needed after verification
 
-When delegating a worker task, give it:
-- **its descriptive name from the Worker Plan, used verbatim as the Agent tool's `name`** — the
+When defining a worker task for the operator to add and launch, give it:
+- **its descriptive name from the Worker Plan, used verbatim as the work item's title** — the
   operator must be able to tell what a worker is doing without opening its prompt, and a named agent
-  is what makes re-engagement possible. Never spawn under `W1`, `worker-1`, or the agent type.
+  is what makes re-engagement possible. Never title it `W1`, `worker-1`, or the agent type.
 - a sharply scoped objective
 - the exact inputs or artifacts it should use
 - the specific output it must return
@@ -387,16 +379,16 @@ During synthesis:
 
 Do not hand verifier a pile of fragments and call it architecture.
 
-## Verifier Subagent
+## Verifier Run
 
-Always run a final verifier subagent after execution. This is mandatory for every non-trivial task on every execution path. There is no skip path.
+Always require a final verifier run after execution. This is mandatory for every non-trivial task on every execution path. There is no skip path.
 
 The verifier receives **full context**:
 
 - The original user request
-- `prompt_contract.md` — especially Success Criteria
-- `orchestration_plan.md`
-- `assumptions.md`, `decisions.md`, `constraints.md`
+- The PromptContract artifact — especially Success Criteria
+- The OrchestrationPlan artifact
+- Claims, decisions, and constraints from the manifest
 - Completed research files under `research/`
 - The execution plan or worker decomposition
 - The list of delegated worker tasks and their outputs
@@ -407,7 +399,7 @@ The verifier must answer one question: **did the completed work satisfy the orig
 
 The verifier must check:
 
-- Coverage of every Success Criterion in `prompt_contract.md`
+- Coverage of every Success Criterion in the PromptContract
 - Coverage of the original user request beyond the formal criteria
 - Consistency between the contract, the plan, the tasks, and the execution
 - Contradictions or drift from the contract
@@ -422,29 +414,17 @@ Use the checklist in [orchestration-rubric.md](./references/orchestration-rubric
 
 ### Assumption Disposition — Required Section
 
-Every `verifier-N.md` must contain a disposition table with one row per assumption in `assumptions.md`:
-
-```markdown
-| id | status | name | citation | actor |
-|----|--------|------|----------|-------|
-| A1 | REJECTED | yamladapter-sole-consumer | HTTP 400 at 250 AIDs, correlation e1b72bd4 | verifier |
-| A2 | NEVER-TESTED | tenable-export-finished | — | verifier |
-```
-
-**Column order is load-bearing. Do not reorder.** `mint-lesson.py` (`lesson_bearing_ids`) reads this
-table positionally: `cells[0]` is the id and `cells[1]` must be the status. `validate-closeout.py`
-reads the same table by header name. Moving `name` to column 1 makes the validator still look clean
-while `mint-lesson.py` silently stops seeing REJECTED and NEVER-TESTED rows. Keep `id` and `status`
-bare in columns 0 and 1; the name goes in column 2.
+Every `verifier-N.md` must use the kernel-required assumption disposition table and contain one row
+per assumption in the manifest, not merely the claims on which the work item depends.
 
 Rules:
 
-- Compare against **what actually landed** — the diff from `state.json.baseRef` to the current state, the tests or runs actually performed, and the completed research files. Not against the plan's narrative, and not against what the contract intended. If `baseRef` is null, say so and scope the comparison to the artifacts named in `execution_notes.md`.
+- Compare against **what actually landed** — the diff from the work item's base ref to the current state, the tests or runs actually performed, and the completed research files. Not against the plan's narrative, and not against what the contract intended. If the base ref is unavailable, say so and scope the comparison to the artifacts named in `execution_notes.md`.
 - **NEVER-TESTED is the default.** A status becomes VALIDATED or REJECTED only when you can cite the specific diff hunk, test, log line, correlation ID, or research file that moved it. No citation → NEVER-TESTED. Do not infer that an assumption held because the work completed.
 - An assumption still OPEN at this point is a verifier finding, ranked with the rest. It feeds the normal repair cycle: either produce the evidence, or record it as NEVER-TESTED with the resulting risk stated.
 - A REJECTED assumption must record what contradicted it, and what must not be re-assumed without new evidence.
-- Also record **decision drift**: for each entry in `decisions.md`, whether it landed as decided, changed during execution (with the reason), or was abandoned.
-- Write the dispositions back into `assumptions.md`. These statuses are terminal — no other skill may rewrite them.
+- Also record **decision drift**: for each decision in the manifest, whether it landed as decided, changed during execution (with the reason), or was abandoned.
+- Record new findings with `ailedger claim add` and their supporting or refuting citations with `ailedger evidence add`. Do not edit the assumption projection.
 
 Silence is the dominant failure mode here. An assumption nobody revisited looks identical to one that held, and NEVER-TESTED exists to make that distinction impossible to skip.
 
@@ -452,29 +432,24 @@ Silence is the dominant failure mode here. An assumption nobody revisited looks 
 
 Place this section **after** the Assumption Disposition table. Every `verifier-N.md` must contain exactly one row for every R-id in the plan's Attention Items table:
 
-```markdown
-| id | final disposition | name | evidence |
-|---|---|---|---|
-| R1 | handled | dock-mac-collision | the artifact named in the plan, and the result of resolving it |
-| R2 | accepted-risk | vmware-serial-reuse | impact and proportional rationale |
-| R3 | not-applicable | bios-hash-drift | evidence disproving the causal path |
-| R4 | unresolved | cursor-replay-window | blocker or missing evidence |
-```
-
-**Column order is load-bearing. Do not reorder.** `mint-lesson.py` matches `cells[0]` against
-`^R\d+[a-z]?$` and requires `cells[1]` to be exactly `not-applicable` to find lesson-bearing items.
-Keep the id and the disposition bare in columns 0 and 1; the name goes in column 2.
+Use the attention disposition table required by `artifact record`. The kernel owns the columns,
+R-prefixed ids, allowed disposition vocabulary, and required evidence cells.
 
 `handled` is a check, not a judgment: the artifact the plan named must resolve — the test exists and passes, or the guard is still present at its citation. Run it or read it, and record what came back. An artifact that does not resolve is `unresolved`, never `handled`, however reasonable the intention behind it was. This is the same device as File Ownership: a claim about named files or named tests is checkable, and a claim in prose is not.
 
-The header must use `final disposition`; it must never contain the word `status`, which is reserved for the assumption table consumed by close-out tooling. Allowed values are `handled`, `accepted-risk`, `not-applicable`, and `unresolved`. Evidence or rationale is required for every row. `unresolved` is a verifier finding and prevents a clean pass; it may be repaired in a later verifier cycle. A reusable `not-applicable` result is lesson-bearing. Reusable handled or accepted risks enter the ledger only through the existing decision-drift path.
+`unresolved` is a verifier finding and prevents a clean pass; it may be repaired in a later verifier cycle. A reusable `not-applicable` result is lesson-bearing. Reusable handled or accepted risks enter the ledger only through the existing decision-drift path.
 
 The verifier writes its output to `review/verifier-N.md`, where `N` increments on each repair cycle (`verifier-1.md`, `verifier-2.md`, ...). Existing files are not overwritten. The disposition table is rebuilt each cycle, so drift is recorded per cycle rather than as a single post-mortem.
 
-Update `state.json`:
+File each completed review while its verifier run is active:
 
-- `workflow.verifierRun = true` once the pass completes (pass or fail).
-- Append a `skillsRun` entry referencing the output file.
+```bash
+ailedger artifact record --task TASK --actor ACTOR --run RUN --work WORK \
+  --id ARTIFACT-ID --kind VerifierOutput --title TITLE --body-stdin \
+  < <taskPath>/review/verifier-N.md
+```
+
+A later cycle uses a new artifact id and `--supersedes` the current verifier artifact.
 
 If the verifier finds issues:
 
@@ -483,15 +458,15 @@ If the verifier finds issues:
 
 Do not suppress verifier findings just to keep the flow tidy.
 
-## Code-Reviewer Subagent
+## Code-Reviewer Run
 
-After the verifier pass, run a separate code-reviewer subagent when the work is code-bearing: code changes, configuration with runtime effect, infrastructure, migrations, public contracts, SDK/API surfaces, scripts, or implementation-specific architecture/design.
+After the verifier pass, require a separate code-reviewer run when the work is code-bearing: code changes, configuration with runtime effect, infrastructure, migrations, public contracts, SDK/API surfaces, scripts, or implementation-specific architecture/design.
 
 Load and follow `code-reviewer/SKILL.md` for scope boundary, allow-list, review lenses, and output format.
 
 ### Sender-Side Enforcement
 
-The orchestrator constructs the subagent prompt. The prompt **must NOT include**:
+The operator launches the reviewer with its kernel-built context. Do not add any of the following to its invocation:
 
 - The original user request.
 - `prompt_contract.md`, Success Criteria, or any contract artifact.
@@ -501,9 +476,10 @@ The orchestrator constructs the subagent prompt. The prompt **must NOT include**
 
 If you find yourself wanting to pass any of these "for context," stop. That context is exactly what contaminates an independent code review.
 
-### Output and State
+### Output
 
-The subagent writes `review/code-reviewer-N.md` (increment `N` on each repair cycle; never overwrite). Update `state.json`: set `workflow.codeReviewerRun = true` and append a `skillsRun` entry.
+The reviewer writes `review/code-reviewer-N.md` (increment `N` on each repair cycle; never overwrite)
+and files it as `CodeReviewOutput` from its active work-scoped run.
 
 ### Repairs
 
@@ -513,7 +489,7 @@ Do not suppress findings to keep the final answer clean.
 
 ## Output Style
 
-Keep orchestration details internal by default. The durable record lives in `orchestration_plan.md`, `state.json`, `execution_notes.md`, and `review/`. The final response is a pointer to those artifacts plus any unresolved items, not a restatement of them.
+Keep orchestration details internal by default. The durable record lives in the event log and filed artifacts; `execution_notes.md`, research, and review files are readable projections or run outputs in `taskPath`. The final response is a pointer to those artifacts plus any unresolved items, not a restatement of them.
 
 Surface analysis, decomposition, dependency reasoning, or verifier detail only when the task is on the decompose path, the user asked for it, or exposing it materially improves the answer.
 
@@ -542,7 +518,7 @@ Patterns not surfaced by the rules above:
 - Choosing `direct` without naming the overlapping files in the File Ownership section — the decomposition equivalent of an undisposed assumption.
 - Deciding the execution path before recon, so Separability and Worker clarity score the planner's ignorance rather than the task.
 - Spawning or reporting a worker, attention item, or assumption under its bare key, so the operator must open another file to learn what it is.
-- Reordering the columns of a disposition table, which breaks `mint-lesson.py` silently while `validate-closeout.py` still reports clean.
+- Omitting assumptions or attention items that the kernel-required tables do not happen to cover.
 - Letting a worker invent a shared interface instead of returning `BLOCKED:`, and letting synthesis merge two incompatible versions of it.
 - Letting workers each rediscover the same conventions because recon was skipped or its output was not cited in the briefs.
 - Resuming a worker whose transcript is large when a fresh brief would have done, or spawning fresh when the worker had to react to feedback on its own code.
@@ -551,11 +527,11 @@ Patterns not surfaced by the rules above:
 
 When this skill triggers, internally follow this compact prompt shape:
 
-1. Read `state.json`, `prompt_contract.md`, and `assumptions.md` from `taskPath`.
+1. Read the context manifest and its current PromptContract.
 2. Classify from the contract; stop if it is too thin to classify.
 3. Resolve only research that blocks recon, then run internal recon and write `research/internal-recon.md`.
 4. Correct the classification; record at most five attention items and three decision-changing research questions. Run required research.
-5. Write the bounded Problem Classification section. Only then choose direct vs decompose and complete `orchestration_plan.md` and `state.json`.
+5. Write the bounded Problem Classification section. Only then choose direct vs decompose, complete `orchestration_plan.md`, and file the OrchestrationPlan artifact.
 6. Execute directly or through frozen, disjoint worker sets; synthesize worker output.
 7. Run the verifier with full context; require assumption and attention-item dispositions; repair and re-run when needed.
 8. For implementation artifacts, run the isolated code-reviewer with minimal context and repair material findings.

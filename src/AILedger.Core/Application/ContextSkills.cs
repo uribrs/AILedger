@@ -40,9 +40,10 @@ public static class ContextSkills
         return true;
     }
 
-    // Asked before 'context build' submits anything. A zero-event outcome cannot reach disk — the
-    // durable service refuses one — so suppressing the duplicate is the only way a second brief for
-    // the same actor and the same skills can leave the version where it was (IC2).
+    // Asked inside the durable mutation lock, by the rule that would otherwise append. A zero-event
+    // outcome cannot reach disk — the durable service refuses one — so a repeat brief declines by
+    // throwing ContextAlreadyBriefedException, which is what leaves the version where it was (IC2,
+    // VC2). Asking it before submitting instead is what let two concurrent briefs both append.
     public static bool AlreadyRecorded(
         GovernedTaskState state,
         ActorId actorId,

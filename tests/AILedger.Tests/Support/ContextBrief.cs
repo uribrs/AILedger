@@ -43,9 +43,17 @@ internal static class ContextBrief
         }
     }
 
-    // For a test that drives the service directly rather than through the CLI. A command built by
-    // hand carries no skill digests, so the gate it meets is the presence check alone and the
-    // recorded skills only have to exist.
+    // The brief a test that drives the service directly stands in for the cognitive layer with. The
+    // kernel reads no skill's text, only whether the digest a caller found still matches the one the
+    // brief recorded, so a fixed pair is a complete stand-in — as long as both the brief and the
+    // gated command name the same pair.
+    public static readonly IReadOnlyList<ContextSkill> Served =
+    [
+        new ContextSkill("workflow-coordinator", "hash-of-workflow-coordinator"),
+        new ContextSkill("task-orchestrator", "hash-of-task-orchestrator")
+    ];
+
+    // For a test that drives the service directly rather than through the CLI.
     public static async Task RecordAsync(
         IGovernedTaskService service,
         string taskId,
@@ -54,11 +62,35 @@ internal static class ContextBrief
         await service.ExecuteAsync(
             new TaskId(taskId),
             new RecordContextBuiltCommand(
-                new ActorId(actorId), null, $"brief-{actorId}", null,
-                [new ContextSkill("workflow-coordinator", "hash-of-workflow-coordinator"),
-                 new ContextSkill("task-orchestrator", "hash-of-task-orchestrator")]),
+                new ActorId(actorId), null, $"brief-{actorId}", null, Served),
             CancellationToken.None).ConfigureAwait(false);
     }
+
+    // The digests a brief built through the CLI recorded, for a test that briefs against the real
+    // cognitive layer and then drives the service by hand. Restating them as literals would be a
+    // second copy of what the layer says, and it would go stale the first time a skill is edited.
+    public static async Task<IReadOnlyList<ContextSkill>> RecordedAsync(
+        IGovernedTaskService service,
+        string taskId,
+        string actorId = "operator")
+    {
+        var state = await service.GetStateAsync(new TaskId(taskId), CancellationToken.None)
+            .ConfigureAwait(false);
+        return state!.ContextBuilds[new ActorId(actorId)].Skills;
+    }
+
+    // What the CLI does before a gated command: read the layer again and hand the kernel what it
+    // serves now. A command that names nothing is refused, because a brief nobody can check is not
+    // a current brief — so a test driving the service by hand says, through this, that the layer it
+    // was briefed from has not changed.
+    public static LedgerCommand WithServedSkills(LedgerCommand command) =>
+        command switch
+        {
+            AddWorkItemCommand { SkillsServedNow: null } add => add with { SkillsServedNow = Served },
+            StartRunCommand { LaunchTokenHash: not null, SkillsServedNow: null } start =>
+                start with { SkillsServedNow = Served },
+            _ => command
+        };
 
     public static string CognitiveRoot()
     {
