@@ -59,6 +59,14 @@ internal static class HistoricalLedgerProjector
             RunStarted started => StartRun(Require(state), started.Run),
             RunCompleted completed => CompleteRun(Require(state), completed),
             StagePrerequisitesWaived => Require(state),
+            // The context gate's two events are audit records: they prove a brief was served, or
+            // that an operator deliberately proceeded without one. Neither changes the state this
+            // index projects, so both are no-ops here — but the arm has to exist. This projector is
+            // a third replay of the log alongside CommandHandler and TaskTransitionValidator, and
+            // its switch throws on any event data it has no case for, so an event type added to the
+            // kernel without an arm here stops the whole index rebuilding.
+            ContextBuilt => Require(state),
+            ContextBriefWaived => Require(state),
             StageTransitioned transitioned => Require(state) with { Stage = transitioned.Current },
             EscalationRaised raised => Require(state) with
             {

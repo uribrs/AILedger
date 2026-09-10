@@ -32,6 +32,35 @@ public sealed class EventHistoryIncrementalTests
         Assert.Contains("Block reason: waiting for dependency", work.Text, StringComparison.Ordinal);
     }
 
+    // The projector is a third replay of the event log beside CommandHandler and
+    // TaskTransitionValidator, and its switch throws on event data it has no arm for. When the
+    // context gate shipped, neither of its two events had one, so the index could not rebuild any
+    // task that had ever been briefed — which by then was nearly all of them, and nothing surfaced
+    // it because nothing reads this index yet. Both events are audit records that change no state
+    // the index projects, so both are no-ops; this pins that they are read rather than refused.
+    [Fact]
+    public async Task TheContextGatesTwoEventsAreProjectedRatherThanRefused()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "events.jsonl");
+        var workId = new WorkItemId("W1");
+        await WriteEventsAsync(path, [
+            Event(1, new TaskOpened("Fixture", "Replay a briefed task")),
+            Event(2, new ContextBuilt(
+                RoleKind.Operator,
+                null,
+                [new ContextSkill("task-orchestrator", "0000000000000000000000000000000000000000000000000000000000000000")])),
+            Event(3, new ContextBriefWaived("work.add", "the brief was not read", null)),
+            Event(4, new WorkItemAdded(new WorkItem(
+                workId, "Work added through the operator door", null, WorkItemStatus.Paused, [], ["tests"])))
+        ], append: false);
+
+        var delta = await new EventHistorySourceReader().ReadAsync(Source(path));
+
+        var work = Assert.Single(delta.Upserts, item => item.Kind == MemoryDocumentKind.WorkSummary);
+        Assert.Contains("Work added through the operator door", work.Text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task MissingHistoricalReferenceNamesCanonicalSourceLineKindAndId()
     {

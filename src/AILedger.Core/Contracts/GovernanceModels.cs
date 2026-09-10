@@ -262,6 +262,10 @@ public sealed record WorkItem(
     // the goal and the constraints because the kernel had nowhere to put it. Null when the scope is
     // not a git work tree, which is the state every item recorded before this field existed is in.
     string? BaseRef = null);
+// No field here for the door the context gate was opened through to add this item. The waiver is its
+// own event immediately before this one and is the sole record of the justification; copying it here
+// would be two records of one fact that can disagree. GovernedTaskState.ContextBriefWaivers is the
+// projection that joins the two, and it is what `status` reads (GX1).
 
 public sealed record Escalation(
     EscalationId Id,
@@ -419,3 +423,5 @@ public sealed record AgentRun(
     long? TokensInUncached = null,
     long? TokensInCacheWrite = null,
     long? TokensInCacheRead = null);
+// As on WorkItem above: the door a launch came through is recorded by the waiver event beside this
+// run and projected into GovernedTaskState.ContextBriefWaivers, not copied onto the run.

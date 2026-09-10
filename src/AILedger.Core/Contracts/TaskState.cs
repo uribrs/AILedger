@@ -36,13 +36,29 @@ public sealed record GovernedTaskState
     // built context, which on the day this shipped was all of them.
     public IReadOnlyDictionary<ActorId, ContextBuild> ContextBuilds { get; init; } =
         new Dictionary<ActorId, ContextBuild>();
+    // Which work items and which launches came through a door on the context gate, in the order the
+    // doors were opened. Appended after ContextBuilds for the reason ContextBuilds was appended after
+    // Tags: a property may be added at the end here and never moved. Empty for every task that opened
+    // no door, which was all of them until the doors existed.
+    public IReadOnlyList<ContextBriefWaiver> ContextBriefWaivers { get; init; } = [];
     internal ActorId? PendingOpeningActor { get; init; }
     // Transient replay state tying a waiver event to the immediately caused stage transition.
     // Internal properties are not projected into state.json; a completed command always consumes it.
     internal StagePrerequisiteWaiver? PendingStagePrerequisiteWaiver { get; init; }
+    // The same shape for the context gate's doors: the waiver event is written immediately before the
+    // work.added or run.started it lets through, and this holds it for exactly that one step so the
+    // reducer can join the two. Cleared by whatever event comes next, so a waiver whose command
+    // failed between the two appends cannot attach itself to a later item.
+    internal PendingBriefWaiver? PendingContextBriefWaiver { get; init; }
 }
 
 internal sealed record StagePrerequisiteWaiver(EventId EventId, ActorId ActorId, TaskStage TargetStage);
+
+internal sealed record PendingBriefWaiver(
+    EventId EventId,
+    ActorId ActorId,
+    string? OperatorReason,
+    EvidenceId? StaleBriefEvidenceId);
 
 public sealed record CommandOutcome(
     GovernedTaskState State,

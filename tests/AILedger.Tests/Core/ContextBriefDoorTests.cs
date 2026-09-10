@@ -240,11 +240,22 @@ public sealed class ContextBriefDoorTests
         Assert.Contains(new WorkItemId("W1"), replayed.WorkItems.Keys);
         Assert.Contains(new WorkItemId("W2"), replayed.WorkItems.Keys);
 
-        // Neither waiver is projected into state, so the log is the only place either can be read
-        // back — which is the whole point of the doors leaving an event rather than a silent pass.
+        // The waiver event is still the record of the opening, and it survives a round trip through
+        // the log — the whole point of the doors leaving an event rather than a silent pass.
         var events = await File.ReadAllTextAsync(Path.Combine(root.Path, taskId.Value, "events.jsonl"));
         Assert.Contains("context.brief-waived", events, StringComparison.Ordinal);
         Assert.Contains("The cognitive layer is mid-rewrite and cannot be read at all", events, StringComparison.Ordinal);
+
+        // And the join survives the round trip: replay rebuilds which item came through which door
+        // from the waiver event and the causationId of the work.added beside it, so a reader of state
+        // answers the question without joining two lines of the log by hand (GC1, GC2, GX1).
+        var stale = Assert.Single(replayed.ContextBriefWaivers, waiver => waiver.TargetId == "W1");
+        Assert.Equal(ContextBriefWaiver.WorkItemKind, stale.Kind);
+        Assert.Equal(new EvidenceId("E1"), stale.StaleBriefEvidenceId);
+        Assert.Null(stale.OperatorReason);
+        var absent = Assert.Single(replayed.ContextBriefWaivers, waiver => waiver.TargetId == "W2");
+        Assert.Equal("The cognitive layer is mid-rewrite and cannot be read at all", absent.OperatorReason);
+        Assert.Equal(actor, absent.Actor);
     }
 
     // The flags reach the kernel. A door the kernel honours and the command line cannot spell is a
