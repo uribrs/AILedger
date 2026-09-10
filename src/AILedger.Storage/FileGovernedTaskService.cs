@@ -472,11 +472,20 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             allowConcurrentReplacement ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read,
             bufferSize: 4096,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var hasUnterminatedTail = stream.Length > 0 && !EndsWithNewline(stream);
         using var reader = new StreamReader(stream, Utf8WithoutBom, detectEncodingFromByteOrderMarks: true);
 
         var lineNumber = 0;
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
+            // R1 (atomicity-must-survive): one append is one newline-terminated write. A process
+            // death can therefore leave only an unterminated final fragment. It is not a committed
+            // event: replay ignores it, and the next append truncates it before writing a full line.
+            if (hasUnterminatedTail && reader.EndOfStream)
+            {
+                yield break;
+            }
+
             lineNumber++;
             if (lineNumber > _maximumEventsPerTask)
             {
@@ -526,49 +535,98 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
         var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
         var bytes = Utf8WithoutBom.GetBytes(payload.ToString());
-        var existingLength = File.Exists(eventsPath) ? new FileInfo(eventsPath).Length : 0;
+        if (!File.Exists(eventsPath) && bytes.LongLength > _maximumEventLogBytes)
+        {
+            throw EventLogWouldExceedByteLimit();
+        }
+
+        // R1 (atomicity-must-survive): an interrupted single write may have left an unterminated
+        // tail. Replay never treated that tail as committed, so remove it before the next append;
+        // otherwise the next complete event would be joined to the fragment and become unreadable.
+        var existingLength = await RemoveUnterminatedTailAsync(eventsPath).ConfigureAwait(false);
+
+        // R2 (the-size-cap-must-still-fire): calculate against the committed log length before
+        // writing, and preserve the actionable successor-task instruction from the old path.
         if (existingLength + bytes.LongLength > _maximumEventLogBytes)
         {
-            throw new GovernanceException(
-                $"Task event log would exceed the limit of {_maximumEventLogBytes} bytes. Archive it and open a " +
-                "successor that depends on the claims this one validated; there is no compaction path, and a " +
-                "task id is embedded in every one of its events so the log cannot be rewritten.");
+            throw EventLogWouldExceedByteLimit();
         }
 
-        var temporaryPath = $"{eventsPath}.{Guid.NewGuid():N}.append";
-        try
-        {
-            await using (var stream = new FileStream(
-                             temporaryPath,
-                             FileMode.CreateNew,
-                             FileAccess.Write,
-                             FileShare.None,
-                             bufferSize: 4096,
-                             FileOptions.Asynchronous | FileOptions.WriteThrough))
-            {
-                if (File.Exists(eventsPath))
-                {
-                    await using var current = new FileStream(
-                        eventsPath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                        bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                    await current.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
-                }
-
-                await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-                stream.Flush(flushToDisk: true);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            File.Move(temporaryPath, eventsPath, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
-        }
+        // R3 (concurrent-writers-must-not-interleave): ExecuteAsync still holds the task's
+        // cross-process mutation lock, and FileShare.Read independently refuses another writer.
+        await using var stream = new FileStream(
+            eventsPath,
+            FileMode.Append,
+            FileAccess.Write,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.Asynchronous | FileOptions.WriteThrough);
+        // R1: keep every emitted event and its terminating newline in one write. WriteThrough plus
+        // the explicit disk flush makes completion durable; a torn write is handled as above.
+        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        stream.Flush(flushToDisk: true);
     }
+
+    private static async Task<long> RemoveUnterminatedTailAsync(string eventsPath)
+    {
+        if (!File.Exists(eventsPath))
+        {
+            return 0;
+        }
+
+        await using var stream = new FileStream(
+            eventsPath,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.Asynchronous | FileOptions.WriteThrough);
+        if (stream.Length > 0 && !EndsWithNewline(stream))
+        {
+            stream.SetLength(FindLastNewlineOffset(stream));
+            stream.Flush(flushToDisk: true);
+        }
+
+        return stream.Length;
+    }
+
+    private static bool EndsWithNewline(FileStream stream)
+    {
+        stream.Seek(-1, SeekOrigin.End);
+        var endsWithNewline = stream.ReadByte() == '\n';
+        stream.Seek(0, SeekOrigin.Begin);
+        return endsWithNewline;
+    }
+
+    private static long FindLastNewlineOffset(FileStream stream)
+    {
+        const int scanBufferSize = 4096;
+        var buffer = new byte[scanBufferSize];
+        var scanEnd = stream.Length;
+        while (scanEnd > 0)
+        {
+            var scanStart = Math.Max(0, scanEnd - scanBufferSize);
+            var count = checked((int)(scanEnd - scanStart));
+            stream.Seek(scanStart, SeekOrigin.Begin);
+            stream.ReadExactly(buffer.AsSpan(0, count));
+            for (var index = count - 1; index >= 0; index--)
+            {
+                if (buffer[index] == '\n')
+                {
+                    return scanStart + index + 1;
+                }
+            }
+
+            scanEnd = scanStart;
+        }
+
+        return 0;
+    }
+
+    private GovernanceException EventLogWouldExceedByteLimit() => new(
+        $"Task event log would exceed the limit of {_maximumEventLogBytes} bytes. Archive it and open a " +
+        "successor that depends on the claims this one validated; there is no compaction path, and a " +
+        "task id is embedded in every one of its events so the log cannot be rewritten.");
 
     private async Task<bool> MaterializedStateIsCurrentAsync(
         string taskDirectory,
@@ -658,7 +716,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     {
         try
         {
-            // The event-log rename above is the commit point. Derived views must not
+            // The durable event-log append above is the commit point. Derived views must not
             // turn that committed command into an ambiguous failure for the caller.
             await WriteMaterializedStateAsync(taskDirectory, state, CancellationToken.None).ConfigureAwait(false);
             await _projectionWriter.WriteAsync(taskDirectory, state, CancellationToken.None).ConfigureAwait(false);
@@ -690,6 +748,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         }
 
         var expectedVersion = (currentState?.Version ?? 0) + outcome.Events.Count;
+        // R4 (the-version-must-still-be-the-line-count): replay established that the current
+        // version equals the committed line count, and each appended event advances both by one.
         if (outcome.State.Version != expectedVersion)
         {
             throw new InvalidOperationException(
