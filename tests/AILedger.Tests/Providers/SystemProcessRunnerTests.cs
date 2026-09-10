@@ -36,6 +36,7 @@ public sealed class SystemProcessRunnerTests
                     return ValueTask.CompletedTask;
                 },
                 static (_, _) => ValueTask.CompletedTask,
+                null,
                 CancellationToken.None);
         }
         finally
@@ -73,9 +74,41 @@ public sealed class SystemProcessRunnerTests
                 invocation,
                 static (_, _) => ValueTask.CompletedTask,
                 static (_, _) => ValueTask.CompletedTask,
+                null,
                 CancellationToken.None));
 
         Assert.Contains("output exceeded", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // CC2 on the real process path: a receiver that ends the run is how the adapter's retained-
+    // output cap ends it, and what the drain had already cut has to survive the cancellation and
+    // reap that follow. Two megabytes with no newline in them is one line, cut at the cap and
+    // delivered at end of stream, and then refused.
+    [Fact]
+    public async Task RealProcessTruncationCountSurvivesAReceiverThatEndsTheRun()
+    {
+        if (!File.Exists("/usr/bin/head"))
+        {
+            return;
+        }
+
+        var tally = new TruncatedLineTally();
+        var invocation = new ProcessInvocation(
+            "/usr/bin/head",
+            Path.GetTempPath(),
+            ["-c", "2097152", "/dev/zero"],
+            string.Empty,
+            new Dictionary<string, string>(),
+            TimeSpan.FromSeconds(10));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => new SystemProcessRunner().RunAsync(
+            invocation,
+            static (_, _) => throw new InvalidDataException("Provider output exceeded the retained-output limit."),
+            static (_, _) => ValueTask.CompletedTask,
+            tally,
+            CancellationToken.None));
+
+        Assert.Equal(1, tally.Observed);
     }
 
     [Fact]
@@ -99,6 +132,7 @@ public sealed class SystemProcessRunnerTests
                 throw new InvalidOperationException("Injected receiver failure.");
             },
             static (_, _) => ValueTask.CompletedTask,
+            null,
             CancellationToken.None));
         var countAfterReturn = Volatile.Read(ref callbackCount);
         await Task.Delay(100);

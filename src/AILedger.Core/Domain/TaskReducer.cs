@@ -68,6 +68,17 @@ public sealed class TaskReducer : ITaskReducer
                 PendingContextBriefWaiver = new PendingBriefWaiver(
                     @event.EventId, @event.ActorId, waived.OperatorReason, waived.StaleBriefEvidenceId)
             },
+            // The bracket, projected so that the runs pointing back at it can be selected without
+            // re-reading the log. The end is written onto the same record rather than kept as a
+            // second one: a session with no EndedAt is open, and an open bracket is why measures 1
+            // and 2 report an absent duration instead of measuring against a clock this projection
+            // does not take.
+            SessionStarted started => Require(state) with
+            {
+                CoordinatorSessions = Set(
+                    Require(state).CoordinatorSessions, started.Session.Id, started.Session)
+            },
+            SessionCompleted completed => CompleteCoordinatorSession(Require(state), completed),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -240,6 +251,11 @@ public sealed class TaskReducer : ITaskReducer
             TokensInUncached = completed.TokensInUncached,
             TokensInCacheWrite = completed.TokensInCacheWrite,
             TokensInCacheRead = completed.TokensInCacheRead,
+            // Absent on every run completed before this field existed and on any completion the
+            // launcher did not issue. Zero, which is what an ordinary launch records, means the
+            // stream was watched and no line was cut — a different fact, and the one that makes a
+            // nonzero count readable as a degraded stream rather than as a missing measurement.
+            TruncatedLines = completed.TruncatedLines,
             // The served model wins over the requested one, because the record should say which
             // cognition ran rather than which was asked for. Absent leaves run.started's value
             // standing rather than erasing it.
@@ -266,6 +282,17 @@ public sealed class TaskReducer : ITaskReducer
         {
             Runs = Set(state.Runs, completed.RunId, run),
             WorkItems = workItems
+        };
+    }
+
+    private static GovernedTaskState CompleteCoordinatorSession(
+        GovernedTaskState state,
+        SessionCompleted completed)
+    {
+        var session = state.CoordinatorSessions[completed.SessionId] with { EndedAt = completed.EndedAt };
+        return state with
+        {
+            CoordinatorSessions = Set(state.CoordinatorSessions, completed.SessionId, session)
         };
     }
 

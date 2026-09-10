@@ -11,6 +11,7 @@ public sealed class SystemProcessRunner : IProcessRunner
         ProcessInvocation invocation,
         Func<string, CancellationToken, ValueTask> onStandardOutputLine,
         Func<string, CancellationToken, ValueTask> onStandardErrorLine,
+        TruncatedLineTally? tally,
         CancellationToken cancellationToken)
     {
         Validate(invocation);
@@ -33,14 +34,21 @@ public sealed class SystemProcessRunner : IProcessRunner
         IReadOnlyList<Task> activeTasks = [];
         try
         {
-            var stdout = DrainAsync(process.StandardOutput, onStandardOutputLine, linked.Token);
-            var stderr = DrainAsync(process.StandardError, onStandardErrorLine, linked.Token);
+            var stdout = DrainAsync(process.StandardOutput, onStandardOutputLine, tally, linked.Token);
+            var stderr = DrainAsync(process.StandardError, onStandardErrorLine, tally, linked.Token);
             var stdin = WriteInputAsync(process, invocation.StandardInput, linked.Token);
             var exit = process.WaitForExitAsync(linked.Token);
 
             activeTasks = [exit, stdout, stderr, stdin];
             await AwaitFailFastAsync(activeTasks).ConfigureAwait(false);
-            return new ProcessExit(process.ExitCode, startedAt, DateTimeOffset.UtcNow);
+            // Both drains have completed by here, so awaiting them again only reads their counts.
+            // One number for both streams: the run record says the output was cut, and which pipe
+            // it was cut on is a question only the retained stream in the sidecar can answer.
+            return new ProcessExit(
+                process.ExitCode,
+                startedAt,
+                DateTimeOffset.UtcNow,
+                await stdout.ConfigureAwait(false) + await stderr.ConfigureAwait(false));
         }
         catch (Exception originalException)
         {
@@ -163,14 +171,48 @@ public sealed class SystemProcessRunner : IProcessRunner
         return startInfo;
     }
 
-    private static async Task DrainAsync(
+    /// <summary>
+    /// Reads one stream line by line and returns how many lines had to be cut to the per-line cap.
+    /// </summary>
+    /// <remarks>
+    /// An overlong line used to throw here and end the run as <c>ProtocolError</c>. Nothing about a
+    /// line this kernel cannot hold makes the four hundred lines before it untrustworthy, and four
+    /// runs across three tasks were lost to it — one at seven and a half minutes having written
+    /// nothing to the ledger. So the line is cut and counted instead, and the count leaves with the
+    /// result so a reader of the run can tell its output was degraded (C1, C3, D1). It leaves on
+    /// <see cref="TruncatedLineTally"/> as well, because a drain that dies never returns and that
+    /// is the run whose count is worth the most (CC2).
+    ///
+    /// Which faults still reach <c>ProtocolError</c>, so that a stream this kernel genuinely cannot
+    /// follow is still refused rather than looped over (R5):
+    ///   - the per-stream cap above, which is what "no newline in megabytes" becomes: a producer
+    ///     that never emits a newline is cut at the first megabyte and then keeps being read, and
+    ///     dies here at <see cref="ProviderOutputLimits.MaximumCharactersPerStream"/>;
+    ///   - the adapter's retained-output cap, which a run of many truncated lines still crosses;
+    ///   - a line that is not JSON, which the adapter records as a parse failure;
+    ///   - a pipe closed mid-record, which leaves the stream with no terminal event;
+    ///   - a nonzero exit, a conflicting session identity, or a terminal event that is not last.
+    /// </remarks>
+    internal static async Task<int> DrainAsync(
         StreamReader reader,
         Func<string, CancellationToken, ValueTask> receiver,
+        TruncatedLineTally? tally,
         CancellationToken cancellationToken)
     {
         var buffer = new char[4096];
         var line = new StringBuilder();
         long totalCharacters = 0;
+        var truncatedLines = 0;
+        // Set when the current line has reached the cap. The remainder is read and discarded, and
+        // only a newline clears it: resuming mid-line would hand the receiver a fragment as if it
+        // were a record, which is worse than the truncation it came from (R3).
+        var discardingRestOfLine = false;
+        // A carriage return is held back rather than appended, because until the next character
+        // arrives there is no telling whether it terminates the line or belongs to it. Appending it
+        // first and trimming it later is what made a CRLF line of exactly the cap length cross the
+        // cap on its own terminator: its content was emitted whole and the run record said it had
+        // been cut (CC1).
+        var heldCarriageReturn = false;
         int read;
         while ((read = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
         {
@@ -185,33 +227,77 @@ public sealed class SystemProcessRunner : IProcessRunner
 
                 if (character == '\n')
                 {
-                    await receiver(TrimCarriageReturn(line), cancellationToken).ConfigureAwait(false);
+                    // A held carriage return was the first half of a CRLF terminator after all, so
+                    // it leaves with the newline instead of being emitted as content.
+                    heldCarriageReturn = false;
+                    await receiver(line.ToString(), cancellationToken).ConfigureAwait(false);
                     line.Clear();
+                    discardingRestOfLine = false;
                     continue;
                 }
 
-                line.Append(character);
-                if (line.Length > ProviderOutputLimits.MaximumCharactersPerLine)
+                if (discardingRestOfLine)
                 {
-                    throw new InvalidDataException("Provider output contained an overlong line.");
+                    continue;
                 }
+
+                if (heldCarriageReturn)
+                {
+                    // No newline followed it, so it is content, and it counts against the cap like
+                    // any other character.
+                    heldCarriageReturn = false;
+                    if (!Append('\r', line, tally, ref truncatedLines, ref discardingRestOfLine))
+                    {
+                        continue;
+                    }
+                }
+
+                if (character == '\r')
+                {
+                    heldCarriageReturn = true;
+                    continue;
+                }
+
+                Append(character, line, tally, ref truncatedLines, ref discardingRestOfLine);
             }
         }
 
-        if (line.Length > 0)
+        // A stream that ends without a newline still hands over what it holds. The held-carriage-
+        // return test keeps a stream of nothing but a bare carriage return emitting the one empty
+        // line it used to emit.
+        if (line.Length > 0 || heldCarriageReturn)
         {
-            await receiver(TrimCarriageReturn(line), cancellationToken).ConfigureAwait(false);
+            await receiver(line.ToString(), cancellationToken).ConfigureAwait(false);
         }
+
+        return truncatedLines;
     }
 
-    private static string TrimCarriageReturn(StringBuilder line)
+    /// <summary>
+    /// Appends one character of content and reports whether the line is still open. A line that
+    /// reaches the cap is cut there, counted once, and the rest of it discarded.
+    /// </summary>
+    private static bool Append(
+        char character,
+        StringBuilder line,
+        TruncatedLineTally? tally,
+        ref int truncatedLines,
+        ref bool discardingRestOfLine)
     {
-        if (line.Length > 0 && line[^1] == '\r')
+        line.Append(character);
+        if (line.Length <= ProviderOutputLimits.MaximumCharactersPerLine)
         {
-            line.Length--;
+            return true;
         }
 
-        return line.ToString();
+        line.Length = ProviderOutputLimits.MaximumCharactersPerLine;
+        truncatedLines++;
+        // The same count, on an object the caller still holds. A drain that dies before it can
+        // return — a receiver crossing the adapter's retained-output cap — leaves its count here
+        // and nowhere else (CC2).
+        tally?.Increment();
+        discardingRestOfLine = true;
+        return false;
     }
 
     private static async Task WriteInputAsync(

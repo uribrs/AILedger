@@ -46,6 +46,8 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(ArtifactRecorded), "artifact.recorded")]
 [JsonDerivedType(typeof(ContextBuilt), "context.built")]
 [JsonDerivedType(typeof(ContextBriefWaived), "context.brief-waived")]
+[JsonDerivedType(typeof(SessionStarted), "session.started")]
+[JsonDerivedType(typeof(SessionCompleted), "session.completed")]
 public abstract record LedgerEventData;
 
 // Tags are optional and trail the original two fields: every task opened before they existed
@@ -94,7 +96,13 @@ public sealed record RunCompleted(
     // compatibility change, so it is done before any of these has ever been written.
     long? TokensInUncached = null,
     long? TokensInCacheWrite = null,
-    long? TokensInCacheRead = null) : LedgerEventData;
+    long? TokensInCacheRead = null,
+    // How many provider lines the drain cut to the per-line cap, learned the same way the cost
+    // fields are: the launcher reads it off the adapter's result once the run has ended. Null means
+    // nobody counted and zero means nothing was cut; AgentRun.TruncatedLines states why that
+    // distinction is load-bearing. Nullable and trailing for the reason the cost fields are — every
+    // run.completed already on disk carries none, and replay must keep reading those.
+    int? TruncatedLines = null) : LedgerEventData;
 public sealed record StagePrerequisitesWaived(TaskStage TargetStage, string Reason) : LedgerEventData;
 public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
 public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
@@ -132,3 +140,20 @@ public sealed record ContextBriefWaived(
     string Action,
     string? OperatorReason = null,
     EvidenceId? StaleBriefEvidenceId = null) : LedgerEventData;
+// The two ends of a coordinating session's bracket. They are the only new persisted facts this
+// measurement needs: everything else it reports is derived from actorId, sequence and timestamp over
+// events that already exist (D2).
+//
+// Optional for the whole existing history, and that is not a courtesy either. All 7,019 events in
+// this repository were written with no session, no command may be refused for lacking one, and no
+// boundary is ever inferred from a time gap, a task lifetime or an actor lifetime — an inferred
+// bracket is a fabricated measurement, which is PALT3 and attention item R2 (D7).
+//
+// Three readers of the log get an arm for these in the same change: CommandHandler at command time,
+// TaskTransitionValidator at replay, and the memory index's own HistoricalLedgerProjector, whose
+// switch throws on event data it has no arm for and which silently stopped that index rebuilding on
+// 2026-09-10 for exactly that reason. The third reader is named by role rather than by project
+// here, because the kernel may not so much as mention that project's name — R1 in the shadow
+// boundary tests scans every kernel source for it.
+public sealed record SessionStarted(CoordinatorSession Session) : LedgerEventData;
+public sealed record SessionCompleted(CoordinatorSessionId SessionId, DateTimeOffset EndedAt) : LedgerEventData;

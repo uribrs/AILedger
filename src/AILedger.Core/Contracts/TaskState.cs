@@ -41,6 +41,14 @@ public sealed record GovernedTaskState
     // Tags: a property may be added at the end here and never moved. Empty for every task that opened
     // no door, which was all of them until the doors existed.
     public IReadOnlyList<ContextBriefWaiver> ContextBriefWaivers { get; init; } = [];
+    // The coordinating sessions this task was worked through, and the bracket each one puts around
+    // its own work. Appended after ContextBriefWaivers for the reason that was appended after
+    // ContextBuilds: a property may be added at the end here and never moved. Empty for every task
+    // worked before sessions existed, which on the day this shipped was all of them — and that
+    // emptiness is what makes measures 1 and 2 report `unbracketedHistory` rather than a number
+    // inferred from a clock (D7, PALT3).
+    public IReadOnlyDictionary<CoordinatorSessionId, CoordinatorSession> CoordinatorSessions { get; init; } =
+        new Dictionary<CoordinatorSessionId, CoordinatorSession>();
     internal ActorId? PendingOpeningActor { get; init; }
     // Transient replay state tying a waiver event to the immediately caused stage transition.
     // Internal properties are not projected into state.json; a completed command always consumes it.

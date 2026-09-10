@@ -111,6 +111,12 @@ internal static class TaskTransitionValidator
             case ContextBriefWaived waivedBrief:
                 ValidateContextBriefWaived(Require(state), @event, waivedBrief);
                 break;
+            case SessionStarted started:
+                ValidateSessionStarted(Require(state), @event, started.Session);
+                break;
+            case SessionCompleted completed:
+                ValidateSessionCompleted(Require(state), @event, completed);
+                break;
             default:
                 throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.");
         }
@@ -1165,6 +1171,17 @@ internal static class TaskTransitionValidator
             Get(state.Roles, run.ActorId, "actor role");
         }
 
+        // Mirrors CoordinatorSessionRules.EnsureDispatchingSessionIsUsable, and only its existence
+        // half. Safe to write here by construction rather than by exemption: no run.started already
+        // on disk carries a session, so this cannot fire on a history that was legal when written.
+        // Whether the session is still open, and whether it belongs to the dispatching actor, stay
+        // command-time — those are the halves a later kernel might legitimately relax, and a replay
+        // rule that has to be relaxed is one that has already made a live task unreadable.
+        if (run.CoordinatorSessionId is { } dispatchingSession)
+        {
+            Get(state.CoordinatorSessions, dispatchingSession, "coordinator session");
+        }
+
         if (run.WorkItemId is not { } workItemId)
         {
             return;
@@ -1256,6 +1273,62 @@ internal static class TaskTransitionValidator
         ValidateCostRecord(
             completed.Turns, completed.OutputTokens, completed.MillisecondsToFirstLedgerWrite,
             completed.TokensInUncached, completed.TokensInCacheWrite, completed.TokensInCacheRead);
+    }
+
+    // Mirrors CoordinatorSessionRules.StartSession, and deliberately not all of it. Every check here
+    // is a shape check on an event type that did not exist until now, so none of it can bite a
+    // history that was legal when written.
+    //
+    // What is absent is the one-open-session-per-actor rule. That is a command-time arm only: it is
+    // the half a later kernel might relax — two coordinators working one task in parallel is a
+    // shape this repository has not needed and might — and a replay rule that later has to be
+    // relaxed is exactly the rule that has twice made a live task permanently unreadable here.
+    private static void ValidateSessionStarted(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        CoordinatorSession session)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.ManageRuns);
+        EnsureNew(state.CoordinatorSessions, session.Id, "coordinator session");
+        RequireId(session.Id.Value, nameof(session.Id));
+        RequireId(session.ActorId.Value, nameof(session.ActorId));
+        RequireText(session.Harness, nameof(session.Harness));
+        // The session belongs to the actor that opened it, and opens at the event's own instant. An
+        // end recorded at the start would make an open bracket indistinguishable from a closed one
+        // of zero length.
+        if (session.ActorId != @event.ActorId || session.StartedAt != @event.RecordedAt ||
+            session.EndedAt is not null)
+        {
+            throw new GovernanceException(
+                "A started coordinator session must belong to the event actor and begin open at the event timestamp.");
+        }
+    }
+
+    // Mirrors CoordinatorSessionRules.CompleteSession. The actor check is the same shape run
+    // completion uses, and for the same reason.
+    private static void ValidateSessionCompleted(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        SessionCompleted completed)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.ManageRuns);
+        var session = Get(state.CoordinatorSessions, completed.SessionId, "coordinator session");
+        if (session.EndedAt is not null)
+        {
+            throw new GovernanceException($"Coordinator session '{session.Id}' has already been closed.");
+        }
+
+        if (session.ActorId != @event.ActorId && !IsOperator(state, @event.ActorId))
+        {
+            throw new GovernanceException(
+                $"Only session actor '{session.ActorId}' or an operator can close coordinator session '{session.Id}'.");
+        }
+
+        if (completed.EndedAt != @event.RecordedAt || completed.EndedAt < session.StartedAt)
+        {
+            throw new GovernanceException(
+                "Coordinator session completion time must match the event timestamp and follow the session start.");
+        }
     }
 
     // Mirrors RunRules.EnsureCostRecordIsWellFormed. Safe to write here by construction rather than

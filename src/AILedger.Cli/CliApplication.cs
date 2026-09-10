@@ -37,6 +37,14 @@ public sealed class CliApplication
     // agent could optimise (K1).
     private readonly RefusalJournal _refusalJournal = new();
 
+    // The only directory a coordinator transcript may be read from, and the one control that makes a
+    // named path evidence rather than an assertion (VC1). It defaults to where the harness actually
+    // writes and is settable so that a test can stand up a harness directory of its own without
+    // writing into the operator's real one — the same reason the ledger root and the lesson root are
+    // the composing process's choice rather than an ambient path.
+    public string HarnessTranscriptRoot { get; init; } =
+        CoordinatorUsageReader.DefaultHarnessTranscriptRoot();
+
     // A factory that takes only the ledger root builds a service with no lesson store, so recall
     // reaches this root's own archived tasks and nothing else — the behaviour before lessons crossed
     // repositories. Selecting the shared store is the composing process's choice, which is what keeps
@@ -366,6 +374,19 @@ public sealed class CliApplication
             case "run start":
                 await ExecuteAsync(service, input, CreateStartRun(input), cancellationToken).ConfigureAwait(false);
                 break;
+            // The coordinator's own bracket. Two commands, because a session is a start and an end
+            // and nothing else: everything measured over it is derived from the log afterwards (D2).
+            case "session start":
+                await ExecuteAsync(service, input, new StartCoordinatorSessionCommand(
+                    Actor(input), Cause(input), Correlation(input),
+                    new CoordinatorSessionId(input.Required("id")), input.Required("harness"),
+                    input.Optional("harness-session")), cancellationToken).ConfigureAwait(false);
+                break;
+            case "session complete":
+                await ExecuteAsync(service, input, new CompleteCoordinatorSessionCommand(
+                    Actor(input), Cause(input), Correlation(input),
+                    new CoordinatorSessionId(input.Required("id"))), cancellationToken).ConfigureAwait(false);
+                break;
             case "run complete":
                 await ExecuteAsync(service, input, new CompleteRunCommand(
                     Actor(input), Cause(input), Correlation(input), ExistingRun(input),
@@ -672,7 +693,15 @@ public sealed class CliApplication
         }
 
         var refusals = await ReadRefusalsAsync(ledgerRoot, taskId).ConfigureAwait(false);
-        await WriteJsonAsync(TaskRetrospective.Build(state, history, refusals)).ConfigureAwait(false);
+        // The one input here that comes from outside the ledger, and it is read only because the
+        // caller named it and only from inside the harness's own transcript directory. A
+        // retrospective built without '--coordinator-transcript' reports coordinator token cost as an
+        // absence, which is what a codex-hosted coordinator's cost is permanently (D6, PD2).
+        var coordinatorUsage = await CoordinatorUsageReader.ReadAsync(
+            state, input.Optional("coordinator-session"), input.Optional("coordinator-transcript"),
+            HarnessTranscriptRoot, cancellationToken).ConfigureAwait(false);
+        await WriteJsonAsync(TaskRetrospective.Build(state, history, refusals, coordinatorUsage))
+            .ConfigureAwait(false);
     }
 
     // Three states, not two (RC1). Null when the journal is absent, so a task recorded before the
@@ -714,7 +743,12 @@ public sealed class CliApplication
             {
                 if (JsonSerializer.Deserialize<RefusalRecord>(line, options) is { } record)
                 {
-                    refusals.Add(new RetrospectiveRefusal(record.ActorId, record.Command, record.Site));
+                    // The kernel's own refusal text travels with the row, because a repeated refusal
+                    // is keyed by which rule fired and not only by which command was refused: the
+                    // first occurrence of a key teaches an actor, and every later one is avoidable by
+                    // construction. Two rules refusing one command are two keys.
+                    refusals.Add(new RetrospectiveRefusal(
+                        record.ActorId, record.Command, record.Site, record.Message));
                 }
                 else
                 {
@@ -1162,6 +1196,9 @@ public sealed class CliApplication
                     await MeasureFirstLedgerWriteAsync(
                         service, input, start.RunId, runStartedAt).ConfigureAwait(false),
                     servedModel: null,
+                    // No result means no drain count either, so this stays absent rather than zero:
+                    // this stream was never watched to a finish.
+                    truncatedLines: null,
                     manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
@@ -1197,7 +1234,7 @@ public sealed class CliApplication
         {
             await CompleteRunWithFreshTokenAsync(
                 service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken,
-                cost, firstLedgerWrite, servedModel,
+                cost, firstLedgerWrite, servedModel, result.TruncatedLines,
                 manifestHash, manifestArtifactCount).ConfigureAwait(false);
         }
         catch (GovernanceException exception) when (
@@ -1214,6 +1251,7 @@ public sealed class CliApplication
                 await CompleteRunWithFreshTokenAsync(
                     service, input, start.RunId, result.ProviderSessionId, AgentRunStatus.Failed,
                     startedEventId, launchToken, cost, firstLedgerWrite, servedModel,
+                    result.TruncatedLines,
                     manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
@@ -1294,6 +1332,7 @@ public sealed class CliApplication
         RunCost cost,
         long? millisecondsToFirstLedgerWrite,
         string? servedModel,
+        int? truncatedLines,
         string? manifestHash = null,
         int? manifestArtifactCount = null)
     {
@@ -1302,7 +1341,8 @@ public sealed class CliApplication
             Actor(input), causationId, Correlation(input), runId, status, sessionId, launchToken,
             manifestHash, manifestArtifactCount,
             cost.Turns, cost.OutputTokens, millisecondsToFirstLedgerWrite, servedModel,
-            cost.TokensInUncached, cost.TokensInCacheWrite, cost.TokensInCacheRead);
+            cost.TokensInUncached, cost.TokensInCacheWrite, cost.TokensInCacheRead,
+            truncatedLines);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -1786,7 +1826,11 @@ public sealed class CliApplication
             ["task status"] = Options("root", "task", "actor"),
             ["history"] = Options("root", "task", "actor", "follow", "since"),
             ["task history"] = Options("root", "task", "actor", "follow", "since"),
-            ["retrospective build"] = Options("root", "task", "actor"),
+            // The two coordinator options are the only way the harness transcript is reached. Named
+            // explicitly on purpose: a read that went looking under a user's home directory would
+            // answer differently depending on who invoked it (PD2).
+            ["retrospective build"] = Options(
+                "root", "task", "actor", "coordinator-session", "coordinator-transcript"),
             ["actor attach"] = Options(
                 "root", "task", "actor", "target", "role", "capability", "cause", "correlation"),
             ["context build"] = Options("root", "task", "actor", "work", "cognitive-root", "output"),
@@ -1843,9 +1887,17 @@ public sealed class CliApplication
             ["work unblock"] = Options("root", "task", "actor", "id", "cause", "correlation"),
             ["work abandon"] = Options("root", "task", "actor", "id", "reason", "cause", "correlation"),
             ["run start"] = Options(
-                "root", "task", "actor", "subject", "run", "work", "provider", "session", "cause", "correlation"),
+                "root", "task", "actor", "subject", "run", "work", "provider", "session",
+                "coordinator-session", "cause", "correlation"),
             ["run complete"] = Options(
                 "root", "task", "actor", "run", "status", "session", "cause", "correlation"),
+            // '--harness' names the tool the coordinator is hosted in and '--harness-session' its own
+            // identity for the conversation. The second is what a transcript is checked against, so a
+            // session opened without it reports its token cost as an absence rather than trusting a
+            // path (D6, R4).
+            ["session start"] = Options(
+                "root", "task", "actor", "id", "harness", "harness-session", "cause", "correlation"),
+            ["session complete"] = Options("root", "task", "actor", "id", "cause", "correlation"),
             ["stage transition"] = Options(
                 "root", "task", "actor", "stage", "without-prerequisites", "cause", "correlation"),
             ["provider launch"] = ProviderOptions(),
@@ -1855,7 +1907,7 @@ public sealed class CliApplication
     private static IReadOnlySet<string> ProviderOptions() => Options(
         "root", "task", "actor", "subject", "run", "work", "provider", "session", "executable", "working-directory",
         "model", "timeout-seconds", "add-dir", "cognitive-root", "output-schema", "without-brief",
-        "with-stale-brief", "cause", "correlation");
+        "with-stale-brief", "coordinator-session", "cause", "correlation");
 
     private static IReadOnlySet<string> Options(params string[] names) =>
         new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
@@ -1897,7 +1949,11 @@ public sealed class CliApplication
             // Read from the same command line the pre-flight read them from, so the door the
             // launcher was let through on is the door the kernel records.
             input.Optional("without-brief"),
-            OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)));
+            OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)),
+            // The bracket this dispatch belongs to, when the coordinator named one. Absent is the
+            // ordinary case for a run started by hand and for every run recorded before sessions
+            // existed, and the kernel refuses neither.
+            OptionalId(input.Optional("coordinator-session"), value => new CoordinatorSessionId(value)));
 
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     // Who the run is for. Absent, an actor starts its own run and nothing changes.
@@ -2035,11 +2091,26 @@ public sealed class CliApplication
                            Role coverage names, per role, the actors assigned to it and whether a
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
-        retrospective build --task ID   (what governance did on one task and what it cost)
+        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH]
+                           (what governance did on one task and what it cost)
                            Counts, durations and the causal chains the log can join, with no score,
                            grade or overall number anywhere, and a notMeasured list naming what this
                            task's record cannot answer. It is a read: run it after the fact, and
                            never from inside the archive transition.
+                           coordinatorLoop measures the coordinating loop itself: each session's
+                           wall clock and the part of it with no agent running, the delay from a run
+                           finishing to the next disposition and the next dispatch, and every
+                           avoidability verdict with the two sequences it was derived from. History
+                           written before a session existed reports unbracketedHistory; no bracket is
+                           ever inferred from a time gap. Every measure is reported for the task and
+                           partitioned by coordinating actor, because the point is to tell one
+                           coordinator's record from another's on the same task.
+                           The two coordinator options are the only way the harness transcript is
+                           read, and it is read only from the harness's own transcript directory. A
+                           path outside it is refused by the containment check; the transcript's own
+                           session identity is then checked against the session named. An outside,
+                           missing, unreadable or mismatched one reports an absence naming the control
+                           that refused it — never a zero and never an estimate.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
                            Serves the actor its brief, then records a context.built event naming the
@@ -2095,8 +2166,18 @@ public sealed class CliApplication
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
-                           [--subject ID]
+                           [--subject ID] [--coordinator-session ID]
         run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
+        session start      --task ID --actor ID --id ID --harness NAME [--harness-session ID]
+                           Brackets one coordinating conversation, so the runs it dispatches are its
+                           children and the loop can be measured as a loop. One open session per
+                           actor. --harness-session is the harness's own id for the conversation and
+                           is what a transcript is checked against; a session opened without it
+                           reports its token cost as an absence rather than trusting a path.
+        session complete   --task ID --actor ID --id ID
+                           Closes the bracket. An open session has no duration, so its wall clock and
+                           its idle time are reported absent rather than measured against a clock the
+                           projection does not take.
         stage transition   --task ID --actor ID --stage STAGE [--without-prerequisites REASON]
         provider launch    --task ID --actor ID --run ID --provider codex|claude [provider options]
         provider resume    --task ID --actor ID --run ID --provider codex|claude --session EXACT_ID [provider options]
@@ -2104,6 +2185,7 @@ public sealed class CliApplication
         Provider options: --work ID --subject ID --executable PATH --working-directory PATH --model NAME
                           --timeout-seconds N --add-dir PATH --cognitive-root PATH --output-schema VALUE
                           --without-brief REASON --with-stale-brief EVIDENCE-ID
+                          --coordinator-session ID
 
         work add and provider launch are refused until the acting actor has built its context on the
         task and the skills it was served still say what they said then. --cognitive-root is what the

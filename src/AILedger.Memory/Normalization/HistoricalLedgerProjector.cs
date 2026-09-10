@@ -67,6 +67,20 @@ internal static class HistoricalLedgerProjector
             // kernel without an arm here stops the whole index rebuilding.
             ContextBuilt => Require(state),
             ContextBriefWaived => Require(state),
+            // The coordinating session's two boundary events, projected here for the same reason
+            // the canonical reducer projects them: the runs a session dispatched point back at it,
+            // and an index that dropped the bracket would hold children with a parent it never saw.
+            //
+            // This arm exists above all because the switch below throws on event data it has no case
+            // for. That is not hypothetical: it stopped the memory index rebuilding on 2026-09-10,
+            // and it is why the kernel's two readers and this one had to get their arms in one
+            // change (attention item R3).
+            SessionStarted started => Require(state) with
+            {
+                CoordinatorSessions = Set(
+                    Require(state).CoordinatorSessions, started.Session.Id, started.Session)
+            },
+            SessionCompleted completed => CompleteCoordinatorSession(Require(state), completed),
             StageTransitioned transitioned => Require(state) with { Stage = transitioned.Current },
             EscalationRaised raised => Require(state) with
             {
@@ -195,6 +209,15 @@ internal static class HistoricalLedgerProjector
 
         return state with { Runs = Set(state.Runs, run.Id, run), WorkItems = workItems };
     }
+
+    private static GovernedTaskState CompleteCoordinatorSession(
+        GovernedTaskState state,
+        SessionCompleted completed) =>
+        state with
+        {
+            CoordinatorSessions = Set(state.CoordinatorSessions, completed.SessionId,
+                state.CoordinatorSessions[completed.SessionId] with { EndedAt = completed.EndedAt })
+        };
 
     private static GovernedTaskState ResolveEscalation(
         GovernedTaskState state,

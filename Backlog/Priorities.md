@@ -2,11 +2,11 @@
 
 ## Counts
 
-- **48 total**
-- **40 open**
-- **8 done**
-- **4 delivered but not yet archived (12 made or archived)**
-- **23 bugs, 18 features, 7 changes**
+- **53 total**
+- **43 open**
+- **10 done**
+- **2 delivered but not yet archived (12 made or archived)**
+- **26 bugs, 19 features, 8 changes**
 
 Status as of 2026-09-10. `done` means the governed task reached stage `archive`; delivered work awaiting verification or closeout remains open.
 Every status was traceable to the supplied facts; no row was left unconfirmed.
@@ -15,7 +15,11 @@ Every status was traceable to the supplied facts; no row was left unconfirmed.
 
 | # | backlog entry | task id | status | kind | notes |
 |---|---------------|---------|--------|------|-------|
-| 26 | the-reviewers-isolation-is-artifact-deep-only | not opened | open | bug | **blocks 9's capability-utilization dimension.** `ReviewerExclusions` withholds six artifact kinds but the manifest still hands a reviewer the task goal, every claim, decision, alternative and their evidence — and the skill forbids the user's intent by name. Worse, a coordinator writing verifier findings into a constraint routes them past the filter: item 6's reviewer refused to review for exactly that reason and was right to. **The verifier needs the same missing input:** `baseRef` is a skill contract — `prompt-contract-designer` captures `git rev-parse HEAD` and the verifier reads it to scope its diff — and the kernel has no such field, so two verifier runs in a row degraded into the skill's documented fallback for a reason the fallback was not designed for. One nullable trailing field, captured at `work add`. On 2026-09-10, a code-reviewer run on `2026-09-10_0845-pipeline-mandatory` stopped rather than review because eight constraints carried verifier verdicts and one told it to read the verifier artifact by id. Validated claim C12 with evidence E15 establishes the mechanism in source: `ContextAssembler` applies its six-kind `ReviewerExclusions` only to a CodeReviewer, while Constraint is in `AlwaysIncludedKinds` and excluded from nothing. Superseding the eight briefs and filing one minimal bundle produced a manifest the reviewer accepted; it then found three defects that three verifier rounds missed. This is a role that can silently produce nothing, not a theoretical isolation concern. |
+| 53 | a-run-leaves-its-scratch-tree-inside-the-repository | `2026-09-10_1420-model-the-coordinator` | open | bug | Runs told to build from a source-only tree put that tree **inside the repo**: `R15` left four copies under `src/AILedger.Core/tests/obj/` and `R11` one under `tests/obj/`. The Core project globs them, so the next `dotnet build` fails with **12,115 errors** naming duplicate `MemoryCliApplication`, multiple top-level-statement files and duplicate test helpers — not one of which is a real defect. `git status` shows nothing because `obj` is ignored, and 272 MB sits in the tree unnoticed. Removing them restored 0/0 and 804/804. Validated as `QC3` with `QE3`. **Two fixes, either sufficient:** grant the run a scratch directory outside the working tree and say so in `RULES.md`, or exclude `**/obj/**` and `**/bin/**` from the projects' compile globs so a nested tree cannot be absorbed. The second is the smaller change and protects against every future run, not just an instructed one. |
+| 50 | a-published-lesson-cannot-be-retracted | `2026-09-10_1955-retract-two-false-lessons` | open | bug | `lesson mark --supersedes` resolves the superseded id against `state.Lessons` (`LessonRules.cs:167`, mirrored at `TaskTransitionValidator.cs:281`), which holds only the lessons the *same* task minted. So a lesson published by an archived task can never be withdrawn, while the help text says `--supersedes` "keeps the older lesson out of a later task's recall". Documented behaviour and implemented behaviour differ. Validated as `FC2` with `FE5` on that task. Refused verbatim on an id present in `lessons/lessons.jsonl` with the right repo. **The fix is a design decision, not a patch:** cross-task supersession needs a lookup in the lesson store, and the replay rule at :281 cannot consult a store whose content differs from mark time — so the replay half has to be *relaxed*, which is legal but changes what replay treats as authoritative. Not done unilaterally; it is the one thing on this list that wants the operator's call. |
+| 51 | a-corrective-lesson-must-inherit-the-tags-of-what-it-corrects | `2026-09-10_2010-corrective-lessons-must-inherit-tags` | open | feature | Recall selects on **any** overlap with the opening task's tags (`FileGovernedTaskService.cs:262`), then orders by matched-tag count and recency under a cap of 10 with 3 per source task. A correction filed under the correcting session's own vocabulary therefore never arrives with the lesson it corrects. Measured tonight: the first correction for `MC2` carried `kernel, lesson-store, false-lesson` against `MC2`'s `automation, closeout` — empty intersection, published and undeliverable. Re-marked with the false lessons' own tags and verified by simulating the selection: for `automation, closeout` recall returns `GC2` (the correction) **above** `MC2`, and for `governance, migration` it returns `GC3` above `MC5`. The correction is always newer, so it strictly dominates the row it corrects and cannot be dropped while that row is delivered. The feature is for the kernel to say this rather than leave it to be rediscovered: warn when a mark whose `doNot` names a lesson shares no tag with it. Validated as `GC1` with `GE1`. |
+| 52 | the-cli-tells-you-less-than-it-knows | not opened | open | bug | Two small diagnostics, both of which cost real round trips tonight. **One:** an enum refusal names the enum but not the option. `lesson mark` carries two — `--lesson-actor` is `LessonActor` (researcher, executor, verifier, recon) and `--audience` is `RoleKind` (no `executor`) — so `"'executor' is not a valid RoleKind"` sent me to the wrong flag, and I validated a claim, `FC3`, blaming help text that was correct. Superseded by `FC4`. **Two:** `--base-ref` is honoured by `work add` and appears nowhere in its help, which is the residue of row 26's correction. Both are one-line changes in `src/AILedger.Cli`, deferred only because a verifier run holds that area. |
+| 26 | the-reviewers-isolation-is-artifact-deep-only | not opened | open | bug | **blocks 9's capability-utilization dimension.** `ReviewerExclusions` withholds six artifact kinds but the manifest still hands a reviewer the task goal, every claim, decision, alternative and their evidence — and the skill forbids the user's intent by name. Worse, a coordinator writing verifier findings into a constraint routes them past the filter: item 6's reviewer refused to review for exactly that reason and was right to. **Corrected 2026-09-10 — the baseRef half of this row was wrong.** It claimed the kernel has no such field. `WorkItem.BaseRef` is declared at `GovernanceModels.cs:264` and `ResolveBaseRef` (`CliApplication.cs:2007-2021`) captures `git rev-parse HEAD` from the first scope's directory automatically at `work add`, or takes an explicit `--base-ref`; 37 of 112 live work items carry one and the rest predate the resolver. The real defect is discoverability: **`--base-ref` appears nowhere in `work add`'s help**, so an actor that needs to correct it cannot learn the option exists. Validated as `C3` on `2026-09-10_1750-what-the-skills-drove`. This wrong row was cited by that task's recon as independent corroboration and propagated into a published lesson before it was caught — recorded there as `C2` and `E3`. On 2026-09-10, a code-reviewer run on `2026-09-10_0845-pipeline-mandatory` stopped rather than review because eight constraints carried verifier verdicts and one told it to read the verifier artifact by id. Validated claim C12 with evidence E15 establishes the mechanism in source: `ContextAssembler` applies its six-kind `ReviewerExclusions` only to a CodeReviewer, while Constraint is in `AlwaysIncludedKinds` and excluded from nothing. Superseding the eight briefs and filing one minimal bundle produced a manifest the reviewer accepted; it then found three defects that three verifier rounds missed. This is a role that can silently produce nothing, not a theoretical isolation concern. |
 | 20 | research-needs-an-open-claim | not opened | open | bug | Discovery's only exit is Research, and that arm refuses without an open claim. hit on both of items 1 and 2. see 16 — closing every claim currently locks a task out of Archive, which 16 would make worse. found while working items 1 and 2; unranked until now. |
 | 29 | the-arms-only-fire-if-you-walk-through-them | not opened | open | bug | the eleven stage arms fire on a transition, and two of the three largest tasks in this ledger have never transitioned: `decompose-command-handler` (333 events, 23 runs) and `run-cost` (302 events, 19 runs), 42 of 187 runs between them. not a waiver — nothing was waived because nothing was asked, so there is no event and `status` reads as compliant. blocks anything that keys behaviour on stage, which is 10, 11 and the stage-engagement design itself. |
 | 47 | a-researcher-and-a-worker-cannot-prove-they-ran | `2026-09-10_1117-researcher-can-prove-it-ran` | **blocked** | feature | W1 is blocked. `GovernedArtifactKind` has five members and none is a research output or execution notes, while `RoleDefaults` grants `recordArtifact` to neither role. A run in either role can leave only claims and evidence, so a brief that asks it for a filed document is unsatisfiable. Minted as a lesson on 2026-09-10 from `2026-09-10_1007-rewrite-the-skills` claim XC4. |
@@ -27,9 +31,7 @@ Every status was traceable to the supplied facts; no row was left unconfirmed.
 | 43 | read-the-refusal-back | not opened | open | feature | **the sharpest retrieval in the kernel and nothing uses it.** on refusal the kernel holds an exact key — command type, actor, rule, message — and 144 rows of prior occurrences whose following events record what each actor did next. so "who else hit this and what did they do" is a SQL join over existing rows: **no model, no embedding, no service, no evaluation to earn first**, unlike the semantic index. measured against 2026-09-09's four coordinator failures, two were catchable at a specific command and one at the refusal itself. carries the distinction the whole learning story rests on: retrieval handles what someone already paid for, cross-model verification handles what nobody has learned yet — and only the second is currently working. |
 | 36 | the-ledger-is-written-at-the-end-or-not-at-all | not opened | open | bug | median first ledger write lands at **72% of run duration** across 249 runs (p25 36%, p75 83%); R26 wrote all ten of its records in 78 seconds after fifteen minutes of work. **50 runs recorded nothing at all** — 19 of 30 failed, 16 of 43 cancelled. `CLAUDE.md` asks for the claim before the work; measured, it arrives after. `millisecondsToFirstLedgerWrite` cannot support the follow-up because its null means four different things. |
 | 34 | scope-cannot-follow-a-worktree | not opened | open | bug | **the largest single loss in the ledger.** scope is stored as an absolute path resolved at `work add` against wherever the operator stood, so the kernel cannot tell that two checkouts of one repository are the same governed area. `AILedger-memory` and `AILedger-provider-preflight` are git worktrees, not separate repositories — the kernel refuses the very isolation pattern used to run agents in parallel. all thirteen scope refusals in the ledger are in `standalone-memory-index`, over eleven hours; that task is 42% of all runs ever made and **63% of all runs ever lost**, 120 runs at a 33% loss rate against 0-19% everywhere else. the worktree half is a small fix; whether scope may leave the repository at all is a separate question the end goal still forces. |
-| 44 | the-context-gate-and-its-two-doors | `2026-09-10_0845-pipeline-mandatory` | **delivered, in last repair round** | feature | No entry file; this came from the operator's instruction, not the backlog. No work item may be added and no provider launched until the acting actor holds a brief whose per-skill hashes match the cognitive root, with an operator door for no brief at all and an evidence-named door for a brief the change did not affect. Eleven runs: one worker, three verifier rounds, a reviewer that refused, a reviewer that found three defects, and repairs. |
 | 13 | the-append-is-quadratic | `2026-09-10_0907-append-in-place` | **delivered, awaiting verifier then closeout** | bug | A mutation now appends one line instead of copying the whole log. The byte reduction is 1,072-fold, measured independently three times: 1,072.33, 1,072.31, and 1,072.31. Atomicity for multi-event commands was added after verification found the gap, and a torn command now replays as if it never happened. W1 was abandoned mid-way as a mis-scope; W2 carries the repair. |
-| 8 | route-the-workflow-lesson | `2026-09-09_1606-workflow-lesson-routing` | **delivered, closeout owed** | feature | **blocks 9's output half.** a WorkflowLesson has no kind field and no recall route; recall reads tags now (item 25 fixed that today) but with 10 slots a workflow lesson either never matches or displaces the domain lessons that describe the code. four work items: kind plus audience on `Lesson` and `LessonMark`, a derived task shape, a separate recall budget keyed on shape, and — found by this task's own recall on its first minute — **a verify command that can fail.** `C1`: `RequireCheckableVerify` demands a runnable command and cannot demand a falsifiable one, so `stage-arms:C1` still passes its own grep while asserting the opposite of the code it cites. a stale lesson with a green check is worse than an empty slot. independent of 5, 6 and 7. Its capability is delivered: `LessonKind`, `Audience`, `--verify-expects`, and lesson recheck all shipped. On 2026-09-10, four lessons were minted live through that whole path with kind, audience, a runnable verify, and its expected direction—the first end-to-end proof it works. The task remains at Discovery with W2 paused and five open claims. |
 | 12 | resolve-claims-where-the-evidence-lands | `2026-09-07_2136-claim-resolution-ergonomics` | open | feature | `status` now reports 76 of 80 open claims on `ledger-learning` are clearable in one pass, which is higher than the entry estimated. |
 | 19 | review-before-complete | not opened | open | bug | `work complete` requires a verifier but not a reviewer, and completing the item makes the review impossible. cost item 1 its only waiver. found while working items 1 and 2; unranked until now. |
 | 21 | the-coordinators-run-cannot-close | not opened | open | bug | filing a PromptContract or OrchestrationPlan needs an active producer run, and an operator-held run can never be closed `completed` because it has no provider session. found at Design on item 5, which had to close its run `cancelled` after the run filed two artifacts successfully. **also blocks 9's cost dimension**, measured: the coordinating session wrote 240 of 309 events on item 5 and 81 of 104 on item 25, and holds no run — so it has no provider, no model, no duration and no token cost. every cost number the retrospective can compute describes the agents that were dispatched and none of the one dispatching them. |
@@ -55,11 +57,14 @@ Every status was traceable to the supplied facts; no row was left unconfirmed.
 | 39 | standalone-semantic-memory | `2026-09-08_1909-standalone-memory-index` | **delivered, merged, disengaged** | feature | phase 0/1 delivered and now on this branch: an explicit seven-command SQLite/FTS5 shadow index over ledger histories, lessons and refusal journals, with exact-vector fusion and an evaluation harness whose baseline is the current tag-and-recency recall. Nothing in the kernel reads it — the boundary is a package boundary and `ShadowBoundaryTests` asserts it. **The value question is untouched:** no embedding model is installed (`ollama list` holds only `phi4`, a chat model), the three database identities under the platform data directory are empty, `ailedger-memory` is not installed, and the evaluation set is ten fixtures rather than real records. Phase 2 is repository ingestion, specified and unbuilt. Activation needs a live model-identified evaluation that beats the baseline, plus explicit authorization — see the entry's activation gates. Its activation task, `2026-09-09_2118-memory-index-activation`, carries one open escalation, XX1, for the operator: no sandbox here reaches loopback, so only the operator can measure whether the chunk bound reaches full coverage on the live corpus. |
 | 37 | what-a-run-actually-costs | measurement | **read for 7 and 9** | change | not work to do. the first five runs with cost fields, read: the **fixed brief is ~56%** of a run's cost, the agent's own output ~24%, everything it read with tools 22% — of which whole-file reads are 70% on a coding run and raw `events.jsonl` digging is 96% on an analysis run. the manifest measured 36,000 tokens, 92% artifacts, re-read every turn. summing the buckets overstates 7.2-8.7×, confirming C7. also carries the settled decision that the embedding index updates at run close, not per edit, and why. |
 | 9 | score-the-governance | `2026-09-07_2136-workflow-retrospective` | open | feature | the self-scoring capability. `self-scoring.md` is the rubric and the authority on what the dimensions mean; `score-the-governance.md` is the shape and the order. blocked on 5 to 8: its two headline dimensions — governance effectiveness and governance cost — are the two the ledger currently cannot measure. and blocked on 21 for the same reason 8 is empty: the coordinator's own cost is unrecordable while a coordinator holds no closeable run. |
+| 49 | *no entry file* — `docs/pre-kernel-behaviour-matrix.md` | `2026-09-10_1750-what-the-skills-drove` | **deferred until after 9** | change | **the migration inventory, and it is a retrospective rather than a proposal.** 108 pre-kernel behaviours compared against the kernel: 37 `BETTER`, 49 `EQUAL`, 7 `WORSE`, 15 `ABSENT`, 0 `DELIBERATE` **as first graded, and the last two figures are wrong.** `MC5` (nothing was deliberate) and `MC2` (the fifteen-item absent list) were both **rejected** after the matrix was written: `baseRef` exists and is carried by 37 of 112 work items, lesson minting is already one atomic command, and accepted decision `D1` on `2026-09-10_1007-rewrite-the-skills` authorises the installed-skill removal, so at least one absence is `DELIBERATE`. Both had already been minted as lessons and the kernel cannot retract a published lesson (row 50), so corrections carrying their exact tags were published on 2026-09-10 and verified to rank above them in recall (row 51). **The kernel side of this matrix has not been re-graded since,** and the re-grade must inherit two corrections: `src` IS in scope for the run that does it, and `Backlog/Priorities.md` is inadmissible as evidence about the kernel — citing it is how the first grading corroborated me with me. **`MC3` shares that defect and is not yet dispositioned:** its published lesson cites `Backlog/Priorities.md:18-23,34,46` as evidence that seven retained behaviours are worse *in live kernel operation*, which is a claim about the kernel supported partly by this document; it also cites the three old skill files, which are admissible. It has not been rejected and is not asserted false here — the verifier pass must re-derive the seven against `src` and the ledger and dispose it either way. Accepted decision `D1` on that task sequences the fifteen after item 9 is delivered, because eleven of them are governance automation and self-scoring is the instrument that would say which earn their cost; `ALT2` records why restoring them first was rejected. **The four to take first:** the Claude `Stop` hook that ran outside the model so close-out fired even when the agent forgot; the recent-only gating that kept that hook from going noisy and being disabled; the seven-day idle audit that escalated work finished in spirit; and the install preflight that caught a broken installation before recall silently degraded. Those four would have caught what this session spent an afternoon catching by hand — 24 tasks finished in spirit, seven holding 213 validated claims and teaching nothing. The `WORSE` seven cluster on review and each already has a live failure in this backlog. |
 
 ## Done
 
 | # | backlog entry | task id | status | kind | notes |
 |---|---------------|---------|--------|------|-------|
+| 44 | the-context-gate-and-its-two-doors | `2026-09-10_0845-pipeline-mandatory` | **done** | feature | No entry file; this came from the operator's instruction, not the backlog. No work item may be added and no provider launched until the acting actor holds a brief whose per-skill hashes match the cognitive root, with an operator door for no brief at all and an evidence-named door for a brief the change did not affect. Eleven runs: one worker, three verifier rounds, a reviewer that refused, a reviewer that found three defects, and repairs. |
+| 8 | route-the-workflow-lesson | `2026-09-09_1606-workflow-lesson-routing` | **done** | feature | **blocks 9's output half.** a WorkflowLesson has no kind field and no recall route; recall reads tags now (item 25 fixed that today) but with 10 slots a workflow lesson either never matches or displaces the domain lessons that describe the code. four work items: kind plus audience on `Lesson` and `LessonMark`, a derived task shape, a separate recall budget keyed on shape, and — found by this task's own recall on its first minute — **a verify command that can fail.** `C1`: `RequireCheckableVerify` demands a runnable command and cannot demand a falsifiable one, so `stage-arms:C1` still passes its own grep while asserting the opposite of the code it cites. a stale lesson with a green check is worse than an empty slot. independent of 5, 6 and 7. Its capability is delivered: `LessonKind`, `Audience`, `--verify-expects`, and lesson recheck all shipped. On 2026-09-10, four lessons were minted live through that whole path with kind, audience, a runnable verify, and its expected direction—the first end-to-end proof it works. The task remains at Discovery with W2 paused and five open claims. |
 | 1 | record-that-context-was-built | `2026-09-07_2136-run-manifest-hash` | **done** | feature | archived with one waiver on Learn: W1 was completed before any reviewer run, and RC4/RC5 prove that closes every route to a governed review. 11 runs, 12 claims, 4 lessons. |
 | 2 | did-the-lesson-matter | `2026-09-07_2136-lesson-citations` | **done** | feature | archived with no waiver. Reviewer ran before `work complete`. 7 runs, 10 claims all validated, 4 lessons. Its code reviewer also found and fixed three defects in item 3's code. |
 | 3 | make-status-say-what-is-owed | `2026-09-07_2136-status-owed` | **done** | feature | archived with no waiver. 5 runs, 10 claims all validated, 4 lessons. The verifier found VC1 (one citation cleared the whole lesson debt) and the reviewer found KC4 (cited and recalled counts drawn from different populations) and KC5 (no test that the projection agrees with the gate). The waiver count is withdrawn from scope by accepted decision LD1: state carries no durable waiver record. |
@@ -69,78 +74,104 @@ Every status was traceable to the supplied facts; no row was left unconfirmed.
 | 7 | measure-before-scoring | `2026-09-09_1010-retrospective-projection` | **done** | feature | archived with four waivers — Research, Design, Scope, Execution — the same four as 6 and for the same reasons: no open claim left, no Researcher run staffed, no `PromptContract` or `UserRequest` ever filed. delivered `TaskRetrospective` and `retrospective build`: counts, durations, causal chains, refusals, stages with waiver reasons verbatim, evidence by source type, and a required `notMeasured` list. **15 runs, 4 of which bought no finding; 40 claims all validated; 58 evidence across four source types; 4 lessons minted.** the code reviewer found RC1 after three verifier passes over the same code — a present-but-partly-unreadable refusal journal read as a complete measurement — and repairing it cost a whole extra work item because scope cannot be widened (row 41). two runs died to the 1 MiB line limit (row 42). its own first output names exactly two things it cannot measure: `coordinatorCost` and `outcomeQuality`. |
 | 45 | the-six-pipeline-skills-rewritten-against-the-kernel | `2026-09-10_1007-rewrite-the-skills` | **done** | change | archived 2026-09-10 with four lessons minted and six stage arms waived with reasons. The skills no longer point at the pre-kernel Python ledger, tell an agent to hand-edit state, or restate rules the kernel refuses. Its residue is validated claim WC5: `cognitive/RULES.md` is outside the context freshness gate because `ContextSkills.From` filters to `ContextArtifactKind.Skill`, so the one artifact served to every role can change without invalidating any brief. |
 
-## Where to resume, 2026-09-10 afternoon
+## Where to resume, 2026-09-10 night
 
-Installed `2.0.83` from `565e3f3`. `main` and the branch were level at that commit; everything since
-is uncommitted. **The skills need no install** — `cognitive/` is read from disk at runtime, so
-`install.sh` moves C# only.
+Installed `2.0.86-dirty from 8b9292c`, which is `main`. **Everything since is uncommitted** — 24
+modified and 8 new files, 1,437 insertions, holding two work items that cannot be separated by path
+(they share `CliApplication`, `CommandHandler`, `Commands`, `Events`, `GovernanceModels`,
+`AuthorizationPolicy`, `TaskReducer`, `TaskTransitionValidator`, `HistoricalLedgerProjector` and two
+test helpers).
 
-### The five things that changed today
+### What closed on the night of 2026-09-10
 
-    the context gate    work add and provider launch refused without a context.built event
-                        carrying per-skill content hashes. Built, FAILED verification on three
-                        counts, repaired (JC1-JC6), and it has refused the coordinator five times
-    two doors           --without-brief REASON (operator only) and --with-stale-brief EVIDENCE-ID
-                        (the --not-split-because shape: the kernel checks the record exists, never
-                        that it is a good reason). Used live to launch the doors' own verifier
-    six skills          rewritten against the kernel, verified twice, W1 completed. Pre-kernel
-                        paths gone, instructions to hand-edit projections replaced with `ailedger`
-                        commands, the brain pattern kept verbatim
-    RULES.md + rubric   the two served artifacts the first pass missed, now rewritten. RULES.md
-                        reaches every role, so it mattered more than any skill
-    D1                  the pipeline skills are kernel-invoked only. Six copies retired from
-                        `$CODEX_HOME/skills` to `skills-retired-2026-09-10` with a note
+Both work items are verified and one is complete.
 
-### In flight when this note was written
+- **`2026-09-10_0903-overlong-line-kills-a-run` W2 — COMPLETE.** `R5` returned INCOMPLETE: both
+  repairs passed on the production path with mutation testing (restoring the old throwing branch
+  fails exactly ten focused cases, six from the original set), but its own full-suite build died
+  after five minutes with no diagnostics, so it could not reproduce the suite. That gap was closed
+  directly rather than by another round — see the combined-tree result below. `EC1` to `EC5`
+  validated; `work complete` accepted.
+- **`2026-09-10_1420-model-the-coordinator` W1 — verified, review in flight.** `R11` returned PASS on
+  all five code-review repairs plus the `ZC4` absence-wording fix, and independently reproduced
+  792/792 on the shared tree. `R12` (claude-review) is reviewing the final two-file patch; `R8`'s
+  reviewer was codex, so this is a fresh model rather than one re-reading its own conclusions.
+- **The combined tree is green, measured on the merged tree that no single verifier could see:**
+  build 0 warnings / 0 errors; kernel **792 total, 792 passed, 0 failed**; Memory **81 total, 80
+  passed, 1 failed** — the pre-existing `EmbeddingChunkingTests` digest-drift case, which needs a
+  live Ollama endpoint and which both verifiers also saw fail at base `8b9292c`. Two independent
+  runners agree on 792. Recorded as `EC5` with `EE6`.
+- **The replay check I owed is done, and done as one thing.** The combined diff of
+  `TaskTransitionValidator` adds exactly three arms: `SessionStarted`, `SessionCompleted`, and one
+  presence-guarded lookup of `run.CoordinatorSessionId` in `ValidateRunStarted`. Both session events
+  are new types with no instances on disk; `grep -i truncat` on the validator returns zero lines, so
+  the truncation field is projected without being validated. No replay rule keys on a field an older
+  event does carry. Validated as `QC1` with `QE1`. Two separate confirmations would not have
+  composed; this is one read of one diff.
 
-    2026-09-10_0845-pipeline-mandatory   R6  codex verifier on the doors
-    2026-09-10_0907-append-in-place      R5  codex worker, the atomicity repair
+### Do these in this order
 
-A persistent Monitor watches every run in every task and prints `CLOSED <task>/<run> -> <status>`.
-Its script is `runwatch.py` in the session scratchpad; re-arm it first thing if it is gone, because
-three stalls today came from hand-curated watchers.
+1. Read `R12`'s verdict and resolve its `BC`-prefixed claims. If it finds defects, repair, re-verify,
+   then complete `W1`; if it passes, complete `W1` directly.
+2. Commit, merge to `main`, push, `sh scripts/install.sh`. **Do not commit
+   `asset-doubling-handoff.md`** — it belongs to another session. **Until the kernel is installed,
+   every run is one large command away from losing its whole record.**
+3. Re-open coordinator `W2` over Providers, Core, Cli and tests — `causationId` on `run.started`,
+   plus launch timeout and terminal failure reason as nullable trailing fields on `AgentRun`
+   (accepted decision `D7`). Without it, measures 10 to 12 stay `notMeasured`. The old `W2` was
+   abandoned because its scope could not do the work; the reason is on the record.
+4. **Then item 9.** Its contract has been read against what now exists and it has drifted in five
+   ways, all recorded as validated claims `DC1` to `DC5` on
+   `2026-09-07_2136-workflow-retrospective`, with `DALT1` recording why starting from the contract
+   as written and correcting during execution was rejected. **File the superseded `PromptContract`
+   before dispatching anything.** The five:
+   - `DC1` — `coordinatorCost` is no longer out of scope. A coordinator is now a bracketed session
+     that owns its runs and carries a four-bucket token cost. The contract's Out of Scope entry and
+     finding `PC5` both describe a kernel that no longer exists.
+   - `DC2` — success criterion 7, "`dotnet test` is green", is now a **stop condition**. A run told
+     to satisfy it destroys itself and everything it had recorded.
+   - `DC3` — constraint 3 is not enforceable as written. Keeping `WorkflowRetrospective` out of
+     `ContextAssembler` does not keep a score out of a manifest, because `Constraint` is in
+     `AlwaysIncludedKinds` and excluded from nothing. Artifact-kind filtering is not sufficient.
+   - `DC4` — the calibration gate's ground truth is this document, and two of its rows have since
+     been found wrong. Re-confirm all six verdicts against the ledger before using them as the
+     standard a rubric must reproduce.
+   - `DC5` — the evidence floor moved. Twelve coordinator measures were added after the contract was
+     written, so criterion 4's bindings target a projection shape that no longer describes the
+     output.
+5. Queued and not blocking: the two one-line `src/AILedger.Cli` fixes in row 52; the behaviour-matrix
+   re-grade (row 49), which needs `src` in scope and must not cite this document as evidence about
+   the kernel; `2026-09-10_1117-researcher-can-prove-it-ran`; and reviewers for `ledger-artifacts`
+   and `2026-09-10_0907-append-in-place`.
 
-### The merge gate
+### Two record defects found and mitigated the same night
 
-    R6 passes                → commit Core, Cli, tests, cognitive; merge; push; install
-    src/AILedger.Storage       stays uncommitted until R5 finishes AND verifies — a half-written
-                               atomicity fix is exactly what must not ship
+Rows 50 and 51. A published lesson cannot be retracted — `--supersedes` resolves only within the
+task that minted it — and a corrective lesson filed under the correcting session's own tags is never
+recalled with the lesson it corrects. Both false lessons from row 49 now have corrections carrying
+their exact tags, verified by simulating the selection: the correction ranks **above** the false row
+in every matching tag combination, because it is always newer. 206 lessons in the store.
 
-### Open, and each is one command or one run
+### What went wrong that a fresh session should not repeat
 
-    XX1  memory-index    does the chunk bound reach full coverage on the live corpus?
-                         D1 there makes this the OPERATOR's measurement: no sandbox reaches loopback
-    X1   overlong-line   which Core field carries the truncated-line count? Core is free now,
-                         so re-scope W1 over Providers + Core + Cli and unblock it
-    W1   researcher-can-prove-it-ran   BLOCKED on Core, brief is K1, ready to launch
-    C11  RULES.md is outside the freshness gate — one line, fold into the next Core item
-    zero lesson marks on any live task. Every closeout is still owed
-
-### Item 9, and my estimate for it is void
-
-`2026-09-07_2136-workflow-retrospective` now holds `PA-CONTRACT-1` (PromptContract) and
-`PA-PLAN-1` (OrchestrationPlan), produced by a planning lead — the first planning-lead run of the
-session. Seven claims, all validated, three of which overturn the framing I gave it:
-
-- `PC3` — **the projection scores no dimension at all.** "Six of ten are counts and joins" is
-  wrong; ten of ten need a model, and what varies is how much evidence the log supplies per
-  dimension. My 4-5h narrow / 8-12h full estimate rests on the refuted premise.
-- `PC1` — items 1 to 4 are the **darkest-instrumented** archived tasks in the ledger. All four
-  predate the refusal journal, the run-cost fields and the projection, so calibrating against them
-  would pass by measuring nothing.
-- `PC7` — filing a `WorkflowRetrospective` through a producer run **reproduces item 21 on every
-  task forever**. `UserRequest` is the one operator-authored kind that forbids a producer run, and
-  that branch is the model to copy.
-
-Read the plan before re-estimating. It chose `decompose` over four disjoint file sets.
-
-### The behavioural correction that explains most of today
-
-`C3` on `2026-09-10_0907-append-in-place`: **the coordinator has been writing prompt contracts and
-filing them as constraints.** Every `K`-numbered brief carries a goal, constraints, success criteria
-and stop conditions, recorded through `constraint add`. No task opened this session held a
-`PromptContract` until `A2`. That is why Scope was waived four times, and skipping pipeline step 2
-is the measured cause of four mis-scoped work items in one day.
+- **Two citations typed from memory instead of checked**, inside evidence records, in the space of
+  ten minutes: one evidence direction filed as `--refutes` when its content supported the claim, and
+  one task id that did not exist. Both are permanent and both needed a second record to correct.
+  Evidence is append-only; the check costs one `grep` and the correction costs a record forever.
+- **A validated claim, `FC3`, that blamed correct help text.** `lesson mark` carries two enums and
+  the refusal names the enum but not the flag, so I fixed the wrong option and then recorded the
+  wrong conclusion. Superseded by `FC4`. The lesson is narrower than it looked: read *which* enum the
+  message names before deciding anything is wrong.
+- **Archiving before testing what the marks would deliver.** The first correction task was archived,
+  and only then did the tag intersection turn out to be empty — which cost a whole second task,
+  because an archived task takes no more marks. Simulate recall before the transition.
+- **My own test runner reported four product failures that were its own.** `DispatchProxy.Create` is
+  ambiguous by name in .NET 8, `IAsyncLifetime` must be driven, and the test project's native
+  `e_sqlite3` asset is not resolved by the host's own `deps.json`. Four agents have now each
+  rediscovered some subset of these. The recipe belongs in `cognitive/` so a manifest carries it,
+  and that is worth doing before the next dispatch.
+- The pattern from the afternoon held all night: **design calls survived adversarial review; fast
+  assertions did not.**
 
 ## Ordering notes
 
