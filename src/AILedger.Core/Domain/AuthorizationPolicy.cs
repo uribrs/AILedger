@@ -69,6 +69,11 @@ public sealed class AuthorizationPolicy
         DisposeChallengeCommand => [Capability.DisposeChallenge],
         AddWorkItemCommand => [Capability.ManageWork, Capability.ManageScope],
         StartRunCommand or CompleteRunCommand => [Capability.ManageRuns],
+        // The same capability dispatching a run needs, and deliberately not a new one. A session is
+        // the bracket around dispatching, so the seats that may dispatch — operator, planning lead,
+        // implementation lead — are exactly the seats that may open one, and a new capability would
+        // have to be granted to every actor already holding those roles before it could be used.
+        StartCoordinatorSessionCommand or CompleteCoordinatorSessionCommand => [Capability.ManageRuns],
         RequestStageTransitionCommand => [Capability.RequestTransition],
         RaiseEscalationCommand => [Capability.RaiseEscalation],
         ResolveEscalationCommand => [Capability.ResolveEscalation],

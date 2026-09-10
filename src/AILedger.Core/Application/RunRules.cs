@@ -87,6 +87,10 @@ internal static class RunRules
             state, command.ActorId, command.SubjectActorId, command.SkillsServedNow,
             isProviderLaunch: command.LaunchTokenHash is not null,
             command.WithoutBriefReason, command.StaleBriefEvidenceId);
+        // Checked only when the run names a session, which no run recorded before sessions existed
+        // does. A run that names none is dispatched outside a bracket, and that is legal (D7).
+        CoordinatorSessionRules.EnsureDispatchingSessionIsUsable(
+            state, command.ActorId, command.CoordinatorSessionId);
 
         // Which role the subject holds now, recorded on the run. Role assignments change, so asking
         // the current assignment whether a past run was a verifier's answers a different question.
@@ -139,7 +143,22 @@ internal static class RunRules
             TrimOrNull(command.ProviderVersion),
             TrimOrNull(command.LaunchTokenHash),
             launchedBy,
-            subjectRole);
+            subjectRole,
+            // The five cost and manifest fields between SubjectRole and this one are learned at
+            // completion and stay absent here. The session link is known at dispatch, which is the
+            // only moment it can be known: the coordinator names the bracket it is dispatching from.
+            ManifestHash: null,
+            ManifestArtifactCount: null,
+            Turns: null,
+            OutputTokens: null,
+            MillisecondsToFirstLedgerWrite: null,
+            TokensInUncached: null,
+            TokensInCacheWrite: null,
+            TokensInCacheRead: null,
+            CoordinatorSessionId: command.CoordinatorSessionId,
+            // Learned at completion like the cost fields: nothing has read the stream yet, and null
+            // here is "nobody counted" rather than "nothing was cut".
+            TruncatedLines: null);
         // The waiver precedes the run it let through and carries the justification alone, as on
         // work.added: the reducer joins the pair on causationId rather than copying it onto the run.
         return briefWaiver is null ? [new RunStarted(run)] : [briefWaiver, new RunStarted(run)];
@@ -205,7 +224,13 @@ internal static class RunRules
                 TrimOrNull(command.ManifestHash), command.ManifestArtifactCount,
                 command.Turns, command.OutputTokens, command.MillisecondsToFirstLedgerWrite,
                 TrimOrNull(command.Model),
-                command.TokensInUncached, command.TokensInCacheWrite, command.TokensInCacheRead)
+                command.TokensInUncached, command.TokensInCacheWrite, command.TokensInCacheRead,
+                // Passed through unchecked, and deliberately so. The count is the launcher's own
+                // counter and cannot go negative, and the twin rule in this kernel is asymmetric:
+                // a rule added here would have no replay counterpart, because R4 requires the
+                // validator to gain nothing that keys on this field. No rule on either side keeps
+                // the two halves honest rather than divergent.
+                command.TruncatedLines)
         ];
     }
 

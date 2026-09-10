@@ -29,6 +29,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             invocation,
             (line, _) => AddLineAsync(standardOutput, line),
             (line, _) => AddLineAsync(standardError, line),
+            // A version probe writes one short line and its count would have no reader.
+            null,
             cancellationToken).ConfigureAwait(false);
 
         var version = standardOutput.Concat(standardError)
@@ -89,6 +91,10 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             environment,
             request.Timeout);
 
+        // Read by the failure paths below, which never receive a ProcessExit. The drain increments
+        // it as it cuts, so a run refused part-way through still records how much had been cut when
+        // it was refused (CC2).
+        var tally = new TruncatedLineTally();
         ProcessExit exit;
         try
         {
@@ -140,6 +146,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                     ReserveOutput(line, ref retainedCharacters);
                     return AddLineAsync(errors, redactor.RedactText(line));
                 },
+                tally,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -147,21 +154,21 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             var now = DateTimeOffset.UtcNow;
             return CreateFailure(
                 request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
-                AgentRunStatus.Cancelled, "Provider run was cancelled.");
+                AgentRunStatus.Cancelled, "Provider run was cancelled.", tally.Observed);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             var now = DateTimeOffset.UtcNow;
             return CreateFailure(
                 request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
-                AgentRunStatus.Cancelled, "Provider run timed out.");
+                AgentRunStatus.Cancelled, "Provider run timed out.", tally.Observed);
         }
         catch (InvalidDataException exception)
         {
             var now = DateTimeOffset.UtcNow;
             return CreateFailure(
                 request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
-                AgentRunStatus.ProtocolError, exception.Message);
+                AgentRunStatus.ProtocolError, exception.Message, tally.Observed);
         }
 
         var failure = DetermineFailure(expectedSessionId, sessionId, exit.ExitCode, events, parseFailure, sessionFailure);
@@ -185,7 +192,11 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             version,
             arguments,
             request.Mode == AgentLaunchMode.Resume,
-            failure);
+            failure,
+            // Whatever the drain had to cut, as the drain finally counted it. The three catch blocks
+            // above never receive an exit, so they read the same count off the tally instead, where
+            // it is null until something is cut — "nobody counted", never "nothing was cut".
+            exit.TruncatedLines);
     }
 
     protected abstract IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId);
@@ -246,6 +257,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                 invocation,
                 (line, _) => AppendLineAsync(standardOutput, line),
                 (line, _) => AppendLineAsync(standardError, line),
+                // A capability probe reads a help screen and its count would have no reader.
+                null,
                 cancellationToken).ConfigureAwait(false);
 
             var help = standardOutput.Append(standardError).ToString();
@@ -318,7 +331,11 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         IReadOnlyList<ProviderEvent> events,
         IReadOnlyList<string> errors,
         AgentRunStatus status,
-        string failure) =>
+        string failure,
+        // What the drains had cut by the time the run was refused, or null if they had cut nothing.
+        // A ProtocolError that says how much was cut before it died is the difference between a
+        // diagnosable failure and the four runs this repository cannot explain (CC2, C3).
+        int? truncatedLines) =>
         new(
             request.RunId,
             request.Provider,
@@ -333,7 +350,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             version,
             arguments,
             request.Mode == AgentLaunchMode.Resume,
-            failure);
+            failure,
+            truncatedLines);
 
     private void ValidateRequest(AgentLaunchRequest request)
     {

@@ -422,6 +422,55 @@ public sealed record AgentRun(
     // RunCostReader holds that mapping in one place with C6 beside it (D3, D4).
     long? TokensInUncached = null,
     long? TokensInCacheWrite = null,
-    long? TokensInCacheRead = null);
+    long? TokensInCacheRead = null,
+    // The coordinating session that dispatched this run, when one was open and named itself. This is
+    // a new field rather than LaunchedBy promoted, and the difference is the whole measurement:
+    // LaunchedBy names an *actor*, and one actor coordinates many sessions over a task's life, so
+    // grouping runs by it would collapse every conversation the operator ever had into one bracket
+    // (D1, and the landmine recon recorded at GovernanceModels.cs:377-384).
+    //
+    // Nullable and trailing, like every field above it. Every run already on disk carries none, and
+    // that absence is what "this run was dispatched before sessions existed, or outside one" means.
+    // Nothing may refuse a run for lacking it.
+    CoordinatorSessionId? CoordinatorSessionId = null,
+    // How many provider lines the drain cut to the per-line cap. Two meanings, and they must stay
+    // apart, because the whole reason this field exists is that a degraded stream used to be
+    // indistinguishable from a whole one:
+    //
+    //   null  nobody counted — the run predates this field, was started outside provider launch, or
+    //         died before its process produced an exit to read the count from.
+    //   0     the stream was watched and no line was cut. This is the ordinary value and it is a
+    //         measurement, not an absence.
+    //
+    // Stated here rather than left to a reader because MillisecondsToFirstLedgerWrite's null means
+    // four different things, which is a filed defect on another task, and this is the same field
+    // shape. A nonzero count means the provider stream on this run is incomplete: some line was cut
+    // at one megabyte, so anything read from that line — a cost figure, a final output — is missing
+    // its tail. The line itself, cut, is in the sidecar beside the run.
+    //
+    // Nullable and trailing like every field above it. Nothing refuses a run for lacking it, and
+    // TaskTransitionValidator gains no arm that keys on it: every run.completed already on disk
+    // carries none, and a replay rule keyed on a field older events lack has twice made a live task
+    // permanently unreadable here (R4).
+    int? TruncatedLines = null);
 // As on WorkItem above: the door a launch came through is recorded by the waiver event beside this
 // run and projected into GovernedTaskState.ContextBriefWaivers, not copied onto the run.
+
+// One coordinating conversation, bracketed. A session has a start, an end, an actor and a harness
+// identity, and it owns the runs it dispatched — which is the hierarchy the measurement needs:
+// session, dispatched run, finding, disposition, next dispatch (D1).
+//
+// It is deliberately not an AgentRun. ALT1 records why: provider, model, provider session id and
+// timeout are all meaningless here, and `cancelled` already carries four meanings on a run.
+//
+// Harness names the tool the coordinator is hosted in — `claude-code`, `codex-cli` — and
+// HarnessSessionId is that tool's own identity for the conversation. The second is optional because
+// a harness need not expose one, and it is the only thing a transcript can be identity-checked
+// against: charging one session's usage to another is exactly the failure R4 names (D6, PD2).
+public sealed record CoordinatorSession(
+    CoordinatorSessionId Id,
+    ActorId ActorId,
+    string Harness,
+    string? HarnessSessionId,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? EndedAt);

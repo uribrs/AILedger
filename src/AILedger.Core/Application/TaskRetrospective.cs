@@ -40,10 +40,15 @@ public static class TaskRetrospective
     // as a launch that died.
     private const string OperatorFilingProvider = "none";
 
+    // coordinatorUsage is optional and stays optional. It is the one input here that comes from
+    // outside the ledger — a harness transcript the caller read and identity-checked — and a
+    // retrospective built without it reports coordinator token cost as an absence rather than as a
+    // zero (D6). Every other measure this projection returns is unaffected by its presence.
     public static TaskRetrospectiveReport Build(
         GovernedTaskState state,
         IReadOnlyList<LedgerEvent> history,
-        RetrospectiveRefusalJournal? refusals)
+        RetrospectiveRefusalJournal? refusals,
+        CoordinatorUsageRead? coordinatorUsage = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(history);
@@ -51,6 +56,7 @@ public static class TaskRetrospective
         var debt = TaskDebt.Compute(state);
         var runs = BuildRuns(state);
         var cost = BuildCost(state, runs.Total);
+        var coordinator = CoordinatorMeasurement.Build(state, history, refusals, coordinatorUsage);
 
         return new TaskRetrospectiveReport(
             state.TaskId,
@@ -70,7 +76,8 @@ public static class TaskRetrospective
             BuildEscalations(state, history),
             BuildLessons(state, debt),
             BuildWorkItems(state, history),
-            BuildNotMeasured(state, runs, cost, refusals, debt));
+            BuildNotMeasured(state, runs, cost, refusals, debt, coordinator),
+            coordinator);
     }
 
     // Two different numbers, and both belong. They differed by 2x on every task the hand run
@@ -436,10 +443,16 @@ public static class TaskRetrospective
     // Required, and derived rather than declared (C1). Every entry names something this task's own
     // record cannot answer, and each is a state-checkable condition rather than a judgement:
     //
-    // coordinatorCost and outcomeQuality are unconditional. The coordinating session holds no run,
-    // so it has no start, no end, no provider and no cost — by construction, not by omission — and
-    // it is one of the cognitions on the machine. Nothing in the log says whether the delivered
-    // result works.
+    // outcomeQuality is unconditional: nothing in the log says whether the delivered result works.
+    //
+    // coordinatorCost is no longer unconditional, and that is the substance of D6 rather than a
+    // relaxation. It said this entry was here by construction — the coordinating session holds no
+    // run, so it has no cost — and the premise was false: the harness writes a per-request usage
+    // record to disk, so the number exists and is auditable after the fact. It stays here whenever
+    // no usage record was read, which is a codex-hosted coordinator, a transcript that was not
+    // supplied, and one whose identity did not match the session. What changed is that the entry now
+    // reports an absence that was looked for, and coordinatorLoop.tokenCost names which absence it
+    // was.
     //
     // The rest are conditional because their absence is ambiguous in exactly one direction: a field
     // that reads empty for every run cannot be told apart from a field that did not exist when those
@@ -449,9 +462,30 @@ public static class TaskRetrospective
         RetrospectiveRuns runs,
         RetrospectiveCost cost,
         RetrospectiveRefusalJournal? refusals,
-        TaskDebt debt)
+        TaskDebt debt,
+        CoordinatorLoopReport coordinator)
     {
-        var notMeasured = new List<string> { "coordinatorCost", "outcomeQuality" };
+        var notMeasured = new List<string> { "outcomeQuality" };
+        if (coordinator.TokenCost.Absence is not null)
+        {
+            notMeasured.Add("coordinatorCost");
+        }
+
+        // Which of the twelve requested measures this task's record cannot support, named under the
+        // same key vocabulary as the rest. The coordinator projection derives them; naming them here
+        // as well is what keeps a reader who reads only this list from concluding that the twelve
+        // were all delivered.
+        notMeasured.AddRange(coordinator.NotMeasured.Select(entry => $"coordinatorLoop.{entry.Measure}"));
+        // Driven off the degradation the coordinator projection already computed, and not off the
+        // session count. The two questions are not the same one: a task with one closed session
+        // plus coordinator activity outside it has sessions and still measures the two bracketed
+        // figures over part of the work, and the count-based condition left that task out of this
+        // list while the projection's own degradations reported the figure as partial. This list is
+        // what keeps a reader who reads only it from concluding the twelve were all delivered, so
+        // it has to name every measure that answered a narrower question than it was asked.
+        notMeasured.AddRange(coordinator.Degradations
+            .Where(entry => entry.Measure is "sessionWallClock" or "timeWithNoAgentRunning")
+            .Select(entry => $"coordinatorLoop.{entry.Measure}"));
 
         // Asked of the four token fields only, and not of "did any run report any cost datum" (VC2).
         // A run that reported its first-write latency and nothing else measured no tokens, and the
@@ -589,9 +623,18 @@ public static class TaskRetrospective
 // lives in AILedger.Storage and carries three more — when, at which task version, and the kernel's
 // own refusal text — and Core cannot reference Storage because the dependency runs the other way.
 //
-// Three fields rather than six on purpose: a wider copy of RefusalRecord here would be a second
+// Four fields rather than six on purpose: a wider copy of RefusalRecord here would be a second
 // model of a record that already exists, and this one is a parameter list rather than a model.
-public sealed record RetrospectiveRefusal(ActorId ActorId, string Command, string Site);
+//
+// Message trails the original three and defaults to empty. It is here because a repeated refusal is
+// keyed by which rule fired, not only by which command was refused: two refusals of one command
+// under two rules are two lessons, and grouping them together would report the second as a repeat of
+// the first. Empty is the honest value for a caller that does not carry it, and it groups as one key.
+public sealed record RetrospectiveRefusal(
+    ActorId ActorId,
+    string Command,
+    string Site,
+    string Message = "");
 
 // What the caller found when it went looking for the journal, which is three states and not two
 // (RC1). A null journal is no file at all. A journal with UnreadableRows above zero is a file whose
@@ -722,4 +765,9 @@ public sealed record TaskRetrospectiveReport(
     IReadOnlyList<RetrospectiveEscalation> Escalations,
     RetrospectiveLessons Lessons,
     IReadOnlyList<RetrospectiveWorkItem> WorkItems,
-    IReadOnlyList<string> NotMeasured);
+    IReadOnlyList<string> NotMeasured,
+    // Appended last, for the reason every property on GovernedTaskState is appended last: a reader
+    // and a test written against the shape above still find it unchanged. What governance did on one
+    // task is one question; what the loop that ran it cost and how well it was run is another, and
+    // the second is derived from the same log by CoordinatorMeasurement.
+    CoordinatorLoopReport CoordinatorLoop);

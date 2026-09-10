@@ -295,6 +295,7 @@ public sealed class ProviderProtocolTests
             ProcessInvocation invocation,
             Func<string, CancellationToken, ValueTask> onStandardOutputLine,
             Func<string, CancellationToken, ValueTask> onStandardErrorLine,
+            TruncatedLineTally? tally,
             CancellationToken cancellationToken)
         {
             var stderr = onStandardErrorLine("warning", cancellationToken).AsTask();
@@ -315,6 +316,7 @@ public sealed class ProviderProtocolTests
             ProcessInvocation invocation,
             Func<string, CancellationToken, ValueTask> onStandardOutputLine,
             Func<string, CancellationToken, ValueTask> onStandardErrorLine,
+            TruncatedLineTally? tally,
             CancellationToken cancellationToken)
         {
             if (invocation.Arguments is ["--version"])

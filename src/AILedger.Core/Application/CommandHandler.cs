@@ -56,6 +56,9 @@ public sealed class CommandHandler : ICommandHandler
             AddWorkItemCommand add => WorkItemRules.AddWorkItem(state, add),
             StartRunCommand start => RunRules.StartRun(state, start, now),
             CompleteRunCommand complete => RunRules.CompleteRun(state, complete, now),
+            StartCoordinatorSessionCommand start => CoordinatorSessionRules.StartSession(state, start, now),
+            CompleteCoordinatorSessionCommand complete =>
+                CoordinatorSessionRules.CompleteSession(state, complete, now),
             RequestStageTransitionCommand transition => StageTransitionRules.TransitionStage(state, transition, now),
             RaiseEscalationCommand raise => EscalationRules.RaiseEscalation(state, raise, now),
             ResolveEscalationCommand resolve => EscalationRules.ResolveEscalation(state, resolve),

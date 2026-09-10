@@ -25,6 +25,10 @@ internal sealed class TestTask
     ];
 
     private readonly CommandHandler _handler = new();
+    // Every event the handler produced, in the order it produced them. A projection over the log is
+    // tested against what the rules actually emit rather than against a log a test composed, which
+    // is the difference between pinning a rule and pinning a belief about it.
+    private readonly List<LedgerEvent> _events = [];
     private int _commandNumber;
 
     public TestTask(string taskId = "task-1", string operatorId = "operator")
@@ -37,6 +41,7 @@ internal sealed class TestTask
     public TaskId TaskId { get; }
     public ActorId OperatorId { get; }
     public GovernedTaskState State { get; private set; } = null!;
+    public IReadOnlyList<LedgerEvent> Events => _events;
 
     // Work is code-bearing when any work item declares a directory area, whatever its status. The
     // status was in this predicate once and made it non-monotonic: Ready is read before the first
@@ -72,6 +77,7 @@ internal sealed class TestTask
 
         var outcome = _handler.Handle(State, command, Epoch.AddMinutes(_commandNumber));
         State = outcome.State;
+        _events.AddRange(outcome.Events);
         return outcome;
     }
 
@@ -120,7 +126,7 @@ internal sealed class TestTask
     // before anything else the test records.
     public void RecallLesson(Lesson lesson)
     {
-        State = new TaskReducer().Apply(State, new LedgerEvent(
+        var recalled = new LedgerEvent(
             GovernedTaskState.CurrentSchemaVersion,
             new EventId($"recall-{lesson.Id.Value}"),
             TaskId,
@@ -128,7 +134,9 @@ internal sealed class TestTask
             Epoch.AddMinutes(_commandNumber),
             null,
             NextCorrelation(),
-            new LessonRecalled(lesson)));
+            new LessonRecalled(lesson));
+        State = new TaskReducer().Apply(State, recalled);
+        _events.Add(recalled);
     }
 
     public CommandOutcome Transition(TaskStage stage) =>

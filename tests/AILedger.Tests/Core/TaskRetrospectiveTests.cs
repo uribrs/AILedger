@@ -15,18 +15,127 @@ public sealed class TaskRetrospectiveTests
     private static readonly LessonId Inherited = new("earlier-task:imported:C9");
     private static readonly TaskId Task = new("retro-task");
 
-    // Every entry in notMeasured is derived from a state-checkable condition. These two are not
-    // conditional: the coordinating session holds no run at all, so its spend is invisible here by
-    // construction, and nothing in the log ever says whether the delivered result works.
+    // Every entry in notMeasured is derived from a state-checkable condition. outcomeQuality is
+    // unconditional: nothing in the log ever says whether the delivered result works.
+    //
+    // coordinatorCost is no longer unconditional, and that is D6 rather than a relaxation. This test
+    // used to assert it always appears, on the premise that a coordinator cannot observe its own
+    // token use — and that premise was false: the harness writes a per-request usage record to disk,
+    // so the number exists and is auditable after the fact (C3, E3). It is still reported as
+    // unmeasured whenever no usage record was read, which is every codex-hosted coordinator and
+    // every retrospective built without a transcript. What changed is that the absence is now one
+    // that was looked for, and coordinatorLoop.tokenCost names which absence it was.
     [Fact]
-    public void TheCoordinatorsCostAndTheOutcomeAreAlwaysReportedAsNotMeasured()
+    public void TheOutcomeIsAlwaysUnmeasuredAndTheCoordinatorsCostIsUnmeasuredUntilATranscriptIsRead()
     {
         var log = new Log();
 
         var report = log.Build();
 
-        Assert.Contains("coordinatorCost", report.NotMeasured);
         Assert.Contains("outcomeQuality", report.NotMeasured);
+        Assert.Contains("coordinatorCost", report.NotMeasured);
+        Assert.NotNull(report.CoordinatorLoop.TokenCost.Absence);
+    }
+
+    // The two bracketed measures are named unmeasured whenever they answered a narrower question
+    // than they were asked, and having a session is not the same fact as having measured them. A
+    // task with one closed session and coordinator activity after it measures wall clock and idle
+    // time over part of the work: the coordinator projection says so in its degradations, and this
+    // list has to say so too, because a reader who reads only this list would otherwise conclude
+    // the twelve were all delivered. The condition used to be "no sessions at all", so exactly the
+    // partly bracketed task — the one the entry is for — was the one left out.
+    [Fact]
+    public void ThePartlyBracketedTaskNamesTheTwoSessionMeasuresAsUnmeasured()
+    {
+        var log = new Log();
+        log.WithSession("S1", "harness-1", endMinutesIn: 30);
+        // A coordinator record after the bracket closed, which no session covers.
+        log.Append(new ClaimAdded(new Claim(
+            new ClaimId("C1"), "Claim C1", ClaimStatus.Open, [], null,
+            new Provenance(new ActorId("operator"), new DateTimeOffset(2026, 9, 9, 11, 0, 0, TimeSpan.Zero),
+                "claim.add"))), minutesIn: 90);
+
+        var report = log.Build();
+
+        Assert.Single(report.CoordinatorLoop.Sessions);
+        Assert.True(report.CoordinatorLoop.HasUnbracketedCoordinatorActivity);
+        Assert.Contains("coordinatorLoop.sessionWallClock", report.NotMeasured);
+        Assert.Contains("coordinatorLoop.timeWithNoAgentRunning", report.NotMeasured);
+    }
+
+    // And the same list when both figures were measured over the whole of the coordinator's work:
+    // neither is named, because neither is missing.
+    [Fact]
+    public void AWhollyBracketedTaskNamesNeitherSessionMeasureAsUnmeasured()
+    {
+        var log = new Log();
+        log.WithSession("S1", "harness-1");
+
+        var report = log.Build();
+
+        Assert.DoesNotContain("coordinatorLoop.sessionWallClock", report.NotMeasured);
+        Assert.DoesNotContain("coordinatorLoop.timeWithNoAgentRunning", report.NotMeasured);
+    }
+
+    // The other side of the same rule. A transcript that was read and whose identity matched the
+    // session takes coordinator cost out of the unmeasured list, because it is now measured — with
+    // its source named on the measurement, which is what makes it auditable rather than asserted.
+    [Fact]
+    public void AReadAndIdentityCheckedTranscriptTakesCoordinatorCostOutOfTheUnmeasuredList()
+    {
+        var log = new Log();
+        log.WithSession("S1", "harness-1");
+
+        var report = log.Build(usage: new CoordinatorUsageRead(
+            new CoordinatorSessionId("S1"),
+            new CoordinatorUsageRecord(
+                "/transcripts/harness-1.jsonl", "claude-opus-5", "harness-1",
+                5_858, 2_851_285, 8_575_705, 1_076_728_319, 2_929,
+                "harnessDirectoryProvenance: provenance of location and not authenticity.",
+                UnreadableRows: 0),
+            null));
+
+        Assert.DoesNotContain("coordinatorCost", report.NotMeasured);
+        Assert.Equal("/transcripts/harness-1.jsonl", report.CoordinatorLoop.TokenCost.Source);
+        Assert.Equal(1_076_728_319, report.CoordinatorLoop.TokenCost.TokensInCacheRead);
+        // C7: measured, and saying what it rests on. A cost figure that named only its path would
+        // read as audited when what was established is where the file was, not who wrote it.
+        Assert.Equal(
+            "harnessDirectoryProvenance: provenance of location and not authenticity.",
+            report.CoordinatorLoop.TokenCost.Control);
+    }
+
+    // R5 (opaque-avoidability-verdict): a reasonable/avoidable label returned without the sequence
+    // comparison that produced it is an uncheckable opinion, and this projection makes no opinions.
+    // C2 is the mechanism — the log is append-only with monotonic versions, so for a record at
+    // sequence N everything below N was available to it — and the two sequences plus the evidence id
+    // are what let a reader redo the comparison instead of trusting the label.
+    [Fact]
+    public void R5_avoidability_includes_both_sequences_and_evidence_id()
+    {
+        var log = new Log();
+        log.WithRole("claude-impl", RoleKind.Worker);
+        // The order a real log can hold, and the one the comparison is exact for: the worker raises
+        // the claim, refuting evidence lands, and the coordinator validates it anyway. Evidence
+        // cannot name a claim that does not yet exist, so this — the disposition following the
+        // refutation — is where availability is decidable rather than structural.
+        log.WithClaim("C1", actor: "claude-impl");
+        log.WithEvidence("E1", refutes: "C1");
+        log.WithEvidence("E2", supports: "C1");
+        log.Append(new ClaimResolved(new ClaimId("C1"), ClaimStatus.Validated, [new EvidenceId("E2")]));
+        log.Append(new ClaimResolved(new ClaimId("C1"), ClaimStatus.Rejected, [new EvidenceId("E1")]));
+
+        var check = Assert.Single(log.Build().CoordinatorLoop.ReopenedFindings);
+
+        Assert.Equal("C1", check.RecordId);
+        Assert.Equal("E1", check.EvidenceId);
+        Assert.NotNull(check.EvidenceSequence);
+        Assert.True(check.EvidenceSequence < check.RecordSequence);
+        Assert.Equal("avoidableError", check.Avoidability);
+        // The comparison is stated in words as well as in numbers, because the reader who most needs
+        // it is the one deciding whether to accept the label.
+        Assert.Contains(check.EvidenceSequence.ToString()!, check.Comparison, StringComparison.Ordinal);
+        Assert.Contains(check.RecordSequence.ToString(), check.Comparison, StringComparison.Ordinal);
     }
 
     // C4: only five of 299 runs in this repository carry any cost field, because the provider stream
@@ -911,11 +1020,31 @@ public sealed class TaskRetrospectiveTests
         // distinction the caller carries; unreadableRows defaults to zero so that every test written
         // before RC1 still describes a whole journal and asserts the same figures.
         public TaskRetrospectiveReport Build(
-            IReadOnlyList<RetrospectiveRefusal>? refusals = null, int unreadableRows = 0) =>
+            IReadOnlyList<RetrospectiveRefusal>? refusals = null,
+            int unreadableRows = 0,
+            CoordinatorUsageRead? usage = null) =>
             TaskRetrospective.Build(
                 State,
                 History,
-                refusals is null ? null : new RetrospectiveRefusalJournal(refusals, unreadableRows));
+                refusals is null ? null : new RetrospectiveRefusalJournal(refusals, unreadableRows),
+                usage);
+
+        // The coordinator's own bracket, reduced rather than placed on state, so the session the
+        // token cost is identity-checked against is one the kernel itself accepted.
+        public void WithSession(string id, string? harnessSessionId, int? endMinutesIn = null)
+        {
+            Reduce(new SessionStarted(new CoordinatorSession(
+                new CoordinatorSessionId(id), _operator, "claude-code", harnessSessionId, Start, null)),
+                _operator);
+            if (endMinutesIn is { } minutes)
+            {
+                // The kernel requires a session's end to be the timestamp of the event that closed
+                // it, so the envelope moves with the end rather than staying at the start.
+                Reduce(
+                    new SessionCompleted(new CoordinatorSessionId(id), Start.AddMinutes(minutes)),
+                    _operator, minutes);
+            }
+        }
 
         // An event the projection reads out of the log without the reducer having to accept it.
         public void Append(LedgerEventData data, int minutesIn = 0, string actor = "operator") =>
@@ -1038,9 +1167,9 @@ public sealed class TaskRetrospectiveTests
                 null, LessonClass.Refuted, "AILedger", ["adapter"], "grep -n session adapter.cs",
                 "Do not drop it", LessonActor.Verifier);
 
-        private void Reduce(LedgerEventData data, ActorId actor)
+        private void Reduce(LedgerEventData data, ActorId actor, int minutesIn = 0)
         {
-            var @event = Envelope(data, actor, 0);
+            var @event = Envelope(data, actor, minutesIn);
             History.Add(@event);
             _state = _reducer.Apply(_state, @event);
         }

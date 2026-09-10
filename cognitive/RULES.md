@@ -95,6 +95,36 @@ In execution:
 
 **Scope creep in execution is a defect, not initiative.**
 
+### Running the .NET suite inside a governed run
+
+Do not run `dotnet test`. The provider frames one command's whole result as a single line and the
+per-line cap is 1 MiB, so total output near that size raises `ProtocolError` and ends your run —
+losing every finding you have not yet filed. This is validated claim C4/C5 on
+`2026-09-10_0903-overlong-line-kills-a-run`; it has killed four runs and cost two whole verification
+rounds. `VSTest` is also unusable: its IPC socket bind is denied.
+
+Build with `dotnet build -m:1`, then host xunit in-process: load the test assembly with
+`Assembly.LoadFrom`, find methods carrying `FactAttribute` or `TheoryAttribute` by attribute *name*,
+and read `InlineDataAttribute` rows through its `GetData` method. Four separate runs have each
+rediscovered the same four defects, so they are written down here once:
+
+1. **Unwrap `Nullable<T>` before converting an argument.** `Nullable.GetUnderlyingType(t) ?? t`, then
+   `Enum.ToObject` or `Convert.ChangeType`. Without it every theory case with a nullable enum
+   parameter throws instead of running.
+2. **Supply interface constructor parameters through a `DispatchProxy`,** or a test class taking
+   `ITestOutputHelper` cannot be constructed and every case in it fails.
+3. **Select `DispatchProxy.Create` by its two type parameters, not by name.** `GetMethod("Create")`
+   throws `AmbiguousMatchException` on .NET 8; filter `GetMethods()` on
+   `IsGenericMethodDefinition && GetGenericArguments().Length == 2 && GetParameters().Length == 0`.
+4. **Drive `IAsyncLifetime`.** Invoke `InitializeAsync` after construction and `DisposeAsync` in the
+   `finally`, or a whole fixture-backed class fails on uninitialised state.
+
+A native asset the test project resolves through its own `deps.json` is not resolved for your host —
+`e_sqlite3` is the one here. Copy it next to the test assembly from the NuGet cache.
+
+Report the total, the passed count and the failed count, and say which failures are your runner's
+rather than the product's. Redirect any large command output to a file and read the file in pieces.
+
 ---
 
 ## 3. Skills Reference

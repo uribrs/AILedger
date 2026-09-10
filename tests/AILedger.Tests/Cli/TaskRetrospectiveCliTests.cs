@@ -102,6 +102,12 @@ public sealed class TaskRetrospectiveCliTests
         Assert.Equal(0, cost.GetProperty("outputTokens").GetProperty("runsMeasured").GetInt32());
         Assert.False(cost.GetProperty("outputTokens").TryGetProperty("total", out _));
 
+        var coordinatorCost = report.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        var coordinatorAbsence = coordinatorCost.GetProperty("absence").GetString()!;
+        Assert.Contains("noCoordinatorUsageSupplied", coordinatorAbsence, StringComparison.Ordinal);
+        Assert.Contains("no harness transcript was named", coordinatorAbsence, StringComparison.Ordinal);
+        Assert.DoesNotContain("a usage record was read", coordinatorAbsence, StringComparison.Ordinal);
+
         AssertNoJudgementKey(report);
     }
 
@@ -290,6 +296,629 @@ public sealed class TaskRetrospectiveCliTests
 
         Assert.Equal(2, refused);
         Assert.Contains("follow", error.ToString(), StringComparison.Ordinal);
+    }
+
+    // R4 (transcript-identity-mismatch): usage from another harness session charged to the selected
+    // coordinator session. The failure mode is the worst shape a measurement can take — valid JSON,
+    // plausible numbers, the wrong conversation — so the transcript's own session identity is
+    // checked against what the session recorded, and a mismatch is an absence with its reason named
+    // rather than a total.
+    [Fact]
+    public async Task R4_rejects_mismatched_coordinator_transcript()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, error, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        // Inside the harness directory, so the containment check passes it and the identity check is
+        // the control actually under test here.
+        var foreign = Path.Combine(harness, "harness-9.jsonl");
+        await File.WriteAllTextAsync(foreign, Transcript("harness-9", inputTokens: 11, outputTokens: 22));
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", foreign], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains("transcriptSessionMismatch", cost.GetProperty("absence").GetString()!, StringComparison.Ordinal);
+        // Not a zero, and not a partial total: the buckets are absent entirely.
+        Assert.False(cost.TryGetProperty("outputTokens", out _));
+        Assert.False(cost.TryGetProperty("tokensInCacheRead", out _));
+        // And the top-level list still names it, so a reader of that list alone is not told the
+        // coordinator's cost was measured.
+        Assert.Contains(
+            "coordinatorCost",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+    }
+
+    // The positive case, because a check that only ever refuses is indistinguishable from one that
+    // never reads anything. The four buckets are the ones AgentRun uses, so a coordinating session
+    // and a dispatched run compare without conversion, and the source path is named on the
+    // measurement.
+    [Fact]
+    public async Task RetrospectiveBuildReadsAMatchingCoordinatorTranscriptIntoTheFourAgentRunBuckets()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, error, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        await File.WriteAllTextAsync(transcript, Transcript("harness-1", inputTokens: 100, outputTokens: 200));
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, error.ToString());
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.False(cost.TryGetProperty("absence", out _));
+        Assert.Equal(transcript, cost.GetProperty("source").GetString());
+        Assert.Equal("claude-opus-5", cost.GetProperty("model").GetString());
+        Assert.Equal("S1", cost.GetProperty("session").GetString());
+        // Two rows in the transcript, and the sidechain row excluded: those are a harness subagent's
+        // tokens and a dispatched agent here is a governed run with its own cost record.
+        Assert.Equal(2, cost.GetProperty("records").GetInt32());
+        Assert.Equal(200, cost.GetProperty("tokensInUncached").GetInt64());
+        Assert.Equal(400, cost.GetProperty("outputTokens").GetInt64());
+        Assert.Equal(20, cost.GetProperty("tokensInCacheWrite").GetInt64());
+        Assert.Equal(2_000, cost.GetProperty("tokensInCacheRead").GetInt64());
+        Assert.DoesNotContain(
+            "coordinatorCost",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+        // C7, and the repair the second verification round asked for. The four buckets are emitted
+        // beside a statement of what admitted them, so a reader of a coordinator's cost learns from
+        // the output alone that the control is provenance of location — the file sits where the
+        // harness writes — and not authenticity. Without it the figure reads as audited, and what it
+        // is worth is write access to one directory.
+        var control = cost.GetProperty("control").GetString()!;
+        Assert.Contains("harnessDirectoryProvenance", control, StringComparison.Ordinal);
+        Assert.Contains(harness, control, StringComparison.Ordinal);
+        Assert.Contains("not authenticity", control, StringComparison.Ordinal);
+        Assert.Contains("write access", control, StringComparison.Ordinal);
+    }
+
+    // The other half of the same rule. An absence already names the control that refused it, so it
+    // carries no second statement of provenance — a refusal that also described what the control
+    // proves would be describing something that did not happen.
+    [Fact]
+    public async Task ARefusedTranscriptCarriesItsRefusalAndNoStatementOfControl()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", Path.Combine(harness, "nowhere.jsonl")], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains("transcriptMissing", cost.GetProperty("absence").GetString()!, StringComparison.Ordinal);
+        Assert.False(cost.TryGetProperty("control", out _));
+    }
+
+    // A transcript that is not there is an absence and not a zero, and the reason says which
+    // absence it was. This is the case a codex-hosted coordinator is in permanently.
+    [Fact]
+    public async Task AMissingCoordinatorTranscriptIsReportedAsAnAbsenceAndNotAsZero()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+
+        output.GetStringBuilder().Clear();
+        // Inside the harness directory and simply not there, which is the case the containment check
+        // must not swallow: the two absences are different facts and are reported as different ones.
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", Path.Combine(harness, "nowhere.jsonl")], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains("transcriptMissing", cost.GetProperty("absence").GetString()!, StringComparison.Ordinal);
+    }
+
+    // VC1, and the attack that found it. The identity check is not sufficient on its own: it proves
+    // only that a file claims a harness session id, and a file claiming any id with any four token
+    // totals can be written anywhere by anyone. The verifier copied a real matching transcript to a
+    // temporary directory and the report charged all four buckets to the session and dropped
+    // coordinatorCost from notMeasured.
+    //
+    // So the read is confined to the directory the harness itself writes to, and the absence names
+    // which control refused it — a reader who sees only 'transcriptOutsideHarnessDirectory' with no
+    // named control cannot tell a policy refusal from a parse failure.
+    [Fact]
+    public async Task AMatchingTranscriptOutsideTheHarnessDirectoryIsRefusedRatherThanCharged()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        // Everything about this file is right except where it is: the identity matches the session
+        // exactly, which is what makes it the attack rather than a typo.
+        var planted = Path.Combine(root.Path, "harness-1.jsonl");
+        await File.WriteAllTextAsync(planted, Transcript("harness-1", inputTokens: 100, outputTokens: 200));
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", planted], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        var absence = cost.GetProperty("absence").GetString()!;
+        Assert.Contains("transcriptOutsideHarnessDirectory", absence, StringComparison.Ordinal);
+        // The control that refused it, named, and the boundary it was measured against.
+        Assert.Contains("containment check", absence, StringComparison.Ordinal);
+        Assert.Contains(HarnessRoot(root.Path), absence, StringComparison.Ordinal);
+        // Not a zero and not a partial total: no bucket is emitted at all.
+        Assert.False(cost.TryGetProperty("tokensInUncached", out _));
+        Assert.False(cost.TryGetProperty("outputTokens", out _));
+        Assert.False(cost.TryGetProperty("tokensInCacheWrite", out _));
+        Assert.False(cost.TryGetProperty("tokensInCacheRead", out _));
+        // And the top-level list still names it, so a reader of that list alone is not told the
+        // coordinator's cost was measured.
+        Assert.Contains(
+            "coordinatorCost",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+    }
+
+    // The traversal form of the same attack: a path that begins inside the harness directory and
+    // climbs out of it. Containment is decided on the resolved full path, so the climb is what is
+    // refused rather than the spelling.
+    [Fact]
+    public async Task APathThatClimbsOutOfTheHarnessDirectoryIsRefusedOnItsResolvedForm()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var planted = Path.Combine(root.Path, "harness-1.jsonl");
+        await File.WriteAllTextAsync(planted, Transcript("harness-1", inputTokens: 100, outputTokens: 200));
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript",
+             Path.Combine(harness, "..", "..", "..", "harness-1.jsonl")], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains(
+            "transcriptOutsideHarnessDirectory",
+            cost.GetProperty("absence").GetString()!,
+            StringComparison.Ordinal);
+        Assert.False(cost.TryGetProperty("tokensInCacheRead", out _));
+    }
+
+    // YC2, first of three. A usage row whose counters are not counters was summed as zero, so a
+    // corrupt transcript produced a smaller total that read exactly like a measured one. The
+    // reader's invariant is that input it cannot read reports an absence and never a number, and a
+    // row this harness never wrote is input it cannot read: all four counters are present as
+    // non-negative integers on every usage record the supported harness writes (ZC2, ZE2).
+    [Theory]
+    // Negative, non-integral, absent, and past the range of the bucket it belongs in.
+    [InlineData("\"input_tokens\":-1,\"output_tokens\":2,\"cache_creation_input_tokens\":3,\"cache_read_input_tokens\":4")]
+    [InlineData("\"input_tokens\":1.5,\"output_tokens\":2,\"cache_creation_input_tokens\":3,\"cache_read_input_tokens\":4")]
+    [InlineData("\"output_tokens\":2,\"cache_creation_input_tokens\":3,\"cache_read_input_tokens\":4")]
+    [InlineData("\"input_tokens\":1,\"output_tokens\":9223372036854775808,\"cache_creation_input_tokens\":3,\"cache_read_input_tokens\":4")]
+    public async Task ATranscriptRowWithABadTokenValueIsAnAbsenceAndNotAPartialTotal(string usage)
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        // One good row and one bad, so the bad row is what the absence is about rather than an
+        // empty file: without the repair this reported the good row's total on its own.
+        await File.WriteAllTextAsync(transcript, string.Join('\n',
+        [
+            Transcript("harness-1", inputTokens: 100, outputTokens: 200).TrimEnd('\n'),
+            "{\"sessionId\":\"harness-1\",\"message\":{\"model\":\"claude-opus-5\",\"usage\":{" + usage + "}}}"
+        ]) + "\n");
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains(
+            "transcriptTokenValueUnreadable",
+            cost.GetProperty("absence").GetString()!,
+            StringComparison.Ordinal);
+        // No bucket at all, so the good rows are not reported as the whole.
+        Assert.False(cost.TryGetProperty("tokensInUncached", out _));
+        Assert.False(cost.TryGetProperty("outputTokens", out _));
+        Assert.False(cost.TryGetProperty("records", out _));
+        Assert.Contains(
+            "coordinatorCost",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+    }
+
+    // YC2, second of three. The four additions were unchecked, so a long enough transcript of
+    // individually valid values wrapped into a smaller or negative total — a figure below the rows
+    // it was summed from, reading as a measurement.
+    [Fact]
+    public async Task ATotalThatWouldLeaveTheRangeOfItsBucketIsAnAbsenceAndNotAWrappedNumber()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        // Two rows each carrying a valid Int64 whose sum is not one.
+        var row = "{\"sessionId\":\"harness-1\",\"message\":{\"model\":\"claude-opus-5\",\"usage\":{" +
+                  "\"input_tokens\":1,\"output_tokens\":9223372036854775807," +
+                  "\"cache_creation_input_tokens\":3,\"cache_read_input_tokens\":4}}}";
+        await File.WriteAllTextAsync(transcript, string.Join('\n', [row, row]) + "\n");
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains(
+            "transcriptTokenTotalOverflowed",
+            cost.GetProperty("absence").GetString()!,
+            StringComparison.Ordinal);
+        Assert.False(cost.TryGetProperty("outputTokens", out _));
+    }
+
+    // YC2, third of three, and the one the identity check on the ledger side could never catch: only
+    // the first session identity was kept and later rows were summed regardless, so two transcripts
+    // concatenated charged both conversations under whichever id appeared first — and the outer
+    // check passed, because it only ever saw that one. No transcript this harness writes carries two
+    // identities across 17 files, so a second one means the file is not one transcript (ZC2, ZE2).
+    [Fact]
+    public async Task ATranscriptCarryingASecondSessionIdentityIsRefusedRatherThanSummed()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        // The matching session first, so the ledger-side identity check would pass it, then another
+        // conversation's rows appended behind it.
+        await File.WriteAllTextAsync(transcript, string.Concat(
+            Transcript("harness-1", inputTokens: 100, outputTokens: 200),
+            Transcript("harness-9", inputTokens: 5_000, outputTokens: 6_000)));
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        var absence = cost.GetProperty("absence").GetString()!;
+        Assert.Contains("transcriptCarriesTwoSessionIdentities", absence, StringComparison.Ordinal);
+        // Both identities named, so a reader can see which two conversations the file holds.
+        Assert.Contains("harness-1", absence, StringComparison.Ordinal);
+        Assert.Contains("harness-9", absence, StringComparison.Ordinal);
+        // Neither the matching rows alone nor the sum of both: no bucket is emitted.
+        Assert.False(cost.TryGetProperty("tokensInUncached", out _));
+        Assert.False(cost.TryGetProperty("tokensInCacheRead", out _));
+        Assert.Contains(
+            "coordinatorCost",
+            document.RootElement.GetProperty("notMeasured").EnumerateArray().Select(entry => entry.GetString()));
+    }
+
+    // The rows that state no session identity at all, which every real transcript carries between 8
+    // and 190 of: they are passed over rather than read as a disagreement, or the working case would
+    // refuse itself (ZE2).
+    [Fact]
+    public async Task RowsThatStateNoSessionIdentityDoNotCountAsADisagreement()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        await File.WriteAllTextAsync(transcript, string.Join('\n',
+        [
+            "{\"type\":\"summary\"}",
+            Transcript("harness-1", inputTokens: 100, outputTokens: 200).TrimEnd('\n'),
+            "{\"message\":{\"model\":\"claude-opus-5\",\"usage\":{\"input_tokens\":1," +
+            "\"output_tokens\":1,\"cache_creation_input_tokens\":1,\"cache_read_input_tokens\":1}}}"
+        ]) + "\n");
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.False(cost.TryGetProperty("absence", out _));
+        // The two usage rows the fixture states an identity on, plus the one that states none.
+        Assert.Equal(3, cost.GetProperty("records").GetInt32());
+        Assert.Equal(201, cost.GetProperty("tokensInUncached").GetInt64());
+        Assert.Equal(401, cost.GetProperty("outputTokens").GetInt64());
+    }
+
+    // The ordinary shape of a live transcript: the harness is still appending to it, so the last
+    // line is half written. The four buckets are a floor in that case and not the session's cost,
+    // and the count of what could not be read is what makes them readable as one. Before this the
+    // count was surfaced only when nothing at all parsed, so the common case reported a total.
+    [Fact]
+    public async Task APartlyUnreadableTranscriptReportsHowManyRowsWereSkippedBesideItsTotal()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        // The whole transcript, then a line the harness had not finished writing when the
+        // retrospective read the file.
+        await File.WriteAllTextAsync(transcript,
+            Transcript("harness-1", inputTokens: 100, outputTokens: 200) +
+            "{\"sessionId\":\"harness-1\",\"message\":{\"usage\":{\"input_tok");
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.False(cost.TryGetProperty("absence", out _));
+        Assert.Equal(2, cost.GetProperty("records").GetInt32());
+        Assert.Equal(200, cost.GetProperty("tokensInUncached").GetInt64());
+        // The figure a reader needs to know the four buckets are a floor. It used to be discarded
+        // the moment one row parsed, which is every live transcript.
+        Assert.Equal(1, cost.GetProperty("unreadableRows").GetInt32());
+    }
+
+    // A transcript whose every usage row is a sidechain does hold per-request usage records — this
+    // reader excluded them. Saying it holds none sends a reader looking for a harness that wrote
+    // nothing, and there is no such harness here.
+    [Fact]
+    public async Task ATranscriptOfNothingButSidechainsSaysTheyWereExcludedAndNotThatThereAreNone()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        var sidechain =
+            "{\"sessionId\":\"harness-1\",\"isSidechain\":true,\"message\":{\"model\":\"claude-opus-5\"," +
+            "\"usage\":{\"input_tokens\":5,\"output_tokens\":6,\"cache_creation_input_tokens\":7," +
+            "\"cache_read_input_tokens\":8}}}";
+        await File.WriteAllTextAsync(transcript, string.Join('\n', [sidechain, sidechain]) + "\n");
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var absence = document.RootElement.GetProperty("coordinatorLoop")
+            .GetProperty("tokenCost").GetProperty("absence").GetString()!;
+        Assert.Contains("transcriptHoldsOnlySidechainUsage", absence, StringComparison.Ordinal);
+        // The count the reader excluded, so the absence says what is in the file rather than
+        // denying that anything is.
+        Assert.Contains("2 per-request", absence, StringComparison.Ordinal);
+        Assert.DoesNotContain("transcriptCarriesNoUsage", absence, StringComparison.Ordinal);
+    }
+
+    // And the other side of the same branch, unchanged: a file that genuinely holds no per-request
+    // usage record still says so, in the words it always used. The sidechain case above took a
+    // reading away from this message and gave it none of its own.
+    [Fact]
+    public async Task ATranscriptWithNoUsageRecordAtAllStillSaysItHoldsNone()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+             "--harness-session", "harness-1"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        await File.WriteAllTextAsync(transcript,
+            "{\"sessionId\":\"harness-1\",\"type\":\"summary\"}\n{\"sessionId\":\"harness-1\"}\n");
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var absence = document.RootElement.GetProperty("coordinatorLoop")
+            .GetProperty("tokenCost").GetProperty("absence").GetString()!;
+        Assert.Equal(
+            $"transcriptCarriesNoUsage: '{transcript}' holds no per-request usage record. " +
+            "Its token cost stays unmeasured rather than being reported as zero.",
+            absence);
+    }
+
+    // A harness that writes no usage record this reader knows how to parse reports an absence naming
+    // its harness, rather than being parsed hopefully. D6 keeps D3's caution in exactly this form.
+    [Fact]
+    public async Task ACodexHostedCoordinatorReportsAnUnsupportedHarnessRatherThanAnEstimate()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var harness = HarnessDirectory(root.Path);
+        var application = Create(output, TextWriter.Null, HarnessRoot(root.Path));
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["session", "start", .. common, "--id", "S1", "--harness", "codex-cli"], CancellationToken.None);
+        var transcript = Path.Combine(harness, "harness-1.jsonl");
+        await File.WriteAllTextAsync(transcript, Transcript("harness-1", inputTokens: 1, outputTokens: 1));
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common, "--coordinator-session", "S1",
+             "--coordinator-transcript", transcript], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var cost = document.RootElement.GetProperty("coordinatorLoop").GetProperty("tokenCost");
+        Assert.Contains("unsupportedHarness", cost.GetProperty("absence").GetString()!, StringComparison.Ordinal);
+    }
+
+    // The session commands print through the same surface every mutation does, and the bracket they
+    // record is what the runs dispatched inside it point back at.
+    [Fact]
+    public async Task SessionStartAndCompleteBracketTheCoordinatorsWorkThroughTheCli()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var application = Create(output, error);
+        var common = Common(root.Path);
+        var exits = new List<int>
+        {
+            await application.RunAsync(
+                ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None),
+            await application.RunAsync(
+                ["session", "start", .. common, "--id", "S1", "--harness", "claude-code",
+                 "--harness-session", "harness-1"], CancellationToken.None),
+            await application.RunAsync(
+                ["run", "start", .. common, "--run", "R1", "--provider", "claude",
+                 "--coordinator-session", "S1"], CancellationToken.None),
+            await application.RunAsync(
+                ["run", "complete", .. common, "--run", "R1", "--status", "completed",
+                 "--session", "provider-1"], CancellationToken.None),
+            await application.RunAsync(
+                ["session", "complete", .. common, "--id", "S1"], CancellationToken.None)
+        };
+
+        output.GetStringBuilder().Clear();
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common], CancellationToken.None);
+
+        Assert.All(exits, code => Assert.Equal(0, code));
+        Assert.Equal(0, exit);
+        Assert.Equal(string.Empty, error.ToString());
+        using var document = JsonDocument.Parse(output.ToString());
+        var loop = document.RootElement.GetProperty("coordinatorLoop");
+        var session = Assert.Single(loop.GetProperty("sessions").EnumerateArray().ToArray());
+        Assert.Equal("S1", session.GetProperty("session").GetString());
+        Assert.Equal("operator", session.GetProperty("actor").GetString());
+        Assert.Equal(1, session.GetProperty("childRuns").GetInt32());
+        Assert.True(session.TryGetProperty("wallClockHours", out _));
+        AssertNoJudgementKey(document.RootElement);
+    }
+
+    // Two usage rows the reader must sum and one it must skip. The sidechain row is a harness
+    // subagent's spend, which in this repository is a governed run with a cost record of its own.
+    private static string Transcript(string harnessSession, long inputTokens, long outputTokens)
+    {
+        var row = (bool sidechain) => string.Concat(
+            "{\"sessionId\":\"", harnessSession, "\",\"isSidechain\":", sidechain ? "true" : "false",
+            ",\"message\":{\"model\":\"claude-opus-5\",\"usage\":{",
+            "\"input_tokens\":", inputTokens.ToString(),
+            ",\"output_tokens\":", outputTokens.ToString(),
+            ",\"cache_creation_input_tokens\":10,\"cache_read_input_tokens\":1000}}}");
+        // A row with no usage object at all, which every transcript carries: it is skipped rather
+        // than counted as an unreadable one.
+        var summary = string.Concat("{\"sessionId\":\"", harnessSession, "\",\"type\":\"summary\"}");
+        return string.Join('\n', [row(false), summary, row(true), row(false)]) + "\n";
     }
 
     // A command nothing documents is a command nobody runs, which is why K7 asks for this at all.
@@ -511,12 +1140,34 @@ public sealed class TaskRetrospectiveCliTests
 
     // No lesson store, so recall reaches this root's own archived tasks and nothing else. A test
     // that recalled from the operator's real store would report a lesson debt it did not create.
-    private static CliApplication Create(TextWriter output, TextWriter error) => new(
+    //
+    // The harness transcript root is the same idea one directory over. A test that left it at the
+    // per-user default would be asserting against the operator's own conversations, so each test
+    // that reads a transcript stands up a harness directory of its own and names it here.
+    private static CliApplication Create(
+        TextWriter output,
+        TextWriter error,
+        string? harnessTranscriptRoot = null) => new(
         output,
         error,
         Service,
         _ => throw new InvalidOperationException("These tests launch no provider."),
-        new ContextAssembler());
+        new ContextAssembler())
+    {
+        HarnessTranscriptRoot = harnessTranscriptRoot ?? "/harness-transcripts-no-test-writes-here"
+    };
+
+    // Where the harness writes, as a test sees it: one directory per project slug, holding
+    // `<session-id>.jsonl`. Created under the test's own temporary root so nothing here can read or
+    // write the operator's real one.
+    private static string HarnessDirectory(string root)
+    {
+        var directory = Path.Combine(root, "harness", "projects", "-a-project");
+        Directory.CreateDirectory(directory);
+        return directory;
+    }
+
+    private static string HarnessRoot(string root) => Path.Combine(root, "harness", "projects");
 
     private static IGovernedTaskService Service(string root)
     {
