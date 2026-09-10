@@ -54,9 +54,19 @@ public sealed class ContextAssembler : IContextAssembler
             ContextArtifactKind.StopCondition
         };
 
-    private static readonly IReadOnlyDictionary<RoleKind, IReadOnlySet<string>> CanonicalRoleSkills =
-        new Dictionary<RoleKind, IReadOnlySet<string>>
+    // Ordered, not a set. The order a role is served its skills is part of the brief, and the
+    // manifest sort carries it through: for the operator the coordinator is the entry point and the
+    // orchestrator is what it hands off to, so serving them alphabetically would name the handoff
+    // target first (IC1).
+    private static readonly IReadOnlyDictionary<RoleKind, IReadOnlyList<string>> CanonicalRoleSkills =
+        new Dictionary<RoleKind, IReadOnlyList<string>>
         {
+            // The seat that decomposes the work was the only one served no selection at all — every
+            // skill, unordered, 110,298 characters of it (C1). It gets the two skills its own role
+            // is defined by, in the order the pipeline runs them.
+            [RoleKind.Operator] = Skills(
+                "workflow-coordinator",
+                "task-orchestrator"),
             [RoleKind.PlanningLead] = Skills(
                 "workflow-coordinator",
                 "prompt-contract-designer",
@@ -88,11 +98,21 @@ public sealed class ContextAssembler : IContextAssembler
             .SelectMany(artifact => artifact.RelatedIds.Append(artifact.Id))
             .ToHashSet(StringComparer.Ordinal);
 
+        // Keyed by lesson id rather than carried on the artifact, because a ContextArtifact's
+        // RelatedIds are what work-item relevance is computed from: putting role names there would
+        // widen which artifacts a work-scoped manifest admits (IC1).
+        var lessonAudiences = state.Lessons.Values
+            .Where(lesson => lesson.Audience is { Count: > 0 })
+            .ToDictionary(lesson => lesson.Id.Value, lesson => lesson.Audience!, StringComparer.Ordinal);
+
         var artifacts = stateArtifacts
             .Concat(availableArtifacts.Where(artifact => CallerSuppliedKinds.Contains(artifact.Kind)))
-            .Where(artifact => IsAllowedForRole(assignment.Role, artifact))
+            .Where(artifact => IsAllowedForRole(assignment.Role, artifact, lessonAudiences))
             .Where(artifact => IsRelevant(artifact, workItem, relevantIds))
             .OrderBy(artifact => artifact.Kind)
+            // Zero for every kind but Skill, so nothing else moves. Within Skill it is the position
+            // in the role's canonical list, which is how the declared order reaches the manifest.
+            .ThenBy(artifact => SkillRank(assignment.Role, artifact))
             .ThenBy(artifact => artifact.Id, StringComparer.Ordinal)
             .ThenBy(artifact => artifact.Content, StringComparer.Ordinal)
             .GroupBy(artifact => (artifact.Kind, artifact.Id))
@@ -117,6 +137,46 @@ public sealed class ContextAssembler : IContextAssembler
             artifacts,
             stopConditions,
             assembledAt);
+    }
+
+    // The skills alone, filtered and ordered exactly as Build orders them. Two call sites read this
+    // — the brief that records what was served, and the gate that asks whether it is still current
+    // — and they must agree, or the gate refuses a brief that nothing is wrong with.
+    public IReadOnlyList<ContextSkill> SkillsServed(
+        RoleKind role,
+        IReadOnlyList<ContextArtifact> availableArtifacts) =>
+        ContextSkills.From(availableArtifacts
+            .Where(artifact => artifact.Kind == ContextArtifactKind.Skill)
+            .Where(artifact => IsAllowedForRole(role, artifact, NoLessonAudiences))
+            .OrderBy(artifact => SkillRank(role, artifact))
+            .ThenBy(artifact => artifact.Id, StringComparer.Ordinal)
+            .ThenBy(artifact => artifact.Content, StringComparer.Ordinal)
+            .GroupBy(artifact => artifact.Id, StringComparer.Ordinal)
+            .Select(group => group.First()));
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<RoleKind>> NoLessonAudiences =
+        new Dictionary<string, IReadOnlyList<RoleKind>>(StringComparer.Ordinal);
+
+    // int.MaxValue for a skill the role's canonical list does not name. Such a skill is admitted
+    // only by naming the role in its RelatedIds, and it sorts after the canonical set rather than
+    // in among it, so an addition from outside cannot displace the declared order.
+    private static int SkillRank(RoleKind role, ContextArtifact artifact)
+    {
+        if (artifact.Kind != ContextArtifactKind.Skill ||
+            !CanonicalRoleSkills.TryGetValue(role, out var skills))
+        {
+            return artifact.Kind == ContextArtifactKind.Skill ? int.MaxValue : 0;
+        }
+
+        for (var index = 0; index < skills.Count; index++)
+        {
+            if (IsSkillId(artifact.Id, skills[index]))
+            {
+                return index;
+            }
+        }
+
+        return int.MaxValue;
     }
 
     private static RoleAssignment GetAssignment(GovernedTaskState state, ActorId actorId)
@@ -152,14 +212,27 @@ public sealed class ContextAssembler : IContextAssembler
         return workItem;
     }
 
-    private static bool IsAllowedForRole(RoleKind role, ContextArtifact artifact)
+    private static bool IsAllowedForRole(
+        RoleKind role,
+        ContextArtifact artifact,
+        IReadOnlyDictionary<string, IReadOnlyList<RoleKind>> lessonAudiences)
     {
+        // A lesson carrying an audience reaches only the roles it names. A lesson carrying none
+        // has no address and is not in this lookup at all, so it reaches every role exactly as it
+        // did before the field existed — which is what all 166 lessons already minted mean.
+        if (artifact.Kind == ContextArtifactKind.Lesson &&
+            lessonAudiences.TryGetValue(artifact.Id, out var audience) &&
+            !audience.Contains(role))
+        {
+            return false;
+        }
+
         if (role == RoleKind.CodeReviewer && ReviewerExclusions.Contains(artifact.Kind))
         {
             return false;
         }
 
-        if (artifact.Kind != ContextArtifactKind.Skill || role == RoleKind.Operator)
+        if (artifact.Kind != ContextArtifactKind.Skill)
         {
             return true;
         }
@@ -366,14 +439,31 @@ public sealed class ContextAssembler : IContextAssembler
             (lesson.Tags is null || lesson.Tags.Count == 0
                 ? string.Empty
                 : $"{Environment.NewLine}Tags: {string.Join(", ", lesson.Tags)}") +
+            // Rendered because a field the manifest stores and never shows is a field no reader can
+            // act on, which is the defect the stage-arms lesson about stored-but-unread tags
+            // records. The kind is always rendered, through the default rather than through the
+            // nullable field: absent means Domain, and omitting the line for the lessons minted
+            // before the field existed left every one of them unclassified to the reader. The
+            // audience is still omitted when absent, because absent there means every role and a
+            // list of all seven would be inventing an address the lesson never carried.
+            $"{Environment.NewLine}Kind: {lesson.EffectiveKind()}" +
+            (lesson.Audience is null || lesson.Audience.Count == 0
+                ? string.Empty
+                : $"{Environment.NewLine}Audience: {string.Join(", ", lesson.Audience)}") +
             (lesson.Citations.Count == 0
                 ? string.Empty
                 : $"{Environment.NewLine}Evidence: {string.Join(" | ", lesson.Citations)}") +
             // The verify command is what turns re-establishing the lesson from an instruction into
             // something the reader can run, so it belongs beside the label that demands it.
+            // The direction is rendered on the same line as the command, because a verify without
+            // one is the check that cannot fail: a grep that resolves in both the defective and the
+            // repaired state re-establishes nothing (C1).
             (lesson.Verify is null
                 ? string.Empty
-                : $"{Environment.NewLine}Verify: {lesson.Verify}") +
+                : $"{Environment.NewLine}Verify: {lesson.Verify}" +
+                  (lesson.VerifyExpects is null
+                      ? string.Empty
+                      : $" (expects {lesson.VerifyExpects})")) +
             (lesson.DoNot is null
                 ? string.Empty
                 : $"{Environment.NewLine}Do not: {lesson.DoNot}") +
@@ -392,8 +482,7 @@ public sealed class ContextAssembler : IContextAssembler
                 : $"{Environment.NewLine}Supersedes: {mark.SupersedesLessonId}"),
             [mark.SourceRecordId]);
 
-    private static IReadOnlySet<string> Skills(params string[] names) =>
-        new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+    private static IReadOnlyList<string> Skills(params string[] names) => names;
 
     private static bool IsSkillId(string artifactId, string skillName) =>
         artifactId.Equals(skillName, StringComparison.OrdinalIgnoreCase) ||

@@ -558,10 +558,14 @@ public sealed class RunCostLaunchTests
         return state!.Runs[new RunId("R1")];
     }
 
-    private static async Task OpenTaskAsync(CliApplication application, string root) =>
+    private static async Task OpenTaskAsync(CliApplication application, string root)
+    {
         await application.RunAsync(
             ["task", "open", "--root", root, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        // A provider launch is refused until the dispatching actor has been briefed.
+        await ContextBrief.BuildAsync(root, "T1");
+    }
 
     // A codex terminal event whose payload the parser would still hand over as text: ParseCodex
     // reads only 'type', so a line that is not JSON never becomes an event at all, and one that is

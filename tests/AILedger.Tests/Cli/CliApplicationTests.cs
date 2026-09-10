@@ -45,7 +45,8 @@ public sealed class CliApplicationTests
                  "--class", "untested", "--repo", "AILedger", "--tag", "retry", "--tag", "bounded",
                  "--verify", "dotnet test --filter RetryTests.Bounded",
                  "--do-not", "Do not assume retries are bounded without rerunning the test",
-                 "--lesson-actor", "verifier"],
+                 "--lesson-actor", "verifier", "--verify-expects", "present",
+                 "--lesson-kind", "workflow", "--audience", "verifier"],
                 CancellationToken.None),
             await application.RunAsync(
                 ["claim", "add", .. source, "--id", "C2", "--statement", "The research topic remains open"],
@@ -62,6 +63,8 @@ public sealed class CliApplicationTests
             await application.RunAsync(
                 ["actor", "attach", .. source, "--target", "reviewer", "--role", "code-reviewer"],
                 CancellationToken.None),
+            // Adding work is refused until the acting actor has been briefed.
+            await BriefAsync(source),
             await application.RunAsync(
                 ["work", "add", .. source, "--id", "W1", "--title", "Source work", "--owner", "operator"],
                 CancellationToken.None)
@@ -145,6 +148,11 @@ public sealed class CliApplicationTests
         Assert.Equal(LessonClass.Untested, minted.Class);
         Assert.Equal("AILedger", minted.Repo);
         Assert.Equal(["retry", "bounded"], minted.Tags);
+        // The three routing options reach the minted lesson through the CLI, not only through the
+        // command record: a flag the dispatcher drops would leave every other assertion here true.
+        Assert.Equal(LessonKind.Workflow, minted.Kind);
+        Assert.Equal([RoleKind.Verifier], minted.Audience);
+        Assert.Equal(VerifyExpectation.Present, minted.VerifyExpects);
         var targetHistory = new List<LedgerEvent>();
         await foreach (var @event in service.GetHistoryAsync(
                            new TaskId("2026-09-02_1200-target"), CancellationToken.None))
@@ -252,6 +260,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var exit = await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -278,6 +287,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", ledgerRoot, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(ledgerRoot, "T1");
 
         var exit = await application.RunAsync(
             ["work", "add", "--root", ledgerRoot, "--task", "T1", "--actor", "operator",
@@ -385,6 +395,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T2", "--actor", "operator", "--title", "Sibling", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await Service(root.Path).ExecuteAsync(new TaskId("T1"), new AddWorkItemCommand(
             new ActorId("operator"), null, "seed", new WorkItemId("W1"), "Legacy work",
             new ActorId("operator"), [], [Path.Combine(root.Path, "T2")]), CancellationToken.None);
@@ -505,6 +516,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         // A work item claiming two areas now has to name the alternative explaining why it was not
         // split in two. That is a separate rule; this test is still about the parser accepting a
@@ -594,6 +606,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", work],
@@ -627,6 +640,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", work],
@@ -662,6 +676,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         output.GetStringBuilder().Clear();
 
         var exit = await application.RunAsync(
@@ -694,6 +709,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         output.GetStringBuilder().Clear();
 
         var exit = await application.RunAsync(
@@ -747,6 +763,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -836,6 +853,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -874,6 +892,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "reviewer",
              "--role", "code-reviewer"], CancellationToken.None);
@@ -951,6 +970,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", .. common, "--actor", "operator", "--id", "W1", "--title", "Review it",
              "--owner", "operator", "--scope", work], CancellationToken.None);
@@ -984,6 +1004,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "lead",
              "--role", "implementation-lead"], CancellationToken.None);
@@ -1028,6 +1049,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "subject", "--role", role],
             CancellationToken.None);
@@ -1084,6 +1106,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1120,6 +1143,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await Create(TextWriter.Null, error).RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await Create(TextWriter.Null, error).RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1165,6 +1189,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["claim", "add", .. common, "--id", "C1", "--statement", "The API is stable"],
             CancellationToken.None);
@@ -1244,6 +1269,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var refusedExit = await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Two areas", "--owner", "operator",
@@ -1276,6 +1302,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Untouched work", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1302,6 +1329,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Unverifiable work", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1341,6 +1369,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
             CancellationToken.None);
@@ -1395,6 +1424,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var exit = await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
@@ -1428,6 +1458,7 @@ public sealed class CliApplicationTests
         string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
              "--scope", file], CancellationToken.None);
@@ -1744,6 +1775,14 @@ public sealed class CliApplicationTests
                 DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1), 0, "done", [], string.Empty,
                 "test", [], false, null);
         }
+    }
+
+    // Returns zero so it can sit in an exits list beside the commands it precedes; the helper
+    // throws rather than returning a code when the brief itself is refused.
+    private static async Task<int> BriefAsync(string[] common)
+    {
+        await ContextBrief.BuildAsync(common[1], common[3], common[5]);
+        return 0;
     }
 
     private static CliApplication Create(TextWriter output, TextWriter error) => new(

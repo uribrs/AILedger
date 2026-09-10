@@ -143,6 +143,27 @@ public sealed class ArtifactRecordTests
         Assert.DoesNotContain(new ArtifactId("A2"), task.State.Artifacts.Keys);
     }
 
+    // R5 (the-subset-must-be-named). C3: the kernel enforces part of task-orchestrator's
+    // specification. An actor that learns the format from this refusal alone learns the columns
+    // and misses the cap, the naming convention and the mandatory case — which is what happened,
+    // and it cost a verifier its whole run. Enforcing the rest is a separate item; the refusal at
+    // least has to say that a rest exists and where it is written.
+    [Fact]
+    public void TheMissingTableRefusalNamesTheSkillItEnforcesPartOf()
+    {
+        var task = new TestTask();
+        var workItem = new WorkItemId("W1");
+        AddWork(task, workItem, "w1");
+        var verifier = StartVerifierRun(task, workItem, "RV1", out var run);
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(
+            task, verifier, "A1", GovernedArtifactKind.VerifierOutput, "No disposition table here.",
+            workItem: workItem, producerRun: run)));
+
+        Assert.Contains("task-orchestrator", error.Message, StringComparison.Ordinal);
+        Assert.Contains("only part of it", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AnArtifactCannotSupersedeOneBelongingToAnotherWorkItem()
     {

@@ -36,7 +36,21 @@ internal static class RunRules
                 throw new GovernanceException($"Run subject '{subjectActorId}' has no assigned role.");
             }
         }
-    
+
+        // A provider launch, and only a provider launch. The launcher is the one caller that sets
+        // LaunchTokenHash, so it is what tells a dispatch from a run started by hand (IC3), and a
+        // dispatch is the other moment the pipeline is supposed to have been read first.
+        //
+        // Placed after the dispatch-authority checks above, not before them. An actor that may
+        // never dispatch at all should be told that, not told to go and build context first: the
+        // refusal an actor reads is the instruction it acts on, so the gate that cannot be
+        // satisfied has to speak before the gate that can.
+        if (command.LaunchTokenHash is not null)
+        {
+            ContextGateRules.EnsureBriefed(
+                state, command.ActorId, command.SkillsServedNow, "launch a provider");
+        }
+
         // Which role the subject holds now, recorded on the run. Role assignments change, so asking
         // the current assignment whether a past run was a verifier's answers a different question.
         var subjectRole = state.Roles[subjectActorId].Role;

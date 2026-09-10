@@ -201,12 +201,14 @@ public sealed class LessonRecallTests
         LessonId? supersedesLessonId = null)
     {
         await Run(service, source, new OpenTaskCommand(actor, null, correlation.Next(), source, "Source", "Learn"));
+        await ContextBrief.RecordAsync(service, source.Value);
         await Run(service, source, new RecordAlternativeCommand(
             actor, null, correlation.Next(), new AlternativeId("ALT1"), "Use global mutable state", "Tasks must remain isolated", null));
         await Run(service, source, new MarkLessonBearingCommand(
             actor, null, correlation.Next(), LessonSourceKind.RejectedAlternative, "ALT1", supersedesLessonId,
             LessonClass.Refuted, "AILedger", ["state", "isolation"],
-            "dotnet test --filter LessonRecallTests", "Do not use global mutable state", LessonActor.Verifier));
+            "dotnet test --filter LessonRecallTests", "Do not use global mutable state", LessonActor.Verifier,
+            VerifyExpects: VerifyExpectation.Present));
         await Run(service, source, new AddWorkItemCommand(
             actor, null, correlation.Next(), new WorkItemId("W1"), "Work", null, [], []));
     }

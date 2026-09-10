@@ -44,6 +44,22 @@ public sealed record ContextManifest(
     IReadOnlyList<string> StopConditions,
     DateTimeOffset AssembledAt);
 
+// One skill as it was served. The id alone would record that a brief carried a skill by that name
+// and nothing about what it said, so a skill edited afterwards would leave an event that still
+// looks satisfied — the same defect as a verify command that cannot fail. The hash is what makes
+// the record falsifiable.
+public sealed record ContextSkill(string SkillId, string ContentHash);
+
+// What one actor was served, and when. Held per actor rather than per invocation: the gate asks
+// whether this actor is briefed against the cognitive layer as it stands now, and a brief that a
+// later one replaced answers a question nobody is asking.
+public sealed record ContextBuild(
+    ActorId ActorId,
+    RoleKind Role,
+    WorkItemId? WorkItemId,
+    IReadOnlyList<ContextSkill> Skills,
+    DateTimeOffset BuiltAt);
+
 public interface IContextAssembler
 {
     ContextManifest Build(
@@ -52,4 +68,11 @@ public interface IContextAssembler
         WorkItemId? workItemId,
         IReadOnlyList<ContextArtifact> availableArtifacts,
         DateTimeOffset assembledAt);
+
+    // The skills this role would be served now, in manifest order. The gate needs them without
+    // building a whole manifest, and deriving them from the same filter and the same ordering is
+    // what keeps a freshness check from refusing a brief that is in fact current.
+    IReadOnlyList<ContextSkill> SkillsServed(
+        RoleKind role,
+        IReadOnlyList<ContextArtifact> availableArtifacts);
 }

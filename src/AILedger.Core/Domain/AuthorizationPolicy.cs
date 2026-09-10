@@ -75,6 +75,9 @@ public sealed class AuthorizationPolicy
         RecordAlternativeCommand => [Capability.RecordAlternative],
         MarkLessonBearingCommand => [],
         RecordArtifactCommand => [Capability.RecordArtifact],
+        // The same capability the assembler already demands before it will build a manifest, so
+        // recording the brief can refuse nothing that producing it did not refuse first.
+        RecordContextBuiltCommand => [Capability.BuildContext],
         AddConstraintCommand or SupersedeConstraintCommand => [Capability.ManageConstraints],
         CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand
             or AbandonWorkItemCommand => [Capability.ManageWork],

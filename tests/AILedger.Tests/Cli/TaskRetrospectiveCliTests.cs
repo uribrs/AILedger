@@ -356,7 +356,7 @@ public sealed class TaskRetrospectiveCliTests
                  "--class", "untested", "--repo", "AILedger", "--tag", "retry",
                  "--verify", "dotnet test --filter RetryTests.Bounded",
                  "--do-not", "Do not assume retries are bounded without rerunning the test",
-                 "--lesson-actor", "verifier"], CancellationToken.None),
+                 "--lesson-actor", "verifier", "--verify-expects", "present"], CancellationToken.None),
             // Entering Research asks for something left to research, and leaving it asks what the
             // research produced.
             await application.RunAsync(
@@ -377,6 +377,8 @@ public sealed class TaskRetrospectiveCliTests
             await application.RunAsync(
                 ["actor", "attach", .. common, "--target", "reviewer", "--role", "code-reviewer"],
                 CancellationToken.None),
+            // Adding work is refused until the acting actor has been briefed.
+            await BriefAsync(common),
             await application.RunAsync(
                 ["work", "add", .. common, "--id", "W1", "--title", "The work", "--owner", "worker"],
                 CancellationToken.None)
@@ -498,6 +500,14 @@ public sealed class TaskRetrospectiveCliTests
 
     private static string[] Common(string root) =>
         ["--root", root, "--task", "T1", "--actor", "operator"];
+
+    // Returns zero so it can sit in the exits list beside the commands it precedes; the helper
+    // throws rather than returning a code when the brief itself is refused.
+    private static async Task<int> BriefAsync(string[] common)
+    {
+        await ContextBrief.BuildAsync(common[1], common[3], common[5]);
+        return 0;
+    }
 
     // No lesson store, so recall reaches this root's own archived tasks and nothing else. A test
     // that recalled from the operator's real store would report a lesson debt it did not create.

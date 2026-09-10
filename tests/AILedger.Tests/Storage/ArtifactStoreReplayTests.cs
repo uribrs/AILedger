@@ -25,6 +25,7 @@ public sealed class ArtifactStoreReplayTests
         var writer = Service(root.Path);
 
         await Run(writer, taskId, new OpenTaskCommand(actor, null, "a1", taskId, "Task", "Goal"));
+        await ContextBrief.RecordAsync(writer, taskId.Value);
         await Run(writer, taskId, Record(actor, "a2", "A1", GovernedArtifactKind.UserRequest, "The request"));
         await Run(writer, taskId, new AddWorkItemCommand(
             actor, null, "a2w", new WorkItemId("W1"), "Verified work", actor, [], [area]));

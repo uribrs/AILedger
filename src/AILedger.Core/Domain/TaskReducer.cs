@@ -45,6 +45,17 @@ public sealed class TaskReducer : ITaskReducer
             {
                 Artifacts = Set(Require(state).Artifacts, recorded.Artifact.ArtifactId, recorded.Artifact)
             },
+            // Keyed by actor, so a later brief replaces the one before it. The gate asks whether
+            // this actor is briefed against the layer as it stands, and the answer is the last
+            // brief; the earlier ones stay in the log, which is where history belongs.
+            ContextBuilt built => Require(state) with
+            {
+                ContextBuilds = Set(
+                    Require(state).ContextBuilds,
+                    @event.ActorId,
+                    new ContextBuild(
+                        @event.ActorId, built.Role, built.WorkItemId, built.Skills, @event.RecordedAt))
+            },
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 

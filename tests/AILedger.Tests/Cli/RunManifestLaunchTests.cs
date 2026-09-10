@@ -28,6 +28,7 @@ public sealed class RunManifestLaunchTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -61,6 +62,11 @@ public sealed class RunManifestLaunchTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        // Briefed against the real cognitive layer, because an empty one has no manifest to read
+        // and cannot brief anyone. The launch below then names the empty root, so the gate's
+        // freshness comparison has nothing to compare and falls back to the presence check — which
+        // is what lets this test keep pinning what it was written to pin.
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -121,6 +127,7 @@ public sealed class RunManifestLaunchTests
         await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
 
         // The manifest builds fine; the request does not. Zero is refused by PositiveInt, which runs
         // inside the AgentLaunchRequest constructor call.

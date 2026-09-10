@@ -91,6 +91,8 @@ public sealed class WorkItemBaseRefTests
         string[] common = ["--root", root, "--task", "T1", "--actor", "operator"];
         Assert.Equal(0, await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None));
+        // Adding work is refused until the acting actor has been briefed.
+        await ContextBrief.BuildAsync(root, "T1");
         string[] add =
         [
             "work", "add", .. common, "--id", "W1", "--title", "Item", "--scope", scope,

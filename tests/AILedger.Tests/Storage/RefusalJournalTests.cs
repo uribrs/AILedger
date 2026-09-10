@@ -66,7 +66,7 @@ public sealed class RefusalJournalTests
         var taskId = new TaskId("refusal-success-task");
         var actor = new ActorId("operator");
 
-        // Four commands, all accepted: open, add work, start a run, complete it.
+        // Five commands, all accepted: open, brief the operator, add work, start a run, complete it.
         var service = await StageWorkItemWithACompletedWorkingRunAsync(root.Path, taskId, actor);
 
         Assert.False(File.Exists(JournalPath(root.Path, taskId)));
@@ -152,7 +152,8 @@ public sealed class RefusalJournalTests
         Assert.Equal(journalBefore, await File.ReadAllBytesAsync(JournalPath(root.Path, taskId)));
     }
 
-    // Open, one work item, one completed run by a working role. That leaves work complete refused
+    // Open, a brief for the operator, one work item, one completed run by a working role. That
+    // leaves work complete refused
     // on the verifier gate — the second of its four, so the refusal is a real rule and not the
     // easiest one to reach.
     private static async Task<FileGovernedTaskService> StageWorkItemWithACompletedWorkingRunAsync(
@@ -162,6 +163,7 @@ public sealed class RefusalJournalTests
     {
         var service = Service(root);
         await Run(service, taskId, new OpenTaskCommand(actor, null, "c1", taskId, "Task", "Goal"));
+        await ContextBrief.RecordAsync(service, taskId.Value);
         await Run(service, taskId, new AddWorkItemCommand(
             actor, null, "c2", new WorkItemId("W1"), "Journalled work", actor, [], []));
         await Run(service, taskId, new StartRunCommand(

@@ -105,6 +105,9 @@ internal static class TaskTransitionValidator
             case ArtifactRecorded recorded:
                 ValidateArtifactRecorded(Require(state), @event, recorded.Artifact);
                 break;
+            case ContextBuilt built:
+                ValidateContextBuilt(Require(state), @event, built);
+                break;
             default:
                 throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.");
         }
@@ -191,7 +194,10 @@ internal static class TaskTransitionValidator
                 // comparing them cannot reject a history that was legal when it was written.
                 !string.Equals(mark.Verify, lesson.Verify, StringComparison.Ordinal) ||
                 !string.Equals(mark.DoNot, lesson.DoNot, StringComparison.Ordinal) ||
-                mark.Actor != lesson.Actor)
+                mark.Actor != lesson.Actor ||
+                mark.Kind != lesson.Kind ||
+                !OptionalSequenceEqual(mark.Audience, lesson.Audience) ||
+                mark.VerifyExpects != lesson.VerifyExpects)
             {
                 throw new GovernanceException("A minted lesson must match its lesson-bearing mark.");
             }
@@ -229,7 +235,8 @@ internal static class TaskTransitionValidator
 
         RequireDefined(mark.SourceKind, nameof(mark.SourceKind));
         ValidateLessonMetadata(
-            mark.Class, mark.Repo, mark.Tags, mark.Verify, mark.DoNot, mark.Actor, "lesson mark");
+            mark.Class, mark.Repo, mark.Tags, mark.Verify, mark.DoNot, mark.Actor,
+            mark.Kind, mark.Audience, mark.VerifyExpects, "lesson mark");
         RequireId(mark.SourceRecordId, nameof(mark.SourceRecordId));
         var expectedId = LessonMarkIdFor(mark.SourceKind, mark.SourceRecordId);
         if (mark.Id != expectedId)
@@ -341,7 +348,8 @@ internal static class TaskTransitionValidator
             }
         }
         ValidateLessonMetadata(
-            lesson.Class, lesson.Repo, lesson.Tags, lesson.Verify, lesson.DoNot, lesson.Actor, "lesson");
+            lesson.Class, lesson.Repo, lesson.Tags, lesson.Verify, lesson.DoNot, lesson.Actor,
+            lesson.Kind, lesson.Audience, lesson.VerifyExpects, "lesson");
     }
 
     // Metadata is optional only for replay compatibility. Validate every field an event actually
@@ -356,6 +364,9 @@ internal static class TaskTransitionValidator
         string? verify,
         string? doNot,
         LessonActor? actor,
+        LessonKind? lessonKind,
+        IReadOnlyList<RoleKind>? audience,
+        VerifyExpectation? verifyExpects,
         string subject)
     {
         if (lessonClass is { } presentClass)
@@ -377,6 +388,27 @@ internal static class TaskTransitionValidator
         if (actor is { } presentActor)
         {
             RequireDefined(presentActor, nameof(Lesson.Actor));
+        }
+        // Each of these three is absent in every history written before it existed, so validating
+        // only what an event actually carries keeps replay accepting every history that was ever
+        // legal. Which way the verify has to come out is required at command time and never here,
+        // for the same reason the wording of the verify itself is: CommandHandler may tighten and
+        // this copy may not.
+        if (lessonKind is { } presentKind)
+        {
+            RequireDefined(presentKind, nameof(Lesson.Kind));
+        }
+        if (verifyExpects is { } presentExpectation)
+        {
+            RequireDefined(presentExpectation, nameof(Lesson.VerifyExpects));
+        }
+        if (audience is not null)
+        {
+            EnsureUnique(audience, $"{subject} audience");
+            foreach (var role in audience)
+            {
+                RequireDefined(role, nameof(Lesson.Audience));
+            }
         }
         ValidateOptionalTags(tags, subject);
     }
@@ -402,6 +434,11 @@ internal static class TaskTransitionValidator
         IReadOnlyList<string>? left,
         IReadOnlyList<string>? right) =>
         left is null ? right is null : right is not null && left.SequenceEqual(right, StringComparer.Ordinal);
+
+    private static bool OptionalSequenceEqual(
+        IReadOnlyList<RoleKind>? left,
+        IReadOnlyList<RoleKind>? right) =>
+        left is null ? right is null : right is not null && left.SequenceEqual(right);
 
     private static void ValidateRoleAssigned(
         GovernedTaskState state,
@@ -498,6 +535,45 @@ internal static class TaskTransitionValidator
             ValidateVerifierOutput(state, artifact.WorkItemId!.Value, artifact.Content);
         }
         ValidateProvenance(@event, artifact.Provenance, "artifact.record");
+    }
+
+    // Reads nothing but the event in front of it and the role that event's actor held at that
+    // point. Every rule here keys on a field only a context.built event carries, so it is safe by
+    // construction: no history written before this event type existed can reach it.
+    //
+    // What must never appear in this file is the other half — an arm requiring a context.built
+    // before work.added or run.started. Command time may demand it; replay may not, because all 36
+    // tasks in this ledger were written without one.
+    private static void ValidateContextBuilt(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        ContextBuilt built)
+    {
+        RequireDefined(built.Role, nameof(built.Role));
+        var assignment = Get(state.Roles, @event.ActorId, "actor role");
+        if (built.Role != assignment.Role)
+        {
+            throw new GovernanceException(
+                $"Context brief for '{@event.ActorId}' records role '{built.Role}' but the actor held " +
+                $"'{assignment.Role}'.");
+        }
+
+        if (built.WorkItemId is { } workItemId)
+        {
+            _ = Get(state.WorkItems, workItemId, "work item");
+        }
+
+        foreach (var skill in built.Skills)
+        {
+            RequireId(skill.SkillId, "Skill ID");
+            RequireText(skill.ContentHash, "Skill content hash");
+        }
+
+        if (built.Skills.Select(skill => skill.SkillId).Distinct(StringComparer.Ordinal).Count() !=
+            built.Skills.Count)
+        {
+            throw new GovernanceException("A context brief cannot serve one skill twice.");
+        }
     }
 
     private static void ValidateArtifactProducer(
@@ -661,7 +737,9 @@ internal static class TaskTransitionValidator
             }
             return rows;
         }
-        throw new GovernanceException($"Artifact body is missing the required '{string.Join(" | ", header)}' table.");
+        // The command-time copy's wording, shared rather than restated. This is a message, not a
+        // rule: it changes what a refused actor reads and nothing about which histories replay.
+        throw new GovernanceException(Application.ArtifactRules.TableRefusal(header));
     }
 
     private static string[] SplitMarkdownRow(string line)

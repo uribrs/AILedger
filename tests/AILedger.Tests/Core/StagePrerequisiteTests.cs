@@ -375,7 +375,8 @@ public sealed class StagePrerequisiteTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT-stage",
             Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["stages"],
             Verify: "dotnet test --filter StagePrerequisiteTests",
-            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier));
+            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier,
+            VerifyExpects: VerifyExpectation.Present));
         var open = new RunId("R-open");
         task.Apply(new StartRunCommand(
             task.OperatorId, null, task.NextCorrelation(), open, task.StageWorkItem(), "codex", null));
@@ -405,7 +406,8 @@ public sealed class StagePrerequisiteTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT-stage",
             Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["stages"],
             Verify: "dotnet test --filter StagePrerequisiteTests",
-            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier));
+            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier,
+            VerifyExpects: VerifyExpectation.Present));
         // An active run is what the Archive arm refuses on, so the waiver is what carries the
         // transition below rather than a prerequisite that was satisfied anyway.
         var open = new RunId("R-open");

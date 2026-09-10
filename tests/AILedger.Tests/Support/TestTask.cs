@@ -1,5 +1,6 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
+using AILedger.Core.Domain;
 
 namespace AILedger.Tests.Support;
 
@@ -43,14 +44,63 @@ internal sealed class TestTask
     // exactly the two moments the kernel consults it. Nothing reads the spelling of a path.
     public bool IsCodeBearing => State.WorkItems.Values.Any(item => item.ResourceScope.Count > 0);
 
+    // Adding work and launching a provider are refused until the acting actor has been briefed.
+    // Staged here for the same reason ReachStage stages the stage arms: a test whose subject is
+    // some other rule should not have to restate this one. The tests that pin the gate itself turn
+    // it off and record the brief, or withhold it, deliberately.
+    public bool AutoBuildContext { get; set; } = true;
+
     public CommandOutcome Apply(LedgerCommand command)
     {
+        if (AutoBuildContext && NeedsBrief(command))
+        {
+            BuildContext(command.ActorId);
+        }
+
         var outcome = _handler.Handle(State, command, Epoch.AddMinutes(_commandNumber));
         State = outcome.State;
         return outcome;
     }
 
+    // The two skills the operator's own role is defined by, which is what the cognitive layer
+    // serves the seat that decomposes the work. The hashes stand in for the content: nothing in the
+    // kernel reads a skill's text, only whether the digest still matches what the caller found.
+    public CommandOutcome BuildContext(ActorId actorId, params string[] skills) =>
+        Apply(new RecordContextBuiltCommand(
+            actorId,
+            null,
+            NextCorrelation(),
+            null,
+            (skills.Length == 0 ? ["workflow-coordinator", "task-orchestrator"] : skills)
+                .Select(name => new ContextSkill(name, $"hash-of-{name}"))
+                .ToArray()));
+
+    private bool NeedsBrief(LedgerCommand command) =>
+        command switch
+        {
+            AddWorkItemCommand => !State.ContextBuilds.ContainsKey(command.ActorId),
+            StartRunCommand { LaunchTokenHash: not null } => !State.ContextBuilds.ContainsKey(command.ActorId),
+            _ => false
+        };
+
     public string NextCorrelation() => $"correlation-{++_commandNumber}";
+
+    // Recall has no command: the durable service produces the event itself while opening a task, and
+    // the replay rule accepts it only into a task that holds nothing but its opening role. So a test
+    // that needs a recalled lesson reduces the event straight onto the opened state, and must do it
+    // before anything else the test records.
+    public void RecallLesson(Lesson lesson)
+    {
+        State = new TaskReducer().Apply(State, new LedgerEvent(
+            GovernedTaskState.CurrentSchemaVersion,
+            new EventId($"recall-{lesson.Id.Value}"),
+            TaskId,
+            OperatorId,
+            Epoch.AddMinutes(_commandNumber),
+            null,
+            NextCorrelation(),
+            new LessonRecalled(lesson)));
+    }
 
     public CommandOutcome Transition(TaskStage stage) =>
         Apply(new RequestStageTransitionCommand(OperatorId, null, NextCorrelation(), stage));

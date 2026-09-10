@@ -17,6 +17,7 @@ public sealed class ConcurrencyTests
         var service = CreateService(root.Path);
         await service.ExecuteAsync(taskId,
             new OpenTaskCommand(actor, null, "open", taskId, "Task", "Goal"), CancellationToken.None);
+        await ContextBrief.RecordAsync(service, taskId.Value);
         await service.ExecuteAsync(taskId,
             new AddWorkItemCommand(actor, null, "work", new WorkItemId("W1"), "Work", actor, [], [root.Path]),
             CancellationToken.None);
@@ -36,7 +37,9 @@ public sealed class ConcurrencyTests
         var state = await service.GetStateAsync(taskId, CancellationToken.None);
         Assert.NotNull(state);
         Assert.Single(state.Runs.Values.Where(run => run.Status == AgentRunStatus.Active));
-        Assert.Equal(4, state.Version);
+        // Open, brief, work, one accepted start. The brief is the event the gate on 'work add'
+        // requires, so it is part of every sequence that adds work.
+        Assert.Equal(4 + 1, state.Version);
     }
 
     [Fact]
@@ -48,6 +51,7 @@ public sealed class ConcurrencyTests
         var service = CreateService(root.Path);
         await service.ExecuteAsync(taskId,
             new OpenTaskCommand(actor, null, "open", taskId, "Task", "Goal"), CancellationToken.None);
+        await ContextBrief.RecordAsync(service, taskId.Value);
         foreach (var id in new[] { "W1", "W2" })
         {
             await service.ExecuteAsync(taskId,
@@ -66,7 +70,7 @@ public sealed class ConcurrencyTests
         var state = await service.GetStateAsync(taskId, CancellationToken.None);
         Assert.NotNull(state);
         Assert.Equal(2, state.Runs.Count);
-        Assert.Equal(6, state.Version);
+        Assert.Equal(6 + 1, state.Version);
     }
 
     [Fact]

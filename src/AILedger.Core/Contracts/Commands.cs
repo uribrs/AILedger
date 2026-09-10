@@ -27,6 +27,7 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(AbandonWorkItemCommand), "work.abandon")]
 [JsonDerivedType(typeof(MarkLessonBearingCommand), "lesson.mark")]
 [JsonDerivedType(typeof(RecordArtifactCommand), "artifact.record")]
+[JsonDerivedType(typeof(RecordContextBuiltCommand), "context.build")]
 public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);
 
 public sealed record OpenTaskCommand(
@@ -129,7 +130,23 @@ public sealed record AddWorkItemCommand(
     AlternativeId? NotSplitJustification = null,
     // The commit this item's work starts from. Captured by the CLI in the item's first scope
     // directory; null when that is not a git work tree.
-    string? BaseRef = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? BaseRef = null,
+    // What the cognitive layer would serve this actor right now, read by the caller because the
+    // kernel has no filesystem. The gate needs it to tell a current brief from a stale one; null
+    // means the caller could not read the layer, and the gate falls back to asking only whether a
+    // brief exists at all. Commands are not persisted, so this reaches no event and no replay.
+    IReadOnlyList<ContextSkill>? SkillsServedNow = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+
+// 'context build' is a read in every way that matters and stays one: it is never gated, and it
+// cannot be refused for anything but an unknown task or an actor that may not build context. This
+// command is what makes the read leave a trace, so that whether an actor was briefed — and with
+// which skills, saying what — is a query against the events rather than an assumption.
+public sealed record RecordContextBuiltCommand(
+    ActorId ActorId,
+    EventId? CausationId,
+    string CorrelationId,
+    WorkItemId? WorkItemId,
+    IReadOnlyList<ContextSkill> Skills) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record StartRunCommand(
     ActorId ActorId,
@@ -144,7 +161,11 @@ public sealed record StartRunCommand(
     string? LaunchTokenHash = null,
     // The actor the run is for, when an operator dispatches on its behalf. ActorId stays the
     // authorising actor; the subject does the work and owns the run's provenance.
-    ActorId? SubjectActorId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    ActorId? SubjectActorId = null,
+    // As on AddWorkItemCommand: what the cognitive layer would serve the acting actor now. Read by
+    // the gate on a provider launch only — a launch is the moment the dispatcher decomposes the
+    // work, and LaunchTokenHash above is what tells a launch from a manually started run (IC3).
+    IReadOnlyList<ContextSkill>? SkillsServedNow = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record CompleteRunCommand(
     ActorId ActorId,
@@ -238,7 +259,16 @@ public sealed record MarkLessonBearingCommand(
     IReadOnlyList<string>? Tags = null,
     string? Verify = null,
     string? DoNot = null,
-    LessonActor? Actor = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    LessonActor? Actor = null,
+    // Optional on the command because absent is a meaningful answer to both: a lesson about the
+    // software is Domain, and a lesson everyone should read has no audience to narrow to.
+    LessonKind? Kind = null,
+    IReadOnlyList<RoleKind>? Audience = null,
+    // Required at command time and nullable on the record. New marks must state the direction their
+    // verify has to come out; the lessons already minted carry none and replay must keep reading
+    // them. This is the twin-rule asymmetry: CommandHandler may tighten, TaskTransitionValidator
+    // may not.
+    VerifyExpectation? VerifyExpects = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record AddConstraintCommand(
     ActorId ActorId,

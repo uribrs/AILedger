@@ -30,6 +30,12 @@ public sealed record GovernedTaskState
     // rather than placed beside Goal to keep the property order above untouched, and left null
     // when absent so that the state.json of every task opened before tags existed is unchanged.
     public IReadOnlyList<string>? Tags { get; init; }
+    // Which actors have been briefed on this task, and with what. Appended after Tags for the
+    // reason Tags was appended after Artifacts: state.json is byte-compared against a fresh replay,
+    // so a property may be added at the end and never moved. Empty for every task that has never
+    // built context, which on the day this shipped was all of them.
+    public IReadOnlyDictionary<ActorId, ContextBuild> ContextBuilds { get; init; } =
+        new Dictionary<ActorId, ContextBuild>();
     internal ActorId? PendingOpeningActor { get; init; }
     // Transient replay state tying a waiver event to the immediately caused stage transition.
     // Internal properties are not projected into state.json; a completed command always consumes it.

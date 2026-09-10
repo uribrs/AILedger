@@ -38,7 +38,7 @@ internal static class LessonRules
                     claim.EvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
                     provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
-                    mark.Verify, mark.DoNot, mark.Actor),
+                    mark.Verify, mark.DoNot, mark.Actor, mark.Kind, mark.Audience, mark.VerifyExpects),
             // The refuting evidence is what makes this lesson worth carrying: a later task that
             // recalls it gets the belief and what contradicted it, not just the verdict.
             LessonSourceKind.RejectedClaim when
@@ -49,13 +49,13 @@ internal static class LessonRules
                     rejected.EvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
                     provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
-                    mark.Verify, mark.DoNot, mark.Actor),
+                    mark.Verify, mark.DoNot, mark.Actor, mark.Kind, mark.Audience, mark.VerifyExpects),
             LessonSourceKind.RejectedAlternative when
                 state.Alternatives.TryGetValue(new AlternativeId(mark.SourceRecordId), out var alternative) =>
                 new Lesson(LessonIdFor(state.TaskId, mark.SourceKind, mark.SourceRecordId), state.TaskId,
                     mark.SourceKind, mark.SourceRecordId, alternative.Statement, alternative.RejectionRationale,
                     [], provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
-                    mark.Verify, mark.DoNot, mark.Actor),
+                    mark.Verify, mark.DoNot, mark.Actor, mark.Kind, mark.Audience, mark.VerifyExpects),
             LessonSourceKind.ResolvedEscalation when
                 state.Escalations.TryGetValue(new EscalationId(mark.SourceRecordId), out var escalation) &&
                 escalation.Status == EscalationStatus.Resolved => new Lesson(
@@ -64,7 +64,7 @@ internal static class LessonRules
                     escalation.AttemptEvidenceIds.Select(id => state.Evidence[id].Citation)
                         .Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
                     provenance, mark.SupersedesLessonId, mark.Class, mark.Repo, mark.Tags,
-                    mark.Verify, mark.DoNot, mark.Actor),
+                    mark.Verify, mark.DoNot, mark.Actor, mark.Kind, mark.Audience, mark.VerifyExpects),
             _ => null
         };
 
@@ -108,6 +108,37 @@ internal static class LessonRules
             throw new GovernanceException("A lesson mark must specify which actor established it.");
         }
         RequireDefined(lessonActor, nameof(command.Actor));
+        // Required at command time because a verify that cannot fail re-establishes nothing, and
+        // nullable on the record because the lessons already minted carry no direction and replay
+        // must keep reading them. The one verify that cannot carry a direction is the admission
+        // that there is nothing to run: demanding one there would close the escape hatch that
+        // exists so a lesson does not have to invent a command, which is the worse failure.
+        var runnable = !LessonVerification.ClaimsNothingToRun(verify);
+        if (runnable && command.VerifyExpects is null)
+        {
+            throw new GovernanceException(
+                "A lesson mark must specify which way its verify has to come out: present or absent.");
+        }
+        if (!runnable && command.VerifyExpects is not null)
+        {
+            throw new GovernanceException(
+                "A lesson mark whose verify records that nothing can be run cannot also record a " +
+                "direction for it to come out.");
+        }
+        var verifyExpects = command.VerifyExpects;
+        if (verifyExpects is { } presentExpectation)
+        {
+            RequireDefined(presentExpectation, nameof(command.VerifyExpects));
+        }
+        // Absent means Domain, so a kind is only validated when one is given. An audience is
+        // checked against RoleKind and never against LessonActor: the address is who has to read
+        // the lesson, and Executor and Recon are not roles while Worker and CodeReviewer are.
+        var lessonKind = command.Kind;
+        if (lessonKind is { } presentKind)
+        {
+            RequireDefined(presentKind, nameof(command.Kind));
+        }
+        var audience = NormalizedAudience(command.Audience);
         var markId = LessonMarkIdFor(command.SourceKind, command.SourceRecordId);
         EnsureNew(state.LessonMarks, markId, "lesson mark");
     
@@ -143,9 +174,9 @@ internal static class LessonRules
         return [new LessonMarked(new LessonMark(
             markId, command.SourceKind, command.SourceRecordId.Trim(), command.SupersedesLessonId,
             new Provenance(command.ActorId, now, "lesson.mark"), lessonClass, repo.Trim(), tags,
-            verify.Trim(), doNot.Trim(), lessonActor))];
+            verify.Trim(), doNot.Trim(), lessonActor, lessonKind, audience, verifyExpects))];
     }
-    
+
     // A fabricated verify command reads as evidence to every future recall, so the only way to
     // say there is nothing to run is the admission itself. A bare "none" is refused. This is a
     // methodology rule the operator is still changing, so it is command-time only: the replay
@@ -154,21 +185,36 @@ internal static class LessonRules
     private static void RequireCheckableVerify(string verify)
     {
         var trimmed = verify.Trim();
-        var claimsNothingToRun =
-            trimmed.StartsWith("none", StringComparison.OrdinalIgnoreCase) &&
-            (trimmed.Length == 4 || !(char.IsLetterOrDigit(trimmed[4]) || trimmed[4] == '_'));
         var admission = trimmed.Length > 4 ? trimmed[4..].TrimStart() : string.Empty;
         var hasReason = admission.Length > 1 &&
             admission[0] is '-' or '—' or '–' or ':' &&
             !string.IsNullOrWhiteSpace(admission[1..]);
-        if (!claimsNothingToRun || hasReason)
+        if (!LessonVerification.ClaimsNothingToRun(trimmed) || hasReason)
         {
             return;
         }
-    
+
         throw new GovernanceException(
             "A lesson mark's verify must be a runnable command, or 'none' followed by " +
             "a dash or colon and a reason.");
+    }
+
+    // Empty and absent both mean every role, so the record keeps one representation of that rather
+    // than two: an empty list would make a reader ask which of the two it is.
+    private static IReadOnlyList<RoleKind>? NormalizedAudience(IReadOnlyList<RoleKind>? audience)
+    {
+        if (audience is null || audience.Count == 0)
+        {
+            return null;
+        }
+
+        EnsureUnique(audience, "Lesson audience");
+        foreach (var role in audience)
+        {
+            RequireDefined(role, nameof(LessonMark.Audience));
+        }
+
+        return audience.ToArray();
     }
 
     private static LessonMarkId LessonMarkIdFor(LessonSourceKind kind, string sourceRecordId) =>

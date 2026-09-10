@@ -76,7 +76,8 @@ public sealed class CommandAndLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT-stage",
             Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["stages"],
             Verify: "dotnet test --filter StagePrerequisiteTests",
-            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier));
+            DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier,
+            VerifyExpects: VerifyExpectation.Present));
 
         var exception = Assert.Throws<GovernanceException>(() => Transition(task, TaskStage.Archive));
 

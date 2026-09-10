@@ -11,6 +11,10 @@ internal static class WorkItemRules
         GovernedTaskState state,
         AddWorkItemCommand command)
     {
+        // First, because it is the refusal that names what to do next. Adding work is where the
+        // task is decomposed, and decomposing it without having read the two skills that say how is
+        // the gap this gate closes.
+        ContextGateRules.EnsureBriefed(state, command.ActorId, command.SkillsServedNow, "add work");
         RequireId(command.WorkItemId.Value, nameof(command.WorkItemId));
         EnsureNew(state.WorkItems, command.WorkItemId, "work item");
         RequireText(command.Title, nameof(command.Title));

@@ -25,6 +25,12 @@ public sealed class NewCommandReplayTests
         var writer = Service(root.Path);
 
         await Run(writer, taskId, new OpenTaskCommand(actor, null, "c1", taskId, "Task", "Goal"));
+        // The brief the gate on 'work add' requires, and itself one of the new commands this test
+        // exists to commit and replay.
+        await Run(writer, taskId, new RecordContextBuiltCommand(
+            actor, null, "c1b", null,
+            [new ContextSkill("workflow-coordinator", "hash-of-workflow-coordinator"),
+             new ContextSkill("task-orchestrator", "hash-of-task-orchestrator")]));
         await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c2", new WorkItemId("W1"), "Blocked work", actor, [], [Area("w1")]));
         await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c3", new WorkItemId("W2"), "Finished work", actor, [], [Area("w2")]));
         await Run(writer, taskId, new AddConstraintCommand(actor, null, "c4", new ConstraintId("K1"), "Stay local", "dossier", [Area("k1")]));
@@ -183,6 +189,7 @@ public sealed class NewCommandReplayTests
         var writer = Service(root.Path);
 
         await Run(writer, taskId, new OpenTaskCommand(actor, null, "s1", taskId, "Task", "Goal"));
+        await ContextBrief.RecordAsync(writer, taskId.Value);
         await Run(writer, taskId, new AddClaimCommand(actor, null, "s2", new ClaimId("C1"), "The API is stable", null));
         await Run(writer, taskId, new AddClaimCommand(actor, null, "s3", new ClaimId("C2"), "The API is stable below 200 rps", null));
         await Run(writer, taskId, new AddEvidenceCommand(actor, null, "s4", new EvidenceId("E2"), "probe", "cite", "supports C2", [new ClaimId("C2")], []));

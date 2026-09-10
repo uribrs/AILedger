@@ -224,8 +224,23 @@ internal static class ArtifactRules
             return rows;
         }
     
-        throw new GovernanceException($"Artifact body is missing the required '{string.Join(" | ", header)}' table.");
+        throw new GovernanceException(TableRefusal(header));
     }
+
+    // C3: the kernel enforces part of task-orchestrator's specification and used to name neither
+    // the skill nor the fact that it was a part. An actor learning the format from this refusal
+    // therefore learned the columns and missed the cap, the naming convention and the mandatory
+    // case — which is exactly what happened, and it cost a verifier run. Enforcing the rest is not
+    // in this change's scope; saying that the rest exists is.
+    //
+    // Written once and used by both copies of the rule, so the two cannot drift apart.
+    internal static string TableRefusal(IReadOnlyList<string> header) =>
+        $"Artifact body is missing the required '{string.Join(" | ", header)}' table. " +
+        "This format is specified by the 'task-orchestrator' skill, and the kernel checks only " +
+        "part of it — the columns and the R-prefixed ids. The skill also caps attention items at " +
+        "five, fixes the naming convention as 'R1 (descriptive-name)', and makes an item " +
+        "mandatory when an artifact trace finds a design-invalidating interaction. Passing this " +
+        "check is not the same as meeting the specification; read the skill.";
 
     private static string[] SplitMarkdownRow(string line)
     {

@@ -61,6 +61,7 @@ public sealed class CommandHandler : ICommandHandler
             ResolveEscalationCommand resolve => EscalationRules.ResolveEscalation(state, resolve),
             RecordAlternativeCommand record => AlternativeRules.RecordAlternative(state, record, now),
             RecordArtifactCommand record => ArtifactRules.RecordArtifact(state, record, now),
+            RecordContextBuiltCommand record => ContextRules.RecordContextBuilt(state, record),
             MarkLessonBearingCommand mark => LessonRules.MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => ConstraintRules.AddConstraint(state, add, now),
             SupersedeConstraintCommand supersede => ConstraintRules.SupersedeConstraint(state, supersede),

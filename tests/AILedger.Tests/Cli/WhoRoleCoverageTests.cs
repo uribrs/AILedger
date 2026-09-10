@@ -23,6 +23,8 @@ public sealed class WhoRoleCoverageTests
         var error = new StringWriter();
         string[] common = ["--root", root.Path, "--task", "T1"];
         await Ok(error, ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"]);
+        // Adding work is refused until the acting actor has been briefed.
+        await ContextBrief.BuildAsync(root.Path, "T1");
         await Ok(error, ["work", "add", .. common, "--actor", "operator", "--id", "W1",
             "--title", "Work", "--owner", "operator"]);
         await Ok(error, ["actor", "attach", .. common, "--actor", "operator", "--target", "scout",

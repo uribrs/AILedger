@@ -23,7 +23,8 @@ public sealed class LessonLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.ValidatedClaim, claimId.Value,
             Class: LessonClass.Untested, Repo: "AILedger", Tags: ["retry", "bounded"],
             Verify: "dotnet test --filter RetryTests.Bounded",
-            DoNot: "Do not assume retries are bounded without rerunning the test", Actor: LessonActor.Verifier));
+            DoNot: "Do not assume retries are bounded without rerunning the test", Actor: LessonActor.Verifier,
+            Kind: LessonKind.Domain, VerifyExpects: VerifyExpectation.Present));
         task.Apply(new RecordAlternativeCommand(
             task.OperatorId, null, task.NextCorrelation(), new AlternativeId("ALT1"),
             "Retry forever", "It prevents terminal failure", null));
@@ -31,7 +32,9 @@ public sealed class LessonLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1",
             Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["retry"],
             Verify: "dotnet test --filter RetryTests.Bounded",
-            DoNot: "Do not retry forever", Actor: LessonActor.Executor));
+            DoNot: "Do not retry forever", Actor: LessonActor.Executor,
+            Kind: LessonKind.Workflow, Audience: [RoleKind.Verifier, RoleKind.Worker],
+            VerifyExpects: VerifyExpectation.Absent));
         task.Apply(new RaiseEscalationCommand(
             task.OperatorId, null, task.NextCorrelation(), new EscalationId("X1"),
             EscalationKind.BusinessDecision, "Ship narrow or broad?", null,
@@ -43,7 +46,8 @@ public sealed class LessonLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.ResolvedEscalation, "X1",
             Class: LessonClass.Drifted, Repo: "AILedger", Tags: [],
             Verify: "dotnet test --filter LessonLifecycleTests",
-            DoNot: "Do not broaden the shipped change without resolving the tradeoff", Actor: LessonActor.Researcher));
+            DoNot: "Do not broaden the shipped change without resolving the tradeoff", Actor: LessonActor.Researcher,
+            VerifyExpects: VerifyExpectation.Present));
         AddWorkAndReachLearn(task);
 
         var outcome = task.Apply(new RequestStageTransitionCommand(
@@ -69,6 +73,10 @@ public sealed class LessonLifecycleTests
                 Assert.Equal(LessonSourceKind.RejectedAlternative, lesson.SourceKind);
                 Assert.Equal(LessonClass.Refuted, lesson.Class);
                 Assert.Equal(["retry"], lesson.Tags);
+                // The three routing fields survive minting alongside the rest of the metadata.
+                Assert.Equal(LessonKind.Workflow, lesson.Kind);
+                Assert.Equal([RoleKind.Verifier, RoleKind.Worker], lesson.Audience);
+                Assert.Equal(VerifyExpectation.Absent, lesson.VerifyExpects);
             },
             lesson =>
             {
@@ -92,7 +100,8 @@ public sealed class LessonLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT2",
             Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["repeat"],
             Verify: "dotnet test --filter LessonLifecycleTests",
-            DoNot: "Do not repeat the cross-task mistake", Actor: LessonActor.Recon));
+            DoNot: "Do not repeat the cross-task mistake", Actor: LessonActor.Recon,
+            VerifyExpects: VerifyExpectation.Present));
         AddWorkAndReachLearn(task);
 
         var outcome = task.Apply(new RequestStageTransitionCommand(
@@ -177,6 +186,11 @@ public sealed class LessonLifecycleTests
         Assert.Null(recalled.Verify);
         Assert.Null(recalled.DoNot);
         Assert.Null(recalled.Actor);
+        // The twin rule: a routing field required at command time is never required at replay, so
+        // a lesson minted before the field existed still reads back.
+        Assert.Null(recalled.Kind);
+        Assert.Null(recalled.Audience);
+        Assert.Null(recalled.VerifyExpects);
     }
 
     [Fact]
@@ -246,6 +260,9 @@ public sealed class LessonLifecycleTests
         Assert.Null(mark.Verify);
         Assert.Null(mark.DoNot);
         Assert.Null(mark.Actor);
+        Assert.Null(mark.Kind);
+        Assert.Null(mark.Audience);
+        Assert.Null(mark.VerifyExpects);
     }
 
     [Fact]
@@ -310,9 +327,13 @@ public sealed class LessonLifecycleTests
         TestTask task,
         string? Verify = null,
         string? DoNot = null,
-        LessonActor? Actor = null) =>
+        LessonActor? Actor = null,
+        LessonKind? Kind = null,
+        IReadOnlyList<RoleKind>? Audience = null,
+        VerifyExpectation? VerifyExpects = null) =>
         new(
             task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative, "ALT1",
             Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["lesson"],
-            Verify: Verify, DoNot: DoNot, Actor: Actor);
+            Verify: Verify, DoNot: DoNot, Actor: Actor,
+            Kind: Kind, Audience: Audience, VerifyExpects: VerifyExpects);
 }

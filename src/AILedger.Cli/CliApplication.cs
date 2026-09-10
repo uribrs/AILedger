@@ -143,7 +143,7 @@ public sealed class CliApplication
                 await _error.WriteLineAsync(staleness).ConfigureAwait(false);
             }
 
-            await DispatchAsync(command, input, service, root, cancellationToken).ConfigureAwait(false);
+            await DispatchAsync(command, input, service, root, lessonRoot, cancellationToken).ConfigureAwait(false);
             return 0;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -173,6 +173,7 @@ public sealed class CliApplication
         CommandLine input,
         IGovernedTaskService service,
         string ledgerRoot,
+        string lessonRoot,
         CancellationToken cancellationToken)
     {
         switch (command)
@@ -276,7 +277,9 @@ public sealed class CliApplication
                     input.Required("title"), OptionalId(input.Optional("owner"), value => new ActorId(value)),
                     input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(), scopes,
                     OptionalId(input.Optional("not-split-because"), value => new AlternativeId(value)),
-                    ResolveBaseRef(input, scopes)), cancellationToken).ConfigureAwait(false);
+                    ResolveBaseRef(input, scopes),
+                    await CurrentSkillsAsync(service, input, cancellationToken).ConfigureAwait(false)),
+                    cancellationToken).ConfigureAwait(false);
                 break;
             case "escalation raise":
                 await ExecuteAsync(service, input, new RaiseEscalationCommand(
@@ -314,7 +317,20 @@ public sealed class CliApplication
                     // is a different vocabulary — researcher, executor, verifier, recon — naming
                     // which cognition established the lesson. One option cannot carry both.
                     input.Required("verify"), input.Required("do-not"),
-                    EnumValue<LessonActor>(input, "lesson-actor")), cancellationToken).ConfigureAwait(false);
+                    EnumValue<LessonActor>(input, "lesson-actor"),
+                    // All three are passed as given. A kind or an audience the operator omitted is
+                    // absent rather than defaulted here, because absent is a meaningful answer to
+                    // both and a default written here would be a second copy of the reading rule.
+                    // The direction is required by the kernel for a runnable verify and refused for
+                    // one that admits there is nothing to run, so asking for it here would refuse
+                    // the second case before the kernel could decide it.
+                    OptionalEnumValue<LessonKind>(input, "lesson-kind"),
+                    input.Many("audience").Select(ParseEnum<RoleKind>).ToArray(),
+                    OptionalEnumValue<VerifyExpectation>(input, "verify-expects")),
+                    cancellationToken).ConfigureAwait(false);
+                break;
+            case "lesson recheck":
+                await RecheckLessonsAsync(input, lessonRoot, cancellationToken).ConfigureAwait(false);
                 break;
             case "constraint add":
                 await ExecuteAsync(service, input, new AddConstraintCommand(
@@ -884,7 +900,25 @@ public sealed class CliApplication
 
     private async Task BuildContextAsync(IGovernedTaskService service, CommandLine input, CancellationToken cancellationToken)
     {
-        var manifest = await CreateContextAsync(service, input, Actor(input), cancellationToken).ConfigureAwait(false);
+        var state = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
+        var artifacts = await _artifactLoader.LoadAsync(
+            input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
+        var manifest = _contextAssembler.Build(
+            state, Actor(input), OptionalId(input.Optional("work"), value => new WorkItemId(value)),
+            artifacts, DateTimeOffset.UtcNow);
+        // The skills exactly as this manifest carries them, filtered and ordered — not a second
+        // reading of the cognitive layer, which could differ from what was just served.
+        var skills = ContextSkills.From(manifest.Artifacts);
+        // Suppressed rather than refused. A repeat brief for the same actor and the same skills
+        // appends nothing and leaves the version where it was, which is what keeps 'context build'
+        // a read: three agents briefing in a row must not each move the task on (R2, IC2).
+        if (!ContextSkills.AlreadyRecorded(state, Actor(input), skills))
+        {
+            await service.ExecuteAsync(Task(input), new RecordContextBuiltCommand(
+                Actor(input), Cause(input), Correlation(input),
+                manifest.WorkItemId, skills), cancellationToken).ConfigureAwait(false);
+        }
+
         var json = JsonSerializer.Serialize(manifest, _json) + Environment.NewLine;
         var outputPath = input.Optional("output");
         if (outputPath is null)
@@ -907,6 +941,53 @@ public sealed class CliApplication
         var artifacts = await _artifactLoader.LoadAsync(input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
         var workItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
         return _contextAssembler.Build(state, actorId, workItem, artifacts, DateTimeOffset.UtcNow);
+    }
+
+    // What the cognitive layer would serve this actor right now, for the gate to compare against
+    // the brief the ledger recorded.
+    //
+    // It reads the layer separately rather than sharing the read that builds the child's manifest,
+    // and it swallows an unreadable layer instead of failing. Both are deliberate: a launch whose
+    // cognitive root cannot be read must keep failing where it always failed — after the run
+    // exists, so that a run with a null manifest pair still records that it was never briefed —
+    // and moving that failure earlier would delete the run the absence is recorded on.
+    //
+    // Null therefore means unreadable, not fresh. The gate still refuses an actor that has never
+    // been briefed; only the freshness comparison is skipped, because there is nothing to compare.
+    private async Task<IReadOnlyList<ContextSkill>?> CurrentSkillsAsync(
+        GovernedTaskState state,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        // No role means the kernel will refuse this command on its own grounds. Inventing a digest
+        // list here would replace the refusal that says so with one about stale skills.
+        if (!state.Roles.TryGetValue(Actor(input), out var assignment))
+        {
+            return null;
+        }
+
+        try
+        {
+            var artifacts = await _artifactLoader.LoadAsync(
+                input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
+            return _contextAssembler.SkillsServed(assignment.Role, artifacts);
+        }
+        catch (Exception exception) when (
+            exception is DirectoryNotFoundException or FileNotFoundException or InvalidDataException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<IReadOnlyList<ContextSkill>?> CurrentSkillsAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        var state = await service.GetStateAsync(Task(input), cancellationToken).ConfigureAwait(false);
+        return state is null
+            ? null
+            : await CurrentSkillsAsync(state, input, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task LaunchProviderAsync(
@@ -952,7 +1033,8 @@ public sealed class CliApplication
         // the manifest, the briefing or the child's environment.
         var launchToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         var start = CreateStartRun(input, provider, sessionId, providerVersion,
-            CommandHandler.HashLaunchToken(launchToken));
+            CommandHandler.HashLaunchToken(launchToken),
+            await CurrentSkillsAsync(launchState, input, cancellationToken).ConfigureAwait(false));
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
         // The instant the kernel recorded the run, which is what the first-write time is measured
@@ -1530,6 +1612,51 @@ public sealed class CliApplication
         }
     }
 
+    // Lists what the lessons of one repository would run, and runs exactly one of them when the
+    // operator names it and confirms its text. It writes nothing — no event, no projection, no store
+    // row — and nothing else in this CLI calls it: recall, context build and stage transition all
+    // leave it alone, because a gate that executed strings from a shared store on an agent's behalf
+    // would be both a remote-execution surface and a gate an agent could optimise.
+    //
+    // Listing is the default because a verify is a caller-supplied field on a mark: the store is a
+    // list of shell commands written by whoever marked the lesson, and an operator who asks for a
+    // sweep approves the sweep, not the commands it would discover. So nothing runs until the
+    // operator has seen the exact text and passed its confirmation back.
+    //
+    // --repo is required rather than defaulted to the whole store because a verify carries
+    // repository-relative paths. Running another repository's lessons from this working directory
+    // would report every one of them as no longer holding, on the evidence that its files are not
+    // here.
+    private async Task RecheckLessonsAsync(
+        CommandLine input,
+        string lessonRoot,
+        CancellationToken cancellationToken)
+    {
+        var repo = input.Required("repo");
+        var workingDirectory = Path.GetFullPath(input.Optional("working-directory") ?? Environment.CurrentDirectory);
+        if (!Directory.Exists(workingDirectory))
+        {
+            throw new CliUsageException($"Working directory '{workingDirectory}' does not exist.");
+        }
+
+        var lessons = await new FileLessonStore(lessonRoot).ReadAsync(cancellationToken).ConfigureAwait(false);
+        var confirmation = input.Optional("confirm");
+        if (confirmation is null)
+        {
+            await WriteJsonAsync(LessonRecheck.List(lessons, repo, workingDirectory, input.Many("id")))
+                .ConfigureAwait(false);
+            return;
+        }
+
+        // Refused before a process exists, not started and then stopped.
+        var lesson = LessonRecheck.RequireConfirmed(lessons, repo, input.Many("id"), confirmation);
+        var timeout = TimeSpan.FromSeconds(PositiveInt(
+            input.Optional("timeout-seconds"), (int)LessonRecheck.DefaultTimeout.TotalSeconds));
+        var report = await LessonRecheck.RunAsync(
+            lesson, repo, workingDirectory, timeout, cancellationToken).ConfigureAwait(false);
+        await WriteJsonAsync(report).ConfigureAwait(false);
+    }
+
     // Imported exists so a lesson carried in from the pre-kernel ledger can say where it came
     // from. It is not a record this task holds, so nothing can be marked with it.
     private static LessonSourceKind MarkableSourceKind(CommandLine input)
@@ -1550,7 +1677,7 @@ public sealed class CliApplication
     private static readonly IReadOnlySet<string> ReadOnlyCommands = new HashSet<string>(StringComparer.Ordinal)
     {
         "version", "status", "task status", "who", "audit", "history", "task history",
-        "context build", "artifact show", "artifact list", "retrospective build"
+        "context build", "artifact show", "artifact list", "retrospective build", "lesson recheck"
     };
 
     // The ledger home is a real repository the operator opens a session in, so the root is found by
@@ -1646,7 +1773,7 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["work add"] = Options(
                 "root", "task", "actor", "id", "title", "owner", "depends-on", "scope",
-                "not-split-because", "base-ref", "cause", "correlation"),
+                "not-split-because", "base-ref", "cognitive-root", "cause", "correlation"),
             ["escalation raise"] = Options(
                 "root", "task", "actor", "id", "kind", "question", "work", "option", "recommend", "evidence",
                 "cause", "correlation"),
@@ -1657,7 +1784,11 @@ public sealed class CliApplication
                 "from-lesson", "cause", "correlation"),
             ["lesson mark"] = Options(
                 "root", "task", "actor", "kind", "source", "class", "repo", "tag", "supersedes",
-                "verify", "do-not", "lesson-actor", "cause", "correlation"),
+                "verify", "do-not", "lesson-actor", "lesson-kind", "audience", "verify-expects",
+                "cause", "correlation"),
+            // No --task and no --actor: the store belongs to no task, and the command writes
+            // nothing, so there is nothing for an actor to be authorised for.
+            ["lesson recheck"] = Options("repo", "id", "confirm", "working-directory", "timeout-seconds"),
             ["constraint add"] = Options(
                 "root", "task", "actor", "id", "statement", "source", "scope", "cause", "correlation"),
             ["constraint supersede"] = Options(
@@ -1711,12 +1842,14 @@ public sealed class CliApplication
         string? provider = null,
         string? sessionId = null,
         string? providerVersion = null,
-        string? launchTokenHash = null) =>
+        string? launchTokenHash = null,
+        IReadOnlyList<ContextSkill>? skillsServedNow = null) =>
         new(
             Actor(input), Cause(input), Correlation(input), Run(input),
             OptionalId(input.Optional("work"), value => new WorkItemId(value)),
             provider ?? input.Required("provider"), sessionId ?? input.Optional("session"),
-            input.Optional("model"), providerVersion, launchTokenHash, Subject(input));
+            input.Optional("model"), providerVersion, launchTokenHash, Subject(input),
+            skillsServedNow);
 
     private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
     // Who the run is for. Absent, an actor starts its own run and nothing changes.
@@ -1822,6 +1955,8 @@ public sealed class CliApplication
     private static T? OptionalId<T>(string? value, Func<string, T> factory) where T : struct =>
         string.IsNullOrWhiteSpace(value) ? null : factory(value);
     private static T EnumValue<T>(CommandLine input, string name) where T : struct, Enum => ParseEnum<T>(input.Required(name));
+    private static T? OptionalEnumValue<T>(CommandLine input, string name) where T : struct, Enum =>
+        input.Optional(name) is { } value ? ParseEnum<T>(value) : null;
     private static T ParseEnum<T>(string value) where T : struct, Enum =>
         Enum.TryParse<T>(value.Replace("-", string.Empty, StringComparison.Ordinal), true, out var parsed) &&
         Enum.IsDefined(parsed)
@@ -1877,6 +2012,7 @@ public sealed class CliApplication
         challenge dispose  --task ID --actor ID --id ID --status supported|rejected|withdrawn
         work add           --task ID --actor ID --id ID --title TEXT [--owner ID]
                            [--depends-on CLAIM] [--scope PATH] [--not-split-because ALT-ID]
+                           [--cognitive-root PATH]
         work complete      --task ID --actor ID --id ID [--without-verification REASON]
         work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
         work unblock       --task ID --actor ID --id ID
@@ -1892,7 +2028,16 @@ public sealed class CliApplication
                            --class refuted|untested|drifted
                            --verify COMMAND --do-not TEXT
                            --lesson-actor researcher|executor|verifier|recon
+                           --verify-expects present|absent   (for a runnable --verify)
+                           [--lesson-kind domain|workflow] [--audience ROLE]
                            [--tag TAG] [--supersedes LESSON]
+        lesson recheck     --repo NAME [--id LESSON-ID] [--confirm VALUE]
+                           [--working-directory PATH] [--timeout-seconds N]
+                           Without --confirm it lists the stored verifies and runs nothing. With
+                           --id and the confirmation printed beside that row it runs that one
+                           command and reports whether the direction it recorded still holds. A
+                           read: it writes no event, no projection and no store row, and only an
+                           operator asking for it runs it.
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
@@ -1949,6 +2094,46 @@ public sealed class CliApplication
         point of carrying one. When the citation cannot be checked by running anything, say so
         instead: "none" followed by a separator and the reason. A bare "none" is refused, and so is
         an invented command, because a fabricated verify reads as evidence to every later recall.
+
+        --verify-expects says which way the verify has to come out for the lesson to still hold:
+        present, the command succeeding, or absent, the command failing. It is required whenever the
+        verify is a runnable command, because a verify was never required to be able to fail: a grep
+        for a symbol that exists in both the defective and the repaired state passes either way, so
+        running it re-establishes nothing and a lesson whose defect has since been fixed is recalled
+        as current. It is refused on a verify that records there is nothing to run, which has no
+        direction to state. lesson recheck is what reads it.
+
+        --lesson-kind says what the lesson is about: domain, a fact about the software the task was
+        building, or workflow, a fact about how this kernel and its pipeline behave. Absent reads as
+        domain. It is separate from --class, which says what kind of failure the lesson records, and
+        from --kind, which names the record it was minted from.
+
+        --audience is repeatable and names the roles the lesson is addressed to — operator,
+        planning-lead, implementation-lead, researcher, worker, verifier, code-reviewer. A lesson
+        carrying an audience reaches only those roles' manifests. A lesson carrying none reaches
+        every role, which is what a lesson with nothing role-specific to say means. The vocabulary
+        is the role's, not --lesson-actor's: the audience is who has to read the lesson and
+        --lesson-actor is which cognition established it.
+
+        lesson recheck reads the lessons the store holds for one repository and reports whether the
+        direction each recorded still holds. --repo is required rather than defaulted to the whole
+        store because a verify carries repository-relative paths: another repository's lessons run
+        from this working directory would all report as no longer holding, on the evidence that its
+        files are not here. A row with no verify, no direction, or a verify that records there is
+        nothing to run carries a reason instead of a confirmation, because there is nothing to run
+        for it. A command that neither succeeds nor fails inside its deadline is reported
+        indeterminate, which is not evidence either way. The report is a read for an operator, not a
+        gate: nothing on the recall, context-build or stage-transition path runs it, and its exit
+        code does not depend on what it found.
+
+        Without --confirm the command lists the selected rows, each with the verify it would run and
+        a confirmation value, and starts nothing. Running one takes --id naming that single row and
+        --confirm carrying the value printed beside it. A verify is a caller-supplied field on a
+        mark, so the store is a list of shell commands written by whoever marked the lesson, and an
+        operator who asks for a repository-wide sweep approves the sweep rather than the commands it
+        would discover. Passing the confirmation back is evidence that the text on screen is the
+        text that will run. Without a matching one — a wrong value, no --id, more than one --id, or
+        a row that cannot be rechecked — the command is refused before any process is created.
 
         --do-not says what must not be re-assumed without new evidence. --lesson-actor says which
         cognition established the lesson — researcher, executor, verifier or recon. It is spelled
