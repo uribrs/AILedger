@@ -21,9 +21,9 @@ public sealed class TaskReducer : ITaskReducer
             DecisionInvalidated invalidated => InvalidateDecision(Require(state), invalidated),
             ChallengeRaised raised => Require(state) with { Challenges = Set(Require(state).Challenges, raised.Challenge.Id, raised.Challenge) },
             ChallengeDisposed disposed => DisposeChallenge(Require(state), disposed),
-            WorkItemAdded added => Require(state) with { WorkItems = Set(Require(state).WorkItems, added.WorkItem.Id, added.WorkItem) },
+            WorkItemAdded added => AddWorkItem(Require(state), @event, added),
             WorkItemInvalidated invalidated => InvalidateWorkItem(Require(state), invalidated),
-            RunStarted started => StartRun(Require(state), started),
+            RunStarted started => StartRun(Require(state), @event, started),
             RunCompleted completed => CompleteRun(Require(state), completed),
             StagePrerequisitesWaived waived => RecordStagePrerequisiteWaiver(Require(state), @event, waived),
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
@@ -48,22 +48,37 @@ public sealed class TaskReducer : ITaskReducer
             // Keyed by actor, so a later brief replaces the one before it. The gate asks whether
             // this actor is briefed against the layer as it stands, and the answer is the last
             // brief; the earlier ones stay in the log, which is where history belongs.
+            //
+            // built.WorkItemId is deliberately not projected. An event is appended only when the
+            // skill set is new or changed, so a work item carried here would be the one from
+            // whichever invocation happened to append and would stay wrong for every later build
+            // (MD2, SC3). The event keeps it; the projection answers a narrower question.
             ContextBuilt built => Require(state) with
             {
                 ContextBuilds = Set(
                     Require(state).ContextBuilds,
                     @event.ActorId,
-                    new ContextBuild(
-                        @event.ActorId, built.Role, built.WorkItemId, built.Skills, @event.RecordedAt))
+                    new ContextBuild(@event.ActorId, built.Role, built.Skills, @event.RecordedAt))
             },
-            // Nothing to project. The waiver says a gate was opened for the event that follows it,
-            // and no rule asks the state whether one was: the stage waiver is held only because the
-            // transition beside it has to be paired with it, and this one pairs with nothing.
-            ContextBriefWaived => Require(state),
+            // Held for one step, not projected here. The waiver says a gate was opened for the event
+            // that follows it, and it is that event — work.added or run.started — that knows what the
+            // opening bought, so the two are joined there and the justification stays recorded once.
+            ContextBriefWaived waived => Require(state) with
+            {
+                PendingContextBriefWaiver = new PendingBriefWaiver(
+                    @event.EventId, @event.ActorId, waived.OperatorReason, waived.StaleBriefEvidenceId)
+            },
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
-        return next with { Version = (state?.Version ?? 0) + 1 };
+        return next with
+        {
+            Version = (state?.Version ?? 0) + 1,
+            // Any event other than a waiver clears the pending one, consumed or not. A waiver whose
+            // command failed after it was appended must not attach itself to a later work item.
+            PendingContextBriefWaiver =
+                @event.Data is ContextBriefWaived ? next.PendingContextBriefWaiver : null
+        };
     }
 
     private static void ValidateEnvelope(GovernedTaskState? state, LedgerEvent @event)
@@ -157,7 +172,18 @@ public sealed class TaskReducer : ITaskReducer
         return state with { WorkItems = Set(state.WorkItems, invalidated.WorkItemId, workItem) };
     }
 
-    private static GovernedTaskState StartRun(GovernedTaskState state, RunStarted started)
+    private static GovernedTaskState AddWorkItem(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        WorkItemAdded added) =>
+        state with
+        {
+            WorkItems = Set(state.WorkItems, added.WorkItem.Id, added.WorkItem),
+            ContextBriefWaivers = JoinBriefWaiver(
+                state, @event, ContextBriefWaiver.WorkItemKind, added.WorkItem.Id.Value)
+        };
+
+    private static GovernedTaskState StartRun(GovernedTaskState state, LedgerEvent @event, RunStarted started)
     {
         var workItems = state.WorkItems;
         if (started.Run.WorkItemId is { } workItemId)
@@ -169,9 +195,29 @@ public sealed class TaskReducer : ITaskReducer
         return state with
         {
             Runs = Set(state.Runs, started.Run.Id, started.Run),
-            WorkItems = workItems
+            WorkItems = workItems,
+            ContextBriefWaivers = JoinBriefWaiver(
+                state, @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)
         };
     }
+
+    // The waiver this event was let through by, if it was let through by one. The join is causationId:
+    // CommandHandler chains a command's second event to its first, and a waiver and the work.added or
+    // run.started beside it are exactly that pair. An event naming a different cause was not carried
+    // by the pending waiver, so it records nothing — a missing join is the honest answer.
+    private static IReadOnlyList<ContextBriefWaiver> JoinBriefWaiver(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        string kind,
+        string targetId) =>
+        state.PendingContextBriefWaiver is { } waiver && @event.CausationId == waiver.EventId
+            ?
+            [
+                .. state.ContextBriefWaivers,
+                new ContextBriefWaiver(
+                    kind, targetId, waiver.ActorId, waiver.OperatorReason, waiver.StaleBriefEvidenceId)
+            ]
+            : state.ContextBriefWaivers;
 
     private static GovernedTaskState CompleteRun(GovernedTaskState state, RunCompleted completed)
     {

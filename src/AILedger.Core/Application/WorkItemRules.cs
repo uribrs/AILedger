@@ -68,6 +68,8 @@ internal static class WorkItemRules
             BaseRef: string.IsNullOrWhiteSpace(command.BaseRef) ? null : command.BaseRef.Trim());
         // The waiver precedes the item it let through, the way a stage waiver precedes its
         // transition: a reader sees which gate was opened before it sees what the opening bought.
+        // Nothing from it is copied onto the item — the reducer joins the two on causationId, so the
+        // justification stays a single record that the item cannot contradict.
         return briefWaiver is null ? [new WorkItemAdded(workItem)] : [briefWaiver, new WorkItemAdded(workItem)];
     }
 

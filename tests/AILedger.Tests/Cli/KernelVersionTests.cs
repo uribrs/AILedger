@@ -232,7 +232,10 @@ public sealed class KernelVersionTests
     [InlineData("status", true)]
     [InlineData("who", true)]
     [InlineData("history", true)]
-    [InlineData("context build", true)]
+    // SC2. 'context build' serves a brief and then records a context.built event for a new or
+    // changed skill set, so it can move the task on and is not exempt. A stale tool briefing an
+    // agent is the case this warning exists for.
+    [InlineData("context build", false)]
     [InlineData("artifact list", true)]
     [InlineData("claim add", false)]
     [InlineData("provider launch", false)]

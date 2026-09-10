@@ -35,6 +35,7 @@ If the file already exists, update it in place rather than creating a duplicate.
 After writing the research file:
 
 - Record each finding with `ailedger claim add` and its underlying source with `ailedger evidence add --supports CLAIM` or `--refutes CLAIM`. A pointer to your own research file is not by itself a citation; the underlying vendor URL or source `file:line` is.
+- When the evidence settles `triggeringAssumptionId`, report the evidence id and direction to the caller. The researcher cannot resolve the claim; ask an operator or lead holding `ResolveClaim` to run `ailedger claim resolve --status validated|rejected --evidence EVIDENCE-ID`.
 - The research document remains the run's supporting output; the claims and evidence are its governed findings.
 - Surface a stable rule that affects future execution to a lead or operator for `ailedger decision propose`; a researcher does not hand-edit the decision projection.
 

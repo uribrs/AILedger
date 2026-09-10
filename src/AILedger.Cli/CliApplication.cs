@@ -636,6 +636,16 @@ public sealed class CliApplication
             projection["owed"] = JsonSerializer.SerializeToNode(debt, _json);
         }
 
+        // Which live work and which launches came through a door on the context gate. Absent when
+        // none did, for the reason the owed block is absent when nothing is owed: a task that opened
+        // no door should read exactly as it did before the doors existed. Present, it is the one
+        // place the record answers who bypassed the gate and why without reading the event log.
+        var waivers = BriefWaiver.Compute(state);
+        if (waivers.Count > 0)
+        {
+            projection["briefsWaived"] = JsonSerializer.SerializeToNode(waivers, _json);
+        }
+
         await WriteJsonAsync(projection).ConfigureAwait(false);
     }
 
@@ -911,15 +921,35 @@ public sealed class CliApplication
         // The skills exactly as this manifest carries them, filtered and ordered — not a second
         // reading of the cognitive layer, which could differ from what was just served.
         var skills = ContextSkills.From(manifest.Artifacts);
+
+        // Delivered first, recorded second. The event is what the gate reads as proof the actor
+        // holds this brief, so recording before the write means a failed file write, a closed
+        // stdout, a cancellation or a serialisation error leaves a durable context.built for a
+        // brief nobody received — and the gate then admits 'work add' or 'provider launch' on
+        // evidence that is false (SC1). Ordered this way the surviving failure is the safe one:
+        // the actor holds the brief and the append failed, so the gate refuses and the actor
+        // rebuilds. An attempted output is not delivery.
+        var json = JsonSerializer.Serialize(manifest, _json) + Environment.NewLine;
+        var outputPath = input.Optional("output");
+        if (outputPath is null)
+        {
+            await _output.WriteAsync(json).ConfigureAwait(false);
+        }
+        else
+        {
+            await File.WriteAllTextAsync(Path.GetFullPath(outputPath), json, cancellationToken).ConfigureAwait(false);
+            await _output.WriteLineAsync(Path.GetFullPath(outputPath)).ConfigureAwait(false);
+        }
+
         // Suppressed rather than refused. A repeat brief for the same actor and the same skills
-        // appends nothing and leaves the version where it was, which is what keeps 'context build'
-        // a read: three agents briefing in a row must not each move the task on (R2, IC2).
+        // appends nothing and leaves the version where it was, which is what keeps three agents
+        // briefing in a row from each moving the task on (R2, IC2).
         //
         // The command is always submitted and the kernel decides, because only the kernel holds the
         // mutation lock. Deciding here — read the state, then submit — is what let two agents
         // briefing at the same instant both append (VC2). The exception is the kernel declining to
-        // append, not a refusal: the brief this command was asked for is already recorded, so the
-        // read below succeeds either way.
+        // append, not a refusal: the brief this command was asked for is already recorded, and the
+        // caller has it either way.
         try
         {
             await service.ExecuteAsync(Task(input), new RecordContextBuiltCommand(
@@ -929,17 +959,6 @@ public sealed class CliApplication
         catch (ContextAlreadyBriefedException)
         {
         }
-
-        var json = JsonSerializer.Serialize(manifest, _json) + Environment.NewLine;
-        var outputPath = input.Optional("output");
-        if (outputPath is null)
-        {
-            await _output.WriteAsync(json).ConfigureAwait(false);
-            return;
-        }
-
-        await File.WriteAllTextAsync(Path.GetFullPath(outputPath), json, cancellationToken).ConfigureAwait(false);
-        await _output.WriteLineAsync(Path.GetFullPath(outputPath)).ConfigureAwait(false);
     }
 
     private async Task<ContextManifest> CreateContextAsync(
@@ -1693,10 +1712,14 @@ public sealed class CliApplication
     // Every command that only reads. Listed positively on purpose: a command added later warns by
     // default, which is the safe direction — a needless warning is noise, a missing one is the
     // silence this whole entry is about.
+    //
+    // 'context build' is not here. It serves a brief and then records a context.built event for a
+    // new or changed skill set, so it is a read that conditionally writes, and a stale tool serving
+    // a brief is exactly the case the warning is for (SC2).
     private static readonly IReadOnlySet<string> ReadOnlyCommands = new HashSet<string>(StringComparer.Ordinal)
     {
         "version", "status", "task status", "who", "audit", "history", "task history",
-        "context build", "artifact show", "artifact list", "retrospective build", "lesson recheck"
+        "artifact show", "artifact list", "retrospective build", "lesson recheck"
     };
 
     // The ledger home is a real repository the operator opens a session in, so the root is found by
@@ -1747,7 +1770,7 @@ public sealed class CliApplication
     // task opens and written when one archives, which is not one command's business to declare.
     //
     // '--correlation' is here because a launched agent carries its run id there on every command it
-    // issues, and the first commands it issues are reads — 'context build', 'status'. Those declare
+    // issues, and the first commands it issues are 'context build' and 'status'. Those declare
     // no correlation option of their own and would refuse the flag the launcher put in front of it,
     // which would break the agent's first act rather than lose a measurement (C22, D5).
     private static readonly IReadOnlySet<string> GlobalOptions = Options("lesson-root", "correlation");
@@ -2019,6 +2042,11 @@ public sealed class CliApplication
                            never from inside the archive transition.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
+                           Serves the actor its brief, then records a context.built event naming the
+                           skills it carried and their content digests. A repeat build of the same
+                           skill set for the same actor appends nothing and leaves the version where
+                           it was, so it is a read that conditionally records audit evidence, not a
+                           read with no effect on the ledger.
         artifact record    --task ID --actor ID --id ID --kind KIND --title TEXT --body-stdin
                            [--work ID] [--run ID] [--supersedes ARTIFACT-ID]
         artifact show      --task ID --id ID [--json]

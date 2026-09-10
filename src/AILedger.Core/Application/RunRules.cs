@@ -140,6 +140,8 @@ internal static class RunRules
             TrimOrNull(command.LaunchTokenHash),
             launchedBy,
             subjectRole);
+        // The waiver precedes the run it let through and carries the justification alone, as on
+        // work.added: the reducer joins the pair on causationId rather than copying it onto the run.
         return briefWaiver is null ? [new RunStarted(run)] : [briefWaiver, new RunStarted(run)];
     }
 

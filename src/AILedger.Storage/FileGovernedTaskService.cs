@@ -10,6 +10,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
+    private const string CommandEventIndexProperty = "_ailedgerCommandEventIndex";
+    private const string CommandEventCountProperty = "_ailedgerCommandEventCount";
     // Ten slots divided by three is the four source tasks a recall must reach. The limit above stays
     // where it is: the manifest is what every launched agent pays for in tokens, so the fix is to
     // spend the ten slots on more tasks, not to buy more slots.
@@ -209,8 +211,10 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             try
             {
                 var sourceTaskId = new TaskId(taskName);
-                // Event-log replacement is atomic. Reading without taking a second task lock avoids
-                // the A-opens-B/B-opens-A deadlock while still yielding either complete snapshot.
+                // Taking a second task lock here creates an A-opens-B/B-opens-A deadlock. Replay
+                // instead bounds its stream to the sibling log's open-time length: an append that
+                // starts later is outside this snapshot, and a command already in progress is
+                // either complete in the snapshot or withheld by its command-boundary metadata.
                 archived = await ReplayAsync(
                     sourceTaskId, taskDirectory, cancellationToken, allowConcurrentReplacement: true)
                     .ConfigureAwait(false);
@@ -465,22 +469,25 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         bool allowConcurrentReplacement = false)
     {
         EnsureEventLogSize(eventsPath);
-        await using var stream = new FileStream(
+        await using var file = new FileStream(
             eventsPath,
             FileMode.Open,
             FileAccess.Read,
             allowConcurrentReplacement ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read,
             bufferSize: 4096,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
-        var hasUnterminatedTail = stream.Length > 0 && !EndsWithNewline(stream);
+        var snapshotLength = file.Length;
+        var hasUnterminatedTail = snapshotLength > 0 && !EndsWithNewline(file, snapshotLength);
+        await using var stream = new ReadOnlySnapshotStream(file, snapshotLength);
         using var reader = new StreamReader(stream, Utf8WithoutBom, detectEncodingFromByteOrderMarks: true);
 
         var lineNumber = 0;
+        List<LedgerEvent>? pendingCommand = null;
+        var pendingCommandEventCount = 0;
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
-            // R1 (atomicity-must-survive): one append is one newline-terminated write. A process
-            // death can therefore leave only an unterminated final fragment. It is not a committed
-            // event: replay ignores it, and the next append truncates it before writing a full line.
+            // An unterminated last line is never committed, even when the bytes happen to be valid
+            // JSON. RemoveUncommittedTailAsync discards it before the next append.
             if (hasUnterminatedTail && reader.EndOfStream)
             {
                 yield break;
@@ -501,8 +508,10 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             }
 
             LedgerEvent? @event;
+            CommandEventPosition? commandPosition;
             try
             {
+                commandPosition = ReadCommandEventPosition(line);
                 @event = JsonSerializer.Deserialize<LedgerEvent>(line, _eventJson);
             }
             catch (JsonException exception)
@@ -511,9 +520,65 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                     $"Invalid event JSON at line {lineNumber} in '{eventsPath}'.", exception);
             }
 
-            yield return @event ?? throw new InvalidDataException(
+            var parsedEvent = @event ?? throw new InvalidDataException(
                 $"Null event at line {lineNumber} in '{eventsPath}'.");
+
+            if (commandPosition is null)
+            {
+                if (pendingCommand is not null)
+                {
+                    throw new InvalidDataException(
+                        $"Incomplete command before line {lineNumber} in '{eventsPath}'.");
+                }
+
+                yield return parsedEvent;
+                continue;
+            }
+
+            var position = commandPosition.Value;
+            if (position.Count > _maximumEventsPerTask)
+            {
+                throw new InvalidDataException(
+                    $"Command boundary at line {lineNumber} in '{eventsPath}' exceeds the event limit.");
+            }
+
+            if (position.Index == 0)
+            {
+                if (pendingCommand is not null)
+                {
+                    throw new InvalidDataException(
+                        $"Incomplete command before line {lineNumber} in '{eventsPath}'.");
+                }
+
+                pendingCommand = new List<LedgerEvent>(position.Count);
+                pendingCommandEventCount = position.Count;
+            }
+            else if (pendingCommand is null ||
+                     position.Count != pendingCommandEventCount ||
+                     position.Index != pendingCommand.Count)
+            {
+                throw new InvalidDataException(
+                    $"Invalid command boundary at line {lineNumber} in '{eventsPath}'.");
+            }
+
+            pendingCommand.Add(parsedEvent);
+            if (pendingCommand.Count != pendingCommandEventCount)
+            {
+                continue;
+            }
+
+            foreach (var committedEvent in pendingCommand)
+            {
+                yield return committedEvent;
+            }
+
+            pendingCommand = null;
+            pendingCommandEventCount = 0;
         }
+
+        // R1 (atomicity-must-survive): a marked multi-event command is visible only after every
+        // indexed line is present. A tear therefore exposes either none of the command or all of
+        // it; an incomplete trailing group is withheld and removed before the next append.
     }
 
     private async Task AppendEventsAsync(
@@ -527,10 +592,22 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         }
 
         var payload = new StringBuilder();
-        foreach (var @event in events)
+        for (var index = 0; index < events.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            payload.Append(JsonSerializer.Serialize(@event, _eventJson)).Append('\n');
+            var json = JsonSerializer.Serialize(events[index], _eventJson);
+            if (events.Count == 1)
+            {
+                payload.Append(json).Append('\n');
+                continue;
+            }
+
+            // Unknown JSON properties preserve compatibility with the LedgerEvent model and raw
+            // JSONL consumers while giving replay enough information to withhold a command prefix.
+            payload.Append(json.AsSpan(0, json.Length - 1))
+                .Append(",\"").Append(CommandEventIndexProperty).Append("\":").Append(index)
+                .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
+                .Append("}\n");
         }
 
         var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
@@ -540,10 +617,10 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             throw EventLogWouldExceedByteLimit();
         }
 
-        // R1 (atomicity-must-survive): an interrupted single write may have left an unterminated
-        // tail. Replay never treated that tail as committed, so remove it before the next append;
-        // otherwise the next complete event would be joined to the fragment and become unreadable.
-        var existingLength = await RemoveUnterminatedTailAsync(eventsPath).ConfigureAwait(false);
+        // Replay treats neither an unterminated line nor a complete prefix of a marked command as
+        // committed. Remove either form before appending so the reader continues to see exactly
+        // the old command set or the old set plus this complete command.
+        var existingLength = await RemoveUncommittedTailAsync(eventsPath).ConfigureAwait(false);
 
         // R2 (the-size-cap-must-still-fire): calculate against the committed log length before
         // writing, and preserve the actionable successor-task instruction from the old path.
@@ -552,8 +629,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             throw EventLogWouldExceedByteLimit();
         }
 
-        // R3 (concurrent-writers-must-not-interleave): ExecuteAsync still holds the task's
-        // cross-process mutation lock, and FileShare.Read independently refuses another writer.
+        // R3 (concurrent-writers-must-not-interleave): ExecuteAsync holds the task's cross-process
+        // mutation lock across replay, tail repair, the cap check and this append.
         await using var stream = new FileStream(
             eventsPath,
             FileMode.Append,
@@ -561,13 +638,13 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             FileShare.Read,
             bufferSize: 4096,
             FileOptions.Asynchronous | FileOptions.WriteThrough);
-        // R1: keep every emitted event and its terminating newline in one write. WriteThrough plus
-        // the explicit disk flush makes completion durable; a torn write is handled as above.
+        // Keep the payload in one API write. WriteThrough plus the explicit disk flush makes its
+        // completion durable; command markers make any prefix left by a lower-level tear invisible.
         await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
         stream.Flush(flushToDisk: true);
     }
 
-    private static async Task<long> RemoveUnterminatedTailAsync(string eventsPath)
+    private static async Task<long> RemoveUncommittedTailAsync(string eventsPath)
     {
         if (!File.Exists(eventsPath))
         {
@@ -587,22 +664,40 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             stream.Flush(flushToDisk: true);
         }
 
+        if (stream.Length > 0)
+        {
+            var lineEnd = stream.Length;
+            var lineStart = FindPreviousLineStart(stream, lineEnd);
+            var position = ReadCommandEventPosition(ReadLine(stream, lineStart, lineEnd));
+            if (position is { } command && command.Index < command.Count - 1)
+            {
+                for (var index = 0; index < command.Index; index++)
+                {
+                    lineStart = FindPreviousLineStart(stream, lineStart);
+                }
+
+                stream.SetLength(lineStart);
+                stream.Flush(flushToDisk: true);
+            }
+        }
+
         return stream.Length;
     }
 
-    private static bool EndsWithNewline(FileStream stream)
+    private static bool EndsWithNewline(FileStream stream, long? length = null)
     {
-        stream.Seek(-1, SeekOrigin.End);
+        var endOffset = length ?? stream.Length;
+        stream.Seek(endOffset - 1, SeekOrigin.Begin);
         var endsWithNewline = stream.ReadByte() == '\n';
         stream.Seek(0, SeekOrigin.Begin);
         return endsWithNewline;
     }
 
-    private static long FindLastNewlineOffset(FileStream stream)
+    private static long FindLastNewlineOffset(FileStream stream, long? beforeOffset = null)
     {
         const int scanBufferSize = 4096;
         var buffer = new byte[scanBufferSize];
-        var scanEnd = stream.Length;
+        var scanEnd = beforeOffset ?? stream.Length;
         while (scanEnd > 0)
         {
             var scanStart = Math.Max(0, scanEnd - scanBufferSize);
@@ -621,6 +716,101 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         }
 
         return 0;
+    }
+
+    private static long FindPreviousLineStart(FileStream stream, long lineEnd)
+    {
+        return FindLastNewlineOffset(stream, Math.Max(0, lineEnd - 1));
+    }
+
+    private static string ReadLine(FileStream stream, long lineStart, long lineEnd)
+    {
+        var byteCount = checked((int)(lineEnd - lineStart - 1));
+        var bytes = new byte[byteCount];
+        stream.Position = lineStart;
+        stream.ReadExactly(bytes);
+        return Utf8WithoutBom.GetString(bytes);
+    }
+
+    private static CommandEventPosition? ReadCommandEventPosition(string line)
+    {
+        if (!line.Contains(CommandEventIndexProperty, StringComparison.Ordinal) &&
+            !line.Contains(CommandEventCountProperty, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        using var document = JsonDocument.Parse(line);
+        var root = document.RootElement;
+        var hasIndex = root.TryGetProperty(CommandEventIndexProperty, out var indexElement);
+        var hasCount = root.TryGetProperty(CommandEventCountProperty, out var countElement);
+        if (!hasIndex && !hasCount)
+        {
+            return null;
+        }
+
+        if (!hasIndex || !hasCount ||
+            !indexElement.TryGetInt32(out var index) ||
+            !countElement.TryGetInt32(out var count) ||
+            count < 2 || index < 0 || index >= count)
+        {
+            throw new JsonException("Invalid command-boundary metadata.");
+        }
+
+        return new CommandEventPosition(index, count);
+    }
+
+    private readonly record struct CommandEventPosition(int Index, int Count);
+
+    private sealed class ReadOnlySnapshotStream(Stream inner, long length) : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override long Length => length;
+        public override long Position
+        {
+            get => Math.Min(inner.Position, length);
+            set => inner.Position = value <= length ? value : throw new ArgumentOutOfRangeException(nameof(value));
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            var remaining = length - Position;
+            return remaining <= 0 ? 0 : inner.Read(buffer[..(int)Math.Min(buffer.Length, remaining)]);
+        }
+
+        public override ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            var remaining = length - Position;
+            return remaining <= 0
+                ? ValueTask.FromResult(0)
+                : inner.ReadAsync(buffer[..(int)Math.Min(buffer.Length, remaining)], cancellationToken);
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            var target = origin switch
+            {
+                SeekOrigin.Begin => offset,
+                SeekOrigin.Current => Position + offset,
+                SeekOrigin.End => length + offset,
+                _ => throw new ArgumentOutOfRangeException(nameof(origin))
+            };
+            Position = target;
+            return target;
+        }
+
+        public override void Flush() { }
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing) { }
+        public override ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private GovernanceException EventLogWouldExceedByteLimit() => new(

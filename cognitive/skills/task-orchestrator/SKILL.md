@@ -112,6 +112,7 @@ When research is required:
 - Name one non-duplicate topic in the plan.
 - Have the operator launch `technical-researcher` with `taskPath`, a filesystem-safe `<topic-slug>`, and the exact question plus the decision it can change. Keep the source trigger separate: `assumption:<id>` or `classification:<tag>`.
 - The researcher writes to `research/<topic-slug>.md` and records claims and evidence through the kernel. Assumption-triggered work produces evidence supporting or refuting the triggering claim; classification-triggered work answers the decision question and is cited from the plan.
+- After assumption-triggered research records directional evidence, have an operator or lead holding `ResolveClaim` run `ailedger claim resolve --status validated|rejected --evidence EVIDENCE-ID`. The researcher supplies the evidence id and direction but cannot resolve the claim.
 
 When research is not required, record a one-line rationale in `orchestration_plan.md` under Research Decisions.
 

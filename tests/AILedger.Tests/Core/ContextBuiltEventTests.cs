@@ -51,7 +51,6 @@ public sealed class ContextBuiltEventTests
 
         var build = state!.ContextBuilds[new ActorId("operator")];
         Assert.Equal(RoleKind.Operator, build.Role);
-        Assert.Null(build.WorkItemId);
         Assert.Equal(
             manifest.Artifacts.Count(artifact => artifact.Kind == ContextArtifactKind.Skill),
             build.Skills.Count);
@@ -129,6 +128,64 @@ public sealed class ContextBuiltEventTests
             Assert.Single(afterSecond.ContextBuilds[new ActorId("operator")].Skills).ContentHash);
     }
 
+    // SC1. The event is the gate's proof that this actor holds the brief, so recording it before
+    // the manifest reaches the caller means a failed write leaves proof of a brief nobody received
+    // — and the gate then admits 'work add' on evidence that is false. The write here fails because
+    // its directory does not exist, which is the cheapest of the four failures in that finding;
+    // they all reach the same place, after the event and before the caller has anything.
+    [Fact]
+    public async Task AManifestWriteThatFailsRecordsNoBrief()
+    {
+        using var root = new TemporaryDirectory();
+        await OpenAsync(root.Path, "T1", "operator");
+
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service,
+            _ => throw new InvalidOperationException("No provider is launched here."),
+            new ContextAssembler());
+        var unwritable = Path.Combine(root.Path, "no-such-directory", "manifest.json");
+        Assert.Equal(1, await application.RunAsync(
+            ["context", "build", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--cognitive-root", ContextBrief.CognitiveRoot(), "--output", unwritable],
+            CancellationToken.None));
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Empty(state!.ContextBuilds);
+        Assert.Equal(0, await CountContextBuiltAsync(root.Path, "T1"));
+    }
+
+    // SC3 and MD2. The projection is keyed on the actor and the skill set, so a build naming a
+    // different work item with the same skills appends nothing — which is why the projection cannot
+    // carry a work item without naming whichever one happened to append first. The event still
+    // records the invocation's work item; this pins that the second invocation writes no event, so
+    // there is nothing for the projection to be right or wrong about.
+    [Fact]
+    public async Task ASecondBriefNamingADifferentWorkItemAppendsNoEvent()
+    {
+        using var root = new TemporaryDirectory();
+        await BuildAsync(root.Path, "T1", "operator");
+
+        var service = Service(root.Path);
+        var served = await ContextBrief.RecordedAsync(service, "T1");
+        foreach (var id in new[] { "W1", "W2" })
+        {
+            await service.ExecuteAsync(
+                new TaskId("T1"),
+                new AddWorkItemCommand(
+                    new ActorId("operator"), null, $"add-{id}", new WorkItemId(id), id, null, [], [],
+                    SkillsServedNow: served),
+                CancellationToken.None);
+        }
+
+        var afterWork = await service.GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        await BuildForWorkAsync(root.Path, "T1", "operator", "W1");
+        await BuildForWorkAsync(root.Path, "T1", "operator", "W2");
+        var afterBriefs = await service.GetStateAsync(new TaskId("T1"), CancellationToken.None);
+
+        Assert.Equal(afterWork!.Version, afterBriefs!.Version);
+        Assert.Equal(1, await CountContextBuiltAsync(root.Path, "T1"));
+    }
+
     // R1 (replay-must-not-tighten). Every task in this ledger was created before context.built
     // existed, so replay has to keep accepting a history where work was added without one. This
     // reduces the events directly, which is the only way to produce that history now that the
@@ -194,6 +251,22 @@ public sealed class ContextBuiltEventTests
             await File.ReadAllTextAsync(manifestPath), LedgerJson.CreateOptions())!;
         File.Delete(manifestPath);
         return manifest;
+    }
+
+    private static async Task BuildForWorkAsync(
+        string root, string taskId, string actorId, string workItemId)
+    {
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service,
+            _ => throw new InvalidOperationException("No provider is launched here."),
+            new ContextAssembler());
+        var manifestPath = Path.Combine(Path.GetTempPath(), $"manifest-{Guid.NewGuid():N}.json");
+        Assert.Equal(0, await application.RunAsync(
+            ["context", "build", "--root", root, "--task", taskId, "--actor", actorId,
+             "--work", workItemId, "--cognitive-root", ContextBrief.CognitiveRoot(),
+             "--output", manifestPath],
+            CancellationToken.None));
+        File.Delete(manifestPath);
     }
 
     private static async Task<int> CountContextBuiltAsync(string root, string taskId)

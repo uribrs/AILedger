@@ -1,6 +1,6 @@
 # Orchestration Rubric
 
-Use this reference when deciding between the `direct` and `decompose` execution paths, when running the final verifier subagent against `prompt_contract.md` Success Criteria, and when invoking the isolated code-reviewer subagent. Do not load it for obvious trivial cases.
+Use this reference when deciding between the `direct` and `decompose` execution paths, when specifying the final verifier run against the current PromptContract artifact's Success Criteria, and when specifying the isolated code-reviewer run. Do not load it for obvious trivial cases.
 
 ## Simplicity Decision Heuristic
 
@@ -88,7 +88,7 @@ The verifier should inspect the final state against these anchors:
 1. The original user request
 2. `prompt_contract.md` — especially Success Criteria and Constraints
 3. `orchestration_plan.md` — execution path, research decisions, worker plan
-4. `assumptions.md`, `decisions.md`, and any completed `research/<topic>.md` files
+4. Claims, decisions, and constraints in the current context manifest, plus any completed `research/<topic>.md` files
 5. Delegated worker outputs and the synthesized result
 6. `execution_notes.md` and the final produced artifacts
 
@@ -103,7 +103,7 @@ Questions to answer:
 - Are there contradictions across outputs, claims, or files?
 - Are edge cases or failure paths missing?
 - Is every assumption disposed with an actor and a citation? Which are NEVER-TESTED, and what risk does each carry?
-- Did any decision in `decisions.md` change or get abandoned during execution, and was the reason recorded?
+- Did any governed decision change or get abandoned during execution, and was the reason recorded?
 - When research was performed, does the execution align with the research findings (including forbidden assumptions and verify-first items)?
 - When relevant, are tool usage, factual grounding, testability, immediate usability, and edge-case handling sound?
 - Is the output complete enough to be useful now?
@@ -118,7 +118,7 @@ For invocation context, allow-list, deny-list, scope separation, and review lens
 
 ## Repair Policy
 
-For the verifier and code-reviewer repair flow, see the Verifier Subagent and Code-Reviewer Subagent sections in `task-orchestrator/SKILL.md`.
+For the verifier and code-reviewer repair flow, see the Verifier Run and Code-Reviewer Run sections in `task-orchestrator/SKILL.md`.
 
 ## Practical Biases
 

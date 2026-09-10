@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -168,7 +169,11 @@ public sealed class RecoveryTests
         await OpenAsync(CreateService(root.Path), taskId, new ActorId("operator"));
         var eventsPath = Path.Combine(root.Path, taskId.Value, "events.jsonl");
         var lines = await File.ReadAllLinesAsync(eventsPath);
-        await File.WriteAllLinesAsync(eventsPath, [lines[0], lines[0]]);
+        var first = JsonNode.Parse(lines[0])!.AsObject();
+        var second = JsonNode.Parse(lines[1])!.AsObject();
+        second["eventId"] = first["eventId"]!.GetValue<string>();
+        lines[1] = second.ToJsonString();
+        await File.WriteAllLinesAsync(eventsPath, lines);
 
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
             CreateService(root.Path).GetStateAsync(taskId, CancellationToken.None));
@@ -184,11 +189,9 @@ public sealed class RecoveryTests
         await OpenAsync(CreateService(root.Path), taskId, new ActorId("operator"));
         var eventsPath = Path.Combine(root.Path, taskId.Value, "events.jsonl");
         var lines = await File.ReadAllLinesAsync(eventsPath);
-        var second = JsonSerializer.Deserialize<LedgerEvent>(lines[1], LedgerJson.CreateOptions())! with
-        {
-            CausationId = new EventId($"{taskId.Value}:0000009999")
-        };
-        lines[1] = JsonSerializer.Serialize(second, LedgerJson.CreateOptions());
+        var second = JsonNode.Parse(lines[1])!.AsObject();
+        second["causationId"] = $"{taskId.Value}:0000009999";
+        lines[1] = second.ToJsonString();
         await File.WriteAllLinesAsync(eventsPath, lines);
 
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
@@ -268,13 +271,9 @@ public sealed class RecoveryTests
         await OpenAsync(CreateService(root.Path), taskId, new ActorId("operator"));
         var eventsPath = Path.Combine(root.Path, taskId.Value, "events.jsonl");
         var lines = await File.ReadAllLinesAsync(eventsPath);
-        var openingRoleEvent = JsonSerializer.Deserialize<LedgerEvent>(lines[1], LedgerJson.CreateOptions())!;
-        var openingRole = Assert.IsType<RoleAssigned>(openingRoleEvent.Data);
-        openingRoleEvent = openingRoleEvent with
-        {
-            Data = new RoleAssigned(openingRole.Assignment with { ActorId = new ActorId("attacker") })
-        };
-        lines[1] = JsonSerializer.Serialize(openingRoleEvent, LedgerJson.CreateOptions());
+        var openingRoleEvent = JsonNode.Parse(lines[1])!.AsObject();
+        openingRoleEvent["data"]!["assignment"]!["actorId"] = "attacker";
+        lines[1] = openingRoleEvent.ToJsonString();
         await File.WriteAllLinesAsync(eventsPath, lines);
 
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>

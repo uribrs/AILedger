@@ -90,8 +90,8 @@ In execution:
 - If you hit a genuine blocker or contradiction, stop and surface it. Do not work around it silently.
 - Do not make speculative fixes. Diagnose first, change second.
 - Do not make a change that causes more errors than it fixes. If that happens, revert and report.
-- Let `task-orchestrator` route the work to the direct path (via `contract-driven-execution`) or the decompose path (via worker subagents). Treat `state.json` and `orchestration_plan.md` as the source of truth; do not rely on conversational memory across steps.
-- The verifier subagent and the isolated code-reviewer subagent are mandatory and run inside the orchestrator. Do not suppress, merge, or shortcut them.
+- Let `task-orchestrator` route the work to the direct path (via `contract-driven-execution`) or the decompose path (via governed worker runs over disjoint work-item scopes). Treat the current context manifest and OrchestrationPlan artifact as the source of truth; do not rely on conversational memory across steps.
+- The verifier run and the isolated code-reviewer run are mandatory and follow execution in that order. Do not suppress, merge, or shortcut them.
 
 **Scope creep in execution is a defect, not initiative.**
 
@@ -103,11 +103,11 @@ These skills govern operational execution. Load the appropriate skill before sta
 
 | Skill | When to use |
 |---|---|
-| `workflow-coordinator` | Entry point for any non-trivial task. Pure routing — sequences the contract designer and the orchestrator, confirms the verifier and code-reviewer passes ran, then transcribes lesson-bearing outcomes to `~/Dev/AILedger/lessons.md` and archives the task to `ai/done/`. Does not analyze, decompose, or research itself. |
+| `workflow-coordinator` | Entry point for any non-trivial task. Pure routing — sequences the contract designer and the orchestrator, confirms the verifier and code-reviewer passes ran, then marks lesson-bearing outcomes and requests archival through the kernel. Does not analyze, decompose, or research itself. |
 | `prompt-contract-designer` | Invoked by the coordinator to convert rough instructions into a signed execution contract before any planning or execution begins. Recalls prior lessons from the ledger and seeds them as OPEN assumptions. Writes OPEN only — it holds no evidence. |
-| `task-orchestrator` | Invoked by the coordinator after the contract is finalized. Owns the post-contract planning: resolves external research, runs one internal recon pass **before** the path decision, then decides direct vs decompose — `decompose` by default, `direct` only with the overlapping files named in the File Ownership section. Workers own disjoint file sets, the shared surface is frozen in phase 0, and a worker that needs a missing shared artifact returns `BLOCKED:` rather than inventing one. Writes `orchestration_plan.md`, runs the verifier subagent, runs the isolated code-reviewer subagent for code-bearing work. The verifier pass owns final assumption disposition against the diff. |
+| `task-orchestrator` | Invoked by the coordinator after the contract is finalized. Owns the post-contract planning: resolves external research, runs one internal recon pass **before** the path decision, then decides direct vs decompose — `decompose` by default, `direct` only with the overlapping files named in the File Ownership section. Workers own disjoint file sets, the shared surface is frozen in phase 0, and a worker that needs a missing shared artifact returns `BLOCKED:` rather than inventing one. Writes and files `orchestration_plan.md`, then specifies governed worker, verifier, and isolated code-reviewer runs in order. The verifier pass owns final assumption disposition against the diff. |
 | `contract-driven-execution` | Direct-path executor invoked by `task-orchestrator` (or directly when continuing a small task in an existing directory). Executes against the contract and updates state. Does not run verifier or code-reviewer. |
-| `technical-researcher` | Invoked by `task-orchestrator` to resolve an OPEN external-behavior assumption. Persists its output under `<taskPath>/research/<topic>.md` and resolves the triggering assumption. |
+| `technical-researcher` | Invoked by `task-orchestrator` to investigate an OPEN external-behavior claim. Persists its output under `<taskPath>/research/<topic>.md` and records directional evidence; an operator or lead holding `ResolveClaim` resolves the triggering claim. |
 | `code-reviewer` | Invoked by `task-orchestrator` in isolation after the verifier pass on code-bearing work. Reviews code quality only. Must not be given the user request, prompt contract, orchestration plan, or verifier output. |
 
 The pipeline:
@@ -117,15 +117,15 @@ workflow-coordinator
   └─ prompt-contract-designer
   └─ task-orchestrator
        ├─ technical-researcher        (external: when OPEN external-behavior assumptions exist)
-       ├─ recon subagent              (internal: code-bearing work; writes research/internal-recon.md)
+       ├─ internal recon pass         (code-bearing work; writes research/internal-recon.md)
        │                              — runs BEFORE the path decision, because it decides it
        ├─ decompose path → phase 0 freezes the shared surface,
        │                   then workers over disjoint file sets + synthesis
        │   OR
        │  direct path → contract-driven-execution   (no disjoint sets; overlapping files named)
-       ├─ verifier subagent           (full context; writes review/verifier-N.md + assumption disposition)
-       └─ code-reviewer subagent      (minimal context; writes review/code-reviewer-N.md)
-  └─ record lessons → ~/Dev/AILedger/lessons.md, archive → ai/done/
+       ├─ verifier run                (full context; writes and files review/verifier-N.md + assumption disposition)
+       └─ code-reviewer run           (minimal context; writes and files review/code-reviewer-N.md)
+  └─ mark lessons and request Archive through the kernel
 ```
 
 The ledger closes the loop: what one task refuted, the next task's contract designer recalls as an OPEN assumption with provenance.
