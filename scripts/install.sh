@@ -25,4 +25,9 @@ dotnet tool uninstall --global AILedger.Cli >/dev/null 2>&1 || true
 dotnet tool install --global --add-source artifacts/nupkg AILedger.Cli --version "$version$suffix" >/dev/null
 
 echo "installed: $(dotnet tool list --global | awk '/ailedger.cli/{print $2}')  from $sha$( [ -n "$dirty" ] && echo " (dirty tree)")"
-command -v ailedger >/dev/null || echo "note: \$HOME/.dotnet/tools is not on PATH in this shell"
+# The .NET installer's /etc/paths.d/dotnet-cli-tools holds the literal '~/.dotnet/tools' with the
+# tilde unexpanded, so it resolves in a login shell and fails in the non-login shell a tool call
+# gets. A symlink where the other tools live is on PATH absolutely and works in both.
+mkdir -p "$HOME/.local/bin"
+ln -sf "$HOME/.dotnet/tools/ailedger" "$HOME/.local/bin/ailedger"
+command -v ailedger >/dev/null || echo "note: $HOME/.local/bin is not on PATH in this shell"

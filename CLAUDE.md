@@ -44,7 +44,11 @@ no command needs `--root` and one issued from a subdirectory reaches the ledger 
 than a per-user path. The lesson store is found the same way, at `<home>/lessons`. Every mutation
 still requires an explicit `--actor`.
 
-If `ailedger` is not on your PATH, add `$HOME/.dotnet/tools` to it. If it is missing or stale, run
+If `ailedger` is not found, symlink it where the rest of your tools live:
+`ln -sf "$HOME/.dotnet/tools/ailedger" "$HOME/.local/bin/ailedger"`. The .NET installer's own PATH
+entry, `/etc/paths.d/dotnet-cli-tools`, contains the literal string `~/.dotnet/tools` with the tilde
+unexpanded, so it resolves in a login shell that re-expands it and silently fails in the non-login
+shell a tool call gets. `scripts/install.sh` makes the symlink for you. If it is missing or stale, run
 `sh scripts/install.sh` — that packs, reinstalls and prints the commit it was built from. Reinstalling
 matters more than it looks: the installed tool and the built solution are two separate artifacts, so a
 green build and a green suite say nothing about whether `ailedger` has your change. That silence cost
