@@ -95,6 +95,14 @@ In execution:
 
 **Scope creep in execution is a defect, not initiative.**
 
+### Build outside the working tree
+
+A scratch or mutation copy of the repository must not be built **inside** the repository. Runs have
+left four copies under `src/AILedger.Core/tests/obj` and one under `tests/obj`; the projects globbed
+them and the next build failed with 12,115 errors naming no real defect, while `git status` showed
+nothing because `obj` is ignored and 272 MB sat in the tree unnoticed. Build in a directory outside
+the working tree. If you build inside it anyway, delete what you made before your run ends.
+
 ### Running the .NET suite inside a governed run
 
 Do not run `dotnet test`. The provider frames one command's whole result as a single line and the
@@ -121,6 +129,11 @@ rediscovered the same four defects, so they are written down here once:
 
 A native asset the test project resolves through its own `deps.json` is not resolved for your host —
 `e_sqlite3` is the one here. Copy it next to the test assembly from the NuGet cache.
+
+**Copy `.git` into the scratch tree.** Two `KernelVersionTests` cases were reported as unavoidable
+environment failures by four separate runs. They are not: they fail because the tree carries no
+`.git` directory, so the build stamps no source revision. Copy `.git` in and the whole assembly
+passes outside the working tree. Building outside the tree is not what breaks them.
 
 Report the total, the passed count and the failed count, and say which failures are your runner's
 rather than the product's. Redirect any large command output to a file and read the file in pieces.

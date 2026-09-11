@@ -543,6 +543,15 @@ internal static class TaskTransitionValidator
         {
             ValidateVerifierOutput(state, artifact.WorkItemId!.Value, artifact.Content);
         }
+        // Safe by construction: it keys on a kind that no history written before this change can
+        // carry. The other half of the same feature — the stage entry condition on recording one —
+        // is command-time only and must never appear in this file, because it keys on the task's
+        // aggregate state rather than on anything the event itself carries. ArtifactRules
+        // .EnsureRetrospectiveEntryCondition holds the reasoning.
+        if (artifact.Kind == GovernedArtifactKind.WorkflowRetrospective)
+        {
+            ValidateWorkflowRetrospective(artifact.Content);
+        }
         ValidateProvenance(@event, artifact.Provenance, "artifact.record");
     }
 
@@ -642,6 +651,24 @@ internal static class TaskTransitionValidator
             {
                 throw new GovernanceException(
                     "A user-request artifact must be operator-authored and cannot name a producer run.");
+            }
+            return;
+        }
+
+        // The command-time twin is in ArtifactRules.EnsureArtifactAuthority and is no looser: a
+        // retrospective is recorded after closeout, when no run is active, so it names no producer
+        // run and its authority is read from the actor's own role assignment.
+        if (artifact.Kind == GovernedArtifactKind.WorkflowRetrospective)
+        {
+            if (artifact.ProducerRunId is not null)
+            {
+                throw new GovernanceException(
+                    "A workflow-retrospective artifact is recorded after closeout and cannot name a producer run.");
+            }
+            if (actorRole is not (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead))
+            {
+                throw new GovernanceException(
+                    "Only an operator, planning lead, or implementation lead can record a governing workflow artifact.");
             }
             return;
         }
@@ -770,7 +797,49 @@ internal static class TaskTransitionValidator
         }
     }
 
-    private static IReadOnlyList<string[]> ReadMarkdownTable(string content, IReadOnlyList<string> header)
+    // The command-time twin is ArtifactRules.ValidateWorkflowRetrospective, and this copy is no
+    // tighter. The header, the ten dimension ids, the three cell vocabularies and the refusal are
+    // read from that file rather than restated, because they are frozen surface that the CLI help
+    // line and the kernel tests also quote. As there, the score cell is tested for membership of a
+    // vocabulary and for nothing else: a body scoring every dimension '0' replays exactly as one
+    // scoring every dimension '5'.
+    private static void ValidateWorkflowRetrospective(string content)
+    {
+        var refusal = Application.ArtifactRules.RetrospectiveTableRefusal();
+        var rows = ReadMarkdownTable(content, Application.ArtifactRules.RetrospectiveTableHeader, refusal);
+        var ids = rows.Select(row => row[0]).ToArray();
+        EnsureUnique(ids, "Workflow retrospective dimension IDs", StringComparer.Ordinal);
+        foreach (var dimensionId in Application.ArtifactRules.RetrospectiveDimensionIds)
+        {
+            var row = rows.SingleOrDefault(candidate => candidate[0] == dimensionId)
+                ?? throw new GovernanceException(
+                    $"Workflow retrospective must score dimension '{dimensionId}'. " + refusal);
+            if (!Application.ArtifactRules.RetrospectiveScores.Contains(row[1]) ||
+                !Application.ArtifactRules.RetrospectiveConfidences.Contains(row[2]) ||
+                !Application.ArtifactRules.RetrospectiveControllable.Contains(row[3]) ||
+                string.IsNullOrWhiteSpace(row[4]))
+            {
+                throw new GovernanceException(
+                    $"Workflow retrospective row '{dimensionId}' uses a value outside the frozen vocabulary. " +
+                    refusal);
+            }
+        }
+
+        var unknown = ids
+            .Except(Application.ArtifactRules.RetrospectiveDimensionIds, StringComparer.Ordinal)
+            .ToArray();
+        if (unknown.Length != 0)
+        {
+            throw new GovernanceException(
+                $"Workflow retrospective scores '{string.Join("', '", unknown)}', which is not a dimension. " +
+                refusal);
+        }
+    }
+
+    private static IReadOnlyList<string[]> ReadMarkdownTable(
+        string content,
+        IReadOnlyList<string> header,
+        string? refusal = null)
     {
         var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         for (var index = 0; index < lines.Length; index++)
@@ -793,7 +862,7 @@ internal static class TaskTransitionValidator
         }
         // The command-time copy's wording, shared rather than restated. This is a message, not a
         // rule: it changes what a refused actor reads and nothing about which histories replay.
-        throw new GovernanceException(Application.ArtifactRules.TableRefusal(header));
+        throw new GovernanceException(refusal ?? Application.ArtifactRules.TableRefusal(header));
     }
 
     private static string[] SplitMarkdownRow(string line)

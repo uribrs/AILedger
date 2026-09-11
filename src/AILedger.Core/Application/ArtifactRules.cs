@@ -28,7 +28,12 @@ internal static class ArtifactRules
         {
             ValidateVerifierOutput(state, command.WorkItemId!.Value, command.Content);
         }
-    
+        if (command.Kind == GovernedArtifactKind.WorkflowRetrospective)
+        {
+            EnsureRetrospectiveEntryCondition(state);
+            ValidateWorkflowRetrospective(command.Content);
+        }
+
         return [new ArtifactRecorded(new GovernedArtifact(
             command.ArtifactId,
             command.Kind,
@@ -69,11 +74,31 @@ internal static class ArtifactRules
             return;
         }
     
+        // A retrospective is filed once the task is archived, when no run is active by definition, so
+        // it can no more name a producer run than a user request can. Requiring one would have cost a
+        // permanently cancelled run on every task the feature measures: an operator-held run carries
+        // no provider session and can never close 'completed'. The role is therefore read from the
+        // actor's own assignment, and it is the same set the producer-run path admits below.
+        if (kind == GovernedArtifactKind.WorkflowRetrospective)
+        {
+            if (producerRunId is not null)
+            {
+                throw new GovernanceException(
+                    "A workflow-retrospective artifact is recorded after closeout and cannot name a producer run.");
+            }
+            if (actorRole is not (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead))
+            {
+                throw new GovernanceException(
+                    "Only an operator, planning lead, or implementation lead can record a governing workflow artifact.");
+            }
+            return;
+        }
+
         if (producerRunId is not { } runId)
         {
             throw new GovernanceException($"A '{kind}' artifact must name its active producer run.");
         }
-    
+
         var run = Get(state.Runs, runId, "producer run");
         if (run.Status != AgentRunStatus.Active || run.ActorId != actorId)
         {
@@ -200,7 +225,119 @@ internal static class ArtifactRules
         }
     }
 
-    private static IReadOnlyList<string[]> ReadMarkdownTable(string content, IReadOnlyList<string> header)
+    // Command-time only, and deliberately absent from TaskTransitionValidator. Every other arm added
+    // to the replay copy keys on a field that only the new event carries, which makes it safe by
+    // construction: no history written before that event existed can reach it. This one is different.
+    // It keys on the task's aggregate state — its stage, its work items and its runs — which every
+    // history has always carried. A later change to what counts as a live work item or an active run
+    // would then retroactively refuse a history that was legal when it was written, and that has
+    // twice made a live task permanently unreadable here. Command time may demand this; replay may
+    // not.
+    private static void EnsureRetrospectiveEntryCondition(GovernedTaskState state)
+    {
+        if (state.Stage != TaskStage.Archive)
+        {
+            throw new GovernanceException(RetrospectiveStageRefusal(state.Stage));
+        }
+
+        // Live is the same set ScopeOccupancyRules holds an area against: an item that is neither
+        // completed, stale nor abandoned still belongs to somebody who could be briefed again.
+        var live = state.WorkItems.Values
+            .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale
+                or WorkItemStatus.Abandoned))
+            .OrderBy(item => item.Id.Value, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (live is not null)
+        {
+            throw new GovernanceException(RetrospectiveLiveWorkRefusal(live.Id, live.Status));
+        }
+
+        var active = state.Runs.Values
+            .Where(run => run.Status == AgentRunStatus.Active)
+            .OrderBy(run => run.Id.Value, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (active is not null)
+        {
+            throw new GovernanceException(RetrospectiveActiveRunRefusal(active.Id));
+        }
+    }
+
+    // The three refusals of the entry condition, and the retrospective table's header and cell
+    // vocabulary, are frozen surface: the CLI help line and the kernel tests both quote them. They
+    // are written once here so the two rule copies and the two other work items cannot drift apart,
+    // on the same grounds as TableRefusal below.
+    internal static string RetrospectiveStageRefusal(TaskStage stage) =>
+        $"A workflow retrospective is recorded only at stage 'Archive'; this task is at stage '{stage}'.";
+
+    internal static string RetrospectiveLiveWorkRefusal(WorkItemId workItemId, WorkItemStatus status) =>
+        $"A workflow retrospective is recorded only when no work item is live; '{workItemId}' is still " +
+        $"live in status '{status}'.";
+
+    internal static string RetrospectiveActiveRunRefusal(RunId runId) =>
+        $"A workflow retrospective is recorded only when no run is active; run '{runId}' is still active.";
+
+    internal static readonly IReadOnlyList<string> RetrospectiveTableHeader =
+        ["dimension", "score", "confidence", "controllable", "evidence"];
+
+    internal static readonly IReadOnlyList<string> RetrospectiveDimensionIds =
+        ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10"];
+
+    internal static readonly IReadOnlySet<string> RetrospectiveScores =
+        new HashSet<string>(StringComparer.Ordinal) { "0", "1", "2", "3", "4", "5", "unmeasured" };
+
+    internal static readonly IReadOnlySet<string> RetrospectiveConfidences =
+        new HashSet<string>(StringComparer.Ordinal) { "low", "medium", "high" };
+
+    internal static readonly IReadOnlySet<string> RetrospectiveControllable =
+        new HashSet<string>(StringComparer.Ordinal) { "yes", "no", "not-applicable" };
+
+    internal static string RetrospectiveTableRefusal() =>
+        $"A workflow retrospective must carry the '{string.Join(" | ", RetrospectiveTableHeader)}' table " +
+        $"with exactly the rows {string.Join(", ", RetrospectiveDimensionIds)}, each once. Allowed cell " +
+        $"values are score {string.Join("/", RetrospectiveScores.Order(StringComparer.Ordinal))}, " +
+        $"confidence {string.Join("/", RetrospectiveConfidences.Order(StringComparer.Ordinal))}, " +
+        $"controllable {string.Join("/", RetrospectiveControllable.Order(StringComparer.Ordinal))}, and a " +
+        "non-empty evidence cell. The vocabulary is checked and the score itself is not: every score " +
+        "from 0 to 5 is equally acceptable here, because no rule in this kernel may read one.";
+
+    // The format check, and only the format check. It reads the score cell to test that it is in the
+    // vocabulary and never to decide anything else, so a body whose ten scores are all '0' is
+    // accepted exactly as one whose scores are all '5' is. Nothing downstream may do more than this.
+    private static void ValidateWorkflowRetrospective(string content)
+    {
+        var rows = ReadMarkdownTable(content, RetrospectiveTableHeader, RetrospectiveTableRefusal());
+        var ids = rows.Select(row => row[0]).ToArray();
+        EnsureUnique(ids, "Workflow retrospective dimension IDs", StringComparer.Ordinal);
+        foreach (var dimensionId in RetrospectiveDimensionIds)
+        {
+            var row = rows.SingleOrDefault(candidate => candidate[0] == dimensionId)
+                ?? throw new GovernanceException(
+                    $"Workflow retrospective must score dimension '{dimensionId}'. " +
+                    RetrospectiveTableRefusal());
+            if (!RetrospectiveScores.Contains(row[1]) ||
+                !RetrospectiveConfidences.Contains(row[2]) ||
+                !RetrospectiveControllable.Contains(row[3]) ||
+                string.IsNullOrWhiteSpace(row[4]))
+            {
+                throw new GovernanceException(
+                    $"Workflow retrospective row '{dimensionId}' uses a value outside the frozen vocabulary. " +
+                    RetrospectiveTableRefusal());
+            }
+        }
+
+        var unknown = ids.Except(RetrospectiveDimensionIds, StringComparer.Ordinal).ToArray();
+        if (unknown.Length != 0)
+        {
+            throw new GovernanceException(
+                $"Workflow retrospective scores '{string.Join("', '", unknown)}', which is not a dimension. " +
+                RetrospectiveTableRefusal());
+        }
+    }
+
+    private static IReadOnlyList<string[]> ReadMarkdownTable(
+        string content,
+        IReadOnlyList<string> header,
+        string? refusal = null)
     {
         var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         for (var index = 0; index < lines.Length; index++)
@@ -223,8 +360,8 @@ internal static class ArtifactRules
             }
             return rows;
         }
-    
-        throw new GovernanceException(TableRefusal(header));
+
+        throw new GovernanceException(refusal ?? TableRefusal(header));
     }
 
     // C3: the kernel enforces part of task-orchestrator's specification and used to name neither
