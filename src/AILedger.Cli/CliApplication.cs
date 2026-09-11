@@ -1120,6 +1120,12 @@ public sealed class CliApplication
         // nothing". They are recorded at completion because the manifest is built after run.start.
         string? manifestHash = null;
         int? manifestArtifactCount = null;
+        // The limit this launch was given, recorded on the run so that a run which ended at its limit
+        // can be told from one that failed on its own merits (K16, measure 11). Declared out here and
+        // assigned inside the try, so the value the request is built with and the value the record
+        // carries are the same one — and so a launch whose --timeout-seconds could not be parsed
+        // records no limit, which is the truth: none was given.
+        int? launchTimeoutSeconds = null;
         AgentRunResult result;
         try
         {
@@ -1133,6 +1139,9 @@ public sealed class CliApplication
             // manifest carries the task version and the assembly time, so two launches never hash
             // alike, and normalising either one would buy a comparison the version already denies.
             var manifestJson = JsonSerializer.Serialize(manifest, _json);
+            // Parsed before the request rather than inside its constructor, because the record and
+            // the request must carry one number and not two readings of one option.
+            launchTimeoutSeconds = PositiveInt(input.Optional("timeout-seconds"), 1800);
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,
@@ -1141,11 +1150,11 @@ public sealed class CliApplication
                 input.Optional("model"), input.Optional("output-schema"),
                 grants.AdditionalDirectories,
                 new Dictionary<string, string>(),
-                TimeSpan.FromSeconds(PositiveInt(input.Optional("timeout-seconds"), 1800)));
+                TimeSpan.FromSeconds(launchTimeoutSeconds.Value));
             // Marked delivered only once the request is fully built, because building it is fallible
-            // — the timeout argument is parsed inside the constructor call above and throws on a bad
-            // value. Assigning earlier recorded a brief for a run the adapter never received, which
-            // is the opposite of what the absence is meant to mean. Found by RV1 as VC1/VCH1.
+            // — the timeout argument is parsed on the line above and throws on a bad value.
+            // Assigning earlier recorded a brief for a run the adapter never received, which is the
+            // opposite of what the absence is meant to mean. Found by RV1 as VC1/VCH1.
             manifestHash = HashManifest(manifestJson);
             manifestArtifactCount = manifest.Artifacts.Count;
             result = await adapter.RunAsync(request, cancellationToken).ConfigureAwait(false);
@@ -1199,6 +1208,21 @@ public sealed class CliApplication
                     // No result means no drain count either, so this stays absent rather than zero:
                     // this stream was never watched to a finish.
                     truncatedLines: null,
+                    // Absent when the launch died before the request was built, which includes a
+                    // --timeout-seconds this process could not parse. Null then says no limit was
+                    // given, and that is the truth rather than a default standing in for one.
+                    launchTimeoutSeconds,
+                    // The adapter returned nothing on this path — it threw — so the provider stated
+                    // no reason and there is none to relay. What ended the run is this process's own
+                    // exception, and that is what is recorded, because a run that failed before its
+                    // provider spoke is exactly the one a reader cannot otherwise account for.
+                    launchException.Message,
+                    // Nobody observed which condition ended this run. The observation exists only on
+                    // an AgentRunResult and there is none on this path, so this stays absent rather
+                    // than becoming false: false is the launcher stating it watched the run end some
+                    // other way, and here it watched nothing. Measure 11 leaves the row unjudged,
+                    // which is the correct answer and not a degraded one (VC4, VC6).
+                    endedAtTheLaunchTimeout: null,
                     manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
@@ -1235,6 +1259,17 @@ public sealed class CliApplication
             await CompleteRunWithFreshTokenAsync(
                 service, input, start.RunId, result.ProviderSessionId, result.Status, startedEventId, launchToken,
                 cost, firstLedgerWrite, servedModel, result.TruncatedLines,
+                launchTimeoutSeconds,
+                // The adapter's own Failure string, relayed unaltered and read off the same result
+                // object the sidecar beside this run is written from. So what the run record says
+                // about why the run ended and what its sidecar says are one statement rather than
+                // two that can disagree — which is the disagreement C8 measured on run LR4.
+                result.Failure,
+                // What ended this run, relayed from the same result the reason above is read off.
+                // The process runner sets it by observing which cancellation source fired at the
+                // moment it ended the process, so this is the one input measure 11 attributes a
+                // timeout on — and the reason it never compares durations again (VC6, WC2).
+                result.EndedAtTheLaunchTimeout,
                 manifestHash, manifestArtifactCount).ConfigureAwait(false);
         }
         catch (GovernanceException exception) when (
@@ -1252,6 +1287,21 @@ public sealed class CliApplication
                     service, input, start.RunId, result.ProviderSessionId, AgentRunStatus.Failed,
                     startedEventId, launchToken, cost, firstLedgerWrite, servedModel,
                     result.TruncatedLines,
+                    launchTimeoutSeconds,
+                    // Still the provider's own reason, which on this path is normally none: the
+                    // status here is the launcher's decision that a run filing no required output is
+                    // a failure, and the provider completed. Composing a reason from that decision
+                    // would put a provider failure on a run whose provider reported success, and
+                    // C8's own example is a run recorded as failed while its sidecar said completed
+                    // with no failure at all. Measure 11 therefore does not read this run as a failed
+                    // dispatch, and the missing artifact is the artifact rule's finding, not a
+                    // dispatch the coordinator got wrong.
+                    result.Failure,
+                    // The adapter's observation, unchanged by the launcher's own reclassification.
+                    // What ended the provider is a fact the runner watched; that this run is being
+                    // closed as failed for filing no artifact is a separate decision taken here, and
+                    // overwriting the observation with it would report a termination nobody saw.
+                    result.EndedAtTheLaunchTimeout,
                     manifestHash, manifestArtifactCount).ConfigureAwait(false);
             }
             catch (Exception cleanupException)
@@ -1333,6 +1383,22 @@ public sealed class CliApplication
         long? millisecondsToFirstLedgerWrite,
         string? servedModel,
         int? truncatedLines,
+        // Required for the same reason cost is: the two fields measures 11 and 12 read shipped with
+        // nothing populating their predecessors once already, and a closing path that has neither has
+        // to say so by passing null rather than by leaving an argument off.
+        //
+        // The reason is the provider's own, relayed by the caller and never derived here. This method
+        // is given a status by three different callers and one of them decides that status itself, so
+        // composing a reason from the status would manufacture a provider failure the provider never
+        // reported — which is exactly what C8 refuses.
+        int? launchTimeoutSeconds,
+        string? terminalFailureReason,
+        // Which condition ended the run, as the adapter's result reports it. Required for the same
+        // reason the two above are: the field shipped on AgentRunResult and on CompleteRunCommand
+        // with nothing carrying it between them, so every real launch recorded null and measure 11
+        // left timeouts the runner had actually observed unjudged (WC2, WE20). A closing path with no
+        // result has to say so by passing null rather than by leaving an argument off.
+        bool? endedAtTheLaunchTimeout,
         string? manifestHash = null,
         int? manifestArtifactCount = null)
     {
@@ -1342,7 +1408,7 @@ public sealed class CliApplication
             manifestHash, manifestArtifactCount,
             cost.Turns, cost.OutputTokens, millisecondsToFirstLedgerWrite, servedModel,
             cost.TokensInUncached, cost.TokensInCacheWrite, cost.TokensInCacheRead,
-            truncatedLines);
+            truncatedLines, launchTimeoutSeconds, terminalFailureReason, endedAtTheLaunchTimeout);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -2185,7 +2251,14 @@ public sealed class CliApplication
         Provider options: --work ID --subject ID --executable PATH --working-directory PATH --model NAME
                           --timeout-seconds N --add-dir PATH --cognitive-root PATH --output-schema VALUE
                           --without-brief REASON --with-stale-brief EVIDENCE-ID
-                          --coordinator-session ID
+                          --coordinator-session ID --cause EVENT-ID
+
+        --cause EVENT-ID on a launch names the coordinator record that prompted the dispatch — the
+        finding it answers, the decision it carries out. It is what lets a dispatch that answered
+        something be told from one that answered nothing, and it is the only input to that measure:
+        no causal link is ever inferred, and none is backfilled. --timeout-seconds is recorded on the
+        run as well as given to the provider, so a run that ended at its limit can be told from one
+        that failed on its own merits.
 
         work add and provider launch are refused until the acting actor has built its context on the
         task and the skills it was served still say what they said then. --cognitive-root is what the

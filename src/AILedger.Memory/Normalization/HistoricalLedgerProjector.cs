@@ -65,6 +65,17 @@ internal static class HistoricalLedgerProjector
             // a third replay of the log alongside CommandHandler and TaskTransitionValidator, and
             // its switch throws on any event data it has no case for, so an event type added to the
             // kernel without an arm here stops the whole index rebuilding.
+            //
+            // A missing arm is the loud failure, and it is the only one this comment used to name.
+            // The quiet one costs more. A new *field* on an event type whose arm already exists is
+            // dropped in silence: no exception, no failing test, and this index then reports a value
+            // the log holds as absent, which a reader takes for "nothing was recorded". That is what
+            // happened to the launch limit and the provider's terminal reason, and to eight fields
+            // before them (VC3, VE7). So when a field is added to an existing event, checking that
+            // this reader has an arm is not the check — the check is whether that arm projects the
+            // new field. CLAUDE.md's "every rule is written twice" says where to look and not what to
+            // look for, and the surest answer is not to look at all: the run.completed mapping now
+            // lives once, in RunCompletionProjection, and is shared with the canonical reducer.
             ContextBuilt => Require(state),
             ContextBriefWaived => Require(state),
             // The coordinating session's two boundary events, projected here for the same reason
@@ -189,14 +200,11 @@ internal static class HistoricalLedgerProjector
 
     private static GovernedTaskState CompleteRun(GovernedTaskState state, RunCompleted completed)
     {
-        var run = state.Runs[completed.RunId] with
-        {
-            Status = completed.Status,
-            ProviderSessionId = completed.ProviderSessionId,
-            EndedAt = completed.EndedAt,
-            ManifestHash = completed.ManifestHash,
-            ManifestArtifactCount = completed.ManifestArtifactCount
-        };
+        // The same mapping the canonical reducer applies, because it is the same event. This used to
+        // be a second copy of it and had fallen ten fields behind — the launch limit, the provider's
+        // terminal reason, every cost field, the truncated-line count and the served model — so this
+        // index reported values the log holds as absent (VC3, VE7).
+        var run = RunCompletionProjection.Apply(state.Runs[completed.RunId], completed);
         var workItems = state.WorkItems;
         if (run.WorkItemId is { } workItemId)
         {

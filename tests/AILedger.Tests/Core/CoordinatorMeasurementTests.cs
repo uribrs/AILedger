@@ -13,16 +13,24 @@ namespace AILedger.Tests.Core;
 // shows the two sequences it was derived from. And an absent measurement is never a zero.
 public sealed class CoordinatorMeasurementTests
 {
-    // R1 (causal-attribution-gap): metrics 10 to 12 need a causal link from a coordinator record to
-    // a dispatch, a launch timeout, and a terminal failure reason. Only one of 401 historical
-    // run.started events carries a causationId and neither of the other two fields is persisted at
-    // all, so a precise count here would be an inference presented as a measurement — of a
-    // coordinator's own mistakes, in a report the coordinator is scored by. D7 settles that those
-    // inputs arrive going forward and that nothing is backfilled.
+    // R1 (causal-attribution-gap): measures 10 to 12 need a causal link from a coordinator record to
+    // a dispatch, the limit the launch was given, and a terminal failure reason. A precise count
+    // without them would be an inference presented as a measurement — of a coordinator's own
+    // mistakes, in a report the coordinator is measured by. D7 settles that the inputs arrive going
+    // forward and that nothing is backfilled, so this is now the *before* half of that: a task whose
+    // dispatches predate the three inputs still names all three measures, with their reasons.
+    //
+    // A dispatch recorded before the change is identified by state and not by a date: its run
+    // carries no limit, no reason and no causation. The after half is
+    // ADispatchNamingAReversedClaimIsReportedAsRework and the two limit tests below it.
     [Fact]
     public void R1_MeasuresTenToTwelveAreNotMeasuredWithTheirReason()
     {
         var loop = new Loop();
+        // A dispatch of the shape every one of the 433 in this ledger has: a launch that recorded
+        // none of the three inputs. It is present rather than absent on purpose — the measures must
+        // report an absence because the inputs are missing, not because nothing was dispatched.
+        loop.WithRun("R1", session: null, startMinutesIn: 0, endMinutesIn: 30, launched: true);
 
         var report = loop.Build();
 
@@ -33,7 +41,408 @@ public sealed class CoordinatorMeasurementTests
         // Each one says why, and the reason is a state-checkable condition rather than a judgement.
         Assert.All(report.NotMeasured, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Reason)));
         Assert.All(report.NotMeasured, entry => Assert.Contains("D7", entry.Reason, StringComparison.Ordinal));
+        // And the dispatch is counted rather than dropped, which is what keeps the absence readable:
+        // one launch exists, none of it could be judged, and the report says both.
+        Assert.Equal(1, report.Dispatches.Rework.Dispatches);
+        Assert.Equal(0, report.Dispatches.Rework.Joined);
+        Assert.Equal(1, report.Dispatches.Rework.NamingNothing);
+        Assert.Equal(1, report.Dispatches.FailedDispatches.Launches);
+        Assert.Equal(0, report.Dispatches.FailedDispatches.Judged);
+        Assert.Empty(report.Dispatches.WastedDispatches.Rows);
     }
+
+    // Measure 10, the after half. A dispatch that names the coordinator record which prompted it,
+    // where that record was later reversed, is rework the record can attribute: the dispatch was
+    // spent on a premise that did not hold.
+    //
+    // Driven through CommandHandler rather than composed, because the join is between a causationId
+    // the handler writes and a reversal the handler's own claim rules classify — a hand-built log
+    // could state a pairing neither rule produces.
+    [Fact]
+    public void ADispatchNamingAReversedClaimIsReportedAsRework()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.AddClaim("C1");
+        var cause = loop.EventIdOf(data => data is ClaimAdded { Claim.Id.Value: "C1" });
+        // The dispatch names the claim as its cause, and only afterwards does the claim fall.
+        loop.Dispatch("R1", worker, cause: cause);
+        loop.CloseRun("R1");
+        loop.AddEvidence("E1", refutes: "C1");
+        loop.ResolveClaim("C1", ClaimStatus.Rejected, ["E1"]);
+
+        var report = loop.Build();
+
+        var rework = report.Dispatches.Rework;
+        Assert.Null(rework.Absence);
+        Assert.Equal(1, rework.Joined);
+        var row = Assert.Single(rework.Rows);
+        Assert.Equal("R1", row.Run);
+        Assert.Equal("C1", row.Record);
+        Assert.Equal(cause.Value, row.Cause);
+        // The avoidability is carried across from the reversal row rather than decided here, so the
+        // two agree by construction and the row leads back to where both sequences stand (R5).
+        var reversal = Assert.Single(report.ReversedClaims);
+        Assert.Equal(reversal.Avoidability, row.Avoidability);
+        Assert.Equal(reversal.RecordSequence, row.RecordSequence);
+        Assert.Equal(reversal.Comparison, row.Comparison);
+        // And the measure leaves the notMeasured list, which is the half K16 asks to be shown on both
+        // sides of the change.
+        Assert.DoesNotContain(
+            "reworkCausedByCoordinatorDecisions",
+            report.NotMeasured.Select(entry => entry.Measure));
+    }
+
+    // A dispatch whose cause was never reversed is not rework, and the difference between that and
+    // "nothing could be judged" is the reason Joined is reported beside the rows. This is the case a
+    // single count would have collapsed into the absence.
+    [Fact]
+    public void ADispatchWhoseCauseStillStandsIsJoinedAndIsNotRework()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.AddClaim("C1");
+        loop.AddEvidence("E1", supports: "C1");
+        loop.ResolveClaim("C1", ClaimStatus.Validated, ["E1"]);
+        loop.Dispatch("R1", worker, cause: loop.EventIdOf(data => data is ClaimAdded));
+
+        var report = loop.Build();
+
+        var rework = report.Dispatches.Rework;
+        Assert.Null(rework.Absence);
+        Assert.Equal(1, rework.Joined);
+        Assert.Equal(0, rework.NamingNothing);
+        Assert.Empty(rework.Rows);
+    }
+
+    // MC2, and the reason measure 10 follows a chain rather than reading one field. A launch let
+    // through the operator's without-brief door emits context.brief-waived first and run.started
+    // second, and CommandHandler chains a command's second event to its first — so the record named
+    // by --cause reaches the waiver and the run names the waiver. ME2 is why this is not hypothetical:
+    // the single causationId on any of the 433 run.started events in this ledger is exactly this
+    // chain.
+    [Fact]
+    public void ADispatchThroughTheBriefWaiverDoorStillNamesTheRecordThatCausedIt()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.AddClaim("C1");
+        var cause = loop.EventIdOf(data => data is ClaimAdded);
+        loop.Dispatch("R1", worker, cause: cause, withoutBriefReason: "No brief; the door is the test");
+        // A launcher-managed run the launcher's own secret cannot close, so the operator closes it as
+        // a failure, which is the one shape the kernel accepts here.
+        loop.CloseRun("R1", AgentRunStatus.Failed);
+        loop.AddEvidence("E1", refutes: "C1");
+        loop.ResolveClaim("C1", ClaimStatus.Rejected, ["E1"]);
+
+        var report = loop.Build();
+
+        // The waiver stands between the record and the run, and the row still names the record.
+        Assert.Contains(loop.State.ContextBriefWaivers, waiver => waiver.TargetId == "R1");
+        var row = Assert.Single(report.Dispatches.Rework.Rows);
+        Assert.Equal("C1", row.Record);
+        Assert.Equal(cause.Value, row.Cause);
+    }
+
+    // Measure 11, and the three tests below are one set. They go through the kernel rather than
+    // injecting an AgentRun, which is not a style preference: the defect they exist to catch lived in
+    // the gap between the run's recorded interval and the provider's, and a fixture that states both
+    // timestamps itself closes that gap by construction and can never fail on it (UA3, area 4). Here
+    // the interval is whatever the command handler's own clock made it, and the test asserts a
+    // relationship between the row's numbers rather than the numbers.
+    //
+    // The first: the launcher observed the launch's deadline expire and recorded it, so the limit the
+    // coordinator set is what ended the run.
+    [Fact]
+    public void ARunTheLauncherObservedEndingAtItsDeadlineIsAttributedToThatLimit()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.Dispatch("R1", worker, withoutBriefReason: "No brief; the launch path is the test");
+        loop.CloseRun(
+            "R1", AgentRunStatus.Failed, launchTimeoutSeconds: 1800,
+            terminalFailureReason: "Provider run timed out.",
+            endedAtTheLaunchTimeout: true, manifestHash: Hash);
+
+        var report = loop.Build();
+
+        var failed = report.Dispatches.FailedDispatches;
+        Assert.Null(failed.Absence);
+        Assert.Equal(1, failed.Judged);
+        var row = Assert.Single(failed.Rows);
+        Assert.Equal("reachedTheLimitTheCoordinatorSet", row.Attribution);
+        Assert.Equal(1800, row.LimitSeconds);
+        Assert.Equal("Provider run timed out.", row.Reason);
+        Assert.Contains("deadline", row.Basis, StringComparison.Ordinal);
+    }
+
+    // The second, and the one that would have caught the defect. This run outlived its limit on the
+    // kernel's clock — the interval here brackets the launcher's whole turn, so it is wider than the
+    // provider's own run — and the launcher nonetheless observed it ending some way other than at its
+    // deadline. The verdict follows the observation and not the arithmetic.
+    //
+    // The assertion is that the interval crossed the limit *and* the row is still not attributed. The
+    // old rule compared the two and would have called this a timeout; scoring the coordinator for a
+    // limit that did not end the run is exactly what UC2 recorded.
+    [Fact]
+    public void ARunThatOutlivedItsLimitButEndedOnItsOwnTermsIsNotAttributedToTheCoordinator()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.Dispatch("R1", worker, withoutBriefReason: "No brief; the launch path is the test");
+        // One second, against a handler clock that advances a minute per command, so the run's
+        // recorded interval necessarily exceeds the limit. Nothing about that is meant to be
+        // realistic — it is the shape of the 1799.5-seconds-of-1800 case, made unambiguous.
+        loop.CloseRun(
+            "R1", AgentRunStatus.Failed, launchTimeoutSeconds: 1,
+            terminalFailureReason: "Provider exited with code 1.",
+            endedAtTheLaunchTimeout: false, manifestHash: Hash);
+
+        var report = loop.Build();
+
+        var row = Assert.Single(report.Dispatches.FailedDispatches.Rows);
+        Assert.NotNull(row.ElapsedSeconds);
+        Assert.True(
+            row.ElapsedSeconds > row.LimitSeconds,
+            $"The fixture must produce a run that outlives its limit; it ran {row.ElapsedSeconds}s " +
+            $"against {row.LimitSeconds}s.");
+        Assert.Equal("endedInsideTheLimitTheCoordinatorSet", row.Attribution);
+    }
+
+    // The third: nobody observed what ended the run, so the row is reported and left unjudged, and the
+    // measure says at its own level that it attributed nothing. An unjudged row is a correct answer; a
+    // plausible attribution is not.
+    [Fact]
+    public void ALaunchWhoseTerminationNobodyObservedIsReportedAndLeftUnjudged()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.Dispatch("R1", worker, withoutBriefReason: "No brief; the launch path is the test");
+        loop.CloseRun(
+            "R1", AgentRunStatus.Failed, launchTimeoutSeconds: 1800,
+            terminalFailureReason: "Provider exited with code 1.", manifestHash: Hash);
+
+        var report = loop.Build();
+
+        var failed = report.Dispatches.FailedDispatches;
+        var row = Assert.Single(failed.Rows);
+        Assert.Equal("whatEndedThisDispatchWasNotRecorded", row.Attribution);
+        // The failure itself is still reported, and so is the limit. What is withheld is only the
+        // attribution.
+        Assert.Equal("Provider exited with code 1.", row.Reason);
+        Assert.Equal(1800, row.LimitSeconds);
+        Assert.NotNull(failed.Absence);
+        Assert.Contains("attributed", failed.Absence, StringComparison.Ordinal);
+    }
+
+    // C8, which is the constraint on this measure and not a caveat to it. Run LR4 on
+    // 2026-09-10_0931-insightvm-throttle-404 is recorded as failed while its own sidecar reports
+    // completed, exit code 0 and no failure — the agent's verdict was FAIL, which is a finding. So a
+    // run whose status says failed and whose provider reported nothing is not a failed dispatch here,
+    // and reading the status instead would have counted a verification that did exactly its job.
+    [Fact]
+    public void ARunRecordedAsFailedWhoseProviderReportedNothingIsNotAFailedDispatch()
+    {
+        var loop = new Loop();
+        loop.WithRun(
+            "R1", session: null, startMinutesIn: 0, endMinutesIn: 30, launched: true,
+            launchTimeoutSeconds: 1800, terminalFailureReason: null,
+            manifestHash: Hash, status: AgentRunStatus.Failed);
+
+        var report = loop.Build();
+
+        // Judged, because the run carries the limit and so was recorded after the inputs existed —
+        // and then not counted as a failure, because the provider reported none.
+        Assert.Equal(1, report.Dispatches.FailedDispatches.Judged);
+        Assert.Empty(report.Dispatches.FailedDispatches.Rows);
+        Assert.Empty(report.Dispatches.WastedDispatches.Rows);
+    }
+
+    // A launch that died before its request was built — the version probe here — records no limit,
+    // because the limit is parsed as the request is built. What this pins is that the missing limit is
+    // only a missing number beside the verdict and never a second ground for withholding it: the
+    // attribution is decided by the observation alone, so this row and one that does carry a limit
+    // must reach the same verdict.
+    //
+    // That is asserted as the comparison rather than as the literal string, and deliberately. The
+    // literal belongs to the test above, which owns the null-observation branch; repeating it here
+    // made one mutation of that branch fail two tests, so a failure could not say which rule broke
+    // (WC20). Stated as a comparison, this test is silent when the branch changes and is the only
+    // test that fails when the limit starts deciding — which is the rule it exists to hold.
+    [Fact]
+    public void ALaunchThatDiedBeforeItsRequestWasBuiltIsJudgedTheSameAsOneCarryingALimit()
+    {
+        var loop = new GovernedLoop();
+        var worker = loop.WithWorker("worker");
+        loop.Dispatch("R1", worker, withoutBriefReason: "No brief; the launch path is the test");
+        loop.CloseRun(
+            "R1", AgentRunStatus.Failed,
+            terminalFailureReason: "Provider 'codex' version probe failed with exit code 127.");
+        loop.Dispatch("R2", worker, withoutBriefReason: "No brief; the launch path is the test");
+        loop.CloseRun(
+            "R2", AgentRunStatus.Failed, launchTimeoutSeconds: 1800,
+            terminalFailureReason: "Provider 'codex' version probe failed with exit code 127.");
+
+        var report = loop.Build();
+
+        var rows = report.Dispatches.FailedDispatches.Rows;
+        Assert.Equal(2, rows.Count);
+        var withoutLimit = Assert.Single(rows, row => row.Run == "R1");
+        var withLimit = Assert.Single(rows, row => row.Run == "R2");
+        Assert.Null(withoutLimit.LimitSeconds);
+        Assert.Equal(1800, withLimit.LimitSeconds);
+        Assert.Equal(withLimit.Attribution, withoutLimit.Attribution);
+        Assert.Equal(withLimit.Basis, withoutLimit.Basis);
+    }
+
+    // Measure 12, and its one ground. A launched run that failed with no manifest hash is one whose
+    // adapter never received a brief: the hash is set only once the request is fully built and
+    // immediately before the adapter is called. A run sent out with no brief could not do the work it
+    // was sent to do, which is the contract's own first example of a wasted dispatch.
+    [Fact]
+    public void ALaunchThatFailedBeforeItsBriefReachedTheAdapterIsAWastedDispatch()
+    {
+        var loop = new Loop();
+        loop.WithRun(
+            "R1", session: null, startMinutesIn: 0, endMinutesIn: 1, launched: true,
+            launchTimeoutSeconds: 1800,
+            terminalFailureReason: "Provider launch failed before the manifest was built.",
+            manifestHash: null, status: AgentRunStatus.Failed);
+
+        var report = loop.Build();
+
+        var wasted = report.Dispatches.WastedDispatches;
+        Assert.Null(wasted.Absence);
+        var row = Assert.Single(wasted.Rows);
+        Assert.Equal("R1", row.Run);
+        Assert.Equal("noBriefReachedTheAdapter", row.Ground);
+        Assert.Equal(0, wasted.Unclassified);
+    }
+
+    // A launch that failed after its brief was delivered is counted and named, and deliberately not
+    // called waste. Separating a wrong scope or an unsatisfiable contract from an ordinary provider
+    // fault would mean reading the reason's prose, and a projection that graded free text would be
+    // making the judgement this whole file exists to avoid making.
+    [Fact]
+    public void ALaunchThatFailedWithItsBriefDeliveredIsCountedAndNotCalledWaste()
+    {
+        var loop = new Loop();
+        loop.WithRun(
+            "R1", session: null, startMinutesIn: 0, endMinutesIn: 10, launched: true,
+            launchTimeoutSeconds: 1800, terminalFailureReason: "Provider exited with code 1.",
+            manifestHash: Hash, status: AgentRunStatus.Failed);
+
+        var report = loop.Build();
+
+        Assert.Empty(report.Dispatches.WastedDispatches.Rows);
+        Assert.Equal(1, report.Dispatches.WastedDispatches.Unclassified);
+    }
+
+    // The contract's own exclusion, asserted rather than assumed: a verifier that finds nothing is
+    // not waste. The run completed, so the provider reported no reason, so nothing here can classify
+    // it however adverse its verdict was.
+    [Fact]
+    public void ACleanVerificationIsNeverAWastedDispatch()
+    {
+        var loop = new Loop();
+        loop.WithRun(
+            "R1", session: null, startMinutesIn: 0, endMinutesIn: 30, launched: true,
+            launchTimeoutSeconds: 1800, manifestHash: Hash, status: AgentRunStatus.Completed);
+
+        var report = loop.Build();
+
+        Assert.Equal(1, report.Dispatches.WastedDispatches.Judged);
+        Assert.Empty(report.Dispatches.WastedDispatches.Rows);
+        Assert.Equal(0, report.Dispatches.WastedDispatches.Unclassified);
+    }
+
+    // A refused launch never became a run, so it is counted from the journal and not as a row. Both
+    // measures report it, and both say in their population that these are measure 9's own
+    // provider-launch rows — so a reader does not add the three figures together.
+    [Fact]
+    public void ARefusedLaunchIsCountedFromTheJournalAndNamedAsMeasureNinesOwnRows()
+    {
+        var loop = new Loop();
+        var journal = new RetrospectiveRefusalJournal(
+            [
+                new RetrospectiveRefusal(
+                    new ActorId("operator"), "provider launch", "provider-launch",
+                    "Actor 'operator' has no context brief at all."),
+                // A service-site refusal by the same actor, which is not a refused launch.
+                new RetrospectiveRefusal(
+                    new ActorId("operator"), "claim add", "service", "Unknown claim 'C9'.")
+            ],
+            0);
+
+        var report = loop.Build(journal);
+
+        Assert.Equal(1, report.Dispatches.FailedDispatches.RefusedLaunches);
+        Assert.Equal(1, report.Dispatches.WastedDispatches.RefusedLaunches);
+        Assert.Contains(
+            "measure 9", report.Dispatches.FailedDispatches.Population, StringComparison.Ordinal);
+        Assert.Contains(
+            "measure 9", report.Dispatches.WastedDispatches.Population, StringComparison.Ordinal);
+    }
+
+    // No journal is not zero refused launches. A file nobody found and a file holding nothing are
+    // different facts, which is the standard the refusal measure beside this one already holds itself
+    // to.
+    [Fact]
+    public void NoRefusalJournalLeavesRefusedLaunchesAbsentRatherThanZero()
+    {
+        var loop = new Loop();
+
+        var report = loop.Build();
+
+        Assert.Null(report.Dispatches.FailedDispatches.RefusedLaunches);
+        Assert.Null(report.Dispatches.WastedDispatches.RefusedLaunches);
+    }
+
+    // Measures 11 and 12 are about launches, and a run started by hand is not one. LaunchTokenHash is
+    // what tells them apart, because the launcher is the only caller that sets it (IC3) — and a limit
+    // and a provider reason exist only for a launch. Measure 10 reads every dispatch, because the
+    // causal link is recorded the same way for both.
+    [Fact]
+    public void ARunStartedByHandIsNotALaunchAndIsJudgedByMeasureTenAlone()
+    {
+        var loop = new Loop();
+        loop.WithRun("R1", session: null, startMinutesIn: 0, endMinutesIn: 30, launched: false);
+
+        var report = loop.Build();
+
+        Assert.Equal(0, report.Dispatches.FailedDispatches.Launches);
+        Assert.Equal(1, report.Dispatches.Rework.Dispatches);
+    }
+
+    // MC5, pinned rather than only documented. A launch an actor makes for itself is a row that actor
+    // wrote while it was the subject of a run, which CoordinatorSet already excludes — so a
+    // self-dispatch is not in these measures' population at all. It is the rule the file settled for
+    // measures 4 to 8, and it surprises a reader, so it is asserted beside the dispatched case that
+    // is measured.
+    [Fact]
+    public void ALaunchAnActorMadeForItselfIsNotInTheDispatchPopulation()
+    {
+        var self = new Loop();
+        self.WithRun(
+            "R1", session: null, startMinutesIn: 0, endMinutesIn: 30, actor: "operator",
+            dispatcher: "operator", launched: true, launchTimeoutSeconds: 1800, manifestHash: Hash);
+        var dispatched = new Loop();
+        dispatched.WithRun(
+            "R1", session: null, startMinutesIn: 0, endMinutesIn: 30, actor: "worker",
+            dispatcher: "operator", launched: true, launchTimeoutSeconds: 1800, manifestHash: Hash);
+
+        var selfReport = self.Build();
+        var dispatchedReport = dispatched.Build();
+
+        Assert.Equal(0, selfReport.Dispatches.Rework.Dispatches);
+        Assert.Equal(0, selfReport.Dispatches.FailedDispatches.Launches);
+        Assert.Equal(1, dispatchedReport.Dispatches.Rework.Dispatches);
+        Assert.Equal(1, dispatchedReport.Dispatches.FailedDispatches.Launches);
+    }
+
+    // A manifest hash of the shape the kernel requires, so the fixture's runs look like runs the
+    // launcher recorded rather than like something only this file would accept.
+    private const string Hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     // R2 (fabricated-historical-brackets): one task or actor lifetime presented as a session would
     // collapse several conversations into one bracket, and wall clock, idle time and child ownership
@@ -1148,13 +1557,27 @@ public sealed class CoordinatorMeasurementTests
             string dispatcher = "operator",
             // The launch invocation's own correlation, when a test needs it to differ from the run
             // id — which is the case the findings fallback exists for.
-            string? correlation = null)
+            string? correlation = null,
+            // What measures 11 and 12 read. A launch token hash is what tells a launch from a run
+            // started by hand (IC3); the limit and the reason are the two fields recorded at
+            // completion; and the manifest hash is what says a brief reached the adapter. Every one
+            // of them defaults to absent, which is the shape of every run recorded before these
+            // fields existed and is what the pre-change half of the demonstration needs.
+            bool launched = false,
+            int? launchTimeoutSeconds = null,
+            string? terminalFailureReason = null,
+            string? manifestHash = null,
+            AgentRunStatus? status = null)
         {
             var run = new AgentRun(
                 new RunId(id), new ActorId(actor), null, "claude", $"s-{id}",
-                endMinutesIn is null ? AgentRunStatus.Active : AgentRunStatus.Completed,
+                status ?? (endMinutesIn is null ? AgentRunStatus.Active : AgentRunStatus.Completed),
                 At(startMinutesIn), endMinutesIn is null ? null : At(endMinutesIn.Value),
-                CoordinatorSessionId: session is null ? null : new CoordinatorSessionId(session));
+                LaunchTokenHash: launched ? $"hash-{id}" : null,
+                ManifestHash: manifestHash,
+                CoordinatorSessionId: session is null ? null : new CoordinatorSessionId(session),
+                LaunchTimeoutSeconds: launchTimeoutSeconds,
+                TerminalFailureReason: terminalFailureReason);
             Runs[run.Id] = run;
             Append(new RunStarted(run), startMinutesIn, dispatcher, correlation ?? id);
         }
@@ -1251,15 +1674,51 @@ public sealed class CoordinatorMeasurementTests
         // to. Only an operator may dispatch for a different subject
         // (`RunRules.EnsureDispatchIsPermitted`), so another coordinating seat opens a run by
         // naming itself as the subject.
-        public void Dispatch(string runId, ActorId subject, string? correlation = null, ActorId? actor = null) =>
+        // `cause` is the coordinator record that prompted this dispatch, which is the input measure 10
+        // reads. `withoutBriefReason` makes the command a provider launch let through the operator's
+        // own door, so the handler emits the waiver ahead of the run and run.started's causation names
+        // the waiver rather than the record — which is the chain MC2 describes and the one measure 10
+        // has to follow.
+        public void Dispatch(
+            string runId,
+            ActorId subject,
+            string? correlation = null,
+            ActorId? actor = null,
+            EventId? cause = null,
+            string? withoutBriefReason = null) =>
             Apply(new StartRunCommand(
-                actor ?? _task.OperatorId, null, Correlation(correlation), new RunId(runId), null, "codex",
-                null, null, null, null, subject));
+                actor ?? _task.OperatorId, cause, Correlation(correlation), new RunId(runId), null, "codex",
+                null, null, null,
+                withoutBriefReason is null ? null : $"hash-{runId}",
+                subject, null, withoutBriefReason));
 
-        public void CloseRun(string runId) =>
+        // The launcher's own completion, as the kernel receives it. `endedAtTheLaunchTimeout` is the
+        // observation measure 11 attributes on: true when the process runner ended the provider
+        // because the launch's deadline expired, false when the launcher watched it end some other
+        // way, and absent when nobody observed it. It is passed here rather than injected onto an
+        // AgentRun because the timing of the run's own interval is then the handler's and not a
+        // literal — which is the whole point of these fixtures moving off hand-built state.
+        public void CloseRun(
+            string runId,
+            AgentRunStatus status = AgentRunStatus.Completed,
+            int? launchTimeoutSeconds = null,
+            string? terminalFailureReason = null,
+            bool? endedAtTheLaunchTimeout = null,
+            string? manifestHash = null) =>
             Apply(new CompleteRunCommand(
                 _task.OperatorId, null, Correlation(null), new RunId(runId),
-                AgentRunStatus.Completed, $"session-{runId}"));
+                status, $"session-{runId}",
+                ManifestHash: manifestHash,
+                ManifestArtifactCount: manifestHash is null ? null : 1,
+                LaunchTimeoutSeconds: launchTimeoutSeconds,
+                TerminalFailureReason: terminalFailureReason,
+                EndedAtTheLaunchTimeout: endedAtTheLaunchTimeout));
+
+        // The id of the event that recorded a given thing, so a test can name a real cause instead of
+        // composing one. A dispatch's causation has to be an event id this log actually holds, which
+        // is the whole point of the join measure 10 makes.
+        public EventId EventIdOf(Func<LedgerEventData, bool> match) =>
+            _task.Events.First(@event => match(@event.Data)).EventId;
 
         public void AddWork(string id) =>
             Apply(new AddWorkItemCommand(

@@ -230,7 +230,23 @@ internal static class RunRules
                 // a rule added here would have no replay counterpart, because R4 requires the
                 // validator to gain nothing that keys on this field. No rule on either side keeps
                 // the two halves honest rather than divergent.
-                command.TruncatedLines)
+                command.TruncatedLines,
+                // The same precedent, applied to the two fields measures 11 and 12 read. The timeout
+                // is the launcher's own parsed value and the CLI already refuses a non-positive one
+                // before it reaches here, and the reason is the provider's text; so neither has a
+                // rule at command time and neither has one at replay, which keeps the two halves
+                // symmetric rather than one tightening the other cannot mirror (MC4, R4).
+                //
+                // The reason is trimmed and blank becomes absent, so a provider that reports an empty
+                // string is recorded as reporting nothing rather than as reporting a failure with no
+                // account of it.
+                command.LaunchTimeoutSeconds,
+                TrimOrNull(command.TerminalFailureReason),
+                // And the same again for the observed termination. There is nothing to validate: a
+                // three-state flag the launcher either observed or did not is already the whole
+                // contract, and a rule keyed on it at replay would refuse the histories that predate
+                // it — the failure R4 names.
+                command.EndedAtTheLaunchTimeout)
         ];
     }
 

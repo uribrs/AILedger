@@ -1273,6 +1273,12 @@ internal static class TaskTransitionValidator
         ValidateCostRecord(
             completed.Turns, completed.OutputTokens, completed.MillisecondsToFirstLedgerWrite,
             completed.TokensInUncached, completed.TokensInCacheWrite, completed.TokensInCacheRead);
+        // TruncatedLines, LaunchTimeoutSeconds, TerminalFailureReason and EndedAtTheLaunchTimeout are
+        // deliberately unchecked here, and RunRules does not check them either. The asymmetry this
+        // kernel has to respect
+        // runs one way — command time may tighten and replay may not — so the safe shape for a
+        // trailing nullable field is no rule on either side rather than a rule here that the
+        // command-time half cannot later relax (MC4, R4).
     }
 
     // Mirrors CoordinatorSessionRules.StartSession, and deliberately not all of it. Every check here

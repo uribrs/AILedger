@@ -52,15 +52,45 @@ public sealed class SystemProcessRunner : IProcessRunner
         }
         catch (Exception originalException)
         {
+            // Read before anything is cancelled here, so the two flags say which source actually
+            // ended the process rather than which one this handler touched on the way out.
+            var propagated = Reclassify(
+                originalException,
+                invocation.Timeout,
+                deadlineExpired: timeout.IsCancellationRequested,
+                callerCancelled: cancellationToken.IsCancellationRequested);
             TryCancel(linked);
             await RethrowAfterCleanupAsync(
-                originalException,
+                propagated,
                 new SystemProcessCleanupTarget(process),
                 activeTasks,
                 TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             throw new UnreachableException();
         }
     }
+
+    /// <summary>
+    /// Names the run's own expired deadline as the thing that ended it, when that is what happened.
+    /// </summary>
+    /// <remarks>
+    /// This runner links two cancellation sources — the caller's token and a source built from
+    /// <see cref="ProcessInvocation.Timeout"/> — and both surface as the same
+    /// <see cref="OperationCanceledException"/>. Which one fired is knowable only here, and only
+    /// while the two sources are still in hand; a caller left to work it out has to infer it, and
+    /// the inference measure 11 used to make from elapsed time was wrong (VC6).
+    ///
+    /// The caller's own cancellation wins where both are set. A caller that asked this to stop got
+    /// what it asked for, and calling that a timeout would attribute to the launch's limit a
+    /// termination the limit did not cause.
+    /// </remarks>
+    private static Exception Reclassify(
+        Exception originalException,
+        TimeSpan timeout,
+        bool deadlineExpired,
+        bool callerCancelled) =>
+        originalException is OperationCanceledException && deadlineExpired && !callerCancelled
+            ? new ProviderProcessTimeoutException(timeout)
+            : originalException;
 
     internal static async Task RethrowAfterCleanupAsync(
         Exception originalException,

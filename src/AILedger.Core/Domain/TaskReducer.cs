@@ -232,35 +232,10 @@ public sealed class TaskReducer : ITaskReducer
 
     private static GovernedTaskState CompleteRun(GovernedTaskState state, RunCompleted completed)
     {
-        var run = state.Runs[completed.RunId] with
-        {
-            Status = completed.Status,
-            ProviderSessionId = completed.ProviderSessionId,
-            EndedAt = completed.EndedAt,
-            // Absent on every run completed before these fields existed, and absent on a launch that
-            // failed before its manifest was built. Both read as "no brief recorded", correctly.
-            ManifestHash = completed.ManifestHash,
-            ManifestArtifactCount = completed.ManifestArtifactCount,
-            // Absent on every run completed before these existed, and absent on a run whose provider
-            // stream produced no terminal event to read them from. Both read as "nobody measured
-            // this", correctly. Turns is additionally absent for a provider that states no turn
-            // count of its own, which is codex, and there the absence is the measurement (D4, IC1).
-            Turns = completed.Turns,
-            OutputTokens = completed.OutputTokens,
-            MillisecondsToFirstLedgerWrite = completed.MillisecondsToFirstLedgerWrite,
-            TokensInUncached = completed.TokensInUncached,
-            TokensInCacheWrite = completed.TokensInCacheWrite,
-            TokensInCacheRead = completed.TokensInCacheRead,
-            // Absent on every run completed before this field existed and on any completion the
-            // launcher did not issue. Zero, which is what an ordinary launch records, means the
-            // stream was watched and no line was cut — a different fact, and the one that makes a
-            // nonzero count readable as a degraded stream rather than as a missing measurement.
-            TruncatedLines = completed.TruncatedLines,
-            // The served model wins over the requested one, because the record should say which
-            // cognition ran rather than which was asked for. Absent leaves run.started's value
-            // standing rather than erasing it.
-            Model = completed.Model ?? state.Runs[completed.RunId].Model
-        };
+        // Every field this payload puts on the run, and the mapping itself, are in
+        // RunCompletionProjection — shared with the memory index's replay of the same log. It used to
+        // be written out here and again there, and the two drifted by ten fields (VC3, VE7).
+        var run = RunCompletionProjection.Apply(state.Runs[completed.RunId], completed);
 
         var workItems = state.WorkItems;
         if (run.WorkItemId is { } workItemId)

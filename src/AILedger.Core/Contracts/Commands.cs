@@ -248,7 +248,24 @@ public sealed record CompleteRunCommand(
     // How many provider lines the drain cut to the per-line cap, read off the adapter's result by
     // the launcher. A hand-issued 'run complete' leaves it absent, which is correct: nobody was
     // watching that stream.
-    int? TruncatedLines = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    int? TruncatedLines = null,
+    // The limit this launch was given, and the provider's own reason for a run that ended other than
+    // by completing. Both are the launcher's to record and both arrive here rather than on
+    // StartRunCommand, because the launcher builds its request and reads its result after the kernel
+    // has recorded the run. A hand-issued 'run complete' leaves both absent, which is correct: no
+    // limit was given and no provider reported anything.
+    //
+    // The reason is relayed from the adapter and never composed from Status. C8 is the constraint and
+    // AgentRun.TerminalFailureReason carries it: a run whose agent returned an adverse verdict is a
+    // run that did its job, and a measure that read the status would count it as a failed dispatch.
+    int? LaunchTimeoutSeconds = null,
+    string? TerminalFailureReason = null,
+    // Which condition ended the run, taken from AgentRunResult.EndedAtTheLaunchTimeout, which the
+    // process runner sets by observing which cancellation source fired rather than by reading a
+    // clock. A hand-issued 'run complete' leaves it absent, and so does a launch whose adapter never
+    // returned: in both, nobody observed the termination, and measure 11 must leave the row unjudged
+    // rather than infer it (VC4, VC6).
+    bool? EndedAtTheLaunchTimeout = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RequestStageTransitionCommand(
     ActorId ActorId,

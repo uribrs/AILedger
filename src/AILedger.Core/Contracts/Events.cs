@@ -102,7 +102,20 @@ public sealed record RunCompleted(
     // nobody counted and zero means nothing was cut; AgentRun.TruncatedLines states why that
     // distinction is load-bearing. Nullable and trailing for the reason the cost fields are — every
     // run.completed already on disk carries none, and replay must keep reading those.
-    int? TruncatedLines = null) : LedgerEventData;
+    int? TruncatedLines = null,
+    // The limit the launch was given and why the run ended other than by completing, both learned
+    // the way the cost fields are: the launcher holds the request it built and the result the adapter
+    // returned, and neither exists at run.started. AgentRun states what each null means and why the
+    // reason is the provider's own Failure string rather than anything derived from Status (C8, MC3).
+    // Nullable and trailing for the reason the cost fields are — every run.completed already on disk
+    // carries neither, and replay must keep reading those.
+    int? LaunchTimeoutSeconds = null,
+    string? TerminalFailureReason = null,
+    // Which condition ended the run, as the launcher observed it. AgentRun states what each of the
+    // three states means and why measure 11 attributes on this rather than on elapsed time. Nullable
+    // and trailing for the reason the two above it are — every run.completed already on disk carries
+    // none, and replay must keep reading those.
+    bool? EndedAtTheLaunchTimeout = null) : LedgerEventData;
 public sealed record StagePrerequisitesWaived(TaskStage TargetStage, string Reason) : LedgerEventData;
 public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
 public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
