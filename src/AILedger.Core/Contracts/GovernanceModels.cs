@@ -452,7 +452,66 @@ public sealed record AgentRun(
     // TaskTransitionValidator gains no arm that keys on it: every run.completed already on disk
     // carries none, and a replay rule keyed on a field older events lack has twice made a live task
     // permanently unreadable here (R4).
-    int? TruncatedLines = null);
+    int? TruncatedLines = null,
+    // The limit the launch was given, in seconds. Without it a run that ended at its limit cannot be
+    // told from one that failed on its own merits, and that confusion is what made a cancelled run
+    // read as a governance failure rather than as a timeout the coordinator set too low. Measure 11
+    // is the reader: it compares the run's own elapsed time against this number, which is a
+    // comparison a reader can check, rather than matching a failure string.
+    //
+    //   null  no limit was recorded — the run predates this field, was started by hand rather than
+    //         by a launch, or its launch could not parse the value it was given.
+    //
+    // Recorded at completion and not at start, like ManifestHash above and for the same reason: the
+    // launcher composes the request after the kernel has recorded the run, so the number does not
+    // exist at run.started (D7, K16).
+    int? LaunchTimeoutSeconds = null,
+    // Why the run ended other than by completing, in the provider's own words. It is the adapter's
+    // own Failure string relayed unaltered, which is the sidecar's own failure field — and C8 is why
+    // it must be this and not the status: run LR4 on 2026-09-10_0931-insightvm-throttle-404 is
+    // recorded here as failed while its own sidecar reports completed, exit code 0 and no failure,
+    // because the agent's verdict was FAIL. A verdict is a finding and not a failure of the run, so a
+    // measure that read the status would count a verification that did its job.
+    //
+    // It is deliberately never composed from Status, and never set on a status the launcher itself
+    // decided. A run the launcher re-closed as failed for filing no output artifact carries none: the
+    // provider completed, and the field says what the provider said.
+    //
+    //   null  the provider reported no failure. Either the run completed on its own terms, or the
+    //         run predates this field.
+    //
+    // MC3 is that this one field subsumes the exit code C8 also names: the adapter returns a reason
+    // for every nonzero exit before it examines anything else, so a non-null reason is a superset of
+    // a nonzero exit and a second field would record the same signal twice.
+    //
+    // Both fields are nullable and trailing like every field above them. Nothing refuses a run for
+    // lacking either and no replay rule keys on either.
+    //
+    // MC4 with ME4 recorded that all three readers had been checked and that the memory projector
+    // "needs no arm". The arm was indeed already there and that half was right; what the check
+    // missed is that an arm which exists can still be incomplete, and this one was — it copied
+    // neither field, so the memory projection reported both as absent while the log held them
+    // (VC3, VE7). RunCompletionProjection now holds the mapping once for every reader, which is why
+    // no reader is named here any more: there is nothing left to check per reader.
+    string? TerminalFailureReason = null,
+    // Which condition ended the run, established rather than inferred. This is the field measure 11
+    // attributes on, and it exists because elapsed time cannot carry that fact: the kernel's own
+    // run.started-to-run.completed interval brackets manifest construction before the adapter is
+    // called and result persistence after it returns, so it is strictly wider than the provider's,
+    // and a provider that failed on its own terms just short of an 1800-second limit fell on the
+    // wrong side of the comparison and was reported as ended by the coordinator's limit (VC6, VE10).
+    //
+    //   true   the launch's own deadline expired and the process runner killed the provider. The
+    //          runner observes which cancellation source fired; nothing here reads a clock.
+    //   false  the run ended some other way, and the launcher watched it end.
+    //   null   nobody observed which condition ended it — the run predates this field, was started
+    //          by hand rather than by a launch, or its launch died before the adapter returned.
+    //          Measure 11 leaves such a row unjudged; it never fills the gap by inference.
+    //
+    // Nullable and trailing like every field above it, for the same reason: every run.completed
+    // already on disk carries none, and a replay rule keyed on a field older events lack has twice
+    // made a live task permanently unreadable here.
+    bool? EndedAtTheLaunchTimeout = null);
 // As on WorkItem above: the door a launch came through is recorded by the waiver event beside this
 // run and projected into GovernedTaskState.ContextBriefWaivers, not copied onto the run.
 

@@ -72,7 +72,17 @@ public sealed record AgentRunResult(
     //
     // Null means no drain reported a count — a run that died before the process ran, or a runner
     // that does not count. Zero means the stream was watched and nothing was cut.
-    int? TruncatedLines = null);
+    int? TruncatedLines = null,
+    // Whether the launch's own deadline is what ended this run. Carried out of the adapter for the
+    // reason the truncation count is: the fact exists only at the moment of termination, and the
+    // launcher is the only thing positioned to put it on the run record.
+    //
+    // It is an observation, not a deduction. IProcessRunner reports its own expired deadline as
+    // ProviderProcessTimeoutException, so the adapter sets true only where a runner said so.
+    // Everywhere else it is false, which is a statement and not a default: the adapter watched the
+    // run end some other way. A launch whose adapter never returned at all produces no result to
+    // read this from, and the run record's own field is null there (AgentRun.EndedAtTheLaunchTimeout).
+    bool EndedAtTheLaunchTimeout = false);
 
 public sealed record ProcessInvocation(
     string ExecutablePath,
@@ -125,12 +135,40 @@ public sealed class TruncatedLineTally
 
 public interface IProcessRunner
 {
+    /// <summary>Runs one process to completion.</summary>
+    /// <remarks>
+    /// A runner that ends the process because <see cref="ProcessInvocation.Timeout"/> expired must
+    /// report that by throwing <see cref="ProviderProcessTimeoutException"/>. It is the only thing
+    /// in a position to know, and nothing downstream can recover the fact afterwards: the elapsed
+    /// time cannot, because the run record's own interval is wider than the process's.
+    /// </remarks>
     Task<ProcessExit> RunAsync(
         ProcessInvocation invocation,
         Func<string, CancellationToken, ValueTask> onStandardOutputLine,
         Func<string, CancellationToken, ValueTask> onStandardErrorLine,
         TruncatedLineTally? tally,
         CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// The runner's own deadline expired and it ended the provider process.
+/// </summary>
+/// <remarks>
+/// This is the whole point of the type: it separates "the deadline this launch was given expired"
+/// from "somebody cancelled", which a bare <see cref="OperationCanceledException"/> cannot. Measure
+/// 11 used to close that gap by comparing the run's elapsed time against the limit, and the
+/// comparison was unsound — the ledger run opens before the manifest is built and closes after the
+/// result is persisted, so a provider that failed on its own terms just short of the limit was
+/// reported as ended by the coordinator's limit (VC6, VE10).
+///
+/// It derives from <see cref="OperationCanceledException"/> so that a handler written before this
+/// type existed still catches it and still behaves as it did.
+/// </remarks>
+public sealed class ProviderProcessTimeoutException(TimeSpan timeout)
+    : OperationCanceledException($"Provider process exceeded its {timeout.TotalSeconds:0.###}-second limit.")
+{
+    /// <summary>The deadline that expired, as the invocation stated it.</summary>
+    public TimeSpan Timeout { get; } = timeout;
 }
 
 public interface IAgentAdapter

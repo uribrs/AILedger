@@ -149,6 +149,19 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                 tally,
                 cancellationToken).ConfigureAwait(false);
         }
+        // The runner's own expired deadline, said so by the runner. This is the one result that
+        // carries EndedAtTheLaunchTimeout true, and it is the whole reason the type exists: the fact
+        // is observable here and nowhere later, and the elapsed-time comparison that used to stand in
+        // for it was unsound (VC6, VE10). It is caught ahead of the two filters below because it
+        // derives from OperationCanceledException and would otherwise be swallowed by them.
+        catch (ProviderProcessTimeoutException)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return CreateFailure(
+                request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
+                AgentRunStatus.Cancelled, "Provider run timed out.", tally.Observed,
+                endedAtTheLaunchTimeout: true);
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             var now = DateTimeOffset.UtcNow;
@@ -156,6 +169,11 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                 request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
                 AgentRunStatus.Cancelled, "Provider run was cancelled.", tally.Observed);
         }
+        // A cancellation this adapter did not ask for, from a runner that did not name its own
+        // deadline. The wording is kept because a timeout is by far its likeliest cause and a reader
+        // is better served by the likely account than by none — but the flag stays false, because a
+        // likely account is not an observation and this measure is the one place that distinction
+        // has to hold. A runner that means "timeout" says so with the type above.
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             var now = DateTimeOffset.UtcNow;
@@ -335,7 +353,10 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         // What the drains had cut by the time the run was refused, or null if they had cut nothing.
         // A ProtocolError that says how much was cut before it died is the difference between a
         // diagnosable failure and the four runs this repository cannot explain (CC2, C3).
-        int? truncatedLines) =>
+        int? truncatedLines,
+        // Set only on the path that caught the runner's own timeout. Every other failure path leaves
+        // it false, which states that this adapter watched the run end some other way.
+        bool endedAtTheLaunchTimeout = false) =>
         new(
             request.RunId,
             request.Provider,
@@ -351,7 +372,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             arguments,
             request.Mode == AgentLaunchMode.Resume,
             failure,
-            truncatedLines);
+            truncatedLines,
+            endedAtTheLaunchTimeout);
 
     private void ValidateRequest(AgentLaunchRequest request)
     {

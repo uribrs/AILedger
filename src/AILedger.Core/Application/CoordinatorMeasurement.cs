@@ -50,28 +50,6 @@ public static class CoordinatorMeasurement
     private static readonly RoleKind[] CoordinatingRoles =
         [RoleKind.Operator, RoleKind.PlanningLead, RoleKind.ImplementationLead];
 
-    // The three measures whose inputs nothing records yet, with the reason each one is absent rather
-    // than zero. D7 settles that those inputs arrive going forward — a causationId on run.started
-    // naming the coordinator record that caused the dispatch, the launch timeout, and a terminal
-    // failure reason — and that nothing is ever backfilled. Until a run carries them, a number here
-    // would be an invention, and an invented count of a coordinator's own mistakes is the one number
-    // this report must never produce.
-    private static readonly CoordinatorAbsence[] ForwardOnlyMeasures =
-    [
-        new("reworkCausedByCoordinatorDecisions",
-            "A reversed coordinator record cannot be joined to the runs that followed it: only one " +
-            "of 401 historical run.started events carries a causationId. The launcher sets it going " +
-            "forward under D7; no boundary and no causal link is ever backfilled."),
-        new("failedDispatchesAttributableToCoordinator",
-            "A run's launch timeout and its terminal failure reason are not persisted, so a run that " +
-            "died at a timeout the coordinator set too low cannot be told from one that failed on its " +
-            "own. Both fields arrive as nullable trailing fields on AgentRun under D7."),
-        new("wastedDispatches",
-            "A dispatch is wasted only when the run could not do the work it was sent to do, and a " +
-            "clean verification is never waste. Telling a wrong scope or an unsatisfiable contract " +
-            "from an ordinary failure needs the terminal failure reason D7 adds going forward.")
-    ];
-
     public static CoordinatorLoopReport Build(
         GovernedTaskState state,
         IReadOnlyList<LedgerEvent> history,
@@ -98,6 +76,14 @@ public static class CoordinatorMeasurement
         var reversedClaims = BuildReversedClaims(authored, index);
         var supersededDecisions = BuildSupersededDecisions(authored, index);
         var reopenedFindings = BuildReopenedFindings(authored, index);
+        // Measures 10 to 12. Built after the three avoidability lists because measure 10 reads them:
+        // a dispatch is rework when the record it names as its cause is one of those already found
+        // reversed, so the verdict is carried across rather than decided a second time.
+        var dispatches = CollectDispatches(state, authored, index);
+        var dispatchMeasures = new CoordinatorDispatches(
+            BuildRework(dispatches, index, reversedClaims, supersededDecisions, reopenedFindings),
+            BuildFailedDispatches(dispatches, coordinators, refusals),
+            BuildWastedDispatches(dispatches, coordinators, refusals));
 
         return new CoordinatorLoopReport(
             coordinators.Actors,
@@ -112,7 +98,8 @@ public static class CoordinatorMeasurement
             BuildMisScopes(authored),
             BuildRefusals(coordinators, refusals),
             BuildTokenCost(state, usage),
-            ForwardOnlyMeasures,
+            dispatchMeasures,
+            BuildForwardOnly(dispatchMeasures),
             BuildByActor(delays, reversedClaims, supersededDecisions, reopenedFindings));
     }
 
@@ -882,6 +869,388 @@ public static class CoordinatorMeasurement
 
     private static string RefusalRule(string message) => QuotedLiteral.Replace(message, "'X'");
 
+    // Measures 10, 11 and 12. Three questions about one population — the dispatches this coordinator
+    // made — grouped here because they are the three the record could not answer at all until it
+    // carried three inputs, and because each has to be able to say "none" and "I could not tell" as
+    // two different answers.
+    //
+    // The inputs are D7's and they arrive going forward only: the causationId on run.started naming
+    // the coordinator record that prompted the dispatch, the limit the launch was given, and the
+    // provider's own reason for a run that ended other than by completing. Nothing is backfilled and
+    // nothing is inferred. A dispatch made before those inputs existed leaves its measure at the
+    // named absence below, because an invented count of a coordinator's own mistakes is the one
+    // number this report must never produce.
+    //
+    // None of the three reads run.status, and C8 is why. Run LR4 on
+    // 2026-09-10_0931-insightvm-throttle-404 is recorded in the ledger as failed while its own
+    // sidecar reports completed, exit code 0 and no failure at all: the agent's verdict was FAIL, and
+    // a verdict is a finding rather than a failure of the run. Separately, AgentAdapterBase marks a
+    // run failed when any event carries isError and at least one provider types an informational
+    // notice that way. So the status is two things at once, and what these measures read instead is
+    // AgentRun.TerminalFailureReason — the provider's own Failure string, relayed onto the run by the
+    // launcher from the same result object the sidecar is written from, so the run record and its
+    // sidecar make one statement rather than two that can disagree.
+    //
+    // A dispatch that carries neither new field predates them and is not judged. That is the
+    // discriminator, and it is a state check rather than a date comparison: a run recorded before
+    // this change carries no limit and no reason, and no clock is consulted to establish it.
+    private const string ReworkMeasure = "reworkCausedByCoordinatorDecisions";
+    private const string FailedDispatchMeasure = "failedDispatchesAttributableToCoordinator";
+    private const string WastedDispatchMeasure = "wastedDispatches";
+
+    // What ended a failed dispatch. Three values, and the third is the one that keeps the other two
+    // honest: it is emitted whenever the record does not establish which condition ended the run, and
+    // the row is then left unjudged rather than attributed on a guess.
+    private const string ReachedItsLimit = "reachedTheLimitTheCoordinatorSet";
+    private const string EndedInsideItsLimit = "endedInsideTheLimitTheCoordinatorSet";
+    private const string TerminationNotRecorded = "whatEndedThisDispatchWasNotRecorded";
+
+    // The one ground on which this projection will call a dispatch wasted, and it is a state check:
+    // the run carries a provider reason and no manifest hash, so the adapter never received a brief.
+    // AgentRun.ManifestHash is assigned only once the request is fully built and immediately before
+    // the adapter is called, so its absence beside a failure is the launch dying ahead of the brief.
+    private const string NoBriefReachedTheAdapter = "noBriefReachedTheAdapter";
+
+    // The refusal site the CLI journals a refused launch under. The constant itself lives in
+    // RefusalSite in AILedger.Storage, which Core cannot reference, so the string is repeated here
+    // with its source named rather than the dependency being inverted for one literal.
+    private const string ProviderLaunchSite = "provider-launch";
+
+    // Every coordinator-authored dispatch, with the run as the record now holds it and the cause the
+    // dispatch named. The run is read from state rather than from the run.started payload, because
+    // the two fields these measures need are recorded at completion and the payload is the run as it
+    // began.
+    //
+    // The population is the coordinator's own dispatches and not the log's, and one consequence of
+    // that is worth stating plainly because it surprises a reader. A run.started an actor wrote while
+    // it was itself the subject of a run is that run's work, so it is already out of the authored
+    // list — and a launch an actor makes *for itself* has exactly that shape. So a self-dispatch is
+    // not counted here at all, which also takes an operator's own filing runs out of the measure.
+    //
+    // That is the population rule CoordinatorSet settled for measures 4 to 8 rather than anything
+    // these three introduce, and MC5 measured it on a live launch: three real provider launches with
+    // no --subject reported no dispatches, and the same three with --subject reported three. A
+    // coordinator dispatching to another actor — which is what `provider launch --subject` is for —
+    // is measured.
+    private static IReadOnlyList<DispatchRow> CollectDispatches(
+        GovernedTaskState state,
+        IReadOnlyList<AuthoredEvent> authored,
+        SequenceIndex index)
+    {
+        var dispatches = new List<DispatchRow>();
+        foreach (var row in authored)
+        {
+            if (row.Event.Data is not RunStarted started)
+            {
+                continue;
+            }
+
+            dispatches.Add(new DispatchRow(
+                row.Position,
+                state.Runs.TryGetValue(started.Run.Id, out var current) ? current : started.Run,
+                index.DispatchCause(row.Event)));
+        }
+
+        return dispatches;
+    }
+
+    // Measure 10. A dispatch is rework attributable to a coordinator record when the record it names
+    // as its cause is one this report has already found reversed — a claim later rejected or
+    // corrected, a decision later superseded, or a disposition later reopened. The dispatch was spent
+    // on a premise that did not hold.
+    //
+    // The avoidability travels from the reversal row rather than being decided again here, so measure
+    // 10 makes no judgement of its own and the row leads back to the two sequences and the evidence id
+    // the comparison was made from (R5). Nothing requires the reversal to follow the dispatch: a
+    // dispatch made on a record that had already been reversed is worse and not better, and the row
+    // shows the order.
+    //
+    // Three populations and not one count. "No rework" and "no dispatch here names anything" are
+    // different answers, and a report that gave them one number would read as the first while meaning
+    // the second — which is the whole reason this measure was absent rather than zero until now.
+    private static CoordinatorRework BuildRework(
+        IReadOnlyList<DispatchRow> dispatches,
+        SequenceIndex index,
+        IReadOnlyList<AvoidabilityCheck> reversedClaims,
+        IReadOnlyList<AvoidabilityCheck> supersededDecisions,
+        IReadOnlyList<AvoidabilityCheck> reopenedFindings)
+    {
+        var reversals = reversedClaims
+            .Concat(supersededDecisions)
+            .Concat(reopenedFindings)
+            .ToLookup(check => check.RecordSequence);
+        var joined = 0;
+        var rows = new List<CoordinatorReworkDispatch>();
+        foreach (var dispatch in dispatches)
+        {
+            if (dispatch.Cause is not { } cause || index.PositionOf(cause) is not { } position)
+            {
+                continue;
+            }
+
+            joined++;
+            foreach (var check in reversals[position + 1])
+            {
+                rows.Add(new CoordinatorReworkDispatch(
+                    dispatch.Run.Id.Value,
+                    dispatch.Position + 1,
+                    cause.Value,
+                    check.Kind,
+                    check.RecordId,
+                    check.RecordSequence,
+                    check.Avoidability,
+                    check.Comparison));
+            }
+        }
+
+        return new CoordinatorRework(
+            dispatches.Count,
+            joined,
+            dispatches.Count - joined,
+            [.. rows.OrderBy(row => row.DispatchSequence)],
+            "Every dispatch a coordinating actor recorded on this task, whether by 'provider launch' " +
+            "or by 'run start'. A dispatch is joined when it names a cause and that cause is an event " +
+            "in this log; naming nothing, and naming an id this log does not hold, are both counted as " +
+            "unjoined, because neither can be compared against anything.",
+            joined == 0
+                ? "No dispatch on this task names the coordinator record that prompted it, so no " +
+                  "dispatch can be joined to a reversed record. The link is a causationId on " +
+                  "run.started, set by passing '--cause' on the launch; it is recorded going forward " +
+                  "and never backfilled, because an inferred causal link is a fabricated measurement " +
+                  "(D7, PALT3)."
+                : null);
+    }
+
+    // Measure 11. A dispatch that ended other than by completing, and whether the coordinator's own
+    // decision is what ended it.
+    //
+    // The attribution is a recorded observation and neither a reading of the reason's text nor a
+    // comparison of durations. AgentRun.EndedAtTheLaunchTimeout is set by the launcher from what the
+    // process runner observed at the moment it ended the process — which cancellation source fired —
+    // so this measure reports a fact the record establishes rather than deriving one.
+    //
+    // It used to be a duration comparison, and that was the defect. The interval available here is
+    // the kernel's own, run.started to run.completed, and it is strictly wider than the provider's:
+    // the ledger run opens before the manifest is built and the adapter is called, and closes after
+    // the result is persisted. A provider that failed on its own terms at 1799.5 seconds of an
+    // 1800-second launch therefore crossed the limit on the kernel's clock and was reported as ended
+    // by the coordinator's limit, scoring the coordinator for a decision the record did not establish
+    // (VC6, VE10). Rounding made it worse by pulling the boundary in further still.
+    //
+    // The two numbers stay on the row because they are worth reading, and the elapsed figure is no
+    // longer rounded. Neither decides anything: a reader comparing them will find rows where the
+    // interval crossed the limit and the verdict is not the timeout, and that disagreement is the
+    // measure working rather than failing.
+    //
+    // Refused launches are counted here because the contract names them, and they are the same rows
+    // measure 9 reports under the provider-launch site — stated so that a reader does not add the two
+    // measures together and count them twice. A refused launch has no run to compare, which is
+    // exactly why it is a count here and not a row.
+    private static CoordinatorFailedDispatches BuildFailedDispatches(
+        IReadOnlyList<DispatchRow> dispatches,
+        CoordinatorSet coordinators,
+        RetrospectiveRefusalJournal? refusals)
+    {
+        var launches = dispatches.Where(dispatch => dispatch.IsLaunch).ToArray();
+        var judged = launches.Where(dispatch => dispatch.CarriesTheNewInputs).ToArray();
+        var rows = new List<CoordinatorDispatchFailure>();
+        foreach (var dispatch in judged)
+        {
+            if (dispatch.Run.TerminalFailureReason is not { } reason)
+            {
+                continue;
+            }
+
+            rows.Add(Classify(dispatch, reason));
+        }
+
+        // Rows the record leaves unjudged are still rows: the failure happened and its reason is
+        // reported. What is withheld is the attribution, and when every row is withheld the measure
+        // says so at its own level rather than leaving a reader to notice it row by row.
+        var attributed = rows.Count(row => !string.Equals(
+            row.Attribution, TerminationNotRecorded, StringComparison.Ordinal));
+
+        return new CoordinatorFailedDispatches(
+            launches.Length,
+            judged.Length,
+            [.. rows.OrderBy(row => row.Run, StringComparer.Ordinal)],
+            RefusedLaunches(coordinators, refusals),
+            "The coordinating actors' provider launches on this task. A launch is judged when it " +
+            "carries the limit it was given, the provider's own terminal reason, or the launcher's " +
+            "observation of what ended it; one carrying none of the three was recorded before those " +
+            "inputs existed. Whether a dispatch failed is read from the provider's reason and never " +
+            "from run.status, because a run whose agent returned an adverse verdict is a run that did " +
+            "its job (C8). Whether the coordinator's own limit ended it is read from that recorded " +
+            "observation and never from elapsed time, because the interval this projection can see is " +
+            "wider than the provider's run (VC6). Refused launches are the same rows measure 9 reports " +
+            "under the provider-launch site and must not be added to it twice.",
+            judged.Length == 0
+                ? "No launch on this task carries the limit it was given, the provider's own terminal " +
+                  "reason, or what ended it, so a run that died at a limit the coordinator set too low " +
+                  "cannot be told from one that failed on its own merits. All three are recorded going " +
+                  "forward and none is ever backfilled (D7)."
+                : rows.Count > 0 && attributed == 0
+                    ? "Every failed dispatch here is reported and none is attributed: no row records " +
+                      "which condition ended its run, and this measure will not supply that from " +
+                      "elapsed time. The launcher records the observation going forward; until a " +
+                      "dispatch carries one, whether the coordinator's limit ended a run is unknown " +
+                      "rather than negative (VC6)."
+                    : null);
+    }
+
+    private static CoordinatorDispatchFailure Classify(DispatchRow dispatch, string reason)
+    {
+        var limit = dispatch.Run.LaunchTimeoutSeconds;
+        var elapsed = dispatch.ElapsedSeconds;
+        if (dispatch.Run.EndedAtTheLaunchTimeout is not { } endedAtTheLimit)
+        {
+            return new CoordinatorDispatchFailure(
+                dispatch.Run.Id.Value, limit, elapsed, reason,
+                TerminationNotRecorded,
+                "Nobody observed which condition ended this run: it was recorded before the launcher " +
+                "carried that observation, was started by hand rather than by a launch, or its " +
+                "launch died before the adapter returned. The row is left unjudged. Its elapsed time " +
+                "is not consulted, because the interval here is run.started to run.completed — wider " +
+                "than the provider's own run — so a run that failed on its own terms just short of " +
+                "its limit crosses that limit on this clock (VC6).");
+        }
+
+        return new CoordinatorDispatchFailure(
+            dispatch.Run.Id.Value, limit, elapsed, reason,
+            endedAtTheLimit ? ReachedItsLimit : EndedInsideItsLimit,
+            endedAtTheLimit
+                ? "The process runner ended this provider because the deadline the launch was given " +
+                  "expired, and recorded that it had. So the limit the coordinator set is what ended " +
+                  "the run, and the provider's reason beside it is the account of a run that was cut " +
+                  "off rather than of one that failed."
+                : "The launcher watched this run end some way other than at its deadline, and " +
+                  "recorded that. So it failed on its own terms and the limit the coordinator set is " +
+                  "not what ended it — whatever the elapsed figure beside it looks like against the " +
+                  "limit, since that interval is wider than the provider's own run.");
+    }
+
+    // Measure 12. A dispatch is wasted only when the run could not do the work it was sent to do —
+    // and a verifier that finds nothing is not waste. That exclusion is not a caveat here, it is the
+    // rule: nothing this method reads can classify a completed run at all, whatever its agent
+    // concluded, because the only input it looks at is a provider failure on a launch that received
+    // no brief.
+    //
+    // Two grounds, and both are state checks. A launch the kernel refused never became a run, so the
+    // work was certainly not done; and a launched run that failed with no manifest hash is one whose
+    // adapter never received a brief, which is the contract's own first example of waste.
+    //
+    // Everything else with a provider reason is counted and named rather than classified. Telling a
+    // wrong scope or an unsatisfiable contract from an ordinary provider fault would mean reading the
+    // reason's prose, and a projection that graded free text would be making the judgement this whole
+    // file exists to avoid making.
+    private static CoordinatorWastedDispatches BuildWastedDispatches(
+        IReadOnlyList<DispatchRow> dispatches,
+        CoordinatorSet coordinators,
+        RetrospectiveRefusalJournal? refusals)
+    {
+        var judged = dispatches
+            .Where(dispatch => dispatch.IsLaunch && dispatch.CarriesTheNewInputs)
+            .ToArray();
+        var rows = new List<CoordinatorWastedDispatch>();
+        var unclassified = 0;
+        foreach (var dispatch in judged)
+        {
+            if (dispatch.Run.TerminalFailureReason is not { } reason)
+            {
+                continue;
+            }
+
+            if (dispatch.Run.ManifestHash is null)
+            {
+                rows.Add(new CoordinatorWastedDispatch(
+                    dispatch.Run.Id.Value, reason, NoBriefReachedTheAdapter,
+                    "The run records a provider failure and no manifest hash. The hash is set only " +
+                    "once the request is fully built and immediately before the adapter is called, so " +
+                    "its absence means the adapter never received this run's brief and the run could " +
+                    "not have done the work it was sent to do."));
+                continue;
+            }
+
+            unclassified++;
+        }
+
+        return new CoordinatorWastedDispatches(
+            judged.Length,
+            [.. rows.OrderBy(row => row.Run, StringComparer.Ordinal)],
+            unclassified,
+            RefusedLaunches(coordinators, refusals),
+            "The coordinating actors' provider launches that carry the inputs this measure needs. A " +
+            "completed run is never counted here, whatever its agent concluded: a verifier that finds " +
+            "nothing did the work it was sent to do. A launch that failed with a brief delivered is " +
+            "counted under the unclassified figure and not as waste, because separating a wrong scope " +
+            "from an ordinary provider fault would mean grading the reason's prose. Refused launches " +
+            "are the same rows measure 9 reports under the provider-launch site.",
+            judged.Length == 0
+                ? "No launch on this task carries the provider's own terminal reason, so a run that " +
+                  "could not do the work it was sent to do cannot be told from one that failed part " +
+                  "way through doing it. The reason is recorded going forward and never backfilled (D7)."
+                : null);
+    }
+
+    // The coordinating actors' refused launches, from the journal rather than from the log: a launch
+    // the kernel refused appended no event, which is why the journal exists at all. Null when the
+    // caller found no journal, and it stays null rather than becoming zero — a file nobody found and
+    // a file holding nothing are different facts, which is the standard CoordinatorRefusals already
+    // holds itself to.
+    private static int? RefusedLaunches(
+        CoordinatorSet coordinators,
+        RetrospectiveRefusalJournal? refusals) =>
+        refusals is null
+            ? null
+            : coordinators.Refusals(refusals)
+                .Count(row => string.Equals(row.Site, ProviderLaunchSite, StringComparison.Ordinal));
+
+    // Which of measures 10 to 12 still answers nothing, and why. This replaces the fixed list the
+    // report used to carry: the three were unconditionally absent because nothing recorded their
+    // inputs, and now each one is absent exactly when the dispatches on this task carry none of what
+    // it needs. So the same three keys are still named for a task whose dispatches predate the
+    // change, and a task with one dispatch after it reports figures instead.
+    private static IReadOnlyList<CoordinatorAbsence> BuildForwardOnly(CoordinatorDispatches dispatches) =>
+    [
+        .. new (string Measure, string? Absence)[]
+        {
+            (ReworkMeasure, dispatches.Rework.Absence),
+            (FailedDispatchMeasure, dispatches.FailedDispatches.Absence),
+            (WastedDispatchMeasure, dispatches.WastedDispatches.Absence)
+        }
+        .Where(entry => entry.Absence is not null)
+        .Select(entry => new CoordinatorAbsence(entry.Measure, entry.Absence!))
+    ];
+
+    // One dispatch, as measures 10 to 12 read it.
+    //
+    // IsLaunch keys on LaunchTokenHash because that is what tells a launch from a run started by
+    // hand: the launcher is the only caller that sets it (IC3). Measures 11 and 12 are about launches
+    // — a limit and a provider reason exist only for one — while measure 10's causal link is recorded
+    // the same way for both, so it reads every dispatch.
+    private sealed record DispatchRow(int Position, AgentRun Run, EventId? Cause)
+    {
+        public bool IsLaunch => Run.LaunchTokenHash is not null;
+
+        // Whether this dispatch was recorded after these fields existed. A state check and not a date
+        // comparison: a run recorded before them carries none of them, and no clock decides it.
+        public bool CarriesTheNewInputs =>
+            Run.LaunchTimeoutSeconds is not null ||
+            Run.TerminalFailureReason is not null ||
+            Run.EndedAtTheLaunchTimeout is not null;
+
+        // The kernel's own interval for this run, unrounded. Null while the run is still open.
+        //
+        // Reported and never compared. It brackets the launcher's whole turn rather than the
+        // provider's run, so it cannot decide whether a limit was reached; rounding it made that
+        // worse by moving the boundary half a second, which is how a provider failing at 1799.5
+        // seconds of an 1800-second launch was read as having reached the limit (VC6). The number is
+        // kept on the row for a reader, at the precision the record actually holds.
+        public double? ElapsedSeconds => Run.EndedAt is { } ended
+            ? (ended - Run.StartedAt).TotalSeconds
+            : null;
+    }
+
     // Coordinator token cost, best-effort, from the harness transcript, in the same four buckets
     // AgentRun uses so that a coordinating session and a dispatched run compare without conversion
     // (D6). D3's premise — that a coordinator cannot observe its own token use — was false; its
@@ -1050,6 +1419,10 @@ public static class CoordinatorMeasurement
     {
         private readonly IReadOnlyList<LedgerEvent> _history;
         private readonly Dictionary<EvidenceId, (int Position, Evidence Evidence)> _evidence = [];
+        // Where each event stands, so a causationId can be turned into a position without parsing the
+        // id. EventId happens to encode the task version it was written at, and reading the number
+        // out of the string would be a second, undocumented model of how ids are composed.
+        private readonly Dictionary<EventId, int> _positions = [];
         private readonly Dictionary<DecisionId, Decision> _proposals = [];
         // Keyed by the predecessor: which replacement's acceptance is what took it out of force, and
         // where that acceptance stands. Built from the two events the state machine actually pairs,
@@ -1061,6 +1434,7 @@ public static class CoordinatorMeasurement
             _history = history;
             for (var position = 0; position < history.Count; position++)
             {
+                _positions[history[position].EventId] = position;
                 switch (history[position].Data)
                 {
                     case EvidenceAdded added:
@@ -1090,6 +1464,39 @@ public static class CoordinatorMeasurement
                     _accepted[predecessor] = (position, replacement);
                 }
             }
+        }
+
+        // Where an event stands in this log, or null when the id names no event here. Null is a real
+        // case and not a defensive one: nothing validates that a --cause names an existing event, so
+        // a dispatch can name an id this log does not hold, and measure 10 has to report such a
+        // dispatch as one it could not join rather than as one that named nothing.
+        public int? PositionOf(EventId id) =>
+            _positions.TryGetValue(id, out var position) ? position : null;
+
+        // The coordinator record that caused a dispatch, following the launch command's own internal
+        // chain where it has to.
+        //
+        // A launch let through the brief-waiver door emits context.brief-waived first and run.started
+        // second, and CommandHandler chains a command's second event to its first — so the record
+        // named by --cause reaches the waiver and the run names the waiver. MC2 with ME2 is that
+        // check, and ME2 is why it matters here rather than in theory: the one causationId on any of
+        // the 433 run.started events in this ledger is exactly that waiver chain.
+        //
+        // The walk follows context.brief-waived and nothing else, because that is the only event
+        // RunRules.StartRun emits ahead of the run. A chain that later grows a different second link
+        // therefore stops at it and is reported as naming it, rather than being walked through
+        // silently on the assumption that anything before a run is bookkeeping.
+        public EventId? DispatchCause(LedgerEvent started)
+        {
+            var cause = started.CausationId;
+            while (cause is { } named &&
+                   PositionOf(named) is { } position &&
+                   _history[position].Data is ContextBriefWaived)
+            {
+                cause = _history[position].CausationId;
+            }
+
+            return cause;
         }
 
         public AvoidabilityCheck Compare(
@@ -1474,6 +1881,95 @@ public sealed record CoordinatorTokenCost(
         new(null, null, null, null, null, null, null, null, null, null, null, reason);
 }
 
+// Measures 10 to 12, together, because they read one population and one set of inputs. Each carries
+// its own Absence, so a task can report one of the three and name the other two as absent — which is
+// the state of a task whose dispatches straddle the change that added the inputs.
+public sealed record CoordinatorDispatches(
+    CoordinatorRework Rework,
+    CoordinatorFailedDispatches FailedDispatches,
+    CoordinatorWastedDispatches WastedDispatches);
+
+// Measure 10. Dispatches is the population, Joined is the part of it that named a cause this log
+// holds, and NamingNothing is the rest — a dispatch that named no cause, or one whose cause is an id
+// this log does not carry. The three are reported together because an empty Rows list means "no
+// dispatch rested on a record that was reversed" only when Joined is above zero; with Joined at zero
+// it means nothing at all, and Absence says so.
+//
+// These are dispatch populations and not event counts: D4 refuses a raw event count as a measure, and
+// what it refuses is volume standing in for work done. A population a measure was computed over is
+// the opposite of that — it is what makes the measure checkable.
+public sealed record CoordinatorRework(
+    int Dispatches,
+    int Joined,
+    int NamingNothing,
+    IReadOnlyList<CoordinatorReworkDispatch> Rows,
+    string Population,
+    string? Absence);
+
+// One dispatch that rested on a coordinator record later found reversed. Avoidability and Comparison
+// are copied from the reversal row rather than decided here, so this measure adds no judgement of its
+// own and Record leads back to the row where both sequences and the evidence id stand (R5).
+public sealed record CoordinatorReworkDispatch(
+    string Run,
+    long DispatchSequence,
+    string Cause,
+    string Kind,
+    string Record,
+    long RecordSequence,
+    string Avoidability,
+    string Comparison);
+
+// Measure 11. Launches is every launch the coordinator made, Judged is the part carrying the inputs
+// this measure needs, and Rows is the failures among those. RefusedLaunches is null when no journal
+// was found and is deliberately not folded into the rows: a refused launch has no run and so no pair
+// of numbers to compare.
+public sealed record CoordinatorFailedDispatches(
+    int Launches,
+    int Judged,
+    IReadOnlyList<CoordinatorDispatchFailure> Rows,
+    int? RefusedLaunches,
+    string Population,
+    string? Absence);
+
+// One failed dispatch, and what the record establishes about the coordinator's part in ending it.
+//
+// Reason is the provider's own text, verbatim, and is the field this measure treats as the truth about
+// whether the dispatch failed — never run.status (C8). Attribution is one of three values, and the
+// third says the record does not establish what ended the run; that row is unjudged and stays that way
+// (VC6).
+//
+// LimitSeconds and ElapsedSeconds are context and not the basis. They used to be the basis, and the
+// comparison between them was unsound because the second is wider than the provider's own run. They
+// are still on the row because a reader wants them, and Basis says what the attribution actually
+// rests on.
+public sealed record CoordinatorDispatchFailure(
+    string Run,
+    int? LimitSeconds,
+    double? ElapsedSeconds,
+    string Reason,
+    string Attribution,
+    string Basis);
+
+// Measure 12. Unclassified is the launches that failed with a brief delivered: counted, named, and
+// deliberately not called waste, because telling a wrong scope from an ordinary provider fault would
+// mean grading the reason's prose. A completed run never appears here at all, whatever its agent
+// concluded.
+public sealed record CoordinatorWastedDispatches(
+    int Judged,
+    IReadOnlyList<CoordinatorWastedDispatch> Rows,
+    int Unclassified,
+    int? RefusedLaunches,
+    string Population,
+    string? Absence);
+
+// One dispatch that could not do the work it was sent to do, with the state check that establishes it
+// rather than a reading of the reason's text.
+public sealed record CoordinatorWastedDispatch(
+    string Run,
+    string Reason,
+    string Ground,
+    string Comparison);
+
 public sealed record CoordinatorLoopReport(
     IReadOnlyList<string> CoordinatorActors,
     IReadOnlyList<CoordinatorSessionMeasure> Sessions,
@@ -1490,6 +1986,10 @@ public sealed record CoordinatorLoopReport(
     IReadOnlyList<ScopeReplacement> MisScopedWorkItems,
     CoordinatorRefusals? Refusals,
     CoordinatorTokenCost TokenCost,
+    // Measures 10 to 12, which read the three inputs D7 added going forward. Each names its own
+    // absence, and NotMeasured below carries the same absences as keys so a reader of that list alone
+    // still learns which of the three answered nothing.
+    CoordinatorDispatches Dispatches,
     IReadOnlyList<CoordinatorAbsence> NotMeasured,
     // Measures 3, 5, 6 and 7 again, partitioned by the coordinating actor, beside the task-wide
     // figures above rather than instead of them (D7, K2). Empty when one actor coordinated alone,
