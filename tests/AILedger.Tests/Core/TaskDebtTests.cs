@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Tests.Support;
 
 namespace AILedger.Tests.Core;
 
@@ -237,6 +238,133 @@ public sealed class TaskDebtTests
         // Debt of zero must mean the gate accepts, and any debt must mean it refuses.
         Assert.Equal(debt == 0, accepted);
     }
+
+    // IC1: the retrospective debt is unconditional. An archived task that carries no retrospective
+    // owes one on that ground alone, which today is every archived task in this repository.
+    [Fact]
+    public void AnArchivedTaskWithNoRetrospectiveOwesOne()
+    {
+        var task = Archived();
+
+        var debt = TaskDebt.Compute(task.State);
+
+        Assert.True(debt.RetrospectiveOwed);
+        Assert.False(debt.IsClear);
+    }
+
+    [Fact]
+    public void AnArchivedTaskThatCarriesARetrospectiveOwesNothing()
+    {
+        var task = Archived();
+        task.Apply(WorkflowRetrospectiveArtifactTests.Retrospective(task, task.OperatorId, "A-retro"));
+
+        var debt = TaskDebt.Compute(task.State);
+
+        Assert.False(debt.RetrospectiveOwed);
+        Assert.True(debt.IsClear);
+    }
+
+    // Before Archive the kernel refuses a retrospective outright, so a task that has not reached
+    // closeout cannot be in arrears for one, whatever else it owes.
+    [Fact]
+    public void ATaskBeforeArchiveOwesNoRetrospectiveWhateverElseItOwes()
+    {
+        var state = WithRecalledLesson(out _, out _, out _, out _);
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.False(debt.RetrospectiveOwed);
+        Assert.Equal(1, debt.LessonsRecalled);
+        Assert.False(debt.IsClear);
+    }
+
+    // The rest of the block is untouched: a task that owes something else still reports exactly what
+    // it reported before, and a filed retrospective neither adds to that debt nor clears it.
+    [Fact]
+    public void ADebtOtherThanTheRetrospectiveIsReportedUnchanged()
+    {
+        var task = Archived(InheritedLesson());
+        task.Apply(WorkflowRetrospectiveArtifactTests.Retrospective(task, task.OperatorId, "A-retro"));
+
+        var debt = TaskDebt.Compute(task.State);
+
+        Assert.False(debt.RetrospectiveOwed);
+        Assert.Equal(1, debt.LessonsRecalled);
+        Assert.Equal(0, debt.LessonsCited);
+        Assert.False(debt.IsClear);
+    }
+
+    // IC2: a supersession must carry its predecessor's kind, so a revised retrospective leaves the
+    // kind present and the debt stays paid across the revision. This is why the projection asks
+    // whether any retrospective exists rather than whether a current one does.
+    [Fact]
+    public void ARevisedRetrospectiveLeavesTheDebtPaid()
+    {
+        var task = Archived();
+        task.Apply(WorkflowRetrospectiveArtifactTests.Retrospective(task, task.OperatorId, "A-retro"));
+        task.Apply(ArtifactCommands.Record(
+            task, task.OperatorId, "A-retro-2", GovernedArtifactKind.WorkflowRetrospective,
+            WorkflowRetrospectiveArtifactTests.Table(), "How this task was governed",
+            supersedes: "A-retro"));
+
+        Assert.False(TaskDebt.Compute(task.State).RetrospectiveOwed);
+    }
+
+    // An archived task built by the commands an operator would issue, rather than by composing the
+    // stage and the artifact onto an opened state. The kernel refuses a retrospective anywhere but
+    // Archive and refuses Archive itself without the walk, so a composed state would let these cases
+    // pass against a task the kernel can never produce. Everything the walk itself owes is settled
+    // here — its open claim resolved on evidence, its work items completed — so that IsClear answers
+    // about the retrospective and not about what the walk left behind.
+    private static TestTask Archived(Lesson? recalled = null)
+    {
+        var task = new TestTask("debt-task");
+        // Recall has no command: the durable service emits the event while opening the task, and the
+        // replay rule accepts it only into a task holding nothing but its opening role. So an
+        // inherited lesson goes on before the walk records anything.
+        if (recalled is not null)
+        {
+            task.RecallLesson(recalled);
+        }
+
+        task.ReachStage(TaskStage.Learn);
+        foreach (var item in task.State.WorkItems.Values
+                     .OrderBy(item => item.Id.Value, StringComparer.Ordinal)
+                     .ToArray())
+        {
+            task.Apply(new CompleteWorkItemCommand(
+                task.OperatorId, null, task.NextCorrelation(), item.Id));
+        }
+
+        // The claim the walk opens to enter Research is the only debt it leaves besides the
+        // retrospective, so it is earned and resolved rather than left to decide IsClear.
+        task.Apply(new AddEvidenceCommand(
+            task.OperatorId, null, task.NextCorrelation(), new EvidenceId("E-topic"),
+            "source-read", "TaskDebt.cs:96", "The stage arms read state the kernel already holds",
+            [new ClaimId("C-topic")], []));
+        task.Apply(new ResolveClaimCommand(
+            task.OperatorId, null, task.NextCorrelation(), new ClaimId("C-topic"),
+            ClaimStatus.Validated, [new EvidenceId("E-topic")]));
+        task.Apply(new MarkLessonBearingCommand(
+            task.OperatorId, null, task.NextCorrelation(), LessonSourceKind.RejectedAlternative,
+            "ALT-stage", Class: LessonClass.Refuted, Repo: "AILedger", Tags: ["retrospective"],
+            Verify: "ailedger status --task debt-task",
+            DoNot: "Do not walk the stages without recording what was considered",
+            Actor: LessonActor.Verifier, Kind: LessonKind.Workflow,
+            VerifyExpects: VerifyExpectation.Present));
+        task.Transition(TaskStage.Archive);
+        return task;
+    }
+
+    // The same lesson WithRecalledLesson reduces on, for the archived cases, which reach their state
+    // through TestTask rather than through this file's own reducer helpers.
+    private static Lesson InheritedLesson() => new(
+        Inherited, new TaskId("earlier-task"), LessonSourceKind.Imported, "C9",
+        "Inherited belief", "Outcome", ["adapter.cs:104"],
+        new Provenance(new ActorId("operator"), new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero),
+            "lesson.import"),
+        null, LessonClass.Refuted, "AILedger", ["adapter"], "grep -n session adapter.cs",
+        "Do not drop it", LessonActor.Verifier);
 
     private static GovernedTaskState WithWorkItem(
         GovernedTaskState state, TaskReducer reducer,

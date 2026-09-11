@@ -1718,10 +1718,12 @@ public sealed class CliApplicationTests
 
         var owed = JsonNode.Parse(output.ToString())!["owed"]!.AsObject();
         Assert.Equal(1, owed["openClaims"]!.GetValue<int>());
-        // Counts only. No score, no colour, no health word, and no field whose value is fixed by the
-        // condition under which the node is written.
+        // Counts, and one fact. No score, no colour, no health word, and no field whose value is
+        // fixed by the condition under which the node is written. The retrospective debt is a
+        // boolean because whether an archived task carries a retrospective is a yes or a no, and a
+        // count that can only be zero or one would read as a measure of something.
         Assert.Equal(
-            new[] { "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "workItemsAwaitingVerification" },
+            new[] { "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "workItemsAwaitingVerification" },
             owed.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray());
     }
 

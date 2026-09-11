@@ -2,7 +2,12 @@ using AILedger.Core.Contracts;
 
 namespace AILedger.Core.Application;
 
-// What a task still owes: counts only, no score and no judgement.
+// What a task still owes: counts, and one fact. No score and no judgement.
+//
+// The fact is whether an archived task carries a workflow retrospective. It is a boolean rather
+// than a count because a count that can only be zero or one is a fact wearing the shape of a
+// measure, and the boolean is the honest shape for it. The invariant worth keeping here was never
+// that every member is a number; it is that no member is a judgement.
 //
 // This has no replay counterpart on purpose. It is a projection over state that is already in
 // memory, it is written by nothing and read by `status`, and it refuses nothing. The moment it
@@ -19,7 +24,11 @@ public sealed record TaskDebt(
     int OpenClaimsWithSupportingEvidence,
     int WorkItemsAwaitingVerification,
     int LessonsRecalled,
-    int LessonsCited)
+    int LessonsCited,
+    // A fact about artifacts, not a count: a task either carries a retrospective or it does not, and
+    // a count that can only be zero or one would read as a measure of something. Appended last so
+    // that nothing already reading this record by position moves.
+    bool RetrospectiveOwed)
 {
     // KC3: not serialised. The owed block is written only when the debt is not clear, so the field
     // could only ever read false in the output an operator sees.
@@ -30,7 +39,18 @@ public sealed record TaskDebt(
         // and cited one reported nothing owed while five went unexamined. The debt is per lesson,
         // not per task, and LessonsCited counts distinct cited ids — so it is cleared only when every
         // inherited lesson has been cited by something.
-        LessonsCited >= LessonsRecalled;
+        LessonsCited >= LessonsRecalled &&
+        // IC1: unconditional, and that is the choice rather than the default. It makes the owed block
+        // appear on all thirty currently archived tasks, because none carries a retrospective and
+        // none can until the calibration gate passes (C1). The two conditions that would suppress it
+        // both cost more than the noise: the gate is a command-time entry condition on another task
+        // and is not in any state this projection may read, and an "archived after" cutoff is a
+        // judgement about timeliness rather than a fact about this task's artifacts. Either buys a
+        // shorter status by making the projection assert something it did not establish. The
+        // dilution argument that deferred the cross-task watcher is about a list of thirty read at
+        // once; `status` answers about the one task the operator already named, and the debt is true
+        // of it.
+        !RetrospectiveOwed;
 
     public static TaskDebt Compute(GovernedTaskState state)
     {
@@ -81,11 +101,22 @@ public sealed record TaskDebt(
 
         var recalled = inherited.Count;
 
+        // Read off the kind the state already holds, never off the body. Before Archive nothing is
+        // owed on this count, because the entry condition at ArtifactRules.cs:236 refuses a
+        // retrospective at any earlier stage, so a task that has not reached closeout cannot be in
+        // arrears for one. IC2: asking whether any exists is the same question as asking whether a
+        // current one exists, because a supersession must carry the predecessor's kind, so a kind
+        // ever filed always has at least one current member.
+        var retrospectiveOwed = state.Stage == TaskStage.Archive &&
+            !state.Artifacts.Values.Any(artifact =>
+                artifact.Kind == GovernedArtifactKind.WorkflowRetrospective);
+
         return new TaskDebt(
             openClaims.Count,
             clearlySupported,
             awaitingVerification,
             recalled,
-            cited.Count);
+            cited.Count,
+            retrospectiveOwed);
     }
 }

@@ -36,9 +36,10 @@ public sealed class TaskDebtCliTests
         Assert.False(document.RootElement.TryGetProperty("owed", out _));
     }
 
-    // Counts only. A field whose value is fixed by the condition under which the block is written
-    // says nothing, and a derived verdict is worse than that: it is a number an agent can move
-    // without doing the work. So the property set is asserted exactly, not merely searched.
+    // Counts, and one fact: whether an archived task still owes a retrospective. A field whose value
+    // is fixed by the condition under which the block is written says nothing, and a derived verdict
+    // is worse than that: it is a number an agent can move without doing the work. So the property
+    // set is asserted exactly, not merely searched.
     [Fact]
     public async Task StatusReportsTheCountsAndNoVerdictWhenTheTaskOwesSomething()
     {
@@ -67,10 +68,16 @@ public sealed class TaskDebtCliTests
                 "openClaimsWithSupportingEvidence",
                 "workItemsAwaitingVerification",
                 "lessonsRecalled",
-                "lessonsCited"
+                "lessonsCited",
+                "retrospectiveOwed"
             },
             owed.EnumerateObject().Select(property => property.Name).ToArray());
-        Assert.All(owed.EnumerateObject(), property => Assert.Equal(JsonValueKind.Number, property.Value.ValueKind));
+        // Every count is a number and the one fact is a boolean. Whether an archived task carries a
+        // retrospective is a yes or a no, and a 0/1 count would read as a measure of something.
+        Assert.All(
+            owed.EnumerateObject().Where(property => property.Name != "retrospectiveOwed"),
+            property => Assert.Equal(JsonValueKind.Number, property.Value.ValueKind));
+        Assert.Equal(JsonValueKind.False, owed.GetProperty("retrospectiveOwed").ValueKind);
         Assert.Equal(1, owed.GetProperty("openClaims").GetInt32());
         Assert.Equal(0, owed.GetProperty("openClaimsWithSupportingEvidence").GetInt32());
     }
