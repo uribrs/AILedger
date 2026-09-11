@@ -301,6 +301,7 @@ public sealed class ContextAssembler : IContextAssembler
             .OrderBy(mark => mark.Id.Value, StringComparer.Ordinal)
             .Select(ToArtifact));
         artifacts.AddRange(CurrentArtifacts(state)
+            .Where(IsBriefable)
             .Where(artifact => IsInWorkScope(artifact, workItem))
             .OrderBy(artifact => artifact.ArtifactId.Value, StringComparer.Ordinal)
             .Select(ToArtifact));
@@ -337,6 +338,19 @@ public sealed class ContextAssembler : IContextAssembler
     // that item's id into the set and so admit itself.
     private static bool IsInWorkScope(GovernedArtifact artifact, WorkItem? workItem) =>
         workItem is null || artifact.WorkItemId is null || artifact.WorkItemId == workItem.Id;
+
+    // A workflow retrospective scores the agents that worked the task, so it is withheld from every
+    // role rather than from some of them, and it is dropped here — before ToContextKind is reached —
+    // rather than mapped to a context kind and then excluded. That ordering is the control. The
+    // throw arm below stays reachable, so the next governed artifact kind added without a decision
+    // about who may read it fails loudly instead of appearing quietly in somebody's manifest.
+    //
+    // This closes one of the three channels contract constraint 3 names, not all three. A score
+    // copied out of a retrospective into a constraint body still reaches every role, because
+    // Constraint is in AlwaysIncludedKinds and is excluded from nothing. That residual is accepted
+    // and named; the control that bounds it is the entry condition in ArtifactRules.
+    private static bool IsBriefable(GovernedArtifact artifact) =>
+        artifact.Kind != GovernedArtifactKind.WorkflowRetrospective;
 
     private static ContextArtifact ToArtifact(GovernedArtifact artifact) =>
         new(

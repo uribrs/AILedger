@@ -215,6 +215,9 @@ public sealed class CliApplication
             case "retrospective build":
                 await WriteRetrospectiveAsync(service, input, ledgerRoot, cancellationToken).ConfigureAwait(false);
                 break;
+            case "retrospective record":
+                await RecordRetrospectiveAsync(service, input, cancellationToken).ConfigureAwait(false);
+                break;
             case "actor attach":
                 await AttachActorAsync(service, input, cancellationToken).ConfigureAwait(false);
                 break;
@@ -796,6 +799,41 @@ public sealed class CliApplication
         await ExecuteAsync(service, input, new RecordArtifactCommand(
             actorId, Cause(input), Correlation(input), artifactId, kind, title, body,
             workItemId, producerRunId, supersedesArtifactId), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task RecordRetrospectiveAsync(
+        IGovernedTaskService service,
+        CommandLine input,
+        CancellationToken cancellationToken)
+    {
+        _ = Task(input);
+        var actorId = Actor(input);
+        var artifactId = new ArtifactId(input.Required("id"));
+        var title = input.Required("title");
+        if (!input.Flag("body-stdin"))
+        {
+            throw new CliUsageException("Retrospective record requires '--body-stdin'.");
+        }
+        if (!Console.IsInputRedirected && ReferenceEquals(Console.In, ProcessStandardInput))
+        {
+            throw new CliUsageException(
+                "Retrospective record requires redirected standard input for '--body-stdin'.");
+        }
+
+        // Retrospectives contain the full evidence-bound ten-dimension report. Read the redirected
+        // stream to EOF without the generic artifact command's size ceiling, and never inspect or
+        // emit the body here; ArtifactRules alone validates its required table.
+        var body = await Console.In.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        if (body.Length == 0)
+        {
+            throw new CliUsageException("Retrospective body cannot be empty.");
+        }
+
+        await ExecuteAsync(service, input, new RecordArtifactCommand(
+            actorId, Cause(input), Correlation(input), artifactId,
+            GovernedArtifactKind.WorkflowRetrospective, title, body,
+            WorkItemId: null, ProducerRunId: null, SupersedesArtifactId: null), cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -1897,6 +1935,8 @@ public sealed class CliApplication
             // answer differently depending on who invoked it (PD2).
             ["retrospective build"] = Options(
                 "root", "task", "actor", "coordinator-session", "coordinator-transcript"),
+            ["retrospective record"] = Options(
+                "root", "task", "actor", "id", "title", "body-stdin"),
             ["actor attach"] = Options(
                 "root", "task", "actor", "target", "role", "capability", "cause", "correlation"),
             ["context build"] = Options("root", "task", "actor", "work", "cognitive-root", "output"),
@@ -2177,6 +2217,10 @@ public sealed class CliApplication
                            session identity is then checked against the session named. An outside,
                            missing, unreadable or mismatched one reports an absence naming the control
                            that refused it — never a zero and never an estimate.
+        retrospective record --task ID --actor ID --id ID --title TEXT --body-stdin
+                           Records a workflow retrospective only after the task reaches Archive,
+                           then has no live work item, then has no active run, in that check order.
+                           It takes no --run because it is filed after closeout, when no run is active.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
                            Serves the actor its brief, then records a context.built event naming the
