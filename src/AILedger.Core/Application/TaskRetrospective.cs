@@ -77,7 +77,8 @@ public static class TaskRetrospective
             BuildLessons(state, debt),
             BuildWorkItems(state, history),
             BuildNotMeasured(state, runs, cost, refusals, debt, coordinator),
-            coordinator);
+            coordinator,
+            BuildBriefWaivers(history));
     }
 
     // Two different numbers, and both belong. They differed by 2x on every task the hand run
@@ -364,7 +365,8 @@ public static class TaskRetrospective
         return new RetrospectiveStages(
             data.OfType<StageTransitioned>().Count(),
             waivers.Length,
-            waivers.Select(waiver => waiver.Reason).ToArray());
+            waivers.Select(waiver => waiver.Reason).ToArray(),
+            CountBy(waivers, waiver => WaiverOriginKey(waiver.Provenance)));
     }
 
     private static RetrospectiveArtifacts BuildArtifacts(GovernedTaskState state) =>
@@ -419,26 +421,42 @@ public static class TaskRetrospective
         GovernedTaskState state,
         IReadOnlyList<LedgerEvent> history)
     {
-        var waivedWith = new Dictionary<WorkItemId, string>();
+        var waivedWith = new Dictionary<WorkItemId, (string Reason, WaiverProvenance? Provenance)>();
         foreach (var @event in history)
         {
             if (@event.Data is WorkItemCompleted { WithoutVerificationReason: { } reason } completed)
             {
-                waivedWith[completed.WorkItemId] = reason;
+                waivedWith[completed.WorkItemId] = (reason, completed.Provenance);
             }
         }
 
         return state.WorkItems.Values
-            .Select(item => new RetrospectiveWorkItem(
-                item.Id.Value,
-                item.Status,
-                item.ResourceScope.Count,
-                WorkItemRules.HasCompletedWorkingRun(state, item.Id),
-                WorkItemRules.HasVerifierRunAfterLatestWork(state, item.Id),
-                WorkItemRules.ProviderThatVerifiedItsOwnWork(state, item.Id),
-                waivedWith.TryGetValue(item.Id, out var reason) ? reason : null))
+            .Select(item =>
+            {
+                waivedWith.TryGetValue(item.Id, out var waiver);
+                return new RetrospectiveWorkItem(
+                    item.Id.Value,
+                    item.Status,
+                    item.ResourceScope.Count,
+                    WorkItemRules.HasCompletedWorkingRun(state, item.Id),
+                    WorkItemRules.HasVerifierRunAfterLatestWork(state, item.Id),
+                    WorkItemRules.ProviderThatVerifiedItsOwnWork(state, item.Id),
+                    waiver.Reason,
+                    waiver.Provenance);
+            })
             .ToArray();
     }
+
+    private static RetrospectiveBriefWaivers BuildBriefWaivers(IReadOnlyList<LedgerEvent> history)
+    {
+        var waivers = history.Select(@event => @event.Data).OfType<ContextBriefWaived>().ToArray();
+        return new RetrospectiveBriefWaivers(
+            waivers.Length,
+            CountBy(waivers, waiver => WaiverOriginKey(waiver.Provenance)));
+    }
+
+    private static string WaiverOriginKey(WaiverProvenance? provenance) =>
+        provenance is null ? "unrecorded" : CamelCase(provenance.Origin.ToString());
 
     // Required, and derived rather than declared (C1). Every entry names something this task's own
     // record cannot answer, and each is a state-checkable condition rather than a judgement:
@@ -728,7 +746,10 @@ public sealed record RetrospectiveRefusals(
     IReadOnlyDictionary<string, int> ByCommand);
 
 public sealed record RetrospectiveStages(
-    int Transitions, int Waivers, IReadOnlyList<string> WaiverReasons);
+    int Transitions,
+    int Waivers,
+    IReadOnlyList<string> WaiverReasons,
+    IReadOnlyDictionary<string, int> WaiversByOrigin);
 
 public sealed record RetrospectiveArtifacts(
     IReadOnlyDictionary<string, int> ByKind, int Supersessions);
@@ -745,7 +766,12 @@ public sealed record RetrospectiveWorkItem(
     bool HasCompletedWorkingRun,
     bool VerifierRanAfterLatestWork,
     string? ProviderThatVerifiedItsOwnWork,
-    string? CompletedWithoutVerificationReason);
+    string? CompletedWithoutVerificationReason,
+    WaiverProvenance? CompletedWithoutVerificationProvenance);
+
+public sealed record RetrospectiveBriefWaivers(
+    int Total,
+    IReadOnlyDictionary<string, int> ByOrigin);
 
 public sealed record TaskRetrospectiveReport(
     TaskId Task,
@@ -766,8 +792,11 @@ public sealed record TaskRetrospectiveReport(
     RetrospectiveLessons Lessons,
     IReadOnlyList<RetrospectiveWorkItem> WorkItems,
     IReadOnlyList<string> NotMeasured,
-    // Appended last, for the reason every property on GovernedTaskState is appended last: a reader
-    // and a test written against the shape above still find it unchanged. What governance did on one
-    // task is one question; what the loop that ran it cost and how well it was run is another, and
-    // the second is derived from the same log by CoordinatorMeasurement.
-    CoordinatorLoopReport CoordinatorLoop);
+    // Appended after the original report shape. What governance did on one task is one question;
+    // what the loop that ran it cost and how well it was run is another, and the second is derived
+    // from the same log by CoordinatorMeasurement.
+    CoordinatorLoopReport CoordinatorLoop,
+    // Appended last so readers compiled against the earlier positional shape remain unchanged. This
+    // comes from the whole log rather than BriefWaiver.Compute because a retrospective includes
+    // completed work while status deliberately reports only waivers relevant to live work.
+    RetrospectiveBriefWaivers BriefWaivers);

@@ -755,6 +755,7 @@ public sealed class TaskRetrospectiveTests
         Assert.Equal(1, report.Stages.Waivers);
         Assert.Equal(1, report.Stages.Transitions);
         Assert.Equal("Documentation-only change", Assert.Single(report.Stages.WaiverReasons));
+        Assert.Equal(1, report.Stages.WaiversByOrigin["unrecorded"]);
     }
 
     // work.completed carries withoutVerificationReason and the item it produced records only that it
@@ -771,6 +772,50 @@ public sealed class TaskRetrospectiveTests
         Assert.Equal("W1", item.Id);
         Assert.Equal(2, item.ScopeCount);
         Assert.Equal("No verifier run was warranted", item.CompletedWithoutVerificationReason);
+        Assert.Null(item.CompletedWithoutVerificationProvenance);
+    }
+
+    [Fact]
+    public void WaiverReadersExposeOriginsForPartitioning()
+    {
+        var log = new Log();
+        var session = new WaiverProvenance(
+            WaiverOrigin.CoordinatorSession,
+            new CoordinatorSessionId("S1"),
+            "codex-cli",
+            "harness-session-1");
+        log.WithWorkItem("W1", WorkItemStatus.Completed, scope: ["src"]);
+        log.Append(new StagePrerequisitesWaived(
+            TaskStage.Verification,
+            "Coordinator chose to advance",
+            session));
+        log.Append(new StagePrerequisitesWaived(
+            TaskStage.Review,
+            "Operator chose to advance",
+            new WaiverProvenance(WaiverOrigin.Manual)));
+        log.Append(new WorkItemCompleted(
+            new WorkItemId("W1"),
+            "Coordinator accepted the missing verifier",
+            session));
+        log.Append(new ContextBriefWaived(
+            "add work item W1",
+            "Coordinator accepted the missing brief",
+            Provenance: session));
+        log.Append(new ContextBriefWaived(
+            "launch run R1",
+            "Operator accepted the missing brief",
+            Provenance: new WaiverProvenance(WaiverOrigin.Manual)));
+
+        var report = log.Build();
+
+        Assert.Equal(1, report.Stages.WaiversByOrigin["coordinatorSession"]);
+        Assert.Equal(1, report.Stages.WaiversByOrigin["manual"]);
+        var completion = Assert.Single(report.WorkItems).CompletedWithoutVerificationProvenance;
+        Assert.Equal(WaiverOrigin.CoordinatorSession, completion!.Origin);
+        Assert.Equal(new CoordinatorSessionId("S1"), completion.CoordinatorSessionId);
+        Assert.Equal(2, report.BriefWaivers.Total);
+        Assert.Equal(1, report.BriefWaivers.ByOrigin["coordinatorSession"]);
+        Assert.Equal(1, report.BriefWaivers.ByOrigin["manual"]);
     }
 
     // The three verification questions the completion gate itself asks. HasCompletedWorkingRun

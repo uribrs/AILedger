@@ -30,11 +30,14 @@ internal static class StageTransitionRules
         }
 
         var transition = new StageTransitioned(state.Stage, command.TargetStage);
+        var provenance = waiver is null
+            ? null
+            : CoordinatorSessionRules.ProvenanceForWaiver(state, command.ActorId);
         if (command.TargetStage != TaskStage.Archive)
         {
             return waiver is null
                 ? [transition]
-                : [new StagePrerequisitesWaived(command.TargetStage, waiver), transition];
+                : [new StagePrerequisitesWaived(command.TargetStage, waiver, provenance), transition];
         }
     
         var lessons = LessonRules.MintLessons(state, command.ActorId, now);
@@ -48,7 +51,7 @@ internal static class StageTransitionRules
         var events = lessons.Select<Lesson, LedgerEventData>(lesson => new LessonMinted(lesson));
         if (waiver is not null)
         {
-            events = events.Append(new StagePrerequisitesWaived(command.TargetStage, waiver));
+            events = events.Append(new StagePrerequisitesWaived(command.TargetStage, waiver, provenance));
         }
 
         return events.Append(transition).ToArray();

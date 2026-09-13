@@ -116,14 +116,20 @@ public sealed record RunCompleted(
     // and trailing for the reason the two above it are — every run.completed already on disk carries
     // none, and replay must keep reading those.
     bool? EndedAtTheLaunchTimeout = null) : LedgerEventData;
-public sealed record StagePrerequisitesWaived(TaskStage TargetStage, string Reason) : LedgerEventData;
+public sealed record StagePrerequisitesWaived(
+    TaskStage TargetStage,
+    string Reason,
+    WaiverProvenance? Provenance = null) : LedgerEventData;
 public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
 public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
 public sealed record EscalationResolved(EscalationId EscalationId, EscalationStatus Status, string? Resolution, ActorId ResolvedBy) : LedgerEventData;
 public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
 public sealed record ConstraintAdded(Constraint Constraint) : LedgerEventData;
 public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEventData;
-public sealed record WorkItemCompleted(WorkItemId WorkItemId, string? WithoutVerificationReason = null) : LedgerEventData;
+public sealed record WorkItemCompleted(
+    WorkItemId WorkItemId,
+    string? WithoutVerificationReason = null,
+    WaiverProvenance? Provenance = null) : LedgerEventData;
 public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
 public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
 public sealed record WorkItemAbandoned(WorkItemId WorkItemId, string Reason) : LedgerEventData;
@@ -152,7 +158,8 @@ public sealed record ContextBuilt(
 public sealed record ContextBriefWaived(
     string Action,
     string? OperatorReason = null,
-    EvidenceId? StaleBriefEvidenceId = null) : LedgerEventData;
+    EvidenceId? StaleBriefEvidenceId = null,
+    WaiverProvenance? Provenance = null) : LedgerEventData;
 // The two ends of a coordinating session's bracket. They are the only new persisted facts this
 // measurement needs: everything else it reports is derived from actorId, sequence and timestamp over
 // events that already exist (D2).

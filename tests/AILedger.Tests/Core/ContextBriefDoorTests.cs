@@ -253,6 +253,7 @@ public sealed class ContextBriefDoorTests
         Assert.Equal(ContextBriefWaiver.WorkItemKind, stale.Kind);
         Assert.Equal(new EvidenceId("E1"), stale.StaleBriefEvidenceId);
         Assert.Null(stale.OperatorReason);
+        Assert.Equal(WaiverOrigin.Manual, Assert.IsType<WaiverProvenance>(stale.Provenance).Origin);
         var absent = Assert.Single(replayed.ContextBriefWaivers, waiver => waiver.TargetId == "W2");
         Assert.Equal("The cognitive layer is mid-rewrite and cannot be read at all", absent.OperatorReason);
         Assert.Equal(actor, absent.Actor);

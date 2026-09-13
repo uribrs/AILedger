@@ -66,7 +66,8 @@ internal sealed record PendingBriefWaiver(
     EventId EventId,
     ActorId ActorId,
     string? OperatorReason,
-    EvidenceId? StaleBriefEvidenceId);
+    EvidenceId? StaleBriefEvidenceId,
+    WaiverProvenance? Provenance);
 
 public sealed record CommandOutcome(
     GovernedTaskState State,

@@ -166,7 +166,13 @@ internal static class WorkItemRules
             throw new GovernanceException("Only an operator can complete work without the required runs.");
         }
     
-        return [new WorkItemCompleted(command.WorkItemId, waiver)];
+        return
+        [
+            new WorkItemCompleted(
+                command.WorkItemId,
+                waiver,
+                waiver is null ? null : CoordinatorSessionRules.ProvenanceForWaiver(state, command.ActorId))
+        ];
     }
     
     // Work is released as well as finished. An item that turned out to be a dead end could not be

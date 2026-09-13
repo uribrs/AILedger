@@ -16,6 +16,23 @@ namespace AILedger.Core.Application;
 // beyond the shape checks that are safe by construction.
 internal static class CoordinatorSessionRules
 {
+    // Attribution only. Absence of a bracket is the ordinary manual path and never a refusal.
+    internal static WaiverProvenance ProvenanceForWaiver(
+        GovernedTaskState state,
+        ActorId actorId)
+    {
+        var session = state.CoordinatorSessions.Values.FirstOrDefault(candidate =>
+            candidate.ActorId == actorId && candidate.EndedAt is null);
+
+        return session is null
+            ? new WaiverProvenance(WaiverOrigin.Manual)
+            : new WaiverProvenance(
+                WaiverOrigin.CoordinatorSession,
+                session.Id,
+                session.Harness,
+                session.HarnessSessionId);
+    }
+
     internal static IReadOnlyList<LedgerEventData> StartSession(
         GovernedTaskState state,
         StartCoordinatorSessionCommand command,

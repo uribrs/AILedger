@@ -57,7 +57,11 @@ internal static class ContextGateRules
                 throw new GovernanceException($"Only an operator can {action} without a brief.");
             }
 
-            return new ContextBriefWaived(action, reason, null);
+            return new ContextBriefWaived(
+                action,
+                reason,
+                null,
+                CoordinatorSessionRules.ProvenanceForWaiver(state, actorId));
         }
 
         var briefed = state.ContextBuilds.TryGetValue(actorId, out var build);
@@ -78,7 +82,11 @@ internal static class ContextGateRules
             }
 
             _ = Get(state.Evidence, evidenceId, "evidence");
-            return new ContextBriefWaived(action, null, evidenceId);
+            return new ContextBriefWaived(
+                action,
+                null,
+                evidenceId,
+                CoordinatorSessionRules.ProvenanceForWaiver(state, actorId));
         }
 
         if (!briefed)

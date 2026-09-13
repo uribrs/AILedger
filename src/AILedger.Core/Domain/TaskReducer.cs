@@ -66,7 +66,11 @@ public sealed class TaskReducer : ITaskReducer
             ContextBriefWaived waived => Require(state) with
             {
                 PendingContextBriefWaiver = new PendingBriefWaiver(
-                    @event.EventId, @event.ActorId, waived.OperatorReason, waived.StaleBriefEvidenceId)
+                    @event.EventId,
+                    @event.ActorId,
+                    waived.OperatorReason,
+                    waived.StaleBriefEvidenceId,
+                    waived.Provenance)
             },
             // The bracket, projected so that the runs pointing back at it can be selected without
             // re-reading the log. The end is written onto the same record rather than kept as a
@@ -226,7 +230,12 @@ public sealed class TaskReducer : ITaskReducer
             [
                 .. state.ContextBriefWaivers,
                 new ContextBriefWaiver(
-                    kind, targetId, waiver.ActorId, waiver.OperatorReason, waiver.StaleBriefEvidenceId)
+                    kind,
+                    targetId,
+                    waiver.ActorId,
+                    waiver.OperatorReason,
+                    waiver.StaleBriefEvidenceId,
+                    waiver.Provenance)
             ]
             : state.ContextBriefWaivers;
 

@@ -84,7 +84,8 @@ public sealed record ContextBriefWaiver(
     // Exactly one of these is set, because an absent brief and a stale brief are different failures
     // and the gate refuses a command naming both.
     string? OperatorReason,
-    EvidenceId? StaleBriefEvidenceId)
+    EvidenceId? StaleBriefEvidenceId,
+    WaiverProvenance? Provenance = null)
 {
     public const string WorkItemKind = "work item";
     public const string ProviderLaunchKind = "provider launch";

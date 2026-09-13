@@ -26,7 +26,8 @@ public sealed record BriefWaiver(
     // Exactly one of these is set on any row, because an absent brief and a stale one are different
     // failures and the gate refuses a command naming both.
     string? OperatorReason,
-    EvidenceId? StaleBriefEvidence)
+    EvidenceId? StaleBriefEvidence,
+    WaiverProvenance? Provenance)
 {
     public static IReadOnlyList<BriefWaiver> Compute(GovernedTaskState state)
     {
@@ -52,7 +53,8 @@ public sealed record BriefWaiver(
                 waiver.TargetId,
                 waiver.Actor.Value,
                 waiver.OperatorReason,
-                waiver.StaleBriefEvidenceId))
+                waiver.StaleBriefEvidenceId,
+                waiver.Provenance))
         ];
     }
 
