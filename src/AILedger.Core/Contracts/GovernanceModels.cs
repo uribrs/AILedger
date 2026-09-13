@@ -366,6 +366,11 @@ public sealed record AgentRun(
     RunId Id,
     ActorId ActorId,
     WorkItemId? WorkItemId,
+    // The provider a run declares at start. The literal below is the declaration that no provider
+    // process will run at all: the run exists to hold a record — an artifact needs a producer run —
+    // and there is no child, no session and nothing to resume. It is a declaration and not a
+    // discovery, made before the work and immutable in the log, which is why the completion rule
+    // may rely on it: a run cannot claim after the fact that it never had a provider.
     string Provider,
     string? ProviderSessionId,
     AgentRunStatus Status,
@@ -516,7 +521,25 @@ public sealed record AgentRun(
     // Nullable and trailing like every field above it, for the same reason: every run.completed
     // already on disk carries none, and a replay rule keyed on a field older events lack has twice
     // made a live task permanently unreadable here.
-    bool? EndedAtTheLaunchTimeout = null);
+    bool? EndedAtTheLaunchTimeout = null)
+{
+    /// <summary>
+    /// The <see cref="Provider"/> value declaring that no provider process runs for this run. A run
+    /// that declares it has no session to record and none to lose, which is what exempts it from
+    /// the resumability rule on completion. It is the value 27 operator filing runs already carried
+    /// before the rule read it.
+    /// </summary>
+    public const string NoProvider = "none";
+
+    /// <summary>
+    /// True when this run never had a provider process: it declared <see cref="NoProvider"/> at
+    /// start and was not dispatched through the kernel's launch path. Both halves come from the
+    /// <c>run.started</c> event, so neither can be asserted after the run has ended.
+    /// </summary>
+    public bool HasNoProviderSessionByDeclaration =>
+        string.Equals(Provider, NoProvider, StringComparison.OrdinalIgnoreCase) &&
+        LaunchTokenHash is null;
+}
 // As on WorkItem above: the door a launch came through is recorded by the waiver event beside this
 // run and projected into GovernedTaskState.ContextBriefWaivers, not copied onto the run.
 

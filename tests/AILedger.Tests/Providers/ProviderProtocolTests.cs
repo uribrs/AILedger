@@ -47,6 +47,54 @@ public sealed class ProviderProtocolTests
         Assert.Contains("Malformed provider JSONL", result.Failure, StringComparison.Ordinal);
     }
 
+    // A line that is valid JSON but not an object used to throw InvalidOperationException out of
+    // TryGetProperty, past a callback that catches only JsonException, killing the child and
+    // discarding every event already collected — seven runs in this ledger. It is now rejected the
+    // same way a line that is not JSON at all is: as a malformed line, reported, with the run's
+    // collected events intact.
+    [Theory]
+    [InlineData("123")]
+    [InlineData("\"a bare string\"")]
+    [InlineData("[{\"type\":\"thread.started\"}]")]
+    [InlineData("null")]
+    [InlineData("true")]
+    public async Task AValidJsonLineThatIsNotAnObjectIsMalformedAndNotFatal(string line)
+    {
+        var result = await RunCodexAsync(0,
+            "{\"type\":\"thread.started\",\"thread_id\":\"session-1\"}",
+            line,
+            "{\"type\":\"turn.completed\",\"output_text\":\"done\"}");
+
+        // Rejected, and said so — strictness on genuinely invalid protocol data is unchanged.
+        Assert.Equal(AgentRunStatus.ProtocolError, result.Status);
+        Assert.Contains("Malformed provider JSONL", result.Failure, StringComparison.Ordinal);
+        Assert.Contains("must be a JSON object", result.Failure, StringComparison.Ordinal);
+        // What changes: the session the run had already established survives the bad line, so the
+        // run is resumable and its collected events are not thrown away.
+        Assert.Equal("session-1", result.ProviderSessionId);
+    }
+
+    [Fact]
+    public async Task AClaudeLineThatIsNotAnObjectIsMalformedAndNotFatal()
+    {
+        var runner = ClaudeRunner(invocation =>
+        {
+            var session = ValueAfter(invocation.Arguments, "--session-id");
+            return new ScriptedProcessResult(0,
+                [$"{{\"type\":\"system\",\"session_id\":\"{session}\"}}",
+                 "[1,2,3]",
+                 $"{{\"type\":\"result\",\"session_id\":\"{session}\",\"result\":\"done\"}}"],
+                []);
+        });
+
+        var result = await new ClaudeAgentAdapter(runner).RunAsync(
+            Request("claude", AgentLaunchMode.New, null), CancellationToken.None);
+
+        Assert.Equal(AgentRunStatus.ProtocolError, result.Status);
+        Assert.Contains("must be a JSON object", result.Failure, StringComparison.Ordinal);
+        Assert.NotNull(result.ProviderSessionId);
+    }
+
     [Fact]
     public async Task ClaudeErrorResultIsFailedAndRetainsSessionAndOutput()
     {

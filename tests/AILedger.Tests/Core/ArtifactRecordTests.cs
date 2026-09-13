@@ -88,6 +88,69 @@ public sealed class ArtifactRecordTests
         Assert.Equal(2, task.State.Artifacts.Count);
     }
 
+    // The refusal has to carry the one thing the caller cannot work out for itself. Measured on
+    // 2026-09-11: two verifier runs were closed Failed in thirty-five minutes because each filed no
+    // output after being refused here, and the id they needed was in hand at the throw site. The
+    // rule is untouched — a revision still has to supersede — so this pins the disclosure, not the
+    // refusal.
+    [Fact]
+    public void RefusingAnUnsupersededRevisionNamesTheArtifactToSupersede()
+    {
+        var task = new TestTask();
+        var run = task.StartArtifactProducer(task.OperatorId, RoleKind.Operator, "RP");
+        task.Apply(ArtifactCommands.Record(
+            task, task.OperatorId, "A1", GovernedArtifactKind.PromptContract, "First contract",
+            producerRun: run));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(
+            task, task.OperatorId, "A2", GovernedArtifactKind.PromptContract, "Second contract",
+            producerRun: run)));
+
+        Assert.Contains("a revision must supersede it", error.Message, StringComparison.Ordinal);
+        Assert.Contains("--supersedes A1", error.Message, StringComparison.Ordinal);
+        // Still refused, and the predecessor is still the current artifact.
+        Assert.False(task.State.Artifacts.ContainsKey(new ArtifactId("A2")));
+    }
+
+    // The refusal has to name the current artifact of the CALLER'S scope. An earlier version of
+    // this test recorded both artifacts task-wide and asserted that the id being rejected was
+    // absent, which holds however the scope filter behaves — it exercised nothing, and a code
+    // review caught that. Only VerifierOutput and CodeReviewOutput are work-scoped, so the
+    // discrimination this pins is between two work items, each holding its own current output.
+    [Fact]
+    public void TheNamedArtifactIsTheOneCurrentInTheCallersOwnScope()
+    {
+        var task = new TestTask();
+        var first = new WorkItemId("W1");
+        var second = new WorkItemId("W2");
+        AddWork(task, first, "AILedger.Core");
+        AddWork(task, second, "AILedger.Providers");
+
+        var verifier = StartVerifierRun(task, first, "RV1", out var firstRun);
+        task.Apply(ArtifactCommands.Record(
+            task, verifier, "VOUT1", GovernedArtifactKind.VerifierOutput,
+            ArtifactCommands.VerifierBody, workItem: first, producerRun: firstRun));
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), firstRun, AgentRunStatus.Completed, "s1"));
+
+        StartVerifierRun(task, second, "RV2", out var secondRun);
+        task.Apply(ArtifactCommands.Record(
+            task, verifier, "VOUT2", GovernedArtifactKind.VerifierOutput,
+            ArtifactCommands.VerifierBody, workItem: second, producerRun: secondRun));
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), secondRun, AgentRunStatus.Completed, "s2"));
+
+        // A second output for W2, not superseding. The refusal must name W2's current artifact.
+        StartVerifierRun(task, second, "RV3", out var thirdRun);
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(
+            task, verifier, "VOUT3", GovernedArtifactKind.VerifierOutput,
+            ArtifactCommands.VerifierBody, workItem: second, producerRun: thirdRun)));
+
+        Assert.Contains("Pass --supersedes VOUT2.", error.Message, StringComparison.Ordinal);
+        // Not W1's, which is current in its own scope and irrelevant here.
+        Assert.DoesNotContain("VOUT1", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ARevisionChainKeepsEveryRevisionAndOnlyTheLastIsUnsuperseded()
     {

@@ -1,3 +1,4 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 
 namespace AILedger.Core.Domain;
@@ -715,8 +716,12 @@ internal static class TaskTransitionValidator
         {
             if (current.Length != 0)
             {
+                // Same text as the command-time twin in ArtifactRules. This arm is only reachable
+                // for a history that was refused at command time, so the added id changes nothing
+                // about which histories replay — it is message text, not a rule.
                 throw new GovernanceException(
-                    $"A current '{artifact.Kind}' artifact already exists for this scope; a revision must supersede it.");
+                    $"A current '{artifact.Kind}' artifact already exists for this scope; a revision must supersede it. " +
+                    ArtifactRules.NameCurrent(current));
             }
             return;
         }

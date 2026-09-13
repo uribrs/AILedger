@@ -299,8 +299,30 @@ internal static class WorkItemRules
     internal static bool HasCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
-            run.Status is AgentRunStatus.Completed &&
+            DidWork(run) &&
             run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer));
+
+    /// <summary>
+    /// A completed run that actually ran cognition. Every gate below decides whether work happened
+    /// by asking whether a run reached <see cref="AgentRunStatus.Completed"/>, and a run declaring
+    /// <see cref="AgentRun.NoProvider"/> spawns no provider at all — it exists to hold a record.
+    /// </summary>
+    /// <remarks>
+    /// Until such a run could reach Completed it could satisfy none of these gates, and that was
+    /// the protection in force even though nothing stated it. Exempting it from the resumability
+    /// rule on completion removed that protection as a side effect: a code review demonstrated on a
+    /// scratch ledger that two commands — 'run start --provider none' then 'run complete' — passed
+    /// the work-completion working-run gate and the Design arm's Researcher staffing, with no agent
+    /// ever running. The kernel already has a door for completing unverified work,
+    /// 'work complete --without-verification REASON', and its reason stays in the log; this would
+    /// have been a second door to part of the same effect recording nothing.
+    ///
+    /// Command-time only, like every gate that reads it. TaskTransitionValidator deliberately
+    /// re-derives none of them (see its ValidateWorkItemCompleted and EnsureStagePrerequisites),
+    /// so nothing here can refuse a history that was legal when it was written.
+    /// </remarks>
+    internal static bool DidWork(AgentRun run) =>
+        run.Status is AgentRunStatus.Completed && !run.HasNoProviderSessionByDeclaration;
     
     // The run has to have reached Completed, not merely ended: a verifier whose run failed or was
     // cancelled looked at nothing, and reading the actor's present role instead of the role the run
@@ -309,7 +331,7 @@ internal static class WorkItemRules
     private static bool HasCompletedVerifierRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
-            run.Status is AgentRunStatus.Completed &&
+            DidWork(run) &&
             run.SubjectRole is RoleKind.Verifier);
     
     // The LATEST completed working run, not the earliest. Work done after a verification was not
@@ -319,7 +341,7 @@ internal static class WorkItemRules
     private static AgentRun? LatestCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values
             .Where(run => run.WorkItemId == workItemId &&
-                          run.Status is AgentRunStatus.Completed &&
+                          DidWork(run) &&
                           run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer))
             .OrderByDescending(run => run.EndedAt)
             .FirstOrDefault();
@@ -336,7 +358,7 @@ internal static class WorkItemRules
         var workedAt = LatestCompletedWorkingRunEnd(state, workItemId);
         return state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
-            run.Status is AgentRunStatus.Completed &&
+            DidWork(run) &&
             run.SubjectRole is RoleKind.Verifier &&
             (workedAt is null || run.EndedAt >= workedAt));
     }
@@ -362,7 +384,7 @@ internal static class WorkItemRules
     
         var verifiedByAnotherProvider = state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
-            run.Status is AgentRunStatus.Completed &&
+            DidWork(run) &&
             run.SubjectRole is RoleKind.Verifier &&
             (worked.EndedAt is null || run.EndedAt >= worked.EndedAt) &&
             !string.Equals(run.Provider, worked.Provider, StringComparison.OrdinalIgnoreCase));

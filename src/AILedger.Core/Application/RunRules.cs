@@ -191,11 +191,22 @@ internal static class RunRules
         // exact provider session. The identity lives only in the adapter until completion records
         // it, so a completion without one loses it silently. Terminal failures are exempt: a run
         // that died before its session existed genuinely has no identity to record.
-        if (command.Status is AgentRunStatus.Completed && providerSessionId is null)
+        //
+        // So is a run that declared no provider at all. Such a run holds a record — an artifact
+        // needs a producer run — and spawns no child, so there is no session to lose and nothing to
+        // resume; refusing it Completed forced the operator to close a successful filing as
+        // Cancelled, and 27 of the 111 unsuccessful runs in this ledger are that bookkeeping and
+        // not a failure. The exemption cannot be claimed after the fact: both halves of the
+        // declaration are on the run.started event, and a launcher-managed run carries a token hash
+        // and is therefore never eligible however it names its provider.
+        if (command.Status is AgentRunStatus.Completed &&
+            providerSessionId is null &&
+            !run.HasNoProviderSessionByDeclaration)
         {
             throw new GovernanceException(
                 $"Run '{command.RunId}' cannot be recorded as completed without a provider session identity; " +
-                "a completed run must stay resumable.");
+                "a completed run must stay resumable. A run that spawns no provider declares " +
+                $"'--provider {AgentRun.NoProvider}' at run start and is exempt.");
         }
     
         if (command.Status == AgentRunStatus.Completed && run.SubjectRole is RoleKind.Verifier or RoleKind.CodeReviewer)

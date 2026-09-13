@@ -142,8 +142,14 @@ internal static class ArtifactRules
         {
             if (current.Length != 0)
             {
+                // The id is named because the caller cannot otherwise obtain it. Measured on
+                // 2026-09-11: a verifier refused here filed nothing, its run closed Failed for
+                // having no output, and the next run hit the same refusal — two runs and 4.85M
+                // tokens to learn one identifier this method already held. The rule is unchanged;
+                // only what the refusal discloses about the state that produced it.
                 throw new GovernanceException(
-                    $"A current '{kind}' artifact already exists for this scope; a revision must supersede it.");
+                    $"A current '{kind}' artifact already exists for this scope; a revision must supersede it. " +
+                    NameCurrent(current));
             }
             return;
         }
@@ -162,6 +168,27 @@ internal static class ArtifactRules
         {
             throw new GovernanceException($"Artifact '{predecessorId}' is not current and cannot be superseded.");
         }
+    }
+
+    /// <summary>
+    /// Names the artifact a revision has to supersede. The rule admits one current artifact per
+    /// kind and work scope, so this is normally a single id and the sentence is a command the
+    /// caller can run. Histories written before the rule existed can hold more than one, and there
+    /// the caller has to choose — so that case states the list and does not pretend to be a command.
+    /// </summary>
+    /// <remarks>
+    /// The two forms are separate because '--supersedes' takes one value. Joining several ids into
+    /// the runnable sentence produced 'Pass --supersedes A1 or A2', which a caller pasting it back
+    /// is refused for — the same failure the disclosure exists to remove. Ordered by id so two
+    /// readers of one state are shown the same list.
+    /// </remarks>
+    internal static string NameCurrent(IReadOnlyList<GovernedArtifact> current)
+    {
+        var ids = current.Select(item => item.ArtifactId.Value)
+            .OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        return ids.Length == 1
+            ? $"Pass --supersedes {ids[0]}."
+            : $"Current artifacts for this scope: {string.Join(", ", ids)}. Pass --supersedes with one of them.";
     }
 
     internal static IReadOnlyList<GovernedArtifact> CurrentArtifacts(GovernedTaskState state)

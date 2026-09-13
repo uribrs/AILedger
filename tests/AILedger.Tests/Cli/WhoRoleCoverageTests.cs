@@ -79,6 +79,35 @@ public sealed class WhoRoleCoverageTests
         Assert.False(@operator.Engaged);
     }
 
+    // A completed run that declared no provider is bookkeeping, not engagement. This projection
+    // exists to tell an operator what the stage arms will ask, so it has to answer with the arms'
+    // own predicate: a verifier found it reporting such a run as engaged while the Design arm
+    // correctly refused on it, which is the preflight disagreeing with the gate it describes.
+    [Fact]
+    public async Task ARunThatDeclaredNoProviderEngagesNoRole()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        string[] common = ["--root", root.Path, "--task", "T1"];
+        await Ok(error, ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"]);
+        await Ok(error, ["actor", "attach", .. common, "--actor", "operator", "--target", "scout",
+            "--role", "researcher"]);
+        // Completes, because a run with no provider has no session to lose. Engages nothing,
+        // because nothing ran.
+        await Ok(error, ["run", "start", .. common, "--actor", "operator", "--subject", "scout",
+            "--run", "R-filing", "--provider", "none"]);
+        await Ok(error, ["run", "complete", .. common, "--actor", "operator", "--run", "R-filing",
+            "--status", "completed"]);
+
+        var coverage = await Coverage(error, common);
+
+        Assert.Equal(string.Empty, error.ToString());
+        var researcher = Assert.Single(coverage, row => row.Role == "Researcher");
+        Assert.Equal(["scout"], researcher.Assigned);
+        Assert.False(researcher.Engaged);
+        Assert.Empty(researcher.EngagedBy);
+    }
+
     // The case a later refactor would silently drop. Engagement is read from the run's own captured
     // subject role, so reassigning the actor afterwards cannot take the pass away — the row survives
     // with nobody holding the role.

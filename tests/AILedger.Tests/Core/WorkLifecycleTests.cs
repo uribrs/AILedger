@@ -155,12 +155,128 @@ public sealed class WorkLifecycleTests
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, null)));
         Assert.Contains("must stay resumable", error.Message, StringComparison.Ordinal);
+        // The refusal names the declaration that exempts a run with no provider, because the caller
+        // that hits this is usually holding a run that never had one.
+        Assert.Contains("--provider none", error.Message, StringComparison.Ordinal);
         Assert.Equal(AgentRunStatus.Active, task.State.Runs[new RunId("R1")].Status);
 
         // A run that died before its session existed has no identity to record.
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Failed, null));
         Assert.Equal(AgentRunStatus.Failed, task.State.Runs[new RunId("R1")].Status);
+    }
+
+    // An operator opens a run to hold a record — an artifact needs a producer run — and no provider
+    // process is ever spawned. Refusing that run Completed for lacking a session forced every such
+    // filing to be closed Cancelled: 27 of the 111 unsuccessful runs in this ledger are successful
+    // filings recorded as failures. Nothing is lost by completing them, because there is no session
+    // to resume.
+    [Fact]
+    public void ARunThatDeclaresNoProviderCompletesWithoutASessionIdentity()
+    {
+        var task = Prepare(out var workItemId);
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), workItemId, AgentRun.NoProvider, null));
+
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), AgentRunStatus.Completed, null));
+
+        var run = task.State.Runs[new RunId("RP")];
+        Assert.Equal(AgentRunStatus.Completed, run.Status);
+        Assert.Null(run.ProviderSessionId);
+        Assert.True(run.HasNoProviderSessionByDeclaration);
+    }
+
+    // The exemption is a declaration made at run start, not a claim made at the end. A run that
+    // named a real provider cannot reach Completed without the session it was supposed to record,
+    // which is the whole rule and is unchanged.
+    [Fact]
+    public void TheNoProviderExemptionCannotBeClaimedByARunThatNamedAProvider()
+    {
+        var task = Prepare(out var workItemId);
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, null)));
+
+        Assert.Contains("must stay resumable", error.Message, StringComparison.Ordinal);
+        Assert.Equal(AgentRunStatus.Active, task.State.Runs[new RunId("R1")].Status);
+    }
+
+    // And a launcher-managed run is never exempt however it names its provider: the token hash on
+    // run.started is the second half of the declaration, so a launch cannot route around the rule
+    // by passing 'none'.
+    [Fact]
+    public void ALauncherManagedRunIsNeverExemptEvenWhenItNamesNoProvider()
+    {
+        var task = Prepare(out var workItemId);
+        var subject = new ActorId("worker");
+        task.Assign(subject, RoleKind.Worker, Capability.AddClaim, Capability.BuildContext);
+        // Named, because LaunchTokenHash is the tenth positional argument and getting it wrong here
+        // silently tests nothing: the run comes back exempt and the assertion below reads as a
+        // product defect rather than a miswired test.
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RL"), workItemId, AgentRun.NoProvider,
+            ProviderSessionId: null,
+            LaunchTokenHash: CommandHandler.HashLaunchToken("token"),
+            SubjectActorId: subject));
+
+        // The behaviour, not the helper: a code review pointed out that asserting the property
+        // alone would keep passing if the completion rule stopped consulting it.
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RL"), AgentRunStatus.Completed, null)));
+        // A launcher-managed run is refused before the resumability rule is reached — the launcher
+        // holds the token and the operator is not presenting it. Either refusal proves the run did
+        // not take the exemption; the property assertion below pins which of the two halves failed.
+        Assert.Equal(AgentRunStatus.Active, task.State.Runs[new RunId("RL")].Status);
+        Assert.NotEmpty(error.Message);
+        Assert.False(task.State.Runs[new RunId("RL")].HasNoProviderSessionByDeclaration);
+    }
+
+    // The review's Major finding. Exempting a no-provider run from the resumability rule let it
+    // reach Completed, and five other gates decide whether work happened by asking exactly that.
+    // Two commands with no agent must not stand in for a working run.
+    [Fact]
+    public void ANoProviderRunDoesNotSatisfyTheWorkCompletionGates()
+    {
+        var task = Prepare(out var workItemId);
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), workItemId, AgentRun.NoProvider, null));
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), AgentRunStatus.Completed, null));
+        Assert.Equal(AgentRunStatus.Completed, task.State.Runs[new RunId("RP")].Status);
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId)));
+
+        // The gate still reports no completed working run, which is the truth: nothing ran.
+        Assert.Contains("no completed run by a working role", error.Message, StringComparison.Ordinal);
+        Assert.NotEqual(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
+    }
+
+    // And the same run staffs no role for the stage arms.
+    [Fact]
+    public void ANoProviderRunStaffsNoRoleForAStageArm()
+    {
+        var task = Prepare(out var workItemId);
+        var researcher = new ActorId("researcher");
+        task.Assign(researcher, RoleKind.Researcher, Capability.AddClaim, Capability.BuildContext);
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RN"), workItemId, AgentRun.NoProvider,
+            ProviderSessionId: null, SubjectActorId: researcher));
+        task.Apply(new CompleteRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RN"), AgentRunStatus.Completed, null));
+
+        task.Apply(new AddClaimCommand(
+            task.OperatorId, null, task.NextCorrelation(), new ClaimId("C9"), "Something to research", null));
+        task.Apply(new RequestStageTransitionCommand(
+            task.OperatorId, null, task.NextCorrelation(), TaskStage.Research));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new RequestStageTransitionCommand(
+            task.OperatorId, null, task.NextCorrelation(), TaskStage.Design)));
+
+        Assert.Contains("Design requires a completed Researcher run", error.Message, StringComparison.Ordinal);
     }
 
     // Three live agents closed their own runs despite a briefing forbidding it. A launched agent

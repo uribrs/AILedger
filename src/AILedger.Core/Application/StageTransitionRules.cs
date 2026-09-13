@@ -57,8 +57,11 @@ internal static class StageTransitionRules
     private static void EnsureStagePrerequisites(GovernedTaskState state, TaskStage target)
     {
         var currentArtifacts = ArtifactRules.CurrentArtifacts(state);
+        // WorkItemRules.DidWork, not a bare Completed check: a run declaring AgentRun.NoProvider
+        // spawns no provider, so it staffs no role. Without this, two commands stand in for a
+        // Researcher run and the Design arm passes on a role nobody held.
         var completedRoles = state.Runs.Values
-            .Where(run => run.Status == AgentRunStatus.Completed && run.SubjectRole is not null)
+            .Where(run => WorkItemRules.DidWork(run) && run.SubjectRole is not null)
             .Select(run => run.SubjectRole!.Value)
             .ToHashSet();
         var codeBearing = state.WorkItems.Values.Any(item => item.ResourceScope.Count != 0);

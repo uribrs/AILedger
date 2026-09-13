@@ -607,8 +607,16 @@ public sealed class CliApplication
         // now: an actor reassigned after a run must not reclassify what that run did. Only Completed
         // counts — Active, Failed, Cancelled and ProtocolError are not engagement — and a run
         // recorded before SubjectRole existed carries none, so it engages nothing.
+        //
+        // And a run declaring AgentRun.NoProvider engages nothing either, because no provider ran.
+        // This mirrors WorkItemRules.DidWork, which is the predicate the stage arms use. The two
+        // have to agree or this projection describes a gate it does not match: a verifier found it
+        // reporting a provider-none run as engaged while the Design arm correctly refused on it,
+        // which is the preflight lying in the one direction an operator cannot check cheaply.
         var engaged = state.Runs.Values
-            .Where(run => run.Status == AgentRunStatus.Completed && run.SubjectRole is not null)
+            .Where(run => run.Status == AgentRunStatus.Completed &&
+                          !run.HasNoProviderSessionByDeclaration &&
+                          run.SubjectRole is not null)
             .GroupBy(run => run.SubjectRole!.Value)
             .ToDictionary(group => group.Key, group => group
                 .GroupBy(run => run.ActorId.Value)
