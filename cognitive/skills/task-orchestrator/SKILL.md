@@ -1,14 +1,14 @@
 ---
 name: task-orchestrator
 version: 1.6.0
-description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass over the codebase, then decides whether to execute directly or decompose into bounded governed work items over disjoint file sets, writes an OrchestrationPlan artifact, and specifies a verifier run followed by an isolated code-reviewer run. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`. Best suited for coding, debugging, architecture/design, migrations, research-driven work, implementation planning, and QA/review-oriented tasks where decomposition quality, verification discipline, and independent implementation review matter.
+description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass over the codebase, then decides whether to execute directly or decompose into bounded worker subagents over disjoint file sets, each a governed work item dispatched as its own run, writes an OrchestrationPlan artifact, and specifies a verifier run followed by an isolated code-reviewer run. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`. Best suited for coding, debugging, architecture/design, migrations, research-driven work, implementation planning, and QA/review-oriented tasks where decomposition quality, verification discipline, and independent implementation review matter.
 ---
 
 # Task Orchestrator
 
 This skill is the planning brain for non-trivial work after a contract exists. It expects the current PromptContract in the context manifest and the governed task directory supplied as `taskPath`. If that input is missing, stop and ask the coordinator to run `prompt-contract-designer` first.
 
-Keep planning, decomposition, dependency reasoning, and synthesis centralized in the coordinating run. Finish with an independent verifier run, then a separate code-reviewer run when the result is code-bearing.
+Keep planning, decomposition, dependency reasoning, and synthesis centralized in the coordinating run, and **do no implementation there** — the coordinating run dispatches, it does not execute. Every piece of work is performed by a subagent dispatched as its own governed run. Finish with an independent verifier run, then a separate code-reviewer run when the result is code-bearing.
 
 ## Inputs
 
@@ -127,7 +127,7 @@ Recon exists for two reasons, and the ordering follows from the first:
 1. **The path decision depends on it.** Separability and file ownership are unknowable before you know what the code looks like, so deciding first and scoring Worker clarity "low" is a verdict about the planner's information, not the task's shape.
 2. **It is what makes decomposition cheap.** The expensive part of workers is not coordination, it is duplicated discovery — N workers each re-deriving the same conventions and reaching N different answers. One recon pass, cited by every brief, replaces that. It pays for itself at two workers, and on the direct path `contract-driven-execution` reads it instead of exploring, so it is never pure overhead.
 
-Run it as one bounded pass. Recon that returns an essay has failed; recon returns a map.
+Delegate it to one recon subagent, dispatched as its own run, with a bounded output contract. Recon that returns an essay has failed; recon returns a map.
 
 **Read the durable layer first.** Most repos already carry one — a rules file (`CLAUDE.md` / `RULES.md`) and, in some, a curated how-to store (`ai/skills/<topic>/SKILL.md`). Read those before reading source, cite them rather than restating them, and cover only the delta: the specific subsystem this task touches. Never regenerate that layer as part of a task run; authoring a repo's rules file is a deliberate operator action, not a pipeline step.
 

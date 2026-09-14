@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepositoryPath": "/Users/user/Dev/Uri/localprojects/AILedger",
-  "generatedAtUtc": "2026-09-10T11:30:25Z",
+  "generatedAtUtc": "2026-09-14T11:47:02Z",
   "files": [
     {
       "path": "RULES.md",
@@ -25,7 +25,7 @@
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "516eecad2f184ae5721b4e75be41517906ea7e0386a9ec800e8b27584ceb46f8"
+      "sha256": "0f0608f9462408a445c2451038440435bb65963db8b1ec827004bd4f3caa95ca"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
