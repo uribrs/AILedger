@@ -8,7 +8,7 @@ description: Post-contract planning brain for non-trivial work. Reads the curren
 
 This skill is the planning brain for non-trivial work after a contract exists. It expects the current PromptContract in the context manifest and the governed task directory supplied as `taskPath`. If that input is missing, stop and ask the coordinator to run `prompt-contract-designer` first.
 
-Keep planning, decomposition, dependency reasoning, and synthesis centralized in the coordinating run, and **do no implementation there** — the coordinating run dispatches, it does not execute. Every piece of work is performed by a subagent dispatched as its own governed run. Finish with an independent verifier run, then a separate code-reviewer run when the result is code-bearing.
+Keep planning, decomposition, dependency reasoning, and synthesis centralized in the orchestrator's own run, and **do no implementation there** — the orchestrator dispatches, it does not execute. `workflow-coordinator` routes to this skill and dispatches no workers of its own; the kernel calls the role holding this run a coordinating role, and refuses it any run against a work item for the same reason. Every piece of work is performed by a subagent dispatched as its own governed run. Finish with an independent verifier run, then a separate code-reviewer run when the result is code-bearing.
 
 ## Inputs
 
@@ -202,6 +202,8 @@ Run it as **freeze, then fan out**. The order is what removes the need to mediat
 
 **Every worker in a phase is launched concurrently.** Each one whose inputs are satisfied starts before any of them finishes. Sequencing applies *between* phases only — a phase boundary is the sole legitimate reason one worker waits for another. Within a phase there are no dependencies to order; that is what "disjoint" means, and it is why phase 0 freezes the shared surface first. Dispatching a phase's workers one at a time is a defect, not a conservative choice: it pays decomposition's coordination cost and collects none of its return.
 
+**A phase dispatched serially anyway carries a stated reason.** Serial dispatch is not forbidden; unrecorded serial dispatch is. Record the reason in the File Ownership section of `orchestration_plan.md` and in the ledger, where a discarded alternative already has a home. The kernel works this way twice already: `work add` refuses a second `--scope` unless `--not-split-because` names an alternative recording why the areas were not split, and `stage transition` refuses a backward move without a reason. The kernel does not judge the choice to serialise; it refuses to let it go unrecorded. "Coordination overhead" is a conclusion, not a reason — name what a concurrent phase would actually have collided over, the same way the direct path must name the files that overlap.
+
 Then:
 
 - Decide the output expected from each piece before delegation.
@@ -309,6 +311,7 @@ Maximum 3 rows. If there are none: `No research needed — <concrete reason>.`
 - W2 (<descriptive-name>) owns: <paths>
 - Shared surface frozen in phase 0: <interfaces / types / test contracts>
 - (direct path instead: "No disjoint sets. Overlapping paths: <the actual files>. <why they cannot be split>.")
+- (decompose path dispatched serially: "Phase <n> went out one at a time. Reason: <what a concurrent phase would have collided over>.")
 
 ## Worker Plan
 (Only when path is decompose. Otherwise: "Not applicable — direct path.")
@@ -346,6 +349,7 @@ When defining a worker task for the operator to add and launch, give it:
 - the exact inputs or artifacts it should use
 - the specific output it must return
 - **the file set it owns, and that it may not write outside it**
+- **the same width obligation the orchestrator carries, if its own assignment splits** — a worker handed disjoint file sets decomposes them or states why it did not. It will be asked for that reason, so it is recorded when the choice is made rather than reconstructed afterwards.
 - any attention-item artifact (`test:` or `guard:`) that falls inside that file set, cited as `R<n> (<name>)` — the worker delivers it, it is not the verifier's to discover
 - the frozen shared surface from phase 0, and the conventions recon found — cited, so it does not re-derive them
 - the dependency context it needs
@@ -536,6 +540,7 @@ Patterns not surfaced by the rules above:
 - Letting workers each rediscover the same conventions because recon was skipped or its output was not cited in the briefs.
 - Resuming a worker whose transcript is large when a fresh brief would have done, or spawning fresh when the worker had to react to feedback on its own code.
 - Launching a phase's workers one after another when their scopes are disjoint, so the run is serial and is reported as decomposition. Sequencing is between phases; within a phase there is nothing to sequence.
+- Serialising a phase and leaving no reason behind, so a decomposition that ran serially reads in the record exactly like one that ran wide.
 
 ## Minimal Invocation Pattern
 
