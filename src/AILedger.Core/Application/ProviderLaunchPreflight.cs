@@ -15,14 +15,20 @@ public static class ProviderLaunchPreflight
     // The waiver the gate would produce is discarded here rather than returned: the launch records
     // it from the command below, and a pre-flight that emitted one would record a door opened for a
     // run that may still be refused on a rule this check does not carry.
+    //
+    // workItemId is the item the launch names. It is last and optional only so that the call site in
+    // the CLI, which a concurrent change owns, keeps compiling; a launch that does not pass it skips
+    // the coordinating-role refusal and pays for a version probe before the kernel refuses it, which
+    // is the defect this parameter exists to close. It is not an argument any caller should omit.
     public static void EnsurePermitted(
         GovernedTaskState state,
         ActorId actorId,
         ActorId? subjectActorId,
         IReadOnlyList<ContextSkill>? servedNow,
         string? withoutBriefReason = null,
-        EvidenceId? staleBriefEvidenceId = null) =>
+        EvidenceId? staleBriefEvidenceId = null,
+        WorkItemId? workItemId = null) =>
         _ = RunRules.EnsureDispatchIsPermitted(
             state, actorId, subjectActorId, servedNow, isProviderLaunch: true,
-            withoutBriefReason, staleBriefEvidenceId);
+            workItemId, withoutBriefReason, staleBriefEvidenceId);
 }

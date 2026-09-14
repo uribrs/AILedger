@@ -73,7 +73,10 @@ public sealed class TaskDebtCliTests
                 // stageBehindActivity is absent on this fixture: one open claim implies Research,
                 // and the task is in Discovery — so the drift is real and the field is written.
                 "stageBehindActivity",
-                "coordinatorSessionOpen"
+                "coordinatorSessionOpen",
+                // A count, and zero on this fixture: the task holds no work item, so nothing can be
+                // stuck. It is asserted here only as part of the exact property set.
+                "workItemsRunByNoWorkingRole"
             },
             owed.EnumerateObject().Select(property => property.Name).ToArray());
         // Every count is a number and the facts are not. Whether an archived task carries a

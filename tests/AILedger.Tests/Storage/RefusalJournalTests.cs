@@ -66,7 +66,8 @@ public sealed class RefusalJournalTests
         var taskId = new TaskId("refusal-success-task");
         var actor = new ActorId("operator");
 
-        // Five commands, all accepted: open, brief the operator, add work, start a run, complete it.
+        // Six commands, all accepted: open, brief the operator, add work, give the worker its role,
+        // start its run, complete it.
         var service = await StageWorkItemWithACompletedWorkingRunAsync(root.Path, taskId, actor);
 
         Assert.False(File.Exists(JournalPath(root.Path, taskId)));
@@ -95,14 +96,14 @@ public sealed class RefusalJournalTests
             service,
             taskId,
             new AddWorkItemCommand(
-                new ActorId("worker"), null, "c6", new WorkItemId("W2"), "Unauthorised work", null, [], [])));
+                Stranger, null, "c6", new WorkItemId("W2"), "Unauthorised work", null, [], [])));
 
         var rows = ReadJournal(root.Path, taskId);
         Assert.Equal(2, rows.Count);
         Assert.Equal("CompleteWorkItemCommand", rows[0].Command);
         Assert.Equal("operator", rows[0].ActorId);
         Assert.Equal("AddWorkItemCommand", rows[1].Command);
-        Assert.Equal("worker", rows[1].ActorId);
+        Assert.Equal("stranger", rows[1].ActorId);
         Assert.Equal(unauthorised.Message, rows[1].Message);
         Assert.True(rows[1].RecordedAt >= rows[0].RecordedAt);
     }
@@ -166,8 +167,14 @@ public sealed class RefusalJournalTests
         await ContextBrief.RecordAsync(service, taskId.Value);
         await Run(service, taskId, new AddWorkItemCommand(
             actor, null, "c2", new WorkItemId("W1"), "Journalled work", actor, [], []));
+        // Only a Worker or a Researcher run counts as the work, so the operator dispatches one.
+        // Holding the run itself would leave the completion refused on the working-run gate — the
+        // first of the four — and this fixture exists to reach the second.
+        await Run(service, taskId, new AssignRoleCommand(
+            actor, null, "c2r", Worker, RoleKind.Worker, [Capability.BuildContext]));
         await Run(service, taskId, new StartRunCommand(
-            actor, null, "c3", new RunId("R1"), new WorkItemId("W1"), "codex", null));
+            actor, null, "c3", new RunId("R1"), new WorkItemId("W1"), "codex", null,
+            SubjectActorId: Worker));
         await Run(service, taskId, new CompleteRunCommand(
             actor, null, "c4", new RunId("R1"), AgentRunStatus.Completed, "session-1"));
         return service;
@@ -185,9 +192,17 @@ public sealed class RefusalJournalTests
             service,
             taskId,
             new AddWorkItemCommand(
-                new ActorId("worker"), null, "c6", new WorkItemId("W2"), "Unauthorised work", null, [], [])));
+                Stranger, null, "c6", new WorkItemId("W2"), "Unauthorised work", null, [], [])));
         return service;
     }
+
+    // The run subject. A run against a work item is held by a role that does the work, and the
+    // fixture below needs a completed one before the verifier gate is the refusal it reaches.
+    private static readonly ActorId Worker = new("worker");
+
+    // An actor the task knows nothing about, so the second refusal is a different command, by a
+    // different actor, for a different reason: no assigned role at all.
+    private static readonly ActorId Stranger = new("stranger");
 
     private static string JournalPath(string root, TaskId taskId) =>
         Path.Combine(root, taskId.Value, "refusals.jsonl");

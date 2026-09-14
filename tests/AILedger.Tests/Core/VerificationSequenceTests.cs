@@ -1,3 +1,4 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
@@ -15,9 +16,16 @@ public sealed class VerificationSequenceTests
     public void AWorkItemCannotBeCompletedUntilAVerifierRunHasPassedOverIt()
     {
         var task = Prepare(out var workItemId);
-        // A run by the actor that did the work is not a verification, however cleanly it ended.
+        // A run by the actor that did the work is not a verification, however cleanly it ended. Its
+        // subject is a worker, which is what the working-run gate now accepts — it takes a Worker or
+        // a Researcher and nothing else. That matters to this test's own subject: with a coordinating
+        // subject the completion below would be refused for having no working run at all, and the
+        // verifier gate this test exists to pin would never be reached.
+        var worker = new ActorId("worker");
+        task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            null, null, null, worker));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "session-1"));
 
@@ -25,7 +33,10 @@ public sealed class VerificationSequenceTests
             task.OperatorId, null, task.NextCorrelation(), workItemId)));
 
         // The refusal has to name what is missing, because the operator's next move depends on it.
-        Assert.Contains("verifier run", error.Message, StringComparison.Ordinal);
+        // Matched on the whole phrase, not on "verifier run": the refusal for a verifier that ran
+        // before the latest work carries those two words as well, so the loose match could not tell
+        // a missing verifier run from one that ran too early.
+        Assert.Contains("has no completed verifier run", error.Message, StringComparison.Ordinal);
         Assert.Equal(WorkItemStatus.Paused, task.State.WorkItems[workItemId].Status);
     }
 
@@ -186,6 +197,49 @@ public sealed class VerificationSequenceTests
 
         Assert.Contains("verifier run", error.Message, StringComparison.Ordinal);
         Assert.NotEqual(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
+    }
+
+    // The two gates above read "the latest working run", and the existence gate reads "a working
+    // run", and for a while the two readings were different. The existence gate took a Worker or a
+    // Researcher; the ordering and provider gates still took every role that is not a Verifier or a
+    // CodeReviewer, so a coordinating run counted as the latest work for the very gates that had
+    // just declared it was not work. The item below is refused for a staleness that never happened:
+    // the verifier saw everything the gate itself calls work, and the lead run after it is the plan
+    // being recorded, not work the verifier failed to read. KC1 in miniature, inside one file.
+    [Fact]
+    public void ACoordinatingRunAfterTheVerifierPassDoesNotMakeTheVerificationStale()
+    {
+        var state = LegacyRunsOnOneWorkItem(
+            "legacy-lead-after-verifier", out var operatorId, out var workItemId,
+            ("RW", RoleKind.Worker, "codex"),
+            ("RV", RoleKind.Verifier, "claude"),
+            ("RL", RoleKind.ImplementationLead, "claude"));
+
+        var outcome = new CommandHandler().Handle(
+            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt);
+
+        Assert.Equal(WorkItemStatus.Completed, outcome.State.WorkItems[workItemId].Status);
+    }
+
+    // The provider gate reads the same "latest working run" and compares its provider against the
+    // verifier's, so the same divergence gave it the wrong run to compare. Here the lead ran on the
+    // provider that verified and the worker ran on the other one: counting the lead as the work
+    // makes the verifier look like the model that wrote what it is checking, when the two providers
+    // are in fact different. Ordered so the ordering gate passes either way, which leaves the
+    // provider comparison as the only thing this test can fail on.
+    [Fact]
+    public void TheProviderComparedAgainstTheVerifierIsTheOneThatDidTheWorkNotTheOneThatCoordinated()
+    {
+        var state = LegacyRunsOnOneWorkItem(
+            "legacy-lead-before-verifier", out var operatorId, out var workItemId,
+            ("RW", RoleKind.Worker, "codex"),
+            ("RL", RoleKind.ImplementationLead, "claude"),
+            ("RV", RoleKind.Verifier, "claude"));
+
+        var outcome = new CommandHandler().Handle(
+            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt);
+
+        Assert.Equal(WorkItemStatus.Completed, outcome.State.WorkItems[workItemId].Status);
     }
 
     // The reviewer gate is the same claim about the same staleness: reviewing work whose verifier
@@ -450,6 +504,63 @@ public sealed class VerificationSequenceTests
 
         Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
     }
+
+    // After the last run in every history below, so the completion event is the latest thing in it.
+    private static readonly DateTimeOffset CompletedAt = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
+
+    // One work item and a sequence of completed runs against it, ten minutes apart in the order
+    // given, each under the role named. Assembled through the reducer rather than through commands
+    // because StartRun now refuses a coordinating role's run against a work item and once did not:
+    // this is a history the kernel can no longer be commanded into and must still be able to read
+    // and complete. The live ledger holds 36 work items that carry a completed coordinating run.
+    //
+    // Only the setup is hand-built. The completion itself goes through the real command handler,
+    // because the command path is where these gates live.
+    private static GovernedTaskState LegacyRunsOnOneWorkItem(
+        string taskId,
+        out ActorId operatorId,
+        out WorkItemId workItemId,
+        params (string Run, RoleKind Role, string Provider)[] runs)
+    {
+        var state = Opened(taskId, out var reducer, out _, out var actor, out var openedAt);
+        var dispatcher = actor;
+        var item = new WorkItemId("W1");
+        var id = new TaskId(taskId);
+        operatorId = dispatcher;
+        workItemId = item;
+
+        LedgerEvent At(GovernedTaskState current, DateTimeOffset when, LedgerEventData data) =>
+            new(GovernedTaskState.CurrentSchemaVersion,
+                new EventId($"{taskId}:{current.Version + 1:D10}"),
+                id, dispatcher, when, null, "replay", data);
+
+        // One actor per role, so the subject of each run holds the role the run records.
+        foreach (var role in runs.Select(run => run.Role).Distinct())
+        {
+            state = reducer.Apply(state, At(state, openedAt, new RoleAssigned(new RoleAssignment(
+                Subject(role), role, [Capability.BuildContext],
+                new Provenance(dispatcher, openedAt, "actor.assign-role")))));
+        }
+
+        state = reducer.Apply(state, At(state, openedAt, new WorkItemAdded(new WorkItem(
+            item, "Legacy work", dispatcher, WorkItemStatus.Proposed, [], [Path.GetFullPath("src")]))));
+
+        var position = 0;
+        foreach (var (runId, role, provider) in runs)
+        {
+            var startedAt = openedAt.AddMinutes(++position * 10);
+            var endedAt = startedAt.AddMinutes(1);
+            state = reducer.Apply(state, At(state, startedAt, new RunStarted(new AgentRun(
+                new RunId(runId), Subject(role), item, provider, $"session-{runId}",
+                AgentRunStatus.Active, startedAt, null, null, null, null, dispatcher, role))));
+            state = reducer.Apply(state, At(state, endedAt, new RunCompleted(
+                new RunId(runId), AgentRunStatus.Completed, $"session-{runId}", endedAt)));
+        }
+
+        return state;
+    }
+
+    private static ActorId Subject(RoleKind role) => new(role.ToString().ToLowerInvariant());
 
     // An opened task with one operator, ready for hand-built events. The reducer re-validates every
     // event, so a history assembled here is held to the replay rules and nothing else.

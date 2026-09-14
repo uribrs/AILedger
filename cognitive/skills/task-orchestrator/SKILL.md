@@ -200,11 +200,23 @@ Run it as **freeze, then fan out**. The order is what removes the need to mediat
 
 **Phase 1..N — fan out over disjoint file sets.** Assign each worker a file set no sibling may touch. Ownership is exclusive: a worker that needs a change in another set requests it, it does not make it.
 
+**Every worker in a phase is launched concurrently.** Each one whose inputs are satisfied starts before any of them finishes. Sequencing applies *between* phases only — a phase boundary is the sole legitimate reason one worker waits for another. Within a phase there are no dependencies to order; that is what "disjoint" means, and it is why phase 0 freezes the shared surface first. Dispatching a phase's workers one at a time is a defect, not a conservative choice: it pays decomposition's coordination cost and collects none of its return.
+
 Then:
 
 - Decide the output expected from each piece before delegation.
 - Capture the phase and dependencies of each worker explicitly in `orchestration_plan.md`.
-- Ask the operator to create one governed work item per disjoint scope and launch its worker run in dependency order.
+- Ask the operator to create one governed work item per disjoint scope, then launch the phase as a whole. `provider launch` blocks until its agent finishes, so each launch in the phase is backgrounded and the phase waits on all of them together:
+
+  ```bash
+  ailedger provider launch --task TASK --actor operator --subject SUBJECT \
+    --run R1 --work W1 --provider claude --cognitive-root cognitive &
+  ailedger provider launch --task TASK --actor operator --subject SUBJECT \
+    --run R2 --work W2 --provider claude --cognitive-root cognitive &
+  wait
+  ```
+
+  Runs against **one** work item are sequential by kernel rule; runs against **different** work items are not. That is why one governed work item per disjoint scope is a requirement and not a style preference — it is what makes the phase launchable at once.
 - Reassemble the finished pieces in the main thread before verification.
 
 ### Worker Continuity — Fresh vs Resumed
@@ -320,7 +332,7 @@ constraints are separate governed records and must not be duplicated as writable
 The main thread owns:
 - choosing the decomposition
 - weighing dependencies
-- deciding sequencing or parallelism
+- deciding the phase boundaries — sequencing is between phases; a phase's workers go out concurrently
 - preventing overlap
 - integrating outputs
 - resolving contradictions
@@ -523,6 +535,7 @@ Patterns not surfaced by the rules above:
 - Letting a worker invent a shared interface instead of returning `BLOCKED:`, and letting synthesis merge two incompatible versions of it.
 - Letting workers each rediscover the same conventions because recon was skipped or its output was not cited in the briefs.
 - Resuming a worker whose transcript is large when a fresh brief would have done, or spawning fresh when the worker had to react to feedback on its own code.
+- Launching a phase's workers one after another when their scopes are disjoint, so the run is serial and is reported as decomposition. Sequencing is between phases; within a phase there is nothing to sequence.
 
 ## Minimal Invocation Pattern
 
@@ -533,7 +546,7 @@ When this skill triggers, internally follow this compact prompt shape:
 3. Resolve only research that blocks recon, then run internal recon and write `research/internal-recon.md`.
 4. Correct the classification; record at most five attention items and three decision-changing research questions. Run required research.
 5. Write the bounded Problem Classification section. Only then choose direct vs decompose, complete `orchestration_plan.md`, and file the OrchestrationPlan artifact.
-6. Execute directly or through frozen, disjoint worker sets; synthesize worker output.
+6. Execute directly, or freeze the shared surface and launch each phase's disjoint workers concurrently; synthesize worker output.
 7. Run the verifier with full context; require assumption and attention-item dispositions; repair and re-run when needed.
 8. For implementation artifacts, run the isolated code-reviewer with minimal context and repair material findings.
 9. Append final `execution_notes.md` and return the assumption, attention-item, and decision-drift rows.

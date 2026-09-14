@@ -10,3 +10,6 @@ TestResults/
 
 # Packed tool output; the nupkg is a build artifact, not source.
 artifacts/
+
+# Claude Code local state: agent worktrees and write cache. Never project content.
+.claude/

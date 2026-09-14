@@ -243,9 +243,12 @@ public sealed class LessonRecallTests
         await Run(service, source, new RecordArtifactCommand(
             actor, null, correlation.Next(), new ArtifactId("A-request"), GovernedArtifactKind.UserRequest,
             "Governed document", "A governed workflow document", null, null, null));
+        // The contract and the plan are task-wide documents, and only a coordinating role may file
+        // them — which is exactly the run that may name no work item. So the producer run holds
+        // none; W1 is worked by the worker's run further down.
         var producer = new RunId("R-artifacts");
         await Run(service, source, new StartRunCommand(
-            actor, null, correlation.Next(), producer, new WorkItemId("W1"), "codex", null));
+            actor, null, correlation.Next(), producer, null, "codex", null));
         await Run(service, source, new RecordArtifactCommand(
             actor, null, correlation.Next(), new ArtifactId("A-contract"), GovernedArtifactKind.PromptContract,
             "Governed document", ArtifactCommands.Body, null, producer, null));

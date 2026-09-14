@@ -15,12 +15,17 @@ internal static class RunRules
     //
     // Returns the brief waiver to record when a door was opened, and null otherwise. The pre-flight
     // discards it; StartRun records it with the run.
+    //
+    // workItemId is the item the run would be held against, and the two refusals below that read it
+    // are the item's own status and the subject's role, in that order. A caller that passes none
+    // asks for the refusals that do not depend on an item.
     internal static ContextBriefWaived? EnsureDispatchIsPermitted(
         GovernedTaskState state,
         ActorId actorId,
         ActorId? subjectActorId,
         IReadOnlyList<ContextSkill>? servedNow,
         bool isProviderLaunch,
+        WorkItemId? workItemId = null,
         string? withoutBriefReason = null,
         EvidenceId? staleBriefEvidenceId = null)
     {
@@ -52,24 +57,76 @@ internal static class RunRules
         // never dispatch at all should be told that, not told to go and build context first: the
         // refusal an actor reads is the instruction it acts on, so the gate that cannot be
         // satisfied has to speak before the gate that can.
+        ContextBriefWaived? briefWaiver = null;
         if (isProviderLaunch)
         {
-            return ContextGateRules.EnsureBriefed(
+            briefWaiver = ContextGateRules.EnsureBriefed(
                 state, actorId, servedNow, "launch a provider",
                 withoutBriefReason, staleBriefEvidenceId);
         }
-
         // A run started by hand is not gated, so it cannot be waived either. A door offered where
         // there is no gate would record a waiver for a refusal that never happens, and a log full
         // of waivers nothing needed is how an override stops being read as a decision.
-        if (withoutBriefReason is not null || staleBriefEvidenceId is not null)
+        else if (withoutBriefReason is not null || staleBriefEvidenceId is not null)
         {
             throw new GovernanceException(
                 "A run started by hand is not subject to the context gate, so there is nothing to waive. " +
                 "The doors are for 'provider launch' and 'work add'.");
         }
 
-        return null;
+        // A coordinating role plans the work and dispatches it; it does not do it. Without this the
+        // lead's own run counted as the item's working pass, so 'work complete' was satisfied by a
+        // pass in which nobody worked. Stated as an action rather than a flag because there is no
+        // door: the only route past a missing working run stays the operator's
+        // 'work complete --without-verification REASON', which records its reason permanently.
+        //
+        // Here rather than in StartRun, which is where it was first written. There it sat past the
+        // pre-flight, so a provider launch resolved an executable and ran the provider binary for
+        // its version before the refusal spoke — the exact cost the pre-flight exists to avoid, and
+        // the second time one refusal living at only one of the two moments produced it (VC3). The
+        // decision behind the rule says it is refused at dispatch, and the pre-flight is dispatch.
+        //
+        // Placed after the two refusals above for the reason stated there: an actor that may never
+        // dispatch, or has never been briefed, must read that first. The move brought the item's
+        // status check with it rather than leaving it behind in StartRun, because the same ordering
+        // rule puts the status ahead of the role: see the block below.
+        //
+        // Command-time only. SubjectRole is null on every run recorded before the field existed, so
+        // a replay rule keyed on it would refuse histories that were legal when written, and this
+        // ledger alone holds 16 work items closed with a coordinating run as their only working run.
+        // TaskTransitionValidator.ValidateRunStarted deliberately re-derives none of it.
+        if (workItemId is { } item)
+        {
+            // The item's own state speaks first, for the reason the two refusals above are ordered
+            // as they are. A Blocked, Stale, Completed or Abandoned item accepts no run from any
+            // subject; a coordinating subject is a property of the dispatch, and the caller changes
+            // it by dispatching a Worker. Refused the other way round, the instruction an operator
+            // reads — dispatch a Worker against the item — points at an item that is gone.
+            //
+            // The only statement of this rule at command time. StartRun reaches this function on
+            // every path, with its own work item id, so the copy that used to stand below the
+            // lookup there would now only be a second model of a rule that already exists (KC1).
+            // Its replay twin in TaskTransitionValidator.ValidateRunStarted is unchanged, and the
+            // set of histories refused is the same set: only which refusal speaks first has moved.
+            var workItem = Get(state.WorkItems, item, "work item");
+            if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or
+                WorkItemStatus.Completed or WorkItemStatus.Abandoned)
+            {
+                throw new GovernanceException($"Cannot start a run for work item in status '{workItem.Status}'.");
+            }
+
+            if (state.Roles.TryGetValue(subject, out var subjectAssignment) &&
+                subjectAssignment.Role is RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead)
+            {
+                throw new GovernanceException(
+                    $"A run against work item '{item}' cannot be held by a coordinating role, and " +
+                    $"'{subject}' is a {subjectAssignment.Role}. Dispatch a Worker, Researcher, Verifier or " +
+                    "CodeReviewer against the item, or start this run without --work to file task-wide " +
+                    "artifacts.");
+            }
+        }
+
+        return briefWaiver;
     }
 
     internal static IReadOnlyList<LedgerEventData> StartRun(
@@ -86,6 +143,7 @@ internal static class RunRules
         var briefWaiver = EnsureDispatchIsPermitted(
             state, command.ActorId, command.SubjectActorId, command.SkillsServedNow,
             isProviderLaunch: command.LaunchTokenHash is not null,
+            command.WorkItemId,
             command.WithoutBriefReason, command.StaleBriefEvidenceId);
         // Checked only when the run names a session, which no run recorded before sessions existed
         // does. A run that names none is dispatched outside a bracket, and that is legal (D7).
@@ -101,15 +159,14 @@ internal static class RunRules
             var workItem = Get(state.WorkItems, workItemId, "work item");
             WorkItemRules.EnsureCanStartWork(state, command.ActorId, workItem);
             ClaimDependencyRules.EnsureDependenciesAreCurrent(state, workItem.DependsOnClaims);
-            // Abandoned belongs here for the same reason Completed does, and for one more: starting
-            // a run moves the item to Active, which would take back a directory area that has
-            // already been handed to another work item.
-            if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or
-                WorkItemStatus.Completed or WorkItemStatus.Abandoned)
-            {
-                throw new GovernanceException($"Cannot start a run for work item in status '{workItem.Status}'.");
-            }
-    
+            // The status refusal that used to stand here — Blocked, Stale, Completed or Abandoned,
+            // Abandoned for the same reason Completed is and for one more: starting a run moves the
+            // item to Active, which would take back a directory area already handed to another work
+            // item — now lives in EnsureDispatchIsPermitted above, ahead of the coordinating-role
+            // refusal it has to precede. It therefore speaks before the owner and dependency checks
+            // above rather than after them, and is not restated here: two copies of one rule is the
+            // defect KC1 was.
+
             var hasActiveRun = state.Runs.Values.Any(run =>
                 run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active);
             if (hasActiveRun)
@@ -117,6 +174,11 @@ internal static class RunRules
                 throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
             }
     
+            // The coordinating-role refusal that used to stand here now lives in
+            // EnsureDispatchIsPermitted above, so a provider launch reaches it before it has spawned
+            // a process. It therefore speaks before the status and active-run checks above rather
+            // than after them, which is stated at its new site.
+
             // A code reviewer reading unverified work reviews something nobody has established
             // is finished, and its findings then compete with the verifier's instead of following
             // them. The ordering is the whole point of having two passes, so a verifier run that

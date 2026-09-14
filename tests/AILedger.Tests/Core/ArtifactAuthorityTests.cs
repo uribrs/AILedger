@@ -47,6 +47,11 @@ public sealed class ArtifactAuthorityTests
 
             Assert.Equal(actor, task.State.Artifacts[new ArtifactId("A1")].Provenance.ActorId);
             Assert.Equal(run, task.State.Artifacts[new ArtifactId("A1")].ProducerRunId);
+            // Stated rather than left implicit: a lead may hold a run only when it names no work
+            // item, so the task-wide run is the sole route by which a lead can author either of
+            // these two documents at all. A fixture that quietly gave this run an item would make
+            // the test unreachable, and the failure would read as an authority failure instead.
+            Assert.Null(task.State.Runs[run].WorkItemId);
         }
     }
 

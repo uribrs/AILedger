@@ -1520,6 +1520,19 @@ internal static class TaskTransitionValidator
         // C3 (lesson-closeout-replay-compatibility): CommandHandler requires and emits lessons for
         // a new Learn -> Archive command. Replay deliberately does not require a preceding lesson:
         // every archive history written before lesson events existed has none.
+
+        // The transition-reason rule is command-time only, in all three of its halves, and only the
+        // first half has to be. That a backward transition carries a reason keys on Reason being
+        // absent, and almost every stage.transitioned in this ledger was written before the field
+        // existed and carries none — a replay copy would refuse histories that were legal when
+        // they were written, which is the direction this file may never move in. The other two
+        // halves — that a forward transition carries no reason, and that a present reason is not
+        // blank — key on Reason being present, which no event written before the field can be, so
+        // they are safe by construction and could have been written here. They were left out
+        // deliberately rather than forgotten. What their absence costs is small and worth stating
+        // plainly: a hand-edited events.jsonl line could replay a stage state the command path
+        // would have refused to produce. Replay's protection against a forged line is provenance
+        // and sequence, not a second copy of every rule.
     }
 
     private static void ValidateStagePrerequisitesWaived(

@@ -59,15 +59,28 @@ public sealed class OperatorDispatchTests
 
     // The ordinary case must be untouched: an actor starting its own run records no dispatcher, so
     // "LaunchedBy is not null" means exactly "dispatched", both here and at replay.
+    //
+    // The self-starting actor is a worker, not the operator. A run against a work item cannot be
+    // held by a coordinating role, so the operator can no longer be the subject of one — but the
+    // rule is about the subject's role, not about self-starting, and the work item stays because
+    // it is the case the rule touches. Nothing bars a worker from holding ManageRuns: only
+    // ManageRoles and ManageScope are reserved to the operator role, so a worker granted it starts
+    // its own run and the run records no dispatcher.
     [Fact]
     public void AnActorStartingItsOwnRunRecordsNoDispatcher()
     {
-        var task = Prepare(out var workItemId, out _);
+        var task = new TestTask();
+        var worker = new ActorId("worker");
+        task.Assign(worker, RoleKind.Worker, Capability.BuildContext, Capability.ManageRuns);
+        var workItemId = new WorkItemId("W1");
+        // Owned by the worker, because starting work on an item is the owner's or an operator's.
+        task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId,
+            "Build it", worker, [], [Path.GetFullPath("src")]));
 
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "claude", null));
+            worker, null, task.NextCorrelation(), new RunId("R1"), workItemId, "claude", null));
 
-        Assert.Equal(task.OperatorId, task.State.Runs[new RunId("R1")].ActorId);
+        Assert.Equal(worker, task.State.Runs[new RunId("R1")].ActorId);
         Assert.Null(task.State.Runs[new RunId("R1")].LaunchedBy);
     }
 

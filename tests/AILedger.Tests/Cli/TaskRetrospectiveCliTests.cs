@@ -1013,7 +1013,7 @@ public sealed class TaskRetrospectiveCliTests
                 CancellationToken.None)
         };
 
-        exits.AddRange(await RecordExecutionArtifactsAsync(application, common, "W1"));
+        exits.AddRange(await RecordExecutionArtifactsAsync(application, common));
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None));
         exits.AddRange(await RunAPassAsync(application, common, "researcher", "R-research", null, null));
@@ -1070,10 +1070,13 @@ public sealed class TaskRetrospectiveCliTests
         return [.. exits];
     }
 
+    // The contract and the plan are task-wide, and only a coordinating role may record them, so the
+    // run that produces them is held by the operator and names no work item. A run against a work
+    // item cannot be held by a coordinating role at all, which is the same rule read from the other
+    // side: this is the case it leaves open.
     private static async Task<int[]> RecordExecutionArtifactsAsync(
         CliApplication application,
-        string[] common,
-        string workItemId)
+        string[] common)
     {
         var exits = new List<int>
         {
@@ -1083,7 +1086,7 @@ public sealed class TaskRetrospectiveCliTests
         };
         exits.Add(await application.RunAsync(
             ["run", "start", .. common, "--subject", "operator", "--run", "R-artifacts",
-             "--work", workItemId, "--provider", "codex", "--session", "artifact-session"],
+             "--provider", "codex", "--session", "artifact-session"],
             CancellationToken.None));
         exits.Add(await RecordArtifactAsync(
             application, common, "operator", "A-contract", "prompt-contract", null, "R-artifacts",

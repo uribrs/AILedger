@@ -104,18 +104,24 @@ public sealed class BriefWaiverRecordTests
 
     // A provider launch through the operator door. No field for who on the run: the waiver event's
     // actor is the authorising actor and that is the one the gate was checked against.
+    //
+    // Which is also why the subject is a worker and not the operator. The door is the operator
+    // dispatching on another actor's behalf, not the operator running the work itself — a run
+    // against a work item cannot be held by a coordinating role at all. The waiver is still the
+    // operator's, because the gate reads the dispatcher.
     [Fact]
     public void ARunLaunchedThroughTheOperatorDoorRecordsTheReasonAgainstTheRun()
     {
         var task = new TestTask { AutoBuildContext = false, AutoServeSkills = false };
         task.BuildContext(task.OperatorId);
+        var worker = Worker(task);
         task.Apply(new AddWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Work", null, [], [],
             SkillsServedNow: ContextBrief.Served));
 
         var outcome = task.Apply(new StartRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), new WorkItemId("W1"), "codex",
-            null, null, null, CommandHandler.HashLaunchToken("a-launch-token"), null, null,
+            null, null, null, CommandHandler.HashLaunchToken("a-launch-token"), worker, null,
             WithoutBriefReason: "Dispatching the agent that is rewriting the skills the hashes are over"));
 
         Assert.IsType<RunStarted>(outcome.Events[1].Data);
@@ -143,10 +149,11 @@ public sealed class BriefWaiverRecordTests
         task.Apply(new AddWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Work", null, [], [],
             SkillsServedNow: ContextBrief.Served));
+        var worker = Worker(task);
         const string token = "a-launch-token";
         task.Apply(new StartRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), new WorkItemId("W1"), "codex",
-            null, null, null, CommandHandler.HashLaunchToken(token), null, EditedSince,
+            null, null, null, CommandHandler.HashLaunchToken(token), worker, EditedSince,
             StaleBriefEvidenceId: new EvidenceId("E1")));
 
         task.Apply(new CompleteRunCommand(
@@ -219,10 +226,11 @@ public sealed class BriefWaiverRecordTests
         task.Apply(new AddWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Work", null, [], [],
             SkillsServedNow: ContextBrief.Served));
+        var worker = Worker(task);
         const string token = "a-launch-token";
         task.Apply(new StartRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), new WorkItemId("W1"), "codex",
-            null, null, null, CommandHandler.HashLaunchToken(token), null, null,
+            null, null, null, CommandHandler.HashLaunchToken(token), worker, null,
             WithoutBriefReason: "Dispatching the agent that is rewriting the skills"));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed,
@@ -329,6 +337,19 @@ public sealed class BriefWaiverRecordTests
         new ContextSkill("workflow-coordinator", "hash-of-workflow-coordinator"),
         new ContextSkill("task-orchestrator", "an-edited-orchestrator")
     ];
+
+    // The subject a dispatch through either door is for. The operator authorises the launch and the
+    // gate is checked against it; the worker holds the run.
+    private static ActorId Worker(TestTask task)
+    {
+        var worker = new ActorId("worker");
+        if (!task.State.Roles.ContainsKey(worker))
+        {
+            task.Assign(worker, RoleKind.Worker, Capability.ManageRuns);
+        }
+
+        return worker;
+    }
 
     private static void RecordEvidence(TestTask task, string evidenceId) =>
         task.Apply(new AddEvidenceCommand(

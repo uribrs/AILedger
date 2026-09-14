@@ -1,6 +1,8 @@
+using System.Text.Json;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Storage;
 using AILedger.Tests.Support;
 
 namespace AILedger.Tests.Core;
@@ -124,22 +126,30 @@ public sealed class TaskDebtTests
             new WorkItemId("W1"), "Work", actor, WorkItemStatus.Proposed, [], [Path.GetFullPath("src")]))));
         state = reducer.Apply(state, next(state, actor, new RunStarted(new AgentRun(
             new RunId("R1"), actor, new WorkItemId("W1"), "claude", "s1", AgentRunStatus.Active,
-            recordedAt, null, null, null, null, null, RoleKind.ImplementationLead))));
+            recordedAt, null, null, null, null, null, RoleKind.Worker))));
         state = reducer.Apply(state, next(state, actor, new RunCompleted(
             new RunId("R1"), AgentRunStatus.Completed, "s1", recordedAt)));
 
-        Assert.Equal(1, TaskDebt.Compute(state).WorkItemsAwaitingVerification);
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Equal(1, debt.WorkItemsAwaitingVerification);
+        // The two counts describe different items and never the same one: this one has done work
+        // the gate accepts, so it is unverified rather than stuck.
+        Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
     }
 
     // KC1 from the code reviewer: the debt projection listed working roles positively while the
-    // completion gate names the two judging roles negatively, so an item worked by any other role
-    // read as clear while work complete refused it.
+    // completion gate named the two judging roles negatively, so an item worked by any other role
+    // read as clear while work complete refused it. The gate's list is positive again, deliberately,
+    // and the defect has not come back with it: both readers ask WorkItemRules.HasCompletedWorkingRun
+    // — which is internal for exactly that reason — and TaskDebt keeps no role list of its own.
+    // Researcher is the fixture because it is the half of the new list a later refactor drops first.
     [Fact]
     public void AnItemWorkedByARoleTheGateCountsAsWorkIsCountedAsAwaitingVerification()
     {
         var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
         state = WithWorkItem(state, reducer, next, actor);
-        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.PlanningLead, "claude");
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Researcher, "claude");
 
         Assert.Equal(1, TaskDebt.Compute(state).WorkItemsAwaitingVerification);
     }
@@ -151,9 +161,9 @@ public sealed class TaskDebtTests
     {
         var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
         state = WithWorkItem(state, reducer, next, actor);
-        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.ImplementationLead, "claude");
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Worker, "claude");
         state = WithCompletedRun(state, reducer, next, actor, recordedAt, "RV1", RoleKind.Verifier, "codex");
-        state = WithCompletedRun(state, reducer, next, actor, recordedAt.AddHours(1), "R2", RoleKind.ImplementationLead, "claude");
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt.AddHours(1), "R2", RoleKind.Worker, "claude");
 
         Assert.Equal(1, TaskDebt.Compute(state).WorkItemsAwaitingVerification);
     }
@@ -164,7 +174,7 @@ public sealed class TaskDebtTests
     {
         var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
         state = WithWorkItem(state, reducer, next, actor);
-        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.ImplementationLead, "claude");
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Worker, "claude");
         state = WithCompletedRun(state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "claude");
 
         Assert.Equal(1, TaskDebt.Compute(state).WorkItemsAwaitingVerification);
@@ -175,7 +185,7 @@ public sealed class TaskDebtTests
     {
         var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
         state = WithWorkItem(state, reducer, next, actor);
-        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.ImplementationLead, "claude");
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Worker, "claude");
         state = WithCompletedRun(state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "codex");
 
         Assert.Equal(0, TaskDebt.Compute(state).WorkItemsAwaitingVerification);
@@ -206,12 +216,33 @@ public sealed class TaskDebtTests
     // KC5: the projection answers the same question work complete does, and nothing asserted the two
     // agree. This drives the real command rather than re-reading the predicates, so a divergence
     // fails here rather than being noticed by an operator meeting a refusal after a clean report.
+    //
+    // The rows worked by a coordinating role, and the row whose run recorded no role at all, are
+    // here rather than in a test of their own, and that is the repair: while this theory held only
+    // roles the gate counts as work, its name was false. Narrowing HasCompletedWorkingRun to a
+    // positive list made those items count zero on every debt figure while work complete refused
+    // them outright, and a test that asserted agreement over the accepted roles alone could not see
+    // it. The item this repository most wants flagged had become the one it reported nothing about.
+    //
+    // The two counts are read together because they are one answer in two parts: worked and
+    // unverified, or run and not worked. Either is a reason work complete refuses, and their sum
+    // being zero is what 'the gate accepts' means.
     [Theory]
-    [InlineData(RoleKind.ImplementationLead, "claude", null, null, 1)]
-    [InlineData(RoleKind.ImplementationLead, "claude", RoleKind.Verifier, "claude", 1)]
-    [InlineData(RoleKind.ImplementationLead, "claude", RoleKind.Verifier, "codex", 0)]
+    [InlineData(RoleKind.Worker, "claude", null, null, 1, 0)]
+    [InlineData(RoleKind.Worker, "claude", RoleKind.Verifier, "claude", 1, 0)]
+    [InlineData(RoleKind.Worker, "claude", RoleKind.Verifier, "codex", 0, 0)]
+    [InlineData(RoleKind.Researcher, "claude", null, null, 1, 0)]
+    [InlineData(RoleKind.Researcher, "claude", RoleKind.Verifier, "claude", 1, 0)]
+    [InlineData(RoleKind.Researcher, "claude", RoleKind.Verifier, "codex", 0, 0)]
+    [InlineData(RoleKind.Operator, "claude", null, null, 0, 1)]
+    [InlineData(RoleKind.Operator, "claude", RoleKind.Verifier, "codex", 0, 1)]
+    [InlineData(RoleKind.PlanningLead, "claude", RoleKind.Verifier, "codex", 0, 1)]
+    [InlineData(RoleKind.ImplementationLead, "claude", RoleKind.Verifier, "codex", 0, 1)]
+    [InlineData(RoleKind.CodeReviewer, "claude", RoleKind.Verifier, "codex", 0, 1)]
+    [InlineData(null, "claude", RoleKind.Verifier, "codex", 0, 1)]
     public void TheDebtProjectionAgreesWithWhatWorkCompleteAccepts(
-        RoleKind workRole, string workProvider, RoleKind? verifyRole, string? verifyProvider, int expectedDebt)
+        RoleKind? workRole, string workProvider, RoleKind? verifyRole, string? verifyProvider,
+        int expectedAwaitingVerification, int expectedRunByNoWorkingRole)
     {
         var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
         state = WithWorkItem(state, reducer, next, actor);
@@ -221,8 +252,9 @@ public sealed class TaskDebtTests
             state = WithCompletedRun(state, reducer, next, actor, recordedAt.AddHours(1), "RV1", role, verifyProvider!);
         }
 
-        var debt = TaskDebt.Compute(state).WorkItemsAwaitingVerification;
-        Assert.Equal(expectedDebt, debt);
+        var debt = TaskDebt.Compute(state);
+        Assert.Equal(expectedAwaitingVerification, debt.WorkItemsAwaitingVerification);
+        Assert.Equal(expectedRunByNoWorkingRole, debt.WorkItemsRunByNoWorkingRole);
 
         var accepted = true;
         try
@@ -235,8 +267,217 @@ public sealed class TaskDebtTests
             accepted = false;
         }
 
-        // Debt of zero must mean the gate accepts, and any debt must mean it refuses.
-        Assert.Equal(debt == 0, accepted);
+        // No debt on either count must mean the gate accepts, and any debt must mean it refuses.
+        var owed = debt.WorkItemsAwaitingVerification + debt.WorkItemsRunByNoWorkingRole;
+        Assert.Equal(owed == 0, accepted);
+        // And the block an operator reads has to be there whenever the gate would refuse.
+        if (!accepted)
+        {
+            Assert.False(debt.IsClear);
+        }
+    }
+
+    // The far side of the narrowed list. A coordinating role's run is the plan being made, not work
+    // a verifier would have anything to read, so the item has done nothing and work complete refuses
+    // it for want of work rather than for want of verification. WorkItemsAwaitingVerification stays
+    // at zero, correctly — it measures items that have worked and are still unverified — and the
+    // item is counted by WorkItemsRunByNoWorkingRole instead, which is the whole reason that count
+    // exists. For a while it was counted by neither: the debt read clear about an item the kernel
+    // would not complete, and the shape this narrowing exists to flag was the one the report went
+    // quiet about.
+    //
+    // The refusal message is asserted, not merely the refusal: a test that watched only the counts
+    // would pass just as well if the gate had stopped refusing.
+    //
+    // The run is composed onto state rather than started, because run start now refuses a
+    // coordinating role against a work item outright. The shape is still reachable on replay: this
+    // ledger holds work items closed with a coordinating run as their only working run, and no rule
+    // keyed on the role may reach the validator.
+    [Theory]
+    [InlineData(RoleKind.Operator)]
+    [InlineData(RoleKind.PlanningLead)]
+    [InlineData(RoleKind.ImplementationLead)]
+    public void AnItemWhoseOnlyRunHeldACoordinatingRoleHasDoneNoWorkAndTheGateSaysSo(RoleKind role)
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", role, "claude");
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "codex");
+
+        var debt = TaskDebt.Compute(state);
+        Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        Assert.Equal(1, debt.WorkItemsRunByNoWorkingRole);
+        Assert.False(debt.IsClear);
+
+        var refusal = Assert.Throws<GovernanceException>(() => new CommandHandler().Handle(
+            state,
+            new CompleteWorkItemCommand(actor, null, "c-complete", new WorkItemId("W1"), null),
+            recordedAt.AddHours(2)));
+        Assert.Contains("no completed run by a working role", refusal.Message);
+    }
+
+    // The defect in one assertion, isolated from every other debt. The fixture owes nothing else:
+    // no open claim, no inherited lesson, not archived, and its stage matches what its runs imply,
+    // so IsClear answers about the stuck item and about nothing else. Before the count existed this
+    // read clear while work complete refused the item outright — the report and the gate saying
+    // opposite things about the same state, which is KC1's shape and the reason the count is wired
+    // into IsClear rather than merely reported.
+    [Fact]
+    public void TheDebtIsNotClearWhileAStuckItemIsTheOnlyThingTheTaskOwes()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt, "R1", RoleKind.ImplementationLead, "claude");
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "codex");
+        // A verifier run implies Review, so the task sits where its own records put it and the stage
+        // drift that would otherwise decide IsClear here is cleared.
+        state = state with { Stage = TaskStage.Review };
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Equal(0, debt.OpenClaims);
+        Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        Assert.Null(debt.StageBehindActivity);
+        Assert.False(debt.RetrospectiveOwed);
+        Assert.Equal(1, debt.WorkItemsRunByNoWorkingRole);
+        Assert.False(debt.IsClear);
+
+        Assert.Throws<GovernanceException>(() => new CommandHandler().Handle(
+            state,
+            new CompleteWorkItemCommand(actor, null, "c-complete", new WorkItemId("W1"), null),
+            recordedAt.AddHours(2)));
+    }
+
+    // The half of the positive list that is not the obvious one, asserted against the gate as well
+    // as the projection. A Researcher run does the work here while the Verification stage arm
+    // accepts a Worker only; both decisions state that difference on purpose, so it is pinned rather
+    // than tidied away by someone reading the two lists side by side.
+    [Fact]
+    public void AResearcherRunDoesTheWorkAndOpensTheCompletionGate()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Researcher, "codex");
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "claude");
+
+        var debt = TaskDebt.Compute(state);
+        Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        // Researcher is work to the gate, so the item is finished rather than stuck.
+        Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
+        new CommandHandler().Handle(
+            state,
+            new CompleteWorkItemCommand(actor, null, "c-complete", new WorkItemId("W1"), null),
+            recordedAt.AddHours(2));
+    }
+
+    // A run recorded before SubjectRole existed never told the kernel who worked, so it cannot
+    // satisfy the gate. The positive list makes that true by construction rather than by a clause of
+    // its own, which is why it is asserted here: nothing in the predicate mentions null any more.
+    //
+    // Counted as stuck, like any other run the gate does not accept, and that is a decision rather
+    // than a side effect. The kernel never saw the role and this count does not claim it did; what
+    // it says is that work complete will refuse this item, which is true. Excusing null would need a
+    // 'SubjectRole is null' test written into the projection — a second role model in the reader,
+    // which is precisely the shape KC1 was — and would leave the report clear about an item that
+    // cannot be completed.
+    [Fact]
+    public void ARunThatRecordedNoRoleDoesNotCountAsWorkAndLeavesTheItemStuck()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", null, "claude");
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "codex");
+
+        var debt = TaskDebt.Compute(state);
+        Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        Assert.Equal(1, debt.WorkItemsRunByNoWorkingRole);
+        Assert.False(debt.IsClear);
+
+        var refusal = Assert.Throws<GovernanceException>(() => new CommandHandler().Handle(
+            state,
+            new CompleteWorkItemCommand(actor, null, "c-complete", new WorkItemId("W1"), null),
+            recordedAt.AddHours(2)));
+        Assert.Contains("no completed run by a working role", refusal.Message);
+    }
+
+    // The distinction the stuck count has to keep, and the failure mode of fixing it carelessly: an
+    // item nobody has run yet is ordinary pending work, not debt. If every un-started item counted,
+    // the owed block would appear on every task the moment work was proposed and the count would
+    // mean nothing.
+    [Fact]
+    public void AnItemThatHasRunNothingIsPendingRatherThanStuck()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out _);
+        state = WithWorkItem(state, reducer, next, actor);
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
+        // IsClear is not asserted in this file's composed fixtures: a task holding a work item while
+        // sitting in Discovery owes the stage its activity implies, and that debt would carry the
+        // assertion whatever the new count said. What is under test is the count.
+    }
+
+    // 'Has run something' is asked with DidWork rather than with a status test of the projection's
+    // own, so a run that declared --provider none spawned no agent and leaves the item pending. The
+    // alternative — counting any Completed run — would report a stuck item where nothing ever ran,
+    // and it would be a second model of 'a run that did something' living in a reader.
+    [Fact]
+    public void AnItemWhoseOnlyRunDeclaredNoProviderIsPendingRatherThanStuck()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt, "R1", RoleKind.Operator, AgentRun.NoProvider);
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
+    }
+
+    // Debt is about live work. A closed item is not going through the completion gate again, so
+    // counting it would put a permanent block on every task that ever finished an item a
+    // coordinating run touched — and this ledger holds sixteen of those. Stale is in the same
+    // sentence because it is how the kernel releases an item's scope without completing it.
+    [Theory]
+    [InlineData(WorkItemStatus.Completed)]
+    [InlineData(WorkItemStatus.Abandoned)]
+    [InlineData(WorkItemStatus.Stale)]
+    public void AClosedItemIsNotStuckWhateverItsOnlyRunHeld(WorkItemStatus status)
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Operator, "claude");
+        state = WithItemStatus(state, status);
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
+    }
+
+    // The count has to reach the operator, and the CLI writes the owed block by serialising this
+    // record whole (CliApplication.cs:672) rather than by naming its members. This asserts the half
+    // that can break here: the field is a serialised member under the CLI's own options, so no CLI
+    // change was needed for it to appear. IsClear stays out, as KC3 requires.
+    [Fact]
+    public void TheStuckCountIsSerialisedIntoTheOwedBlockTheCliWrites()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Operator, "claude");
+        var debt = TaskDebt.Compute(state);
+        Assert.False(debt.IsClear);
+
+        var owed = JsonSerializer.SerializeToNode(debt, LedgerJson.CreateOptions(indented: true))!.AsObject();
+
+        Assert.Equal(1, owed["workItemsRunByNoWorkingRole"]!.GetValue<int>());
+        Assert.False(owed.ContainsKey("isClear"));
     }
 
     // IC1: the retrospective debt is unconditional. An archived task that carries no retrospective
@@ -427,6 +668,18 @@ public sealed class TaskDebtTests
         Assert.True(TaskDebt.Compute(closed).IsClear);
     }
 
+    // Composed rather than driven: the commands that close an item have gates of their own, and what
+    // is under test is the count's treatment of a status, not the route to it.
+    private static GovernedTaskState WithItemStatus(GovernedTaskState state, WorkItemStatus status)
+    {
+        var id = new WorkItemId("W1");
+        var items = new Dictionary<WorkItemId, WorkItem>(state.WorkItems)
+        {
+            [id] = state.WorkItems[id] with { Status = status }
+        };
+        return state with { WorkItems = items };
+    }
+
     private static GovernedTaskState WithWorkItem(
         GovernedTaskState state, TaskReducer reducer,
         Func<GovernedTaskState, ActorId, LedgerEventData, LedgerEvent> next, ActorId actor) =>
@@ -440,7 +693,7 @@ public sealed class TaskDebtTests
     private static GovernedTaskState WithCompletedRun(
         GovernedTaskState state, TaskReducer reducer,
         Func<GovernedTaskState, ActorId, LedgerEventData, LedgerEvent> next,
-        ActorId actor, DateTimeOffset at, string runId, RoleKind role, string provider)
+        ActorId actor, DateTimeOffset at, string runId, RoleKind? role, string provider)
     {
         _ = reducer; _ = next;
         var run = new AgentRun(

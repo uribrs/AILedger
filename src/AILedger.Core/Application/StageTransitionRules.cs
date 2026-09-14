@@ -13,6 +13,38 @@ internal static class StageTransitionRules
         DateTimeOffset now)
     {
         StageTransitionPolicy.EnsureAllowed(state.Stage, command.TargetStage);
+
+        // A move that goes back in the pipeline says something was learned that invalidates work
+        // already done, and that sentence is worth more than the arrow. A forward move refuses a
+        // reason rather than dropping it: a caller who passed one meant it to be recorded, and a
+        // silently ignored reason reads in the log exactly like one that was never written. Both
+        // directions therefore test the raw value, not the trimmed one: a blank reason trims to null,
+        // so a branch reading `reason` cannot tell a caller who passed "   " from one who passed
+        // nothing, and the forward branch let that caller through for as long as it read the trimmed
+        // value. `reason` is what gets recorded; `command.Reason` is what says the caller passed one.
+        var reason = TrimOrNull(command.Reason);
+        if (StageTransitionPolicy.IsBackward(state.Stage, command.TargetStage))
+        {
+            if (command.Reason is null)
+            {
+                throw new GovernanceException(
+                    $"Transition from '{state.Stage}' to '{command.TargetStage}' goes back in the pipeline " +
+                    "and needs a reason. Pass --reason to record what was learned that sends the work back.");
+            }
+
+            if (reason is null)
+            {
+                throw new GovernanceException(
+                    "A backward transition needs a reason; a blank reason records nothing.");
+            }
+        }
+        else if (command.Reason is not null)
+        {
+            throw new GovernanceException(
+                $"Transition from '{state.Stage}' to '{command.TargetStage}' goes forward and does not " +
+                "take a reason. Only a transition that goes back records why.");
+        }
+
         var waiver = TrimOrNull(command.WithoutPrerequisitesReason);
         if (command.WithoutPrerequisitesReason is not null && waiver is null)
         {
@@ -29,7 +61,7 @@ internal static class StageTransitionRules
             throw new GovernanceException("Only an operator can transition stages without prerequisites.");
         }
 
-        var transition = new StageTransitioned(state.Stage, command.TargetStage);
+        var transition = new StageTransitioned(state.Stage, command.TargetStage, reason);
         var provenance = waiver is null
             ? null
             : CoordinatorSessionRules.ProvenanceForWaiver(state, command.ActorId);
@@ -137,11 +169,15 @@ internal static class StageTransitionRules
                 break;
     
             case TaskStage.Verification:
-                if (!completedRoles.Any(role =>
-                        role is RoleKind.Worker or RoleKind.ImplementationLead))
+                // Exact, like its three neighbours: Design demands a Researcher, Review a Verifier,
+                // Learn a CodeReviewer. Verification was the only arm carrying a disjunction, and so
+                // the only one a coordinating role could satisfy on its own run — a lead dispatching
+                // the work counted as having done it, and nothing was ever staffed.
+                if (!completedRoles.Contains(RoleKind.Worker))
                 {
                     throw new GovernanceException(
-                        "Verification requires a completed Worker or ImplementationLead run.");
+                        "Verification requires a completed Worker run. A coordinating role's run does " +
+                        "not satisfy it; dispatch a Worker against the work item.");
                 }
                 break;
     

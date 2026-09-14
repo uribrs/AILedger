@@ -849,6 +849,87 @@ public sealed class TaskRetrospectiveTests
         Assert.False(item.VerifierRanAfterLatestWork);
     }
 
+    // The narrowed working-run rule reaches this report without this projection being touched,
+    // because RetrospectiveWorkItem.HasCompletedWorkingRun is WorkItemRules' own predicate (C3). A
+    // coordinating role's run against an item is the plan being made, not work a verifier could
+    // read, so the report has to say the item has done none — the same answer work complete gives.
+    // Asserted here as well as in TaskDebtTests because these are two readers of one predicate, and
+    // KC1 was the two disagreeing.
+    [Theory]
+    [InlineData(RoleKind.Operator)]
+    [InlineData(RoleKind.PlanningLead)]
+    [InlineData(RoleKind.ImplementationLead)]
+    public void AnItemWorkedOnlyByACoordinatingRoleIsReportedAsHavingNoCompletedWorkingRun(RoleKind role)
+    {
+        var log = new Log();
+        log.WithWorkItem("W1", WorkItemStatus.Active, scope: ["src"]);
+        log.WithRun("R1", "claude", role, minutes: 30, workItem: "W1", manifestHash: "h1");
+
+        var item = Assert.Single(log.Build().WorkItems);
+
+        Assert.False(item.HasCompletedWorkingRun);
+    }
+
+    // The deliberately kept half of the rule: a Researcher run is work to this predicate, while the
+    // Verification stage arm accepts a Worker only. Both decisions state that difference, so the
+    // asymmetry is pinned rather than left for someone to even out.
+    [Fact]
+    public void AResearcherRunIsReportedAsWorkTheSameWayAWorkerRunIs()
+    {
+        var log = new Log();
+        log.WithWorkItem("W1", WorkItemStatus.Active, scope: ["src"]);
+        log.WithRun("R1", "codex", RoleKind.Researcher, minutes: 30, workItem: "W1", manifestHash: "h1");
+        log.WithRun("RV1", "claude", RoleKind.Verifier, minutes: 20, workItem: "W1",
+            manifestHash: "h2", startMinutesIn: 40);
+
+        var item = Assert.Single(log.Build().WorkItems);
+
+        Assert.True(item.HasCompletedWorkingRun);
+        Assert.True(item.VerifierRanAfterLatestWork);
+        Assert.Null(item.ProviderThatVerifiedItsOwnWork);
+    }
+
+    // The decision not to give this report a stuck count of its own, asserted rather than written in
+    // a comment. TaskDebt gained WorkItemsRunByNoWorkingRole because 'status' must not read clear
+    // about an item work complete would refuse; this report refuses nothing and has no IsClear, so
+    // an aggregate here would buy no invariant and would be a second derivation to keep in step —
+    // the KC1 shape again. What it carries instead is finer: one row per item with its status and
+    // the gate's own HasCompletedWorkingRun, from which the same set is readable with the ids in it.
+    //
+    // So the agreement is what is pinned. The rows that satisfy the debt count's definition are
+    // exactly as many as the debt count reports, over one state, with both projections built from
+    // the same predicate.
+    [Fact]
+    public void TheRowsForStuckItemsAgreeWithTheDebtProjectionsCountOfThem()
+    {
+        var log = new Log();
+        // Live, run only by a coordinating role: stuck.
+        log.WithWorkItem("W1", WorkItemStatus.Active, scope: ["src"]);
+        log.WithRun("R1", "claude", RoleKind.ImplementationLead, minutes: 30, workItem: "W1", manifestHash: "h1");
+        // Live and worked, missing its verification: debt of the other kind, and not stuck.
+        log.WithWorkItem("W2", WorkItemStatus.Active, scope: ["docs"]);
+        log.WithRun("R2", "claude", RoleKind.Worker, minutes: 30, workItem: "W2", manifestHash: "h2");
+        // Live and never run: pending, not stuck.
+        log.WithWorkItem("W3", WorkItemStatus.Proposed, scope: ["tests"]);
+        // Closed after a coordinating run: not stuck, because it is not going through the gate again.
+        log.WithWorkItem("W4", WorkItemStatus.Completed, scope: ["scripts"]);
+        log.WithRun("R4", "codex", RoleKind.Operator, minutes: 10, workItem: "W4", manifestHash: "h4");
+
+        var report = log.Build();
+        var runsBy = report.WorkItems.ToDictionary(item => item.Id);
+
+        var stuckRows = report.WorkItems.Count(item =>
+            item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
+            !item.HasCompletedWorkingRun &&
+            log.State.Runs.Values.Any(run =>
+                run.WorkItemId?.Value == item.Id && run.Status == AgentRunStatus.Completed));
+
+        Assert.Equal(TaskDebt.Compute(log.State).WorkItemsRunByNoWorkingRole, stuckRows);
+        Assert.Equal(1, stuckRows);
+        Assert.False(runsBy["W1"].HasCompletedWorkingRun);
+        Assert.True(runsBy["W2"].HasCompletedWorkingRun);
+    }
+
     // Only lessons this task inherited. A lesson this task minted at archive is citable from then on,
     // and counting a citation of one as learning from an earlier task is the defect KC4 was.
     [Fact]

@@ -395,10 +395,14 @@ public sealed class CliApplication
                     Actor(input), Cause(input), Correlation(input), ExistingRun(input),
                     EnumValue<AgentRunStatus>(input, "status"), input.Optional("session")), cancellationToken).ConfigureAwait(false);
                 break;
+            // Both trailing options are nullable strings that mean opposite things — one excuses a
+            // refusal, the other narrates a move that was allowed — so they are passed by name. A
+            // positional call would bind '--reason' to the waiver and log the wrong sentence.
             case "stage transition":
                 await ExecuteAsync(service, input, new RequestStageTransitionCommand(
                     Actor(input), Cause(input), Correlation(input), EnumValue<TaskStage>(input, "stage"),
-                    input.Optional("without-prerequisites")), cancellationToken).ConfigureAwait(false);
+                    WithoutPrerequisitesReason: input.Optional("without-prerequisites"),
+                    Reason: input.Optional("reason")), cancellationToken).ConfigureAwait(false);
                 break;
             case "provider launch":
                 await LaunchProviderAsync(service, input, AgentLaunchMode.New, ledgerRoot, cancellationToken).ConfigureAwait(false);
@@ -1122,15 +1126,21 @@ public sealed class CliApplication
         try
         {
             grants = ResolveProviderGrants(launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
-            // And the brief, on the same grounds and in the order the kernel states: authority
-            // first, then the brief, then anything with a side effect. This ran only inside the
-            // command below, which the version probe already precedes, so an actor with no brief
-            // had executed a provider binary before being refused (VC3). The kernel still refuses
-            // the launch — this only moves the refusal in front of the process.
+            // And the brief and the dispatch rules, on the same grounds and in the order the kernel
+            // states: authority first, then the brief, then anything with a side effect. These ran
+            // only inside the command below, which the version probe already precedes, so an actor
+            // with no brief had executed a provider binary before being refused (VC3). The kernel
+            // still refuses the launch — this only moves the refusal in front of the process.
+            //
+            // The work item is passed because the refusals keyed on it — a coordinating role cannot
+            // hold a run that names one — are part of the same set. Omitting it left that rule
+            // seeing no item, so it did not fire here and the launch paid for a version probe before
+            // the command refused it.
             ProviderLaunchPreflight.EnsurePermitted(
                 launchState, Actor(input), Subject(input), servedNow,
                 input.Optional("without-brief"),
-                OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)));
+                OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)),
+                requestedWorkItem);
         }
         catch (GovernanceException refusal)
         {
@@ -1698,11 +1708,34 @@ public sealed class CliApplication
         var additionalDirectories = requestedAdditionalDirectories.Select(ResolveExistingDirectory).ToArray();
         foreach (var grant in additionalDirectories.Prepend(workingDirectory))
         {
-            if (!scopes.Any(scope => IsContainedPath(ProviderDirectoryForScope(scope), grant)))
+            if (scopes.Any(scope => IsContainedPath(ProviderDirectoryForScope(scope), grant)))
             {
-                throw new GovernanceException(
-                    $"Provider directory '{grant}' is outside work item '{workItemId.Value}' scope.");
+                continue;
             }
+
+            // A grant that is not inside any scope is only acceptable as an ancestor, and only up to
+            // the repository that holds the scope it is an ancestor of. Each scope it climbs is asked
+            // for its own ceiling, because an item may hold directories in more than one repository.
+            var ceilings = scopes
+                .Where(scope => IsContainedPath(grant, ProviderDirectoryForScope(scope)))
+                .Select(scope => ProviderGrantCeiling(ProviderDirectoryForScope(scope)))
+                .Distinct(PathComparer)
+                .ToArray();
+            if (ceilings.Any(ceiling => IsContainedPath(ceiling, grant)))
+            {
+                continue;
+            }
+
+            // Two refusals, because they are two different mistakes. A directory that is neither
+            // ancestor nor descendant of any scope is somebody else's work and there is nothing to
+            // name. A directory that is an ancestor is the right shape and merely too high, so the
+            // refusal names the highest one that would be accepted — the same disclosure
+            // StageTransitionPolicy.EnsureAllowed makes when it names the legal targets.
+            throw new GovernanceException(ceilings.Length == 0
+                ? $"Provider directory '{grant}' is outside work item '{workItemId.Value}' scope."
+                : $"Provider directory '{grant}' is above the highest directory work item " +
+                  $"'{workItemId.Value}' may be granted: " +
+                  $"{string.Join(", ", ceilings.Select(ceiling => $"'{ceiling}'"))}.");
         }
 
         // The ledger is a governed channel, not work product, so it is granted separately from the
@@ -1737,6 +1770,36 @@ public sealed class CliApplication
         }
 
         return file.FullName;
+    }
+
+    // The highest directory a provider grant may climb to from one scope. The accepted decision that
+    // widened the containment clause is itself bounded: the working directory may be an ancestor of
+    // the scope "so a worker owning a disjoint set runs where the solution builds". The repository
+    // holding the scope is where the solution builds. Without a ceiling the clause accepted every
+    // ancestor up to the filesystem root — and the grant is the agent's write boundary under
+    // PermissionProfile.WorkspaceGoverned, not a label.
+    //
+    // '.git' and '.ailedger' are the markers because they are the two this kernel already walks for:
+    // CodexAgentAdapter.EnsurePreconditions walks up for '.git' before it will launch at all, and
+    // DiscoverLedgerHome walks up for '.ailedger' to find the ledger in front of the caller. Either
+    // one marks a root somebody deliberately made.
+    //
+    // A scope in no repository has no "where the solution builds", so its ceiling is the scope
+    // directory itself and the ancestor clause simply does not apply to it. That degrades to the
+    // behaviour that held before the widening, which is the safe direction to fall.
+    private static string ProviderGrantCeiling(string scopeDirectory)
+    {
+        for (var directory = new DirectoryInfo(scopeDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (Directory.Exists(Path.Combine(directory.FullName, ".git")) ||
+                File.Exists(Path.Combine(directory.FullName, ".git")) ||
+                Directory.Exists(Path.Combine(directory.FullName, ".ailedger")))
+            {
+                return ResolveExistingDirectory(directory.FullName);
+            }
+        }
+
+        return scopeDirectory;
     }
 
     private static string ProviderDirectoryForScope(string scope) =>
@@ -2013,7 +2076,7 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "harness", "harness-session", "cause", "correlation"),
             ["session complete"] = Options("root", "task", "actor", "id", "cause", "correlation"),
             ["stage transition"] = Options(
-                "root", "task", "actor", "stage", "without-prerequisites", "cause", "correlation"),
+                "root", "task", "actor", "stage", "without-prerequisites", "reason", "cause", "correlation"),
             ["provider launch"] = ProviderOptions(),
             ["provider resume"] = ProviderOptions()
         };
@@ -2296,7 +2359,8 @@ public sealed class CliApplication
                            Closes the bracket. An open session has no duration, so its wall clock and
                            its idle time are reported absent rather than measured against a clock the
                            projection does not take.
-        stage transition   --task ID --actor ID --stage STAGE [--without-prerequisites REASON]
+        stage transition   --task ID --actor ID --stage STAGE [--reason TEXT]
+                           [--without-prerequisites REASON]
         provider launch    --task ID --actor ID --run ID --provider codex|claude [provider options]
         provider resume    --task ID --actor ID --run ID --provider codex|claude --session EXACT_ID [provider options]
 
@@ -2337,6 +2401,17 @@ public sealed class CliApplication
         A work item is completed only after two runs have completed against it: one whose subject
         held a working role, and one whose subject was a verifier. --without-verification REASON is
         the operator's override for both, and the reason goes in the log.
+
+        stage transition --reason TEXT says why the stage moved, and which direction the move takes
+        decides whether it is required. A transition that goes back in the pipeline — Repair to
+        Verification, Execution to Design — is refused without it, and a blank reason is refused the
+        same way. A transition that goes forward does not take it at all: passing --reason on a
+        forward move is refused rather than ignored, so the flag never becomes decoration. Direction
+        is the declared order of the stages, in which Repair follows Verification: Verification to
+        Repair is forward and needs no reason, while Repair back to Verification does. The reason is
+        recorded on the transition itself rather than as a separate event, and it stays in the log,
+        so a later reader sees why the task went back and not only that it did. It is independent of
+        --without-prerequisites; an operator moving backward past an arm passes both.
 
         stage transition --without-prerequisites REASON is the same shape for a stage: it is the
         operator's override for the arm guarding the target stage. Only an operator may pass it, the

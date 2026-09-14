@@ -128,7 +128,8 @@ internal static class WorkItemRules
             {
                 throw new GovernanceException(
                     $"Work item '{command.WorkItemId}' has no completed run by a working role and cannot be " +
-                    "completed. An operator may complete it without one by recording why.");
+                    "completed. A Worker or Researcher run does the work; a coordinating role's run does " +
+                    "not. An operator may complete it without one by recording why.");
             }
     
             if (!HasCompletedVerifierRun(state, command.WorkItemId))
@@ -293,20 +294,50 @@ internal static class WorkItemRules
         state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active);
     
-    // Every role that is not judging the work is doing it. Naming the two judging roles rather than
-    // listing the working ones means a role added later counts as work by default, which is the
-    // safe direction: a new role failing to satisfy this would block completion for no good reason.
-    // A null SubjectRole does not count — it predates the field, so the kernel did not see the role
-    // and cannot now claim it did.
+    // Only a Worker or a Researcher does the work. This list is positive, and it was negative: it
+    // named the two judging roles and counted every other role as work, so that a role added later
+    // would count as work by default. That default is what is being reversed, deliberately. A
+    // coordinating role's run is not work — the task-orchestrator mandate is that the coordinating
+    // run dispatches and does not execute, so an Operator, PlanningLead or ImplementationLead run on
+    // an item is the plan being made, not the thing a verifier would have anything to read. StartRun
+    // now refuses such a run against a work item outright, so both halves say the same thing: the
+    // role that cannot hold the run cannot satisfy this gate either. The cost of the reversal is
+    // that a role added later has to be named here before it counts, and that cost is accepted.
+    //
+    // A null SubjectRole falls outside the list on its own — it predates the field, so the kernel
+    // did not see the role and cannot now claim it did.
+    //
+    // Command-time only, for the reason DidWork's remarks give below. SubjectRole being null on
+    // every run recorded before the field existed is also why this narrowing must never reach
+    // replay: this ledger alone holds 16 work items closed with a coordinating run as their only
+    // working run, and a validator rule keyed on the role would make those histories unreadable.
+    //
+    // Every gate that asks "did this run do work" asks it here, and none of them restates the role
+    // list. KC1 was two role lists that disagreed, and stating the list twice inside this one file
+    // reproduced it in miniature: the existence gate below read Worker or Researcher while the
+    // ordering and provider gates still counted any non-judging role, so a work item with a worker
+    // run, a verifier run after it and then a lead run was refused for having been "verified before
+    // its latest working run" — by the same semantics that say the lead run is not work. That shape
+    // is legal in any history written before StartRun began refusing a coordinating role's run
+    // against a work item, and the live ledger holds it.
+    //
+    // The asymmetry with StageTransitionRules is deliberate and must not be "aligned": this
+    // predicate accepts Worker or Researcher, and the Verification stage arm accepts Worker only.
+    // They answer different questions. This one asks whether anybody did the item's work, and a
+    // research item's work is a Researcher's run. The arm asks whether the Execution step was
+    // engaged, which a Researcher's run does not answer — the Design arm already demanded one, so
+    // accepting it there would let a task enter Verification on planning alone.
+    private static bool DidWorkUnderAWorkingRole(AgentRun run) =>
+        DidWork(run) && run.SubjectRole is RoleKind.Worker or RoleKind.Researcher;
 
-    // Internal, not private, because TaskDebt must answer this with the gate's own predicate. KC1:
-    // it previously listed the working roles positively and so reported no debt for an item whose
-    // only completed working run was a Researcher or a PlanningLead, while work complete refused it.
+    // Internal, not private, because TaskDebt and TaskRetrospective must answer this with the gate's
+    // own predicate. KC1: the projection previously listed the working roles positively while this
+    // gate named the judging ones negatively, and the two lists disagreed — an item whose only
+    // completed working run was a Researcher or a PlanningLead read as clear while work complete
+    // refused it. One predicate and two readers is what keeps them from drifting again, so the
+    // narrowing reaches both projections without their files being touched.
     internal static bool HasCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
-        state.Runs.Values.Any(run =>
-            run.WorkItemId == workItemId &&
-            DidWork(run) &&
-            run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer));
+        state.Runs.Values.Any(run => run.WorkItemId == workItemId && DidWorkUnderAWorkingRole(run));
 
     /// <summary>
     /// A completed run that actually ran cognition. Every gate below decides whether work happened
@@ -343,12 +374,15 @@ internal static class WorkItemRules
     // The LATEST completed working run, not the earliest. Work done after a verification was not
     // covered by it, so the verifier has to have finished after the last thing it was meant to
     // check. Comparing against the earliest would let an agent verify, keep working, and complete.
+    //
+    // "Working" is DidWorkUnderAWorkingRole and nothing else, so this and HasCompletedWorkingRun
+    // cannot disagree about which runs are work. The two feed different gates — existence here,
+    // ordering and provider independence below — and a run counted by one and not the other makes
+    // those gates contradict each other rather than build on each other.
 
     private static AgentRun? LatestCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values
-            .Where(run => run.WorkItemId == workItemId &&
-                          DidWork(run) &&
-                          run.SubjectRole is not null and not (RoleKind.Verifier or RoleKind.CodeReviewer))
+            .Where(run => run.WorkItemId == workItemId && DidWorkUnderAWorkingRole(run))
             .OrderByDescending(run => run.EndedAt)
             .FirstOrDefault();
 

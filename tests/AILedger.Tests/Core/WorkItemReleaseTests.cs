@@ -1,3 +1,4 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
@@ -95,8 +96,13 @@ public sealed class WorkItemReleaseTests
     {
         var task = new TestTask();
         Add(task, "W1", Path.GetFullPath("src"));
+        // The run is only scaffolding here — what is being pinned is that abandoning is refused
+        // while one is active. Its subject is a worker because a run against a work item cannot be
+        // held by a coordinating role at all; the operator dispatches it, as it would in the field.
+        var worker = new ActorId("worker");
+        task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(),
-            new RunId("R1"), new WorkItemId("W1"), "codex", null));
+            new RunId("R1"), new WorkItemId("W1"), "codex", null, null, null, null, worker));
 
         // An agent is working inside that area right now. Releasing it would hand the same files to
         // a second work item while the first is still writing to them.
@@ -128,6 +134,113 @@ public sealed class WorkItemReleaseTests
 
         Assert.Contains("Cannot start a run for work item in status 'Abandoned'", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(new RunId("R1"), task.State.Runs.Keys);
+    }
+
+    // The subject above is the operator, which a run against a work item cannot be held by either,
+    // so two refusals apply to that dispatch and only one of them is the truth the caller needs.
+    // This is the same rule with nothing else in the way: a Worker is exactly the subject the role
+    // refusal would send the caller back with, and the item still refuses it.
+    [Fact]
+    public void ARunCannotBeStartedOnAnAbandonedWorkItemByASubjectThatCouldOtherwiseHoldIt()
+    {
+        var task = new TestTask();
+        Add(task, "W1", Path.GetFullPath("src"));
+        var worker = new ActorId("worker");
+        task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
+        task.Apply(new AbandonWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "The split was wrong"));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), new WorkItemId("W1"),
+            "codex", null, null, null, null, worker)));
+
+        Assert.Contains("Cannot start a run for work item in status 'Abandoned'", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(new RunId("R1"), task.State.Runs.Keys);
+    }
+
+    // Which of the two refusals speaks is not cosmetic. The role refusal tells the caller to
+    // dispatch a Worker against the item, and against a released item that instruction is wrong —
+    // it sends an operator to staff work that no longer exists. So the item's status comes first,
+    // on the same principle the dispatch-authority and context-brief refusals are ordered by: the
+    // gate that nothing about the run can satisfy speaks before the gate the caller can satisfy.
+    [Fact]
+    public void TheAbandonedRefusalSpeaksBeforeTheCoordinatingRoleRefusal()
+    {
+        var task = new TestTask();
+        Add(task, "W1", Path.GetFullPath("src"));
+        var lead = new ActorId("implementation-lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.BuildContext, Capability.ManageRuns);
+        task.Apply(new AbandonWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "The split was wrong"));
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), new WorkItemId("W1"),
+            "codex", null, null, null, null, lead)));
+
+        Assert.Contains("Cannot start a run for work item in status 'Abandoned'", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("coordinating role", error.Message, StringComparison.Ordinal);
+    }
+
+    // And it speaks there at the launcher's pre-flight too, which is the other moment the same
+    // function runs. The role refusal was moved into the pre-flight so that a provider launch is
+    // refused before it resolves an executable; the ordering had to move with it, or the launch
+    // path would be the one place an operator still reads the wrong instruction.
+    [Fact]
+    public void ThePreFlightPutsTheItemsStatusAheadOfTheSubjectsRoleToo()
+    {
+        var task = new TestTask();
+        Add(task, "W1", Path.GetFullPath("src"));
+        var lead = new ActorId("implementation-lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.BuildContext, Capability.ManageRuns);
+        task.Apply(new AbandonWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "The split was wrong"));
+        var servedNow = task.State.ContextBuilds[task.OperatorId].Skills;
+
+        var refusal = Assert.Throws<GovernanceException>(() => ProviderLaunchPreflight.EnsurePermitted(
+            task.State, task.OperatorId, lead, servedNow, workItemId: new WorkItemId("W1")));
+
+        Assert.Equal("Cannot start a run for work item in status 'Abandoned'.", refusal.Message);
+        Assert.Empty(task.State.Runs);
+    }
+
+    // Abandoned is one of four statuses that accept no run, and the ordering belongs to the rule,
+    // not to abandonment. Blocked and Stale are recoverable and Completed is not, but none of the
+    // four is recovered by changing who the run is dispatched to, which is the only thing the role
+    // refusal asks the caller to change.
+    [Fact]
+    public void EveryStatusThatAcceptsNoRunSpeaksBeforeTheCoordinatingRoleRefusal()
+    {
+        var blocked = new TestTask();
+        Add(blocked, "W1", Path.GetFullPath("src"));
+        blocked.Apply(new BlockWorkItemCommand(
+            blocked.OperatorId, null, blocked.NextCorrelation(), new WorkItemId("W1"),
+            "Waiting on the operator", null));
+
+        var completed = new TestTask();
+        Add(completed, "W1", Path.GetFullPath("src"));
+        completed.RecordRequiredRuns(new WorkItemId("W1"));
+        completed.Apply(new CompleteWorkItemCommand(
+            completed.OperatorId, null, completed.NextCorrelation(), new WorkItemId("W1")));
+
+        // W1 here is stale because the claim it was built on was rejected, so its dependency is
+        // out of date as well. That refusal is now behind the status too, and the status is the
+        // more truthful of the two: the item is not waiting for its claim to be re-earned.
+        var stale = Invalidated(out _);
+
+        Assert.Contains("status 'Blocked'", RefusedRunStart(blocked), StringComparison.Ordinal);
+        Assert.Contains("status 'Completed'", RefusedRunStart(completed), StringComparison.Ordinal);
+        Assert.Contains("status 'Stale'", RefusedRunStart(stale), StringComparison.Ordinal);
+    }
+
+    // The operator is a coordinating role, so a run it holds against a work item is refused on its
+    // role as well. That is the point: what comes back has to be the item's status.
+    private static string RefusedRunStart(TestTask task)
+    {
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R-start"), new WorkItemId("W1"),
+            "codex", null)));
+        Assert.DoesNotContain("coordinating role", error.Message, StringComparison.Ordinal);
+        return error.Message;
     }
 
     [Fact]

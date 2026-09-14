@@ -43,10 +43,22 @@ public sealed class CommandAndLifecycleTests
         task.ReachStage(TaskStage.Verification);
         // Repair asks what there is to repair. The verifier's findings are that record.
         task.RecordVerifierPass(task.StageWorkItem());
+        // Repair is declared after Verification, so entering the repair loop goes forward and takes
+        // no reason; a forward move carrying one is refused rather than ignored. Leaving Repair for
+        // Execution goes back, and that leg is the 'Governed' in this test's name: it is allowed
+        // only against a sentence saying what was learned that sends the work back.
         Transition(task, TaskStage.Repair);
-        Transition(task, TaskStage.Execution);
+        const string sentBack =
+            "The verifier's findings are in the implementation, not in the checks: the work item " +
+            "goes back to Execution to be rewritten rather than patched in Repair.";
+        Transition(task, TaskStage.Execution, sentBack);
 
         Assert.Equal(TaskStage.Execution, task.State.Stage);
+        // The reason is the record the rule exists for, not a precondition the handler checks and
+        // then drops. StageTransitionReasonTests pins the rule; this pins that the walk's own
+        // backward leg leaves the sentence in the log.
+        var sendBack = Assert.IsType<StageTransitioned>(task.Events[^1].Data);
+        Assert.Equal(sentBack, sendBack.Reason);
     }
 
     [Fact]
@@ -124,6 +136,9 @@ public sealed class CommandAndLifecycleTests
         Assert.Contains("'Archive' is terminal", terminal.Message, StringComparison.Ordinal);
     }
 
-    private static void Transition(TestTask task, TaskStage stage) =>
-        task.Apply(new RequestStageTransitionCommand(task.OperatorId, null, task.NextCorrelation(), stage));
+    // The command ends in two nullable strings that mean opposite things, and a positional string
+    // binds to the wrong one, so the reason goes by name.
+    private static void Transition(TestTask task, TaskStage stage, string? reason = null) =>
+        task.Apply(new RequestStageTransitionCommand(
+            task.OperatorId, null, task.NextCorrelation(), stage, Reason: reason));
 }

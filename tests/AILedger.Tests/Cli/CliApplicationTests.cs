@@ -71,7 +71,7 @@ public sealed class CliApplicationTests
         };
         // The walk to Archive passes through Execution, which cannot be entered without the three
         // task-wide workflow artifacts. They are recorded here the way an operator records them.
-        exits.AddRange(await RecordExecutionArtifactsAsync(application, source, "W1"));
+        exits.AddRange(await RecordExecutionArtifactsAsync(application, source));
 
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. source, "--stage", "research"], CancellationToken.None));
@@ -613,9 +613,15 @@ public sealed class CliApplicationTests
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", work],
             CancellationToken.None);
+        // The run is against a work item, so its subject has to be a role that does work. The
+        // operator dispatches it and remains the acting actor; only the subject moves.
+        await application.RunAsync(
+            ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--target", "worker", "--role", "worker"], CancellationToken.None);
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--subject", "worker",
              "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
              "--working-directory", work, "--cognitive-root", FindCognitiveRoot()], cancellation.Token);
 
@@ -647,9 +653,14 @@ public sealed class CliApplicationTests
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", work],
             CancellationToken.None);
+        // As above: a run naming a work item is held by a worker, dispatched by the operator.
+        await application.RunAsync(
+            ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--target", "worker", "--role", "worker"], CancellationToken.None);
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
+             "--subject", "worker",
              "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
              "--working-directory", work, "--cognitive-root", FindCognitiveRoot()], cancellation.Token);
 
@@ -840,6 +851,274 @@ public sealed class CliApplicationTests
             (await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None))!.Runs.Keys);
     }
 
+    // The positive counterpart to the two refusals above, and the distinction between them is the
+    // whole rule: scope is the file list a worker owns, not the directory it runs in. A working
+    // directory that CONTAINS the scope is accepted, because a worker owning one project inside a
+    // solution still has to run where the solution builds. The two tests above stay refused because
+    // their directory is neither ancestor nor descendant of the scope — a sibling is not the
+    // solution root, it is somebody else's work.
+    //
+    // The subject is a worker, not the operator. A coordinating role cannot hold a run that names a
+    // work item, and this launch gets past the grant check that the two refusals above stop at, so
+    // it would otherwise be refused a step later for a reason that has nothing to do with scope.
+    [Fact]
+    public async Task AProviderWorkingDirectoryMayBeAnAncestorOfTheWorkItemScope()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var solution = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        // The ancestor is accepted because it is the repository the scope lives in. Marking the
+        // repository is what makes 'solution' the solution root rather than an arbitrary parent, and
+        // it is the same marker CodexAgentAdapter already requires before it will launch at all.
+        Directory.CreateDirectory(Path.Combine(solution, ".git"));
+        var project = Directory.CreateDirectory(Path.Combine(solution, "src", "AILedger.Core")).FullName;
+        var capture = new CapturingAdapter();
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
+             "--scope", project], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "worker",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", solution, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var request = Assert.Single(capture.Requests);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        Assert.Equal(0, exit);
+        Assert.Contains(new RunId("R1"), state.Runs.Keys);
+        // Both the stored scope and the granted directory are canonical, and on macOS the temporary
+        // root canonicalises (/var is a link to /private/var), so the expected ancestor is derived
+        // from the stored scope rather than from the path the test composed.
+        Assert.EndsWith(Path.Combine("solution", "src", "AILedger.Core"), scope, StringComparison.Ordinal);
+        // The granted directory is the ancestor the launch asked for, two levels above the scope,
+        // not the scope narrowed back down to the project. The recorded scope stays the project,
+        // which is what occupancy reads.
+        Assert.Equal(Path.GetDirectoryName(Path.GetDirectoryName(scope)), request.WorkingDirectory);
+    }
+
+    // The ceiling on the test above. An ancestor is accepted up to the repository holding the scope
+    // and no further, because the reason ancestors are accepted at all — a worker runs where the
+    // solution builds — stops there. Without this the clause had no upper bound: the grant is the
+    // agent's write boundary, so every directory between the repository and the filesystem root was
+    // writable by any run that asked for it, and the refusal it never reached still said "outside
+    // scope", which is not what is wrong with an ancestor that is merely too high.
+    //
+    // The subject is a worker for the same reason as the test above: a coordinating role is refused
+    // a run naming a work item a step later, and that would pass this test for the wrong reason.
+    [Fact]
+    public async Task AProviderWorkingDirectoryAboveTheRepositoryOfTheScopeIsRefused()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var repository = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        Directory.CreateDirectory(Path.Combine(repository, ".git"));
+        var project = Directory.CreateDirectory(Path.Combine(repository, "src", "AILedger.Core")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
+             "--scope", project], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "worker",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", providerRoot.Path, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        Assert.Equal(1, exit);
+        Assert.DoesNotContain(new RunId("R1"), state.Runs.Keys);
+        // The refusal names the highest directory that would have been accepted, so the caller does
+        // not have to guess it. The expected path is derived from the stored scope because both are
+        // canonical and on macOS the temporary root resolves /var to /private/var.
+        var ceiling = Path.GetDirectoryName(Path.GetDirectoryName(scope));
+        Assert.Contains("is above the highest directory work item 'W1' may be granted", error.ToString());
+        Assert.Contains($"'{ceiling}'", error.ToString());
+    }
+
+    // '--add-dir' is resolved by the same loop as '--working-directory' and nothing pinned it, so an
+    // unbounded ancestor could be taken through the second door while the first was closed.
+    [Fact]
+    public async Task AnAdditionalProviderDirectoryAboveTheRepositoryOfTheScopeIsRefused()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var repository = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        Directory.CreateDirectory(Path.Combine(repository, ".git"));
+        var project = Directory.CreateDirectory(Path.Combine(repository, "src", "AILedger.Core")).FullName;
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
+             "--scope", project], CancellationToken.None);
+
+        // The working directory is the repository root, which is accepted. Only the extra directory
+        // is above the ceiling, so nothing but '--add-dir' can be what refuses this launch.
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "worker",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", repository, "--add-dir", providerRoot.Path,
+             "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        var ceiling = Path.GetDirectoryName(Path.GetDirectoryName(scope));
+        Assert.Equal(1, exit);
+        Assert.DoesNotContain(new RunId("R1"), state.Runs.Keys);
+        Assert.Contains("is above the highest directory work item 'W1' may be granted", error.ToString());
+        Assert.Contains($"'{ceiling}'", error.ToString());
+    }
+
+    // The launch path's half of the coordinating-role refusal. The rule lives in
+    // RunRules.EnsureDispatchIsPermitted, which the command reaches and the pre-flight also runs —
+    // but the CLI passed no work item to the pre-flight, so the rule saw none, did not fire, and the
+    // launcher resolved an adapter and probed the provider's version before the command refused it.
+    // The adapter factory is the assertion for exactly that reason: an exit code alone cannot tell a
+    // refusal before the process from a refusal after one, and the cost this rule is placed early to
+    // avoid is the process.
+    [Theory]
+    [InlineData("operator", RoleKind.Operator)]
+    [InlineData("planning-lead", RoleKind.PlanningLead)]
+    [InlineData("implementation-lead", RoleKind.ImplementationLead)]
+    public async Task AProviderLaunchByACoordinatingSubjectAgainstAWorkItemStartsNoProcess(
+        string roleOption, RoleKind role)
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var solution = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        Directory.CreateDirectory(Path.Combine(solution, ".git"));
+        var project = Directory.CreateDirectory(Path.Combine(solution, "src", "AILedger.Core")).FullName;
+        var factoryCalls = 0;
+        var error = new StringWriter();
+        var application = new CliApplication(
+            TextWriter.Null, error, Service,
+            _ =>
+            {
+                factoryCalls++;
+                throw new InvalidOperationException("A refused launch must resolve no adapter.");
+            },
+            new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "coordinator", "--role", roleOption],
+            CancellationToken.None);
+        // The item carries a directory scope because grants are resolved before the pre-flight, and
+        // an item with no scope is refused there — which would pass this test for the wrong reason.
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
+             "--scope", project], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "coordinator",
+             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", solution, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Equal(0, factoryCalls);
+        Assert.DoesNotContain(new RunId("R1"), state!.Runs.Keys);
+        // Whole, because the refusal is the only instruction the refused dispatcher gets: it has to
+        // name the roles that may be dispatched instead and the one run a coordinating role keeps.
+        Assert.Contains(
+            "A run against work item 'W1' cannot be held by a coordinating role, and " +
+            $"'coordinator' is a {role}. Dispatch a Worker, Researcher, Verifier or CodeReviewer " +
+            "against the item, or start this run without --work to file task-wide artifacts.",
+            error.ToString(), StringComparison.Ordinal);
+        // Decided before any command is submitted, so the service site of the refusal journal never
+        // sees it; the launch site is the only record that the attempt happened at all.
+        var journalled = Assert.Single(RefusalJournal(root.Path));
+        Assert.Equal("provider-launch", journalled.GetProperty("site").GetString());
+        Assert.Equal("provider launch", journalled.GetProperty("command").GetString());
+        Assert.StartsWith(
+            "A run against work item 'W1' cannot be held by a coordinating role",
+            journalled.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
+    // The control for the test above. A zero adapter count proves a refusal arrived early only if
+    // the same launch, with the same coordinating subject, still reaches the adapter when it names
+    // no work item — otherwise the count could be zero because the launch is broken for a reason
+    // that has nothing to do with the rule. It is also the case the rule deliberately preserves: a
+    // lead's task-wide run is how the prompt contract and the orchestration plan are recorded.
+    [Fact]
+    public async Task AProviderLaunchByACoordinatingSubjectNamingNoWorkItemStartsTheProcess()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var solution = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        Directory.CreateDirectory(Path.Combine(solution, ".git"));
+        var factoryCalls = 0;
+        var capture = new CapturingAdapter();
+        var error = new StringWriter();
+        var application = new CliApplication(
+            TextWriter.Null, error, Service,
+            _ =>
+            {
+                factoryCalls++;
+                return capture;
+            },
+            new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "coordinator", "--role", "implementation-lead"],
+            CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "coordinator",
+             "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", solution, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, exit);
+        Assert.Equal(1, factoryCalls);
+        Assert.Single(capture.Requests);
+        Assert.Contains(new RunId("R1"), state!.Runs.Keys);
+        Assert.Null(state.Runs[new RunId("R1")].WorkItemId);
+        Assert.Empty(RefusalJournal(root.Path));
+    }
+
+    // Read as the rows are written, one JSON object per line, because the question these two tests
+    // ask of the journal is whether the launch site wrote anything at all.
+    private static IReadOnlyList<JsonElement> RefusalJournal(string root)
+    {
+        var path = Path.Combine(root, "T1", "refusals.jsonl");
+        return File.Exists(path)
+            ? File.ReadAllLines(path).Select(line => JsonDocument.Parse(line).RootElement).ToArray()
+            : [];
+    }
+
     [Fact]
     public async Task ProviderLaunchCorrelatesAndCausallyLinksItsRunEvents()
     {
@@ -911,7 +1190,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
              "--role", "verifier"], CancellationToken.None);
-        await RecordExecutionArtifactsAsync(application, common, "W1");
+        await RecordExecutionArtifactsAsync(application, common);
         await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
              "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
@@ -981,10 +1260,16 @@ public sealed class CliApplicationTests
              "--kind", "business-decision", "--question", "Ship now or harden first?",
              "--option", "ship", "--option", "harden", "--recommend", "ship"], CancellationToken.None);
 
+        // Undispatched means the operator holds the run itself, and a coordinating role may hold a
+        // run only when it names no work item. So this launch is task-wide, which is also the only
+        // shape an undispatched launch can now take. The escalation it asserts on is task-wide too,
+        // so what the manifest carries is unchanged; W1 above stays, unclaimed, as the reviewer
+        // test's counterpart.
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--actor", "operator",
-             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
-             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+             "--run", "R1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", work, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
 
         var manifest = JsonSerializer.Deserialize<ContextManifest>(
             Assert.Single(capture.Requests).StandardInput, ManifestJson)!;
@@ -1032,11 +1317,18 @@ public sealed class CliApplicationTests
     // Dispatch must not loosen the launcher rule. A dispatched subject shares the run's actor
     // identity, so it is stopped twice over: a role with no run authority cannot even reach the
     // command, and a role that has run authority is still refused because it holds no launch token.
+    //
+    // The two halves differ in one more thing than the role, and they have to. A code reviewer
+    // reviews a work item, so its run names one; an implementation lead may not hold a run that
+    // names a work item at all, so its run is the task-wide kind. The launch token rule under test
+    // is indifferent to that — it reads the run's token hash, not its scope — so the distinction
+    // costs the theory nothing.
     [Theory]
-    [InlineData("code-reviewer", "lacks capability", 3, AgentRunStatus.Failed)]
-    [InlineData("implementation-lead", "closed by that launcher", 0, AgentRunStatus.Completed)]
+    [InlineData("code-reviewer", true, "lacks capability", 3, AgentRunStatus.Failed)]
+    [InlineData("implementation-lead", false, "closed by that launcher", 0, AgentRunStatus.Completed)]
     public async Task ADispatchedSubjectStillCannotCompleteItsOwnRun(
         string role,
+        bool againstWorkItem,
         string expectedRefusal,
         int expectedExit,
         AgentRunStatus expectedStatus)
@@ -1063,7 +1355,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
              "--role", "verifier"], CancellationToken.None);
-        await RecordExecutionArtifactsAsync(application, common, "W1");
+        await RecordExecutionArtifactsAsync(application, common);
         await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
              "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
@@ -1078,9 +1370,12 @@ public sealed class CliApplicationTests
         // launcher's close of a reviewer run now requires a CodeReviewOutput this agent never
         // filed. The implementation-lead half is unaffected — the gate reaches the two inspecting
         // roles only.
+        string[] scope = againstWorkItem
+            ? ["--work", "W1"]
+            : ["--working-directory", work];
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--actor", "operator", "--subject", "subject",
-             "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
+             "--run", "R1", .. scope, "--provider", "codex", "--executable", "/usr/bin/true",
              "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
 
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
@@ -1388,7 +1683,7 @@ public sealed class CliApplicationTests
             ["run", "complete", .. common, "--run", "RW", "--status", "completed",
              "--session", "worker-session"], CancellationToken.None);
 
-        await RecordExecutionArtifactsAsync(application, common, "W1");
+        await RecordExecutionArtifactsAsync(application, common);
         await application.RunAsync(
             ["run", "start", .. common, "--subject", "verifier", "--run", "RV", "--work", "W1",
              "--provider", "claude", "--session", "verifier-session"], CancellationToken.None);
@@ -1464,9 +1759,15 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
              "--scope", file], CancellationToken.None);
+        // The launch names the work item, because the item's scope is what this test is about. That
+        // makes the subject a worker: a coordinating role cannot hold a run against an item.
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"],
+            CancellationToken.None);
 
         var exit = await application.RunAsync(
-            ["provider", "launch", .. common, "--run", "R1", "--work", "W1", "--provider", "codex",
+            ["provider", "launch", .. common, "--subject", "worker",
+             "--run", "R1", "--work", "W1", "--provider", "codex",
              "--executable", "/usr/bin/true", "--cognitive-root", FindCognitiveRoot()],
             CancellationToken.None);
 
@@ -1611,6 +1912,137 @@ public sealed class CliApplicationTests
         Assert.Equal(TaskStage.Discovery, state!.Stage);
     }
 
+    // A move back through the pipeline says something was learned that invalidates work already
+    // done, and --reason is where that sentence goes. These four drive it through the CLI because
+    // that is the only level at which the option can be shown to exist: an option the parser does
+    // not know is refused as a usage error before the kernel ever sees the command, so a rule
+    // tested only in the kernel can be complete while the flag it reads is unreachable.
+    //
+    // The walk is Discovery -> Research -> Discovery. Discovery is the one stage with no arm of its
+    // own, so the backward leg is refused for its reason and never for a prerequisite.
+    [Fact]
+    public async Task ABackwardStageTransitionCarriesItsReasonOntoTheRecordedTransition()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "The arm is satisfiable"],
+            CancellationToken.None);
+        var forwardExit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None);
+
+        var backwardExit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "discovery",
+             "--reason", "The open claim turned out to rest on an assumption nobody had recorded"],
+            CancellationToken.None);
+
+        // Read back off disk through a fresh service, so the reason has survived being written and
+        // replayed rather than only having been accepted.
+        var transitions = (await HistoryAsync(root.Path))
+            .Select(item => item.Data)
+            .OfType<StageTransitioned>()
+            .ToArray();
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(0, forwardExit);
+        Assert.Equal(0, backwardExit);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(TaskStage.Discovery, state!.Stage);
+        Assert.Equal(2, transitions.Length);
+        // The forward leg carries none. LedgerJson omits a null field entirely, so this is the half
+        // that proves an absent reason deserialises as absent and not as something else.
+        Assert.Equal(TaskStage.Research, transitions[0].Current);
+        Assert.Null(transitions[0].Reason);
+        Assert.Equal(TaskStage.Discovery, transitions[1].Current);
+        Assert.Equal(
+            "The open claim turned out to rest on an assumption nobody had recorded",
+            transitions[1].Reason);
+    }
+
+    [Fact]
+    public async Task ABackwardStageTransitionIsRefusedWithNoReason()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "The arm is satisfiable"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "discovery"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains("goes back in the pipeline and needs a reason", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(TaskStage.Research, state!.Stage);
+    }
+
+    [Fact]
+    public async Task ABackwardStageTransitionIsRefusedWhenTheReasonIsBlank()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "The arm is satisfiable"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None);
+
+        // Whitespace rather than an empty string, as with the waiver above: the option consumes the
+        // following argument either way, and a reason that records nothing is the one a later reader
+        // cannot learn anything from.
+        var exit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "discovery", "--reason", "   "],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Contains("a blank reason records nothing", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(TaskStage.Research, state!.Stage);
+    }
+
+    // The forward half, and the one test that pins the option onto the parser's allow-list. A
+    // refusal from the kernel exits 1; an option the command does not declare exits 2 without the
+    // kernel running at all. Asserting the code and the absence of the usage wording is what tells
+    // "the rule refused it" from "the flag was never wired".
+    [Fact]
+    public async Task AForwardStageTransitionRefusesAReasonRatherThanIgnoringIt()
+    {
+        using var root = new TemporaryDirectory();
+        var error = new StringWriter();
+        var application = Create(TextWriter.Null, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["claim", "add", .. common, "--id", "C1", "--statement", "The arm is satisfiable"],
+            CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "research",
+             "--reason", "Discovery is finished and the wave is scoped"], CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.DoesNotContain("Unknown option", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "goes forward and does not take a reason", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(TaskStage.Discovery, state!.Stage);
+    }
+
     private static async Task<IReadOnlyList<LedgerEvent>> HistoryAsync(string root)
     {
         var events = new List<LedgerEvent>();
@@ -1645,10 +2077,14 @@ public sealed class CliApplicationTests
             CancellationToken.None);
     }
 
+    // The three artifacts filed here are task-wide: a user request names no work item at all, and a
+    // prompt contract and an orchestration plan govern the task rather than one item in it. The run
+    // that produces them therefore names no work item either. It cannot: a coordinating role is the
+    // only role allowed to file these artifacts, and a coordinating role may not hold a run against
+    // a work item. Naming one here was refused outright, which is why this helper takes no item id.
     private static async Task<int[]> RecordExecutionArtifactsAsync(
         CliApplication application,
-        IReadOnlyList<string> common,
-        string workItemId)
+        IReadOnlyList<string> common)
     {
         var exits = new List<int>
         {
@@ -1658,7 +2094,7 @@ public sealed class CliApplicationTests
         };
         exits.Add(await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "operator",
-             "--run", "R-artifacts", "--work", workItemId, "--provider", "codex",
+             "--run", "R-artifacts", "--provider", "codex",
              "--session", "artifact-session"], CancellationToken.None));
         exits.Add(await RecordArtifactAsync(
             application, common, "operator", "A-contract", "prompt-contract", null, "R-artifacts",
@@ -1728,9 +2164,78 @@ public sealed class CliApplicationTests
         // fire only on a transition nothing asks for. Both are facts, neither is a judgement.
         // stageBehindActivity is present here because this fixture records a claim and a work item
         // while sitting in Discovery, which is the drift the field exists to name.
+        // workItemsRunByNoWorkingRole is a count and reads zero on this fixture, which holds no work
+        // item at all. What it says here is only that the field reaches the output; the value that
+        // matters is pinned by StatusCountsAWorkItemWhoseOnlyRunDidNoWorkTheGateAccepts below.
         Assert.Equal(
-            new[] { "coordinatorSessionOpen", "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "stageBehindActivity", "workItemsAwaitingVerification" },
+            new[] { "coordinatorSessionOpen", "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "stageBehindActivity", "workItemsAwaitingVerification", "workItemsRunByNoWorkingRole" },
             owed.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray());
+    }
+
+    // The value, at the surface an operator reads. TaskDebtTests pins the projection; what no test
+    // on the projection can show is that the number survives serialisation and that the task stops
+    // reading clear because of it, which is the whole of what this field was added to do.
+    //
+    // The state is built with a verifier and no worker on purpose. The obvious way to make an item
+    // "run by no working role" — give it a coordinating run — is no longer reachable: RunRules
+    // refuses a run against a work item held by an Operator, PlanningLead or ImplementationLead
+    // outright. Verifier and CodeReviewer are neither coordinating nor working, so they are the live
+    // path, and a verifier is the one of the two that can start with no work behind it. So the field
+    // is not a reader of old histories only: this sequence is four ordinary commands, each of which
+    // the kernel accepts today, and it ends with an item 'work complete' refuses.
+    [Fact]
+    public async Task StatusCountsAWorkItemWhoseOnlyRunDidNoWorkTheGateAccepts()
+    {
+        using var root = new TemporaryDirectory();
+        using var scopeRoot = new TemporaryDirectory();
+        var area = Directory.CreateDirectory(Path.Combine(scopeRoot.Path, "area")).FullName;
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var application = Create(output, error);
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Unworked work", "--owner", "operator",
+             "--scope", area], CancellationToken.None);
+        // A verifier output is refused without a current prompt contract behind it, so the task-wide
+        // artifacts are filed first. They are filed by a coordinating run that names no work item,
+        // which is the only kind such a role may hold, so they add nothing to either count below.
+        await RecordExecutionArtifactsAsync(application, common);
+        // No worker run precedes this one. The verifier has nothing to read, and the kernel does not
+        // refuse it — that is the hole, not an artificial fixture.
+        await application.RunAsync(
+            ["run", "start", .. common, "--subject", "verifier", "--run", "RV", "--work", "W1",
+             "--provider", "claude", "--session", "verifier-session"], CancellationToken.None);
+        await RecordArtifactAsync(
+            application, ["--root", root.Path, "--task", "T1"], "verifier", "A-RV", "verifier-output",
+            "W1", "RV", ArtifactCommands.VerifierBody);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--run", "RV", "--status", "completed",
+             "--session", "verifier-session"], CancellationToken.None);
+        Assert.Equal(string.Empty, error.ToString());
+
+        output.GetStringBuilder().Clear();
+        await application.RunAsync(["status", "--root", root.Path, "--task", "T1"], CancellationToken.None);
+
+        var owed = JsonNode.Parse(output.ToString())!["owed"]!.AsObject();
+        Assert.Equal(1, owed["workItemsRunByNoWorkingRole"]!.GetValue<int>());
+        // Zero, and that is the point of the second count rather than a widening of the first: this
+        // item has not been worked, so it is not awaiting verification. Before the field existed
+        // both counts read zero here and the owed block said nothing about an item the kernel would
+        // not complete.
+        Assert.Equal(0, owed["workItemsAwaitingVerification"]!.GetValue<int>());
+
+        // The half that makes the number mean something: the gate refuses the same item the debt
+        // now names. A projection that disagreed with the gate is what this field was added to fix.
+        var completeExit = await application.RunAsync(
+            ["work", "complete", .. common, "--id", "W1"], CancellationToken.None);
+        Assert.NotEqual(0, completeExit);
+        Assert.Contains("no completed run", error.ToString(), StringComparison.Ordinal);
     }
 
     private sealed class CapturingAdapter : IAgentAdapter

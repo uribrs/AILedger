@@ -31,6 +31,23 @@ public static class StageTransitionPolicy
     public static IReadOnlyList<TaskStage> LegalTargets(TaskStage current) =>
         AllowedTransitions[current].OrderBy(stage => stage).ToArray();
 
+    /// <summary>
+    /// Whether <paramref name="target"/> sits earlier in the pipeline than <paramref name="current"/>.
+    /// </summary>
+    /// <remarks>
+    /// The enum's declaration order is the pipeline order, and this file already relies on that:
+    /// <see cref="LegalTargets"/> orders by the enum so that two callers reading the same state read
+    /// the same list. An ordinal rule is total over every pair, needs no second taxonomy beside the
+    /// graph, and stays correct when a stage is added in its pipeline position.
+    /// <para>
+    /// <see cref="TaskStage.Repair"/> is declared after <see cref="TaskStage.Verification"/>, so
+    /// Verification to Repair is forward and Repair to Verification is backward. That is intended:
+    /// entering repair is the loop working as designed, and closing a repair cycle is worth one
+    /// sentence saying what was repaired.
+    /// </para>
+    /// </remarks>
+    public static bool IsBackward(TaskStage current, TaskStage target) => (int)target < (int)current;
+
     public static void EnsureAllowed(TaskStage current, TaskStage target)
     {
         if (current == target)

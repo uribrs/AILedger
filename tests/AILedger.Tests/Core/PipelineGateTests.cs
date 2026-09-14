@@ -130,6 +130,12 @@ public sealed class PipelineGateTests
 
     // The gate is on the launch, not on every run. A run started by hand records no launch token,
     // and gating it would reach far wider than the two commands the change is about (IC3).
+    //
+    // The unbriefed actor used to be an ImplementationLead, which is now refused on a different
+    // rule entirely — a coordinating role may not hold a run against a work item. The role was
+    // never this test's subject, only the scaffolding that gave it an actor with run authority, so
+    // it is a Worker here and the gate under test is the same one. The coordinating refusal has
+    // its own tests below.
     [Fact]
     public void AManuallyStartedRunIsNotGated()
     {
@@ -137,8 +143,8 @@ public sealed class PipelineGateTests
         task.BuildContext(task.OperatorId);
         task.Apply(new AddWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Work", null, [], []));
-        var unbriefed = new ActorId("lead");
-        task.Assign(unbriefed, RoleKind.ImplementationLead, Capability.ManageRuns, Capability.BuildContext);
+        var unbriefed = new ActorId("worker");
+        task.Assign(unbriefed, RoleKind.Worker, Capability.ManageRuns, Capability.BuildContext);
 
         task.Apply(new StartRunCommand(
             unbriefed, null, task.NextCorrelation(), new RunId("R1"), new WorkItemId("W1"), "codex", null));
@@ -249,6 +255,138 @@ public sealed class PipelineGateTests
         Assert.Equal(1, exit);
         Assert.Equal(0, factoryCalls);
         Assert.Empty(state!.Runs);
+    }
+
+    // A coordinating role plans the work and dispatches it; it does not do it. Without this the
+    // lead's own run counted as the item's working pass, so 'work complete' was satisfied by a pass
+    // in which nobody worked — the gate reported a verification that had never happened. The
+    // refusal text is asserted whole because it is the only instruction the refused actor gets:
+    // it has to name which roles may be dispatched instead, and the one run a coordinating role
+    // may still hold.
+    [Theory]
+    [InlineData(RoleKind.Operator)]
+    [InlineData(RoleKind.PlanningLead)]
+    [InlineData(RoleKind.ImplementationLead)]
+    public void ACoordinatingRoleCannotHoldARunAgainstAWorkItem(RoleKind role)
+    {
+        var task = new TestTask();
+        var workItemId = new WorkItemId("W1");
+        task.Apply(new AddWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId, "Work", null, [], []));
+        var subject = Coordinator(task, role);
+
+        var refusal = Assert.Throws<GovernanceException>(() => task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            null, null, null, subject)));
+
+        Assert.Equal(
+            $"A run against work item '{workItemId}' cannot be held by a coordinating role, and " +
+            $"'{subject}' is a {role}. Dispatch a Worker, Researcher, Verifier or CodeReviewer " +
+            "against the item, or start this run without --work to file task-wide artifacts.",
+            refusal.Message);
+        Assert.Empty(task.State.Runs);
+    }
+
+    // The case the rule deliberately preserves. The prompt contract and the orchestration plan need
+    // a producer run and a lead is the only role that may author them, so a rule that refused every
+    // coordinating run would leave those two documents with no way to be recorded at all.
+    [Theory]
+    [InlineData(RoleKind.Operator)]
+    [InlineData(RoleKind.PlanningLead)]
+    [InlineData(RoleKind.ImplementationLead)]
+    public void ACoordinatingRoleHoldsARunThatNamesNoWorkItem(RoleKind role)
+    {
+        var task = new TestTask();
+        var subject = Coordinator(task, role);
+
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), null, "codex", null,
+            null, null, null, subject));
+
+        var run = task.State.Runs[new RunId("R1")];
+        Assert.Equal(role, run.SubjectRole);
+        Assert.Null(run.WorkItemId);
+    }
+
+    // The control. The refusal reaches the three coordinating roles and no further, or the kernel
+    // would have closed the only door work items are actually worked through.
+    [Fact]
+    public void AWorkerStillHoldsARunAgainstAWorkItem()
+    {
+        var task = new TestTask();
+        var workItemId = new WorkItemId("W1");
+        task.Apply(new AddWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId, "Work", null, [], []));
+        var worker = new ActorId("worker");
+        task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
+
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            null, null, null, worker));
+
+        var run = task.State.Runs[new RunId("R1")];
+        Assert.Equal(RoleKind.Worker, run.SubjectRole);
+        Assert.Equal(workItemId, run.WorkItemId);
+    }
+
+    // Where the refusal above has to speak from. The rule was first written inside StartRun, past
+    // the pre-flight, so a provider launch resolved an executable and ran the provider binary for
+    // its version and only then was refused — the probe's own error was what the dispatcher read.
+    // ProviderLaunchPreflight.EnsurePermitted is the call the launcher makes before it resolves an
+    // adapter, so a rule this call does not carry is a rule that costs a process every time it
+    // fires. Refused here and refused nowhere earlier is the whole property: the test asserts the
+    // refusal comes out of this function, and the control below asserts the same function still
+    // returns for the launch that is allowed.
+    [Fact]
+    public void TheLaunchPreflightRefusesACoordinatingSubjectBeforeAnyProcessIsResolved()
+    {
+        var task = new TestTask();
+        var workItemId = new WorkItemId("W1");
+        task.Apply(new AddWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId, "Work", null, [], []));
+        var lead = new ActorId("implementation-lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.BuildContext, Capability.ManageRuns);
+        var servedNow = task.State.ContextBuilds[task.OperatorId].Skills;
+
+        var refusal = Assert.Throws<GovernanceException>(() => ProviderLaunchPreflight.EnsurePermitted(
+            task.State, task.OperatorId, lead, servedNow, workItemId: workItemId));
+
+        Assert.Equal(
+            $"A run against work item '{workItemId}' cannot be held by a coordinating role, and " +
+            $"'{lead}' is a {RoleKind.ImplementationLead}. Dispatch a Worker, Researcher, Verifier or " +
+            "CodeReviewer against the item, or start this run without --work to file task-wide " +
+            "artifacts.",
+            refusal.Message);
+        Assert.Empty(task.State.Runs);
+    }
+
+    // The control, and the reason the pre-flight has to be handed the work item rather than assume
+    // one. A lead filing the prompt contract and the orchestration plan launches against no item at
+    // all, and that launch must still reach its provider.
+    [Fact]
+    public void TheLaunchPreflightPassesACoordinatingSubjectThatNamesNoWorkItem()
+    {
+        var task = new TestTask();
+        var lead = new ActorId("implementation-lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.BuildContext, Capability.ManageRuns);
+        task.BuildContext(task.OperatorId);
+        var servedNow = task.State.ContextBuilds[task.OperatorId].Skills;
+
+        ProviderLaunchPreflight.EnsurePermitted(task.State, task.OperatorId, lead, servedNow);
+    }
+
+    // The operator already holds its role from the moment the task was opened, and an actor cannot
+    // assign its own authority, so the operator case is the one that must not be assigned again.
+    private static ActorId Coordinator(TestTask task, RoleKind role)
+    {
+        if (role == RoleKind.Operator)
+        {
+            return task.OperatorId;
+        }
+
+        var actor = new ActorId(role == RoleKind.PlanningLead ? "planning-lead" : "implementation-lead");
+        task.Assign(actor, role, Capability.BuildContext, Capability.RecordArtifact);
+        return actor;
     }
 
     private static CliApplication Application() => new(

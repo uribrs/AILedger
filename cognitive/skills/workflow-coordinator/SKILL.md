@@ -78,7 +78,7 @@ Pass `taskPath` to the orchestrator. The orchestrator reads the contract and:
 - Decides execution path (direct vs decompose).
 - Writes `orchestration_plan.md` and files it as the current OrchestrationPlan artifact.
 - Invokes `technical-researcher` if needed.
-- Invokes `contract-driven-execution` or runs workers, depending on chosen path.
+- Invokes `contract-driven-execution`, or specifies a phase's disjoint worker runs and launches them concurrently, depending on chosen path.
 - Specifies the verifier run, which disposes of every assumption against what landed and records decision drift.
 - Specifies the code-reviewer run when work is code-bearing.
 - Returns the assumption, attention-item, and drift rows for step 5.

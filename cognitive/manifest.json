@@ -5,7 +5,7 @@
   "files": [
     {
       "path": "RULES.md",
-      "sha256": "8896c30bdc338910102a92d7896283c386af91bd6a6d8fd65096b81151af7ff5"
+      "sha256": "5d269bf86c6c0de62a30abf9b62f52942ac6a12982e1ee48a5eb585c93cb33f1"
     },
     {
       "path": "code-reviewer/SKILL.md",
@@ -25,7 +25,7 @@
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "0f0608f9462408a445c2451038440435bb65963db8b1ec827004bd4f3caa95ca"
+      "sha256": "f0094564fe82c82c1219cb281134b7786cda26e0330a0c339dfbec9a2e3f5fe3"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
@@ -37,7 +37,7 @@
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "671fa67b04d27ccc0530602be41d5ffd12803b17e2715c1148f03e578e541852"
+      "sha256": "4a0fd6405ce4c367f4d4814ebe05cb061968b3d7c4231e9b77dc974e19dc56c6"
     }
   ]
 }

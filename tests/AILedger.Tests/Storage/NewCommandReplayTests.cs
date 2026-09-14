@@ -46,9 +46,10 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new BlockWorkItemCommand(actor, null, "c12c", new WorkItemId("W3"), "Paused by the operator", null));
         await Run(writer, taskId, new UnblockWorkItemCommand(actor, null, "c12d", new WorkItemId("W3")));
 
-        // A7: the lifecycle claim is about what a *real* run completion does to a work item, so
-        // this drives run.start/run.complete through the file store rather than a fake adapter.
-        await Run(writer, taskId, new StartRunCommand(actor, null, "c13", new RunId("R1"), new WorkItemId("W2"), "codex", null));
+        // The operator's own run, which names no work item: the contract and the plan are task-wide
+        // documents only a coordinating role may file, and a coordinating role may hold a run only
+        // when it names none. R1 is therefore what the operator-subject assertions below read back.
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c13", new RunId("R1"), null, "codex", null));
         await Run(writer, taskId, new RecordArtifactCommand(
             actor, null, "c13a", new ArtifactId("A-request"), GovernedArtifactKind.UserRequest,
             "Request", "The request", null, null, null));
@@ -59,6 +60,13 @@ public sealed class NewCommandReplayTests
             actor, null, "c13c", new ArtifactId("A-plan"), GovernedArtifactKind.OrchestrationPlan,
             "Plan", ArtifactCommands.PlanBody, null, new RunId("R1"), null));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14", new RunId("R1"), AgentRunStatus.Completed, "session-1"));
+
+        // A7: the lifecycle claim is about what a *real* run completion does to a work item, so
+        // this drives run.start/run.complete through the file store rather than a fake adapter. The
+        // run against W2 is the worker's, which is also the completed working run c15 needs.
+        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c14w0", worker, RoleKind.Worker, [Capability.BuildContext]));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c14w1", new RunId("RW0"), new WorkItemId("W2"), "codex", null, null, null, null, worker));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14w2", new RunId("RW0"), AgentRunStatus.Completed, "session-w0"));
         var afterRun = await Service(root.Path).GetStateAsync(taskId, CancellationToken.None);
         Assert.Equal(WorkItemStatus.Paused, afterRun?.WorkItems[new WorkItemId("W2")].Status);
 
@@ -87,7 +95,6 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c16", new WorkItemId("W5"), "Wrong split", actor, [], [Area("shared")]));
         await Run(writer, taskId, new AbandonWorkItemCommand(actor, null, "c17", new WorkItemId("W5"), "The split was wrong"));
         await Run(writer, taskId, new AddWorkItemCommand(actor, null, "c18", new WorkItemId("W6"), "Better split", actor, [], [Area("shared")]));
-        await Run(writer, taskId, new AssignRoleCommand(actor, null, "c18a", worker, RoleKind.Worker, [Capability.BuildContext]));
         await Run(writer, taskId, new StartRunCommand(actor, null, "c18b", new RunId("RW1"), new WorkItemId("W6"), "codex", null, null, null, null, worker));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c18c", new RunId("RW1"), AgentRunStatus.Completed, "session-w1"));
         await Run(writer, taskId, new StartRunCommand(actor, null, "c19", new RunId("RV2"), new WorkItemId("W6"), "claude", null, null, null, null, verifier));

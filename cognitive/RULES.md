@@ -90,7 +90,7 @@ In execution:
 - If you hit a genuine blocker or contradiction, stop and surface it. Do not work around it silently.
 - Do not make speculative fixes. Diagnose first, change second.
 - Do not make a change that causes more errors than it fixes. If that happens, revert and report.
-- Let `task-orchestrator` route the work to the direct path (via `contract-driven-execution`) or the decompose path (via governed worker runs over disjoint work-item scopes). Treat the current context manifest and OrchestrationPlan artifact as the source of truth; do not rely on conversational memory across steps.
+- Let `task-orchestrator` route the work to the direct path (via `contract-driven-execution`) or the decompose path (via governed worker runs over disjoint work-item scopes, every worker in a phase launched concurrently). Treat the current context manifest and OrchestrationPlan artifact as the source of truth; do not rely on conversational memory across steps.
 - The verifier run and the isolated code-reviewer run are mandatory and follow execution in that order. Do not suppress, merge, or shortcut them.
 
 **Scope creep in execution is a defect, not initiative.**
@@ -148,8 +148,8 @@ These skills govern operational execution. Load the appropriate skill before sta
 |---|---|
 | `workflow-coordinator` | Entry point for any non-trivial task. Pure routing — sequences the contract designer and the orchestrator, confirms the verifier and code-reviewer passes ran, then marks lesson-bearing outcomes and requests archival through the kernel. Does not analyze, decompose, or research itself. |
 | `prompt-contract-designer` | Invoked by the coordinator to convert rough instructions into a signed execution contract before any planning or execution begins. Recalls prior lessons from the ledger and seeds them as OPEN assumptions. Writes OPEN only — it holds no evidence. |
-| `task-orchestrator` | Invoked by the coordinator after the contract is finalized. Owns the post-contract planning: resolves external research, runs one internal recon pass **before** the path decision, then decides direct vs decompose — `decompose` by default, `direct` only with the overlapping files named in the File Ownership section. Workers own disjoint file sets, the shared surface is frozen in phase 0, and a worker that needs a missing shared artifact returns `BLOCKED:` rather than inventing one. Writes and files `orchestration_plan.md`, then specifies governed worker, verifier, and isolated code-reviewer runs in order. The verifier pass owns final assumption disposition against the diff. |
-| `contract-driven-execution` | Direct-path executor invoked by `task-orchestrator` (or directly when continuing a small task in an existing directory). Executes against the contract and updates state. Does not run verifier or code-reviewer. |
+| `task-orchestrator` | Invoked by the coordinator after the contract is finalized. Owns the post-contract planning: resolves external research, runs one internal recon pass **before** the path decision, then decides direct vs decompose — `decompose` by default, `direct` only with the overlapping files named in the File Ownership section. Workers own disjoint file sets, the shared surface is frozen in phase 0, and a worker that needs a missing shared artifact returns `BLOCKED:` rather than inventing one. Writes and files `orchestration_plan.md`, then specifies the governed worker runs — every worker in a phase launched concurrently, sequencing only between phases — followed by the verifier and isolated code-reviewer runs in that order. The verifier pass owns final assumption disposition against the diff. |
+| `contract-driven-execution` | Direct-path executor invoked by `task-orchestrator` inside a governed worker run; a coordinating role cannot hold a run against a work item. Executes against the contract and updates state. Does not run verifier or code-reviewer. |
 | `technical-researcher` | Invoked by `task-orchestrator` to investigate an OPEN external-behavior claim. Persists its output under `<taskPath>/research/<topic>.md` and records directional evidence; an operator or lead holding `ResolveClaim` resolves the triggering claim. |
 | `code-reviewer` | Invoked by `task-orchestrator` in isolation after the verifier pass on code-bearing work. Reviews code quality only. Must not be given the user request, prompt contract, orchestration plan, or verifier output. |
 
@@ -163,7 +163,8 @@ workflow-coordinator
        ├─ internal recon pass         (code-bearing work; writes research/internal-recon.md)
        │                              — runs BEFORE the path decision, because it decides it
        ├─ decompose path → phase 0 freezes the shared surface,
-       │                   then workers over disjoint file sets + synthesis
+       │                   then each phase's disjoint workers launched
+       │                   concurrently + synthesis
        │   OR
        │  direct path → contract-driven-execution   (no disjoint sets; overlapping files named)
        ├─ verifier run                (full context; writes and files review/verifier-N.md + assumption disposition)

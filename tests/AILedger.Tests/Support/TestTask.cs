@@ -409,12 +409,23 @@ internal sealed class TestTask
             Assign(actor, role, Capability.BuildContext, Capability.RecordArtifact);
         }
 
-        var workItemId = new WorkItemId("W-artifacts");
-        if (!State.WorkItems.ContainsKey(workItemId))
+        // A coordinating role may hold a run only for filing task-wide artifacts, which is the case
+        // naming no work item. So the run names one for every other role and none for these three,
+        // rather than the fixture handing every subject the same item and the rule refusing half of
+        // its callers.
+        var coordinating = role is RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead;
+        WorkItemId? workItemId = null;
+        if (!coordinating)
         {
-            Apply(new AddWorkItemCommand(
-                OperatorId, null, NextCorrelation(), workItemId, "Prepare workflow artifacts",
-                actor, [], [Path.GetFullPath("artifact-preparation")]));
+            var item = new WorkItemId("W-artifacts");
+            if (!State.WorkItems.ContainsKey(item))
+            {
+                Apply(new AddWorkItemCommand(
+                    OperatorId, null, NextCorrelation(), item, "Prepare workflow artifacts",
+                    actor, [], [Path.GetFullPath("artifact-preparation")]));
+            }
+
+            workItemId = item;
         }
 
         var run = new RunId(runId);
@@ -424,14 +435,13 @@ internal sealed class TestTask
         return run;
     }
 
-    // Entering Verification asks whether anyone has finished a pass that did the work. The two roles
-    // the skill map gives contract-driven-execution answer that; a researcher's or a lead's planning
-    // pass does not, which is why the walk records one of its own here.
+    // Entering Verification asks whether anyone has finished a pass that did the work. A worker's
+    // pass answers that; a researcher's, a reviewer's or a lead's planning pass does not, which is
+    // why the walk records one of its own here.
     private void EnsureCompletedWorkingRun()
     {
         var worked = State.Runs.Values.Any(run =>
-            run.Status == AgentRunStatus.Completed &&
-            run.SubjectRole is RoleKind.Worker or RoleKind.ImplementationLead);
+            run.Status == AgentRunStatus.Completed && run.SubjectRole == RoleKind.Worker);
         if (!worked)
         {
             RecordWorkingPass(StageWorkItem(), "RW-stage");

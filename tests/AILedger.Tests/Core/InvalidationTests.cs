@@ -14,12 +14,17 @@ public sealed class InvalidationTests
         var evidenceId = new EvidenceId("E1");
         var decisionId = new DecisionId("D1");
         var workItemId = new WorkItemId("W1");
+        var worker = new ActorId("worker");
+        task.Assign(worker, RoleKind.Worker, Capability.ManageRuns);
 
         task.Apply(new AddClaimCommand(task.OperatorId, null, task.NextCorrelation(), claimId, "Provider supports JSONL", "Run cannot be normalized"));
         task.Apply(new ProposeDecisionCommand(task.OperatorId, null, task.NextCorrelation(), decisionId, "Use JSONL", "It is deterministic", [claimId], null));
         task.Apply(new ResolveDecisionCommand(task.OperatorId, null, task.NextCorrelation(), decisionId, DecisionStatus.Accepted));
-        task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId, "Adapter", task.OperatorId, [claimId], [Path.GetFullPath("src/providers")]));
-        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+        task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId, "Adapter", worker, [claimId], [Path.GetFullPath("src/providers")]));
+        // The run is here only to make the item Active, which is the state the invalidation rule
+        // below is being asked about. It is the worker's run: a run against a work item cannot be
+        // held by a coordinating role, so the operator dispatches and the worker holds it.
+        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null, SubjectActorId: worker));
         task.Apply(new AddEvidenceCommand(task.OperatorId, null, task.NextCorrelation(), evidenceId, "probe", "local help", "Flag absent", [], [claimId]));
 
         var outcome = task.Apply(new ResolveClaimCommand(

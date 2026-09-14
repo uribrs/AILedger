@@ -120,7 +120,10 @@ public sealed record StagePrerequisitesWaived(
     TaskStage TargetStage,
     string Reason,
     WaiverProvenance? Provenance = null) : LedgerEventData;
-public sealed record StageTransitioned(TaskStage Previous, TaskStage Current) : LedgerEventData;
+// Why the stage moved, and it trails the two stages it is about because every stage.transitioned
+// already on disk carries none, and replay must keep reading those. LedgerJson writes null fields
+// not at all, so a transition with no reason serialises exactly as it always did.
+public sealed record StageTransitioned(TaskStage Previous, TaskStage Current, string? Reason = null) : LedgerEventData;
 public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
 public sealed record EscalationResolved(EscalationId EscalationId, EscalationStatus Status, string? Resolution, ActorId ResolvedBy) : LedgerEventData;
 public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;

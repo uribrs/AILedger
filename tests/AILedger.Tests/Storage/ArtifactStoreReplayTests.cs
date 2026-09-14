@@ -29,8 +29,11 @@ public sealed class ArtifactStoreReplayTests
         await Run(writer, taskId, Record(actor, "a2", "A1", GovernedArtifactKind.UserRequest, "The request"));
         await Run(writer, taskId, new AddWorkItemCommand(
             actor, null, "a2w", new WorkItemId("W1"), "Verified work", actor, [], [area]));
+        // The contract and the plan are task-wide documents that only a coordinating role may file,
+        // and a coordinating role may hold a run only when it names no work item. So RP is
+        // task-wide; the verifier's run below is the one that names W1.
         await Run(writer, taskId, new StartRunCommand(
-            actor, null, "a2r", new RunId("RP"), new WorkItemId("W1"), "codex", null, null, null, null, actor));
+            actor, null, "a2r", new RunId("RP"), null, "codex", null, null, null, null, actor));
         await Run(writer, taskId, Record(
             actor, "a3", "A2", GovernedArtifactKind.PromptContract, ContractBody,
             producerRun: new RunId("RP")));

@@ -11,7 +11,9 @@ public sealed class WorkLifecycleTests
     public void CompletingWorkIsRefusedWhileARunIsStillActive()
     {
         var task = Prepare(out var workItemId);
-        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            SubjectActorId: Worker));
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), workItemId)));
@@ -23,7 +25,9 @@ public sealed class WorkLifecycleTests
     public void ASuccessfulRunPausesItsWorkItemAndOnlyAnExplicitCommandCompletesIt()
     {
         var task = Prepare(out var workItemId);
-        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            SubjectActorId: Worker));
 
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "session-1"));
@@ -114,7 +118,9 @@ public sealed class WorkLifecycleTests
         Assert.Null(workItem.BlockReason);
 
         // The exit is real: the item takes a run, is verified, and then completes.
-        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            SubjectActorId: Worker));
         task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1"));
         task.RecordVerifierPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
@@ -130,7 +136,10 @@ public sealed class WorkLifecycleTests
         task.Apply(new AddClaimCommand(task.OperatorId, null, task.NextCorrelation(), claimId, "The API is stable", null));
         task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId, "Build it",
             task.OperatorId, [claimId], [Path.GetFullPath("src")]));
-        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+        task.Assign(Worker, RoleKind.Worker, Capability.BuildContext, Capability.RecordArtifact);
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null,
+            SubjectActorId: Worker));
         task.Apply(new AddEvidenceCommand(task.OperatorId, null, task.NextCorrelation(), new EvidenceId("E1"),
             "probe", "vendor changelog", "The API changed", [], [claimId]));
         task.Apply(new ResolveClaimCommand(
@@ -150,7 +159,9 @@ public sealed class WorkLifecycleTests
     public void ARunCannotBeRecordedAsCompletedWithoutASessionIdentity()
     {
         var task = Prepare(out var workItemId);
-        task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "claude", null));
+        task.Apply(new StartRunCommand(
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "claude", null,
+            SubjectActorId: Worker));
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, null)));
@@ -171,12 +182,15 @@ public sealed class WorkLifecycleTests
     // filing to be closed Cancelled: 27 of the 111 unsuccessful runs in this ledger are successful
     // filings recorded as failures. Nothing is lost by completing them, because there is no session
     // to resume.
+    //
+    // The run names no work item, which is not incidental: an operator may hold a run only to file
+    // task-wide artifacts, and that is exactly the filing this exemption exists for.
     [Fact]
     public void ARunThatDeclaresNoProviderCompletesWithoutASessionIdentity()
     {
-        var task = Prepare(out var workItemId);
+        var task = new TestTask();
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), workItemId, AgentRun.NoProvider, null));
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), null, AgentRun.NoProvider, null));
 
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), AgentRunStatus.Completed, null));
@@ -190,12 +204,16 @@ public sealed class WorkLifecycleTests
     // The exemption is a declaration made at run start, not a claim made at the end. A run that
     // named a real provider cannot reach Completed without the session it was supposed to record,
     // which is the whole rule and is unchanged.
+    //
+    // Deliberately the same shape as the test above — the same actor, the same absent work item,
+    // the same absent session — so the provider name is the only thing that differs between the run
+    // that takes the exemption and the run that cannot.
     [Fact]
     public void TheNoProviderExemptionCannotBeClaimedByARunThatNamedAProvider()
     {
-        var task = Prepare(out var workItemId);
+        var task = new TestTask();
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), workItemId, "codex", null));
+            task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), null, "codex", null));
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, null)));
@@ -241,11 +259,16 @@ public sealed class WorkLifecycleTests
     public void ANoProviderRunDoesNotSatisfyTheWorkCompletionGates()
     {
         var task = Prepare(out var workItemId);
+        // A Worker subject, so the role the gate asks about is already the right one and the only
+        // thing left for it to refuse is the declaration. An operator subject would be refused for
+        // holding the run at all, and the test would prove nothing about the exemption.
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), workItemId, AgentRun.NoProvider, null));
+            task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), workItemId, AgentRun.NoProvider, null,
+            SubjectActorId: Worker));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("RP"), AgentRunStatus.Completed, null));
         Assert.Equal(AgentRunStatus.Completed, task.State.Runs[new RunId("RP")].Status);
+        Assert.Equal(RoleKind.Worker, task.State.Runs[new RunId("RP")].SubjectRole);
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), workItemId)));
@@ -287,9 +310,13 @@ public sealed class WorkLifecycleTests
         var task = Prepare(out var workItemId);
         var token = "launcher-secret";
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"),
-            workItemId, "claude", null, null, "2.1.261", CommandHandler.HashLaunchToken(token)));
+            workItemId, "claude", null, null, "2.1.261", CommandHandler.HashLaunchToken(token),
+            SubjectActorId: Worker));
 
-        // The agent knows its own actor and session, and neither is enough.
+        // The agent knows its own actor and session, and neither is enough. The attempt is made by
+        // the operator rather than by the run's worker subject, and deliberately: a worker holds no
+        // ManageRuns and would be refused for that instead, which proves nothing about the secret.
+        // An actor that may complete runs is the only one this rule has to stop.
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1")));
         Assert.Contains("closed by that launcher", error.Message, StringComparison.Ordinal);
@@ -297,6 +324,7 @@ public sealed class WorkLifecycleTests
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1", "guessed")));
         Assert.Equal(AgentRunStatus.Active, task.State.Runs[new RunId("R1")].Status);
 
+        // And the launcher, which holds the secret, closes it.
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1", token));
         Assert.Equal(AgentRunStatus.Completed, task.State.Runs[new RunId("R1")].Status);
@@ -308,8 +336,11 @@ public sealed class WorkLifecycleTests
     public void AnOrphanedLauncherManagedRunMayBeClosedByAnOperatorOnlyAsAFailure()
     {
         var task = Prepare(out var workItemId);
+        // The operator dispatches and later closes the orphan; it never holds the run itself, which
+        // is a different act and one a coordinating role may not perform against a work item.
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"),
-            workItemId, "claude", null, null, "2.1.261", CommandHandler.HashLaunchToken("lost")));
+            workItemId, "claude", null, null, "2.1.261", CommandHandler.HashLaunchToken("lost"),
+            SubjectActorId: Worker));
 
         Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1")));
@@ -319,12 +350,18 @@ public sealed class WorkLifecycleTests
         Assert.Equal(AgentRunStatus.Cancelled, task.State.Runs[new RunId("R1")].Status);
     }
 
+    // The subject every run against a work item below is dispatched to. A coordinating role may
+    // hold a run only for filing task-wide artifacts, so an operator cannot be the subject of a run
+    // that names an item; it stays the dispatching actor and a worker holds the run.
+    private static readonly ActorId Worker = new("worker");
+
     private static TestTask Prepare(out WorkItemId workItemId)
     {
         var task = new TestTask();
         workItemId = new WorkItemId("W1");
         task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId, "Build it",
             task.OperatorId, [], [Path.GetFullPath("src")]));
+        task.Assign(Worker, RoleKind.Worker, Capability.BuildContext, Capability.RecordArtifact);
         return task;
     }
 }

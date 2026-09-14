@@ -274,7 +274,13 @@ public sealed record RequestStageTransitionCommand(
     TaskStage TargetStage,
     // Why the operator is advancing without satisfying the target stage's command-time arm.
     // The handler emits this as its own event so the override remains visible in the log.
-    string? WithoutPrerequisitesReason = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? WithoutPrerequisitesReason = null,
+    // Why the stage moved at all, carried onto StageTransitioned.
+    //
+    // Hazard: this record now ends in two nullable strings that mean opposite things — one excuses a
+    // refusal, the other narrates a move that was allowed. A positional call passing one string
+    // silently binds it to WithoutPrerequisitesReason. Pass either of them by name.
+    string? Reason = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
 public sealed record RaiseEscalationCommand(
     ActorId ActorId,

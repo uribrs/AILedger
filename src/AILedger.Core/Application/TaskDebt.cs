@@ -44,7 +44,21 @@ public sealed record TaskDebt(
     // never opens one produces a record in which its own decisions cannot be told from the
     // operator's. Deliberately not part of IsClear: an idle task with no session open owes nothing,
     // and gating on it would put an owed block on every task in the ledger forever.
-    bool CoordinatorSessionOpen = false)
+    bool CoordinatorSessionOpen = false,
+    // Live items that have run something and have still done no work the completion gate will
+    // accept. Appended last so nothing already reading this record by position moves.
+    //
+    // The same shape as KC1 and KC2 — a projection and a gate disagreeing — and left unnamed here
+    // because a claim id belongs to the task that raised it. Narrowing HasCompletedWorkingRun to a
+    // positive list left an item whose only completed run held a coordinating role counting zero
+    // everywhere — WorkItemsAwaitingVerification means worked and
+    // still unverified, so an item that has done no work drops out of it — while work complete
+    // refuses that item outright. The debt read clear about an item the kernel would not complete,
+    // and the item this narrowing exists to flag became less visible than it was before it.
+    //
+    // Distinct from an item that has not started: no completed run at all is ordinary pending work
+    // and is not counted here. What is counted is a run that happened and bought nothing.
+    int WorkItemsRunByNoWorkingRole = 0)
 {
     // KC3: not serialised. The owed block is written only when the debt is not clear, so the field
     // could only ever read false in the output an operator sees.
@@ -70,7 +84,16 @@ public sealed record TaskDebt(
         // Stage drift is a debt: the task has recorded work its stage does not reflect, so every
         // arm that work should have passed through fired zero times and nothing says so. Null is
         // the cleared state, which is what a task that has not started reports.
-        StageBehindActivity is null;
+        StageBehindActivity is null &&
+        // One refusal, not all of them, and the narrowness is deliberate. What this conjunct
+        // establishes is exactly what WorkItemsRunByNoWorkingRole counts: no live item has run
+        // something and still lacks a completed run by a working role. work complete refuses on
+        // grounds this count does not see — a Blocked or Stale item, an item with an active run,
+        // an item with an open escalation — so a clear debt is not a promise that every live item
+        // would be accepted for completion. Widening the count to carry that promise would fold
+        // separate refusals into one number a reader could not take apart, which is what the
+        // count's own argument in Compute rejects.
+        WorkItemsRunByNoWorkingRole == 0;
 
     public static TaskDebt Compute(GovernedTaskState state)
     {
@@ -96,6 +119,30 @@ public sealed record TaskDebt(
             WorkItemRules.HasCompletedWorkingRun(state, item.Id) &&
             (!WorkItemRules.HasVerifierRunAfterLatestWork(state, item.Id) ||
              WorkItemRules.ProviderThatVerifiedItsOwnWork(state, item.Id) is not null));
+
+        // The other half of the same question, and the reason it is a second count rather than a
+        // widening of the first: an item that has run something and done no work the gate accepts is
+        // not the same fact as an item that has worked and is unverified, and a reader who was told
+        // one number could not tell which had happened. The two are mutually exclusive by
+        // construction — this one requires HasCompletedWorkingRun false, that one requires it true —
+        // so no item is counted twice.
+        //
+        // Asked with the gate's own predicates on both sides, for the reason above. DidWork is what
+        // decides 'has run something', not a status test of this projection's own: a run declaring
+        // --provider none spawned no agent, so an item carrying only those has not run anything and
+        // is pending rather than stuck. Nothing here reads a role, which is what keeps KC1 from
+        // coming back through a second list.
+        //
+        // A run that recorded no SubjectRole is counted like any other run the gate does not accept.
+        // It predates the field and the kernel never saw who worked, but work complete refuses the
+        // item for exactly that, so a projection that stayed quiet about it would be clear about an
+        // item that cannot be completed — the defect, in the other half of the same state. Excusing
+        // it would also mean writing 'SubjectRole is null' here, which is the second role model this
+        // count exists not to have.
+        var runByNoWorkingRole = state.WorkItems.Values.Count(item =>
+            item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
+            !WorkItemRules.HasCompletedWorkingRun(state, item.Id) &&
+            state.Runs.Values.Any(run => run.WorkItemId == item.Id && WorkItemRules.DidWork(run)));
 
         // state.Lessons holds both kinds and only one of them can be cited as an influence. A lesson
         // minted by this task at archive was produced by it, not handed to it, so counting those as
@@ -139,7 +186,8 @@ public sealed record TaskDebt(
             cited.Count,
             retrospectiveOwed,
             StageActivityImplies(state) is { } implied && implied > state.Stage ? implied : null,
-            state.CoordinatorSessions.Values.Any(session => session.EndedAt is null));
+            state.CoordinatorSessions.Values.Any(session => session.EndedAt is null),
+            runByNoWorkingRole);
     }
 
     /// <summary>

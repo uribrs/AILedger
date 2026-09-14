@@ -29,7 +29,8 @@ public sealed class StagePrerequisiteTests
         var refusal = Assert.Throws<GovernanceException>(() => handler.Handle(
             task.State,
             new RequestStageTransitionCommand(
-                lead, null, "waive-command-time", TaskStage.Research, "The arm is inapplicable"),
+                lead, null, "waive-command-time", TaskStage.Research,
+                WithoutPrerequisitesReason: "The arm is inapplicable"),
             When));
 
         Assert.Equal("Only an operator can transition stages without prerequisites.", refusal.Message);
@@ -99,13 +100,20 @@ public sealed class StagePrerequisiteTests
 
     // Discovery is the one target with nothing to prove. Research is where a task finds out that its
     // framing was wrong, and the way back must not demand evidence of the stage being left.
+    //
+    // It does demand the sentence saying what was learned, because this edge goes back in the
+    // pipeline — that rule is a separate one and StageTransitionReasonTests is its subject. The
+    // reason is passed by name here for the reason stated there: the command ends in two nullable
+    // strings that mean opposite things, and a positional one binds to the waiver.
     [Fact]
-    public void ReturningToDiscoveryFromResearchAsksForNothing()
+    public void ReturningToDiscoveryFromResearchAsksForNothingButTheReasonEveryBackwardMoveOwes()
     {
         var task = new TestTask();
         task.ReachStage(TaskStage.Research);
 
-        task.Transition(TaskStage.Discovery);
+        task.Apply(new RequestStageTransitionCommand(
+            task.OperatorId, null, task.NextCorrelation(), TaskStage.Discovery,
+            Reason: "The framing named the wrong subsystem"));
 
         Assert.Equal(TaskStage.Discovery, task.State.Stage);
     }
@@ -206,12 +214,20 @@ public sealed class StagePrerequisiteTests
         Assert.Empty(task.State.WorkItems);
     }
 
-    // The arm asks whether the Execution step was engaged, so it reads the two roles that step is
-    // given: Worker and ImplementationLead. It used to read "any role that is not a verifier or a
-    // reviewer", and the researcher run the Design arm already demanded satisfied that, so a task
-    // could enter Verification on planning alone with no execution having happened. This walk holds
-    // exactly that history — a completed researcher pass and two completed planning-lead passes for
-    // the task-wide documents — and nothing that did the work.
+    // The arm asks whether the Execution step was engaged, so it reads the one role that does the
+    // work: Worker, exactly. It read "any role that is not a verifier or a reviewer" once, and the
+    // researcher run the Design arm already demanded satisfied that, so a task could enter
+    // Verification on planning alone with no execution having happened. It then read
+    // "Worker or ImplementationLead", which left the same hole one role narrower: a lead dispatching
+    // the work counted as having done it. This walk holds exactly that history — a completed
+    // researcher pass and two completed planning-lead passes for the task-wide documents — and
+    // nothing that did the work.
+    //
+    // The asymmetry below is deliberate and stated in both decisions, so do not "align" the two:
+    // this arm accepts Worker only, while WorkItemRules.HasCompletedWorkingRun accepts Worker or
+    // Researcher. The arm now matches its three neighbours, which are already exact — Design
+    // requires a Researcher, Review a Verifier, Learn a CodeReviewer. Verification was the only arm
+    // carrying a disjunction, and so the only one a coordinating role could satisfy.
     [Fact]
     public void EnteringVerificationRequiresACompletedRunThatDidTheWork()
     {
@@ -225,8 +241,13 @@ public sealed class StagePrerequisiteTests
         Assert.All(planningOnly, role => Assert.True(role is RoleKind.Researcher or RoleKind.PlanningLead));
 
         var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Verification));
-        Assert.Contains(nameof(RoleKind.Worker), refusal.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(RoleKind.ImplementationLead), refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "Verification requires a completed Worker run. A coordinating role's run does not " +
+            "satisfy it; dispatch a Worker against the work item.",
+            refusal.Message);
+        // The inverted half of the old assertion. The refusal named ImplementationLead when a lead's
+        // run satisfied the arm; naming it again would mean the disjunction had come back.
+        Assert.DoesNotContain(nameof(RoleKind.ImplementationLead), refusal.Message, StringComparison.Ordinal);
         Assert.Equal(TaskStage.Execution, task.State.Stage);
 
         task.RecordWorkingPass(task.StageWorkItem(), "RW-execution");
@@ -236,10 +257,17 @@ public sealed class StagePrerequisiteTests
         Assert.Equal(RoleKind.Worker, task.State.Runs[new RunId("RW-execution")].SubjectRole);
     }
 
-    // The other half of the arm: an implementation lead is the second role contract-driven-execution
-    // is given, so a task where the lead did the work rather than dispatching a worker passes too.
+    // This test asserted the behaviour that was removed: an implementation lead was the second role
+    // contract-driven-execution was given, so a lead's completed run opened the gate. It is inverted
+    // rather than deleted, because deleting it would leave the new rule untested at exactly the
+    // point someone would later "restore" the old disjunction — and the setup it needs is the
+    // expensive half.
+    //
+    // The lead's run names no work item. A coordinating role can no longer hold a run against one at
+    // all, so the only run a lead can still have is the task-wide kind, and that is the shape the
+    // arm has to refuse.
     [Fact]
-    public void AnImplementationLeadRunAlsoSatisfiesVerification()
+    public void AnImplementationLeadRunDoesNotSatisfyVerification()
     {
         var task = new TestTask();
         task.ReachStage(TaskStage.Execution);
@@ -247,15 +275,46 @@ public sealed class StagePrerequisiteTests
         task.Assign(lead, RoleKind.ImplementationLead, Capability.BuildContext);
         var run = new RunId("RI-execution");
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), run, task.StageWorkItem(), "codex",
+            task.OperatorId, null, task.NextCorrelation(), run, null, "codex",
             null, null, null, null, lead));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), run, AgentRunStatus.Completed, "session-RI"));
 
-        task.Transition(TaskStage.Verification);
+        var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Verification));
 
-        Assert.Equal(TaskStage.Verification, task.State.Stage);
+        Assert.Equal(
+            "Verification requires a completed Worker run. A coordinating role's run does not " +
+            "satisfy it; dispatch a Worker against the work item.",
+            refusal.Message);
+        Assert.Equal(TaskStage.Execution, task.State.Stage);
+        Assert.Equal(RoleKind.ImplementationLead, task.State.Runs[run].SubjectRole);
+        Assert.Equal(AgentRunStatus.Completed, task.State.Runs[run].Status);
         Assert.DoesNotContain(task.State.Runs.Values, item => item.SubjectRole == RoleKind.Worker);
+    }
+
+    // The counterintuitive half of the same decision, and so the half most likely to be lost in a
+    // later refactor: a researcher maps the ground, it does not do the work. The run here is the
+    // strongest form of the case — a completed Researcher run against the very work item — which is
+    // enough for WorkItemRules.HasCompletedWorkingRun to call that item worked, and still not enough
+    // to enter Verification. Anyone "aligning" the two predicates makes this fail.
+    [Fact]
+    public void AResearcherRunDoesNotSatisfyVerificationEither()
+    {
+        var task = new TestTask();
+        task.ReachStage(TaskStage.Execution);
+        var work = task.StageWorkItem();
+        var run = task.RecordResearcherPass("RR-execution", work);
+
+        var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Verification));
+
+        Assert.Equal(
+            "Verification requires a completed Worker run. A coordinating role's run does not " +
+            "satisfy it; dispatch a Worker against the work item.",
+            refusal.Message);
+        Assert.Equal(TaskStage.Execution, task.State.Stage);
+        Assert.Equal(work, task.State.Runs[run].WorkItemId);
+        Assert.Equal(RoleKind.Researcher, task.State.Runs[run].SubjectRole);
+        Assert.Equal(AgentRunStatus.Completed, task.State.Runs[run].Status);
     }
 
     [Fact]
@@ -377,9 +436,11 @@ public sealed class StagePrerequisiteTests
             Verify: "dotnet test --filter StagePrerequisiteTests",
             DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier,
             VerifyExpects: VerifyExpectation.Present));
+        // The run names no work item: a coordinating role cannot hold one against an item, and the
+        // Archive arm reads every active run whether or not it names one.
         var open = new RunId("R-open");
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), open, task.StageWorkItem(), "codex", null));
+            task.OperatorId, null, task.NextCorrelation(), open, null, "codex", null));
 
         var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Archive));
         Assert.Contains("active", refusal.Message, StringComparison.OrdinalIgnoreCase);
@@ -409,16 +470,18 @@ public sealed class StagePrerequisiteTests
             DoNot: "Do not bypass the governed stage walk", Actor: LessonActor.Verifier,
             VerifyExpects: VerifyExpectation.Present));
         // An active run is what the Archive arm refuses on, so the waiver is what carries the
-        // transition below rather than a prerequisite that was satisfied anyway.
+        // transition below rather than a prerequisite that was satisfied anyway. It names no work
+        // item: a coordinating role cannot hold a run against one, and the arm reads every active
+        // run whether or not it names one.
         var open = new RunId("R-open");
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), open, task.StageWorkItem(), "codex", null));
+            task.OperatorId, null, task.NextCorrelation(), open, null, "codex", null));
         var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Archive));
         Assert.Contains("active", refusal.Message, StringComparison.OrdinalIgnoreCase);
 
         var outcome = task.Apply(new RequestStageTransitionCommand(
             task.OperatorId, null, task.NextCorrelation(), TaskStage.Archive,
-            "The run died with its work landed and its session cannot be resumed"));
+            WithoutPrerequisitesReason: "The run died with its work landed and its session cannot be resumed"));
 
         var waiver = outcome.Events.Single(item => item.Data is StagePrerequisitesWaived);
         var transition = outcome.Events.Single(item => item.Data is StageTransitioned);

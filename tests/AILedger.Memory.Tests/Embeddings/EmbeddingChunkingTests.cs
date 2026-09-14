@@ -396,6 +396,14 @@ public sealed class EmbeddingChunkingTests
         var tagRequest = 0;
         using var stream = new ScriptedHttpStream(request =>
         {
+            // The pipeline learns the model context window before it embeds anything, so the
+            // fixture has to answer /api/show; a window this wide keeps each document one chunk
+            // and leaves the digest the only thing that drifts between batches.
+            if (request.Path == "/api/show")
+            {
+                return "{\"model_info\":{\"bert.context_length\":512}}";
+            }
+
             if (request.Path == "/api/tags")
             {
                 tagRequest++;

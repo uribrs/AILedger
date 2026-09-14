@@ -176,12 +176,20 @@ public sealed class AuthorizationTests
         Assert.Equal(AgentRunStatus.Completed, task.State.Runs[runId].Status);
     }
 
+    // The positive counterpart of NonOwnerCannotStartOwnedWork: an operator's authority is what
+    // permits a run against work owned by someone else. The operator dispatches it and does not
+    // hold it — a run against a work item cannot be held by a coordinating role — so the subject
+    // is a worker, and it is deliberately not the owner: the owner check reads the authorising
+    // actor and never the subject, so a subject who owned the item would let the run start on
+    // ownership and stop testing the authority this is named for.
     [Fact]
     public void OperatorCanStartWorkOwnedByAnotherActor()
     {
         var task = new TestTask();
         var owner = new ActorId("owner");
+        var runner = new ActorId("runner");
         task.Assign(owner, RoleKind.Worker, Capability.ManageRuns);
+        task.Assign(runner, RoleKind.Worker, Capability.ManageRuns);
         var workItemId = new WorkItemId("W1");
         var runId = new RunId("R1");
         task.Apply(new AddWorkItemCommand(
@@ -189,9 +197,12 @@ public sealed class AuthorizationTests
             owner, [], [Path.GetFullPath("src")]));
 
         task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), runId, workItemId, "codex", null));
+            task.OperatorId, null, task.NextCorrelation(), runId, workItemId, "codex", null,
+            SubjectActorId: runner));
 
-        Assert.Equal(task.OperatorId, task.State.Runs[runId].ActorId);
+        var run = task.State.Runs[runId];
+        Assert.Equal(runner, run.ActorId);
+        Assert.Equal(task.OperatorId, run.LaunchedBy);
         Assert.Equal(WorkItemStatus.Active, task.State.WorkItems[workItemId].Status);
     }
 }
