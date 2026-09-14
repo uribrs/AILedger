@@ -69,14 +69,23 @@ public sealed class TaskDebtCliTests
                 "workItemsAwaitingVerification",
                 "lessonsRecalled",
                 "lessonsCited",
-                "retrospectiveOwed"
+                "retrospectiveOwed",
+                // stageBehindActivity is absent on this fixture: one open claim implies Research,
+                // and the task is in Discovery — so the drift is real and the field is written.
+                "stageBehindActivity",
+                "coordinatorSessionOpen"
             },
             owed.EnumerateObject().Select(property => property.Name).ToArray());
-        // Every count is a number and the one fact is a boolean. Whether an archived task carries a
-        // retrospective is a yes or a no, and a 0/1 count would read as a measure of something.
+        // Every count is a number and the facts are not. Whether an archived task carries a
+        // retrospective, and whether a coordinating session is open, are each a yes or a no, and a
+        // 0/1 count would read as a measure of something. The stage a task's records imply is a
+        // stage name, which is the only honest shape for it.
         Assert.All(
-            owed.EnumerateObject().Where(property => property.Name != "retrospectiveOwed"),
+            owed.EnumerateObject().Where(property =>
+                property.Name is not ("retrospectiveOwed" or "coordinatorSessionOpen" or "stageBehindActivity")),
             property => Assert.Equal(JsonValueKind.Number, property.Value.ValueKind));
+        Assert.Equal(JsonValueKind.False, owed.GetProperty("coordinatorSessionOpen").ValueKind);
+        Assert.Equal("research", owed.GetProperty("stageBehindActivity").GetString());
         Assert.Equal(JsonValueKind.False, owed.GetProperty("retrospectiveOwed").ValueKind);
         Assert.Equal(1, owed.GetProperty("openClaims").GetInt32());
         Assert.Equal(0, owed.GetProperty("openClaimsWithSupportingEvidence").GetInt32());

@@ -28,7 +28,23 @@ public sealed record TaskDebt(
     // A fact about artifacts, not a count: a task either carries a retrospective or it does not, and
     // a count that can only be zero or one would read as a measure of something. Appended last so
     // that nothing already reading this record by position moves.
-    bool RetrospectiveOwed)
+    bool RetrospectiveOwed,
+    // The stage this task's own records imply, reported only when it is ahead of the stage the task
+    // is in. Null means the stage and the activity agree, which includes every task that has done
+    // nothing yet.
+    //
+    // It exists because the stage arms are command-time checks on a transition and nothing in this
+    // kernel asks for one: 271 of 484 provider runs in this ledger were dispatched from Discovery,
+    // whose only prerequisite is nothing. A task that has run a worker and a verifier while sitting
+    // in Discovery is not refused and leaves no waiver, so `status` read as compliant and the
+    // retrospective reported no transitions to score. This makes that visible without refusing it.
+    TaskStage? StageBehindActivity = null,
+    // Whether a coordinating session is open on this task right now. A waiver exercised with none
+    // open records origin 'manual' — correctly, because no bracket existed — so a coordinator that
+    // never opens one produces a record in which its own decisions cannot be told from the
+    // operator's. Deliberately not part of IsClear: an idle task with no session open owes nothing,
+    // and gating on it would put an owed block on every task in the ledger forever.
+    bool CoordinatorSessionOpen = false)
 {
     // KC3: not serialised. The owed block is written only when the debt is not clear, so the field
     // could only ever read false in the output an operator sees.
@@ -50,7 +66,11 @@ public sealed record TaskDebt(
         // dilution argument that deferred the cross-task watcher is about a list of thirty read at
         // once; `status` answers about the one task the operator already named, and the debt is true
         // of it.
-        !RetrospectiveOwed;
+        !RetrospectiveOwed &&
+        // Stage drift is a debt: the task has recorded work its stage does not reflect, so every
+        // arm that work should have passed through fired zero times and nothing says so. Null is
+        // the cleared state, which is what a task that has not started reports.
+        StageBehindActivity is null;
 
     public static TaskDebt Compute(GovernedTaskState state)
     {
@@ -117,6 +137,48 @@ public sealed record TaskDebt(
             awaitingVerification,
             recalled,
             cited.Count,
-            retrospectiveOwed);
+            retrospectiveOwed,
+            StageActivityImplies(state) is { } implied && implied > state.Stage ? implied : null,
+            state.CoordinatorSessions.Values.Any(session => session.EndedAt is null));
+    }
+
+    /// <summary>
+    /// The furthest stage this task's own records imply it has reached, or null when they imply
+    /// nothing beyond Discovery.
+    /// </summary>
+    /// <remarks>
+    /// Each line reads a record the corresponding stage arm already asks for, so this cannot demand
+    /// more than a transition would: a current PromptContract is what Scope refuses without, an
+    /// OrchestrationPlan is what Ready refuses without, and the run roles are what Verification,
+    /// Review and Learn refuse without. Nothing here is inferred from a timestamp or a count.
+    ///
+    /// Repair is a loop stage and sits below Review in the enum, so a task correctly in Repair after
+    /// a verifier run reports Review as implied. That is a true statement about its records rather
+    /// than a fault to suppress: the reader is told what the task has, not what it should do.
+    /// </remarks>
+    private static TaskStage? StageActivityImplies(GovernedTaskState state)
+    {
+        var completedRoles = state.Runs.Values
+            .Where(run => WorkItemRules.DidWork(run) && run.SubjectRole is not null)
+            .Select(run => run.SubjectRole!.Value)
+            .ToHashSet();
+        var currentKinds = ArtifactRules.CurrentArtifacts(state).Select(artifact => artifact.Kind).ToHashSet();
+
+        TaskStage? implied = null;
+        void Reached(TaskStage stage)
+        {
+            if (implied is null || stage > implied) implied = stage;
+        }
+
+        if (state.Claims.Values.Any()) Reached(TaskStage.Research);
+        if (completedRoles.Contains(RoleKind.Researcher)) Reached(TaskStage.Design);
+        if (currentKinds.Contains(GovernedArtifactKind.PromptContract)) Reached(TaskStage.Scope);
+        if (currentKinds.Contains(GovernedArtifactKind.OrchestrationPlan)) Reached(TaskStage.Ready);
+        if (state.WorkItems.Count != 0) Reached(TaskStage.Execution);
+        if (completedRoles.Any(role => role is RoleKind.Worker or RoleKind.ImplementationLead))
+            Reached(TaskStage.Verification);
+        if (completedRoles.Contains(RoleKind.Verifier)) Reached(TaskStage.Review);
+        if (completedRoles.Contains(RoleKind.CodeReviewer)) Reached(TaskStage.Learn);
+        return implied;
     }
 }

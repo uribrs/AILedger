@@ -1722,8 +1722,14 @@ public sealed class CliApplicationTests
         // fixed by the condition under which the node is written. The retrospective debt is a
         // boolean because whether an archived task carries a retrospective is a yes or a no, and a
         // count that can only be zero or one would read as a measure of something.
+        // Two facts joined the one: whether a coordinating session is open, because a waiver made
+        // with none records origin 'manual' and a coordinator that never opens one cannot be told
+        // from the operator; and which stage the task's own records imply, because the stage arms
+        // fire only on a transition nothing asks for. Both are facts, neither is a judgement.
+        // stageBehindActivity is present here because this fixture records a claim and a work item
+        // while sitting in Discovery, which is the drift the field exists to name.
         Assert.Equal(
-            new[] { "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "workItemsAwaitingVerification" },
+            new[] { "coordinatorSessionOpen", "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "stageBehindActivity", "workItemsAwaitingVerification" },
             owed.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray());
     }
 

@@ -366,6 +366,67 @@ public sealed class TaskDebtTests
         null, LessonClass.Refuted, "AILedger", ["adapter"], "grep -n session adapter.cs",
         "Do not drop it", LessonActor.Verifier);
 
+    // The stage arms are command-time checks on a transition and nothing asks for one, so a task
+    // can run a worker and a verifier while sitting in Discovery and be refused nothing. 271 of 484
+    // provider runs in this ledger were dispatched from Discovery. This reports that drift as a
+    // debt; it refuses nothing.
+    [Fact]
+    public void ATaskThatRecordsWorkWithoutTransitioningOwesTheStageItsActivityImplies()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = WithClaim(state, reducer, next, actor, recordedAt, "C1");
+        state = WithWorkItem(state, reducer, next, actor);
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Worker, "codex");
+        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R2", RoleKind.Verifier, "claude");
+
+        var debt = TaskDebt.Compute(state);
+
+        // A completed verifier run is what the Review arm asks for, and the task is in Discovery.
+        Assert.Equal(TaskStage.Review, debt.StageBehindActivity);
+        Assert.False(debt.IsClear);
+    }
+
+    // Null is the cleared state, and it is what a task that has done nothing reports — the drift
+    // must not read as debt on a task that simply has not started.
+    [Fact]
+    public void AFreshTaskOwesNoStageDrift()
+    {
+        var state = Opened(out _, out _, out _, out _);
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Null(debt.StageBehindActivity);
+        Assert.False(debt.CoordinatorSessionOpen);
+    }
+
+    // A waiver exercised with no bracket open records origin 'manual', correctly, because none
+    // existed. This is the fact that says so before the waiver is made rather than after.
+    [Fact]
+    public void AnOpenCoordinatorSessionIsReportedAndAClosedOneIsNot()
+    {
+        var state = Opened(out _, out _, out var actor, out var recordedAt);
+        Assert.False(TaskDebt.Compute(state).CoordinatorSessionOpen);
+
+        var session = new CoordinatorSession(
+            new CoordinatorSessionId("S1"), actor, "claude-code", "abc-123", recordedAt, null);
+        var open = state with
+        {
+            CoordinatorSessions = new Dictionary<CoordinatorSessionId, CoordinatorSession> { [session.Id] = session }
+        };
+        Assert.True(TaskDebt.Compute(open).CoordinatorSessionOpen);
+
+        var closed = open with
+        {
+            CoordinatorSessions = new Dictionary<CoordinatorSessionId, CoordinatorSession>
+            {
+                [session.Id] = session with { EndedAt = recordedAt }
+            }
+        };
+        Assert.False(TaskDebt.Compute(closed).CoordinatorSessionOpen);
+        // Deliberately not part of IsClear: an idle task with no session open owes nothing.
+        Assert.True(TaskDebt.Compute(closed).IsClear);
+    }
+
     private static GovernedTaskState WithWorkItem(
         GovernedTaskState state, TaskReducer reducer,
         Func<GovernedTaskState, ActorId, LedgerEventData, LedgerEvent> next, ActorId actor) =>
