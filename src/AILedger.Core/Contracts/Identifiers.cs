@@ -10,11 +10,6 @@ public readonly record struct ActorId(string Value)
     public override string ToString() => Value;
 }
 
-public readonly record struct EvidenceId(string Value)
-{
-    public override string ToString() => Value;
-}
-
 public readonly record struct RunId(string Value)
 {
     public override string ToString() => Value;

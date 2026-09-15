@@ -3,6 +3,7 @@ using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Decisions;
 using AILedger.Core.Domain;
+using AILedger.Core.Evidences;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
@@ -53,7 +54,7 @@ public sealed class CommandHandler : ICommandHandler
             AssignRoleCommand assign => RoleAssignmentRules.AssignRole(state, assign, now),
             AddClaimCommand add => ClaimRules.AddClaim(state, add, now),
             ResolveClaimCommand resolve => ClaimRules.ResolveClaim(state, resolve),
-            AddEvidenceCommand add => EvidenceRules.AddEvidence(state, add, now),
+            AddEvidenceCommand add => EvidenceRules.Add(state, add, now),
             ProposeDecisionCommand propose => DecisionRules.ProposeDecision(state, propose, now),
             ResolveDecisionCommand resolve => DecisionRules.ResolveDecision(state, resolve),
             RaiseChallengeCommand raise => ChallengeRules.RaiseChallenge(state, raise, now),

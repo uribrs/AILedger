@@ -54,17 +54,6 @@ public sealed record AssignRoleCommand(
     RoleKind Role,
     IReadOnlyList<Capability> Capabilities) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
-public sealed record AddEvidenceCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    EvidenceId EvidenceId,
-    string SourceType,
-    string Citation,
-    string Summary,
-    IReadOnlyList<ClaimId> Supports,
-    IReadOnlyList<ClaimId> Refutes) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
 // 'context build' is a read that conditionally records audit evidence. It is never gated, it
 // cannot be refused for anything but an unknown task or an actor that may not build context, and a
 // repeat of a brief already recorded appends nothing — but a new or changed skill set appends this

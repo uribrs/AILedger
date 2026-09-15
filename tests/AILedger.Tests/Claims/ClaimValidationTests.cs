@@ -18,19 +18,6 @@ public sealed class ClaimValidationTests
             task.OperatorId, null, task.NextCorrelation(), new ClaimId("C1"), ClaimStatus.Validated, [new EvidenceId("missing")])));
     }
 
-    [Fact]
-    public void EvidenceCannotBothSupportAndRefuteSameClaim()
-    {
-        var task = new TestTask();
-        var claim = new ClaimId("C1");
-        task.Apply(new AddClaimCommand(task.OperatorId, null, task.NextCorrelation(), claim, "Claim", null));
-
-        var exception = Assert.Throws<GovernanceException>(() => task.Apply(new AddEvidenceCommand(
-            task.OperatorId, null, task.NextCorrelation(), new EvidenceId("E1"), "test", "citation", "summary", [claim], [claim])));
-
-        Assert.Contains("both support and refute", exception.Message, StringComparison.Ordinal);
-    }
-
     [Theory]
     [InlineData(ClaimStatus.Validated)]
     [InlineData(ClaimStatus.Rejected)]

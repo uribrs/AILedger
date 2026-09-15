@@ -3,6 +3,7 @@ using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
+using AILedger.Core.Evidences;
 using AILedger.Core.WorkItems;
 using static AILedger.Core.Domain.ReplayValidationRules;
 
@@ -31,7 +32,7 @@ internal static class TaskTransitionValidator
                 ClaimEventValidator.ValidateResolved(Require(state), @event, resolved);
                 break;
             case EvidenceAdded added:
-                ValidateEvidenceAdded(Require(state), @event, added.Evidence);
+                EvidenceEventValidator.ValidateAdded(Require(state), @event, added.Evidence);
                 break;
             case DecisionProposed proposed:
                 DecisionEventValidator.ValidateProposed(Require(state), @event, proposed.Decision);
@@ -892,26 +893,6 @@ internal static class TaskTransitionValidator
         var digits = value.Skip(1).TakeWhile(char.IsDigit).Count();
         return digits > 0 && (digits == value.Length - 1 ||
             digits == value.Length - 2 && char.IsLetter(value[^1]));
-    }
-
-    private static void ValidateEvidenceAdded(GovernedTaskState state, LedgerEvent @event, Evidence evidence)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.AddEvidence);
-        EnsureNew(state.Evidence, evidence.Id, "evidence");
-        RequireId(evidence.Id.Value, nameof(evidence.Id));
-        RequireText(evidence.SourceType, nameof(evidence.SourceType));
-        RequireText(evidence.Citation, nameof(evidence.Citation));
-        RequireText(evidence.Summary, nameof(evidence.Summary));
-        EnsureUnique(evidence.Supports, "Supported claim IDs");
-        EnsureUnique(evidence.Refutes, "Refuted claim IDs");
-        EnsureReferencesExist(state.Claims, evidence.Supports, "claim");
-        EnsureReferencesExist(state.Claims, evidence.Refutes, "claim");
-        if (evidence.Supports.Intersect(evidence.Refutes).Any())
-        {
-            throw new GovernanceException("The same evidence cannot both support and refute a claim.");
-        }
-
-        ValidateProvenance(@event, evidence.Provenance, "evidence.add");
     }
 
     private static void ValidateRunStarted(GovernedTaskState state, LedgerEvent @event, AgentRun run)

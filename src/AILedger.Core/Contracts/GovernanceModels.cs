@@ -156,15 +156,6 @@ public sealed record RoleAssignment(
     IReadOnlyList<Capability> Capabilities,
     Provenance AssignedBy);
 
-public sealed record Evidence(
-    EvidenceId Id,
-    string SourceType,
-    string Citation,
-    string Summary,
-    IReadOnlyList<ClaimId> Supports,
-    IReadOnlyList<ClaimId> Refutes,
-    Provenance Provenance);
-
 public sealed record Escalation(
     EscalationId Id,
     EscalationKind Kind,

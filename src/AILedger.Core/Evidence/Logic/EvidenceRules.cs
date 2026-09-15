@@ -2,12 +2,11 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Evidences;
 
-// Replay counterpart: TaskTransitionValidator.ValidateEvidenceAdded.
 internal static class EvidenceRules
 {
-    internal static IReadOnlyList<LedgerEventData> AddEvidence(
+    internal static IReadOnlyList<LedgerEventData> Add(
         GovernedTaskState state,
         AddEvidenceCommand command,
         DateTimeOffset now)
@@ -21,12 +20,9 @@ internal static class EvidenceRules
         EnsureUnique(command.Refutes, "Refuted claim IDs");
         EnsureReferencesExist(state.Claims, command.Supports, "claim");
         EnsureReferencesExist(state.Claims, command.Refutes, "claim");
-    
-        if (command.Supports.Intersect(command.Refutes).Any())
-        {
-            throw new GovernanceException("The same evidence cannot both support and refute a claim.");
-        }
-    
+
+        EnsureDirectionsDoNotConflict(command.Supports, command.Refutes);
+
         var evidence = new Evidence(
             command.EvidenceId,
             command.SourceType.Trim(),
@@ -36,5 +32,15 @@ internal static class EvidenceRules
             command.Refutes.ToArray(),
             new Provenance(command.ActorId, now, "evidence.add"));
         return [new EvidenceAdded(evidence)];
+    }
+
+    private static void EnsureDirectionsDoNotConflict(
+        IReadOnlyList<ClaimId> supports,
+        IReadOnlyList<ClaimId> refutes)
+    {
+        if (supports.Intersect(refutes).Any())
+        {
+            throw new GovernanceException("The same evidence cannot both support and refute a claim.");
+        }
     }
 }

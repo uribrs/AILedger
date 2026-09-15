@@ -593,10 +593,10 @@ public static class TaskRetrospective
         };
 
     // An unrecognised spelling survives verbatim rather than being dropped or bucketed as `other`.
-    // The field is free text — EvidenceRules:17 requires only that it is non-empty — so a spelling
-    // this map does not know is drift in the vocabulary, and drift is the data. A bucket would report
-    // it as noise and hide which way it went; dropping it would make the map's own total disagree
-    // with the evidence total beside it.
+    // The field is free text — EvidenceRules only requires it to be non-empty — so a spelling this
+    // map does not know is drift in the vocabulary, and drift is the data. A bucket would report it
+    // as noise and hide which way it went; dropping it would make the map's own total disagree with
+    // the evidence total beside it.
     private static string CanonicalSourceType(string sourceType) =>
         CanonicalSourceTypes.TryGetValue(sourceType, out var canonical) ? canonical : sourceType;
 

@@ -54,7 +54,6 @@ public abstract record LedgerEventData;
 // carries none, and replay must keep reading those histories.
 public sealed record TaskOpened(string Title, string Goal, IReadOnlyList<string>? Tags = null) : LedgerEventData;
 public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
-public sealed record EvidenceAdded(Evidence Evidence) : LedgerEventData;
 public sealed record RunStarted(AgentRun Run) : LedgerEventData;
 public sealed record RunCompleted(
     RunId RunId,

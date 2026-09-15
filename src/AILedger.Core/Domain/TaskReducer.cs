@@ -2,6 +2,7 @@ using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
+using AILedger.Core.Evidences;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Domain;
@@ -19,7 +20,7 @@ public sealed class TaskReducer : ITaskReducer
             RoleAssigned assigned => AssignRole(Require(state), assigned.Assignment),
             ClaimAdded added => ClaimStateProjector.Add(Require(state), added),
             ClaimResolved resolved => ClaimStateProjector.Resolve(Require(state), resolved),
-            EvidenceAdded added => Require(state) with { Evidence = Set(Require(state).Evidence, added.Evidence.Id, added.Evidence) },
+            EvidenceAdded added => EvidenceStateProjector.Add(Require(state), added),
             DecisionProposed proposed => DecisionStateProjector.Add(Require(state), proposed),
             DecisionResolved resolved => DecisionStateProjector.Resolve(Require(state), resolved),
             DecisionInvalidated invalidated => DecisionStateProjector.Invalidate(Require(state), invalidated),
