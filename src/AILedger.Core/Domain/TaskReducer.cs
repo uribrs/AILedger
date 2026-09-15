@@ -1,3 +1,4 @@
+using AILedger.Core.Alternatives;
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Constraints;
@@ -40,7 +41,7 @@ public sealed class TaskReducer : ITaskReducer
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
             EscalationRaised raised => EscalationStateProjector.Add(Require(state), raised),
             EscalationResolved resolved => EscalationStateProjector.Resolve(Require(state), resolved),
-            AlternativeRecorded recorded => Require(state) with { Alternatives = Set(Require(state).Alternatives, recorded.Alternative.Id, recorded.Alternative) },
+            AlternativeRecorded recorded => AlternativeStateProjector.Add(Require(state), recorded),
             ConstraintAdded added => ConstraintStateProjector.Add(Require(state), added),
             ConstraintSuperseded superseded => ConstraintStateProjector.Supersede(Require(state), superseded),
             WorkItemCompleted completed => WorkItemStateProjector.Complete(Require(state), completed),

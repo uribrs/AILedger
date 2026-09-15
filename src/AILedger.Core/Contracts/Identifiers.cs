@@ -20,11 +20,6 @@ public readonly record struct EventId(string Value)
     public override string ToString() => Value;
 }
 
-public readonly record struct AlternativeId(string Value)
-{
-    public override string ToString() => Value;
-}
-
 public readonly record struct LessonId(string Value)
 {
     public override string ToString() => Value;

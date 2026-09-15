@@ -128,7 +128,6 @@ public sealed record StageTransitioned(
     TaskStage Current,
     string? Reason = null,
     AlternativeId? SerialJustification = null) : LedgerEventData;
-public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
 public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
 public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
 public sealed record LessonMarked(LessonMark Mark) : LedgerEventData;

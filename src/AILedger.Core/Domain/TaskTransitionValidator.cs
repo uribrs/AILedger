@@ -1,4 +1,5 @@
 using AILedger.Core.Application;
+using AILedger.Core.Alternatives;
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Constraints;
@@ -76,7 +77,7 @@ internal static class TaskTransitionValidator
                 EscalationEventValidator.ValidateResolved(Require(state), @event, resolved);
                 break;
             case AlternativeRecorded recorded:
-                ValidateAlternativeRecorded(Require(state), @event, recorded.Alternative);
+                AlternativeEventValidator.ValidateRecorded(Require(state), @event, recorded.Alternative);
                 break;
             case ConstraintAdded added:
                 ConstraintEventValidator.ValidateAdded(Require(state), @event, added.Constraint);
@@ -1246,28 +1247,6 @@ internal static class TaskTransitionValidator
         }
 
         StageTransitionPolicy.EnsureAllowed(state.Stage, waived.TargetStage);
-    }
-
-    private static void ValidateAlternativeRecordedCitation(GovernedTaskState state, Alternative alternative) =>
-        EnsureCitedLessonWasRecalled(state, alternative.FromLesson);
-
-    private static void ValidateAlternativeRecorded(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        Alternative alternative)
-    {
-        ValidateAlternativeRecordedCitation(state, alternative);
-        RequireAuthority(state, @event.ActorId, Capability.RecordAlternative);
-        EnsureNew(state.Alternatives, alternative.Id, "alternative");
-        RequireId(alternative.Id.Value, nameof(alternative.Id));
-        RequireText(alternative.Statement, nameof(alternative.Statement));
-        RequireText(alternative.RejectionRationale, nameof(alternative.RejectionRationale));
-        if (alternative.ReplacedByDecisionId is { } decisionId)
-        {
-            _ = Get(state.Decisions, decisionId, "decision");
-        }
-
-        ValidateProvenance(@event, alternative.Provenance, "alternative.record");
     }
 
     private static void EnsureDependenciesAreCurrent(GovernedTaskState state, IEnumerable<ClaimId> claimIds)

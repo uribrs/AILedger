@@ -1,13 +1,14 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
-using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Alternatives;
 
-// Replay counterpart: TaskTransitionValidator.ValidateAlternativeRecorded.
+// Decides which Alternative events a command may emit. Historical-event admissibility stays in
+// AlternativeEventValidator so command-time rules can tighten without invalidating existing logs.
 internal static class AlternativeRules
 {
-    internal static IReadOnlyList<LedgerEventData> RecordAlternative(
+    internal static IReadOnlyList<LedgerEventData> Record(
         GovernedTaskState state,
         RecordAlternativeCommand command,
         DateTimeOffset now)
@@ -17,12 +18,12 @@ internal static class AlternativeRules
         RequireText(command.Statement, nameof(command.Statement));
         RequireText(command.RejectionRationale, nameof(command.RejectionRationale));
         LessonCitationRules.EnsureCitedLessonWasRecalled(state, command.FromLesson);
-    
+
         if (command.ReplacedByDecisionId is { } decisionId)
         {
             _ = Get(state.Decisions, decisionId, "decision");
         }
-    
+
         var alternative = new Alternative(
             command.AlternativeId,
             command.Statement.Trim(),
