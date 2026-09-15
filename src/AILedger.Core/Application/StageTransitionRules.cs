@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.Artifacts;
 using AILedger.Core.Domain;
 using AILedger.Core.WorkItems;
 using static AILedger.Core.Application.CommandHandler;
@@ -115,7 +116,7 @@ internal static class StageTransitionRules
         TaskStage target,
         AlternativeId? serialJustification)
     {
-        var currentArtifacts = ArtifactRules.CurrentArtifacts(state);
+        var currentArtifacts = ArtifactRevisionRules.Current(state);
         // WorkItemVerificationRules.DidWork, not a bare Completed check: a run declaring AgentRun.NoProvider
         // spawns no provider, so it staffs no role. Without this, two commands stand in for a
         // Researcher run and the Design arm passes on a role nobody held.

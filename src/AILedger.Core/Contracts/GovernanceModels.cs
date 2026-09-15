@@ -48,20 +48,6 @@ public enum Capability
     RecordArtifact
 }
 
-public enum GovernedArtifactKind
-{
-    UserRequest,
-    PromptContract,
-    OrchestrationPlan,
-    VerifierOutput,
-    CodeReviewOutput,
-    // Appended last so that no already-serialized value moves. It scores how the kernel governed one
-    // finished task across ten dimensions, and it is the one kind no agent is ever briefed on: a
-    // score an actor can read about itself is a score an actor optimises. It is task-wide, carries no
-    // producer run, and is recorded only after closeout.
-    WorkflowRetrospective
-}
-
 public enum AgentRunStatus
 {
     Active,
@@ -134,16 +120,6 @@ public sealed record RoleAssignment(
     RoleKind Role,
     IReadOnlyList<Capability> Capabilities,
     Provenance AssignedBy);
-
-public sealed record GovernedArtifact(
-    ArtifactId ArtifactId,
-    GovernedArtifactKind Kind,
-    string Title,
-    string Content,
-    WorkItemId? WorkItemId,
-    RunId? ProducerRunId,
-    ArtifactId? SupersedesArtifactId,
-    Provenance Provenance);
 
 public sealed record Lesson(
     LessonId Id,

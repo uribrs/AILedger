@@ -2,6 +2,7 @@ using System.Text.Json;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Tests.Artifacts;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 

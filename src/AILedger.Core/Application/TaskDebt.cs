@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.Artifacts;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
@@ -171,7 +172,7 @@ public sealed record TaskDebt(
         var recalled = inherited.Count;
 
         // Read off the kind the state already holds, never off the body. Before Archive nothing is
-        // owed on this count, because the entry condition at ArtifactRules.cs:236 refuses a
+        // owed on this count, because WorkflowRetrospectiveRules refuses a
         // retrospective at any earlier stage, so a task that has not reached closeout cannot be in
         // arrears for one. IC2: asking whether any exists is the same question as asking whether a
         // current one exists, because a supersession must carry the predecessor's kind, so a kind
@@ -212,7 +213,7 @@ public sealed record TaskDebt(
             .Where(run => WorkItemVerificationRules.DidWork(run) && run.SubjectRole is not null)
             .Select(run => run.SubjectRole!.Value)
             .ToHashSet();
-        var currentKinds = ArtifactRules.CurrentArtifacts(state).Select(artifact => artifact.Kind).ToHashSet();
+        var currentKinds = ArtifactRevisionRules.Current(state).Select(artifact => artifact.Kind).ToHashSet();
 
         TaskStage? implied = null;
         void Reached(TaskStage stage)

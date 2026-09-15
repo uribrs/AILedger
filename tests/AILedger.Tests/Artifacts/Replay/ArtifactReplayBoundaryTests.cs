@@ -1,7 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // The most important file in the artifact wave, and the mistake this repository has already made
 // twice. Every task on disk was written before artifacts existed: its stage transitions, its

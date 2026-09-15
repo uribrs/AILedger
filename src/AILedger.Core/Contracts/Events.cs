@@ -131,7 +131,6 @@ public sealed record StageTransitioned(
 public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
 public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
 public sealed record LessonMarked(LessonMark Mark) : LedgerEventData;
-public sealed record ArtifactRecorded(GovernedArtifact Artifact) : LedgerEventData;
 // Which brief was assembled, for whom, and what it carried. The actor is not repeated here: it is
 // the envelope's ActorId on the same line of events.jsonl, and two copies of one fact are two
 // things that can disagree. Skills are ordered as served, and each carries the hash of the content

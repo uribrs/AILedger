@@ -43,4 +43,46 @@ internal static class ArtifactCommands
             workItem,
             producerRun,
             supersedes is null ? null : new ArtifactId(supersedes));
+
+    public static void AddWork(TestTask task, WorkItemId workItemId, string area) =>
+        task.Apply(new AddWorkItemCommand(
+            task.OperatorId,
+            null,
+            task.NextCorrelation(),
+            workItemId,
+            $"Work {workItemId}",
+            task.OperatorId,
+            [],
+            [Path.GetFullPath(Path.Combine("src", area))]));
+
+    // A verifier's output has to name the run that produced it, and that run has to still be open.
+    // Every test that needs one starts here rather than making a behavior test class infrastructure.
+    public static ActorId StartVerifierRun(
+        TestTask task,
+        WorkItemId workItemId,
+        string runId,
+        out RunId run)
+    {
+        task.RecordExecutionArtifacts();
+        var verifier = new ActorId("verifier");
+        if (!task.State.Roles.ContainsKey(verifier))
+        {
+            task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext, Capability.RecordArtifact);
+        }
+
+        run = new RunId(runId);
+        task.Apply(new StartRunCommand(
+            task.OperatorId,
+            null,
+            task.NextCorrelation(),
+            run,
+            workItemId,
+            "claude",
+            null,
+            null,
+            null,
+            null,
+            verifier));
+        return verifier;
+    }
 }

@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.Artifacts;
 using AILedger.Core.Claims;
 using AILedger.Core.Domain;
 using AILedger.Core.WorkItems;
@@ -279,7 +280,7 @@ internal static class RunRules
             var requiredKind = run.SubjectRole == RoleKind.Verifier
                 ? GovernedArtifactKind.VerifierOutput
                 : GovernedArtifactKind.CodeReviewOutput;
-            if (!ArtifactRules.CurrentArtifacts(state).Any(artifact =>
+            if (!ArtifactRevisionRules.Current(state).Any(artifact =>
                     artifact.Kind == requiredKind && artifact.ProducerRunId == run.Id))
             {
                 throw new GovernanceException(

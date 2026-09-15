@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // The retrospective is the one governed artifact filed after the task is over, by an actor holding
 // no run, about the agents that worked it. Three properties carry that: it names no producer run,

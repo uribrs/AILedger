@@ -1,5 +1,6 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Tests.Artifacts;
 using AILedger.Tests.Support;
 
 namespace AILedger.Tests.Core;

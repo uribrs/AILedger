@@ -2,7 +2,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // Contract constraint 3, channel (a). The retrospective scores the agents that worked the task, so
 // it is withheld from every role rather than from some of them. The assembler drops it before

@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // Who may record which document. The kernel treats the five kinds differently because they are
 // evidence of different things: a user request is what the operator asked for, a contract and a plan
@@ -77,7 +77,7 @@ public sealed class ArtifactAuthorityTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         var verifier = new ActorId("verifier");
         task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext, Capability.RecordArtifact);
 
@@ -87,7 +87,7 @@ public sealed class ArtifactAuthorityTests
             workItem: workItemId)));
         Assert.Contains("run", error.Message, StringComparison.OrdinalIgnoreCase);
 
-        ArtifactRecordTests.StartVerifierRun(task, workItemId, "RV", out var run);
+        ArtifactCommands.StartVerifierRun(task, workItemId, "RV", out var run);
         task.Apply(ArtifactCommands.Record(
             task, verifier, "A2", GovernedArtifactKind.VerifierOutput, ArtifactCommands.VerifierBody,
             workItem: workItemId, producerRun: run));
@@ -100,7 +100,7 @@ public sealed class ArtifactAuthorityTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         var worker = new ActorId("worker");
         task.Assign(worker, RoleKind.Worker, Capability.BuildContext, Capability.RecordArtifact);
         var run = new RunId("RW");
@@ -123,7 +123,7 @@ public sealed class ArtifactAuthorityTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         var reviewer = new ActorId("reviewer");
         task.Assign(reviewer, RoleKind.CodeReviewer, Capability.BuildContext, Capability.RecordArtifact);
         // A reviewer cannot even start until a verifier has finished, so the pass comes first.
@@ -153,8 +153,8 @@ public sealed class ArtifactAuthorityTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
-        var verifier = ArtifactRecordTests.StartVerifierRun(task, workItemId, "RV", out var run);
+        ArtifactCommands.AddWork(task, workItemId, "w1");
+        var verifier = ArtifactCommands.StartVerifierRun(task, workItemId, "RV", out var run);
         task.Apply(ArtifactCommands.Record(
             task, verifier, "A1", GovernedArtifactKind.VerifierOutput, ArtifactCommands.VerifierBody,
             workItem: workItemId, producerRun: run));
@@ -175,9 +175,9 @@ public sealed class ArtifactAuthorityTests
         var task = new TestTask();
         var verified = new WorkItemId("W1");
         var other = new WorkItemId("W2");
-        ArtifactRecordTests.AddWork(task, verified, "w1");
-        ArtifactRecordTests.AddWork(task, other, "w2");
-        var verifier = ArtifactRecordTests.StartVerifierRun(task, verified, "RV", out var run);
+        ArtifactCommands.AddWork(task, verified, "w1");
+        ArtifactCommands.AddWork(task, other, "w2");
+        var verifier = ArtifactCommands.StartVerifierRun(task, verified, "RV", out var run);
 
         // Findings filed against an item the run never looked at would satisfy that item's gate.
         var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(

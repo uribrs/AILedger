@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // The prompt contract, the orchestration plan, the verifier's findings and the review used to live
 // in markdown files beside the ledger, so a replay of the log produced a task whose governing
@@ -123,17 +123,17 @@ public sealed class ArtifactRecordTests
         var task = new TestTask();
         var first = new WorkItemId("W1");
         var second = new WorkItemId("W2");
-        AddWork(task, first, "AILedger.Core");
-        AddWork(task, second, "AILedger.Providers");
+        ArtifactCommands.AddWork(task, first, "AILedger.Core");
+        ArtifactCommands.AddWork(task, second, "AILedger.Providers");
 
-        var verifier = StartVerifierRun(task, first, "RV1", out var firstRun);
+        var verifier = ArtifactCommands.StartVerifierRun(task, first, "RV1", out var firstRun);
         task.Apply(ArtifactCommands.Record(
             task, verifier, "VOUT1", GovernedArtifactKind.VerifierOutput,
             ArtifactCommands.VerifierBody, workItem: first, producerRun: firstRun));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), firstRun, AgentRunStatus.Completed, "s1"));
 
-        StartVerifierRun(task, second, "RV2", out var secondRun);
+        ArtifactCommands.StartVerifierRun(task, second, "RV2", out var secondRun);
         task.Apply(ArtifactCommands.Record(
             task, verifier, "VOUT2", GovernedArtifactKind.VerifierOutput,
             ArtifactCommands.VerifierBody, workItem: second, producerRun: secondRun));
@@ -141,7 +141,7 @@ public sealed class ArtifactRecordTests
             task.OperatorId, null, task.NextCorrelation(), secondRun, AgentRunStatus.Completed, "s2"));
 
         // A second output for W2, not superseding. The refusal must name W2's current artifact.
-        StartVerifierRun(task, second, "RV3", out var thirdRun);
+        ArtifactCommands.StartVerifierRun(task, second, "RV3", out var thirdRun);
         var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(
             task, verifier, "VOUT3", GovernedArtifactKind.VerifierOutput,
             ArtifactCommands.VerifierBody, workItem: second, producerRun: thirdRun)));
@@ -216,8 +216,8 @@ public sealed class ArtifactRecordTests
     {
         var task = new TestTask();
         var workItem = new WorkItemId("W1");
-        AddWork(task, workItem, "w1");
-        var verifier = StartVerifierRun(task, workItem, "RV1", out var run);
+        ArtifactCommands.AddWork(task, workItem, "w1");
+        var verifier = ArtifactCommands.StartVerifierRun(task, workItem, "RV1", out var run);
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(
             task, verifier, "A1", GovernedArtifactKind.VerifierOutput, "No disposition table here.",
@@ -233,15 +233,15 @@ public sealed class ArtifactRecordTests
         var task = new TestTask();
         var first = new WorkItemId("W1");
         var second = new WorkItemId("W2");
-        AddWork(task, first, "w1");
-        AddWork(task, second, "w2");
-        var verifier = StartVerifierRun(task, first, "RV1", out var firstRun);
+        ArtifactCommands.AddWork(task, first, "w1");
+        ArtifactCommands.AddWork(task, second, "w2");
+        var verifier = ArtifactCommands.StartVerifierRun(task, first, "RV1", out var firstRun);
         task.Apply(ArtifactCommands.Record(
             task, verifier, "A1", GovernedArtifactKind.VerifierOutput, ArtifactCommands.VerifierBody,
             workItem: first, producerRun: firstRun));
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), firstRun, AgentRunStatus.Completed, "session-RV1"));
-        StartVerifierRun(task, second, "RV2", out var secondRun);
+        ArtifactCommands.StartVerifierRun(task, second, "RV2", out var secondRun);
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(ArtifactCommands.Record(
             task, verifier, "A2", GovernedArtifactKind.VerifierOutput, ArtifactCommands.VerifierBody,
@@ -264,26 +264,4 @@ public sealed class ArtifactRecordTests
         Assert.Empty(task.State.Artifacts);
     }
 
-    internal static void AddWork(TestTask task, WorkItemId workItemId, string area) =>
-        task.Apply(new AddWorkItemCommand(
-            task.OperatorId, null, task.NextCorrelation(), workItemId, $"Work {workItemId}",
-            task.OperatorId, [], [Path.GetFullPath(Path.Combine("src", area))]));
-
-    // A verifier's output has to name the run that produced it, and that run has to still be open.
-    // Every test that needs one starts here rather than restating six commands.
-    internal static ActorId StartVerifierRun(TestTask task, WorkItemId workItemId, string runId, out RunId run)
-    {
-        task.RecordExecutionArtifacts();
-        var verifier = new ActorId("verifier");
-        if (!task.State.Roles.ContainsKey(verifier))
-        {
-            task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext, Capability.RecordArtifact);
-        }
-
-        run = new RunId(runId);
-        task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), run, workItemId, "claude",
-            null, null, null, null, verifier));
-        return verifier;
-    }
 }

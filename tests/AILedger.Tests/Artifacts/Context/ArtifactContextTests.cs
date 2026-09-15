@@ -2,7 +2,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // The artifacts only matter if they reach the agent. The manifest is where they do, and where the
 // code reviewer's isolation is enforced: a blind review must not read the request, the contract, the
@@ -16,7 +16,7 @@ public sealed class ArtifactContextTests
         var worker = new ActorId("worker");
         task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         task.RecordExecutionArtifacts();
 
         var manifest = Build(task, worker, workItemId);
@@ -57,8 +57,8 @@ public sealed class ArtifactContextTests
         var worker = new ActorId("worker");
         var mine = new WorkItemId("W1");
         var other = new WorkItemId("W2");
-        ArtifactRecordTests.AddWork(task, mine, "w1");
-        ArtifactRecordTests.AddWork(task, other, "w2");
+        ArtifactCommands.AddWork(task, mine, "w1");
+        ArtifactCommands.AddWork(task, other, "w2");
         task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
         RecordVerifierOutput(task, mine, "RV1", "A1", "Findings on my work");
         RecordVerifierOutput(task, other, "RV2", "A2", "Findings on other work");
@@ -74,7 +74,7 @@ public sealed class ArtifactContextTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         var reviewer = new ActorId("reviewer");
         task.Assign(reviewer, RoleKind.CodeReviewer, Capability.BuildContext, Capability.RecordArtifact);
         task.RecordExecutionArtifacts();
@@ -133,7 +133,7 @@ public sealed class ArtifactContextTests
         string artifactId,
         string content)
     {
-        var verifier = ArtifactRecordTests.StartVerifierRun(task, workItemId, runId, out var run);
+        var verifier = ArtifactCommands.StartVerifierRun(task, workItemId, runId, out var run);
         task.Apply(ArtifactCommands.Record(
             task, verifier, artifactId, GovernedArtifactKind.VerifierOutput, ArtifactCommands.VerifierBody,
             workItem: workItemId, producerRun: run));

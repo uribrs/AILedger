@@ -1,4 +1,5 @@
 using AILedger.Core.Alternatives;
+using AILedger.Core.Artifacts;
 using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
@@ -72,7 +73,7 @@ public sealed class CommandHandler : ICommandHandler
             RaiseEscalationCommand raise => EscalationRules.Raise(state, raise, now),
             ResolveEscalationCommand resolve => EscalationRules.Resolve(state, resolve),
             RecordAlternativeCommand record => AlternativeRules.Record(state, record, now),
-            RecordArtifactCommand record => ArtifactRules.RecordArtifact(state, record, now),
+            RecordArtifactCommand record => ArtifactRules.Record(state, record, now),
             RecordContextBuiltCommand record => ContextRules.RecordContextBuilt(state, record),
             MarkLessonBearingCommand mark => LessonRules.MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => ConstraintRules.Add(state, add, now),

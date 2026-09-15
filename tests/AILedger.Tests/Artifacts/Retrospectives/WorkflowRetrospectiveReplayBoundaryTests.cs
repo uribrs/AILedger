@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // The asymmetry the retrospective feature rests on, and the mistake CLAUDE.md records this
 // repository making twice. The entry condition on recording a retrospective — stage Archive, no

@@ -348,7 +348,7 @@ public sealed class ContextAssembler : IContextAssembler
     // This closes one of the three channels contract constraint 3 names, not all three. A score
     // copied out of a retrospective into a constraint body still reaches every role, because
     // Constraint is in AlwaysIncludedKinds and is excluded from nothing. That residual is accepted
-    // and named; the control that bounds it is the entry condition in ArtifactRules.
+    // and named; the control that bounds it is the entry condition in WorkflowRetrospectiveRules.
     private static bool IsBriefable(GovernedArtifact artifact) =>
         artifact.Kind != GovernedArtifactKind.WorkflowRetrospective;
 

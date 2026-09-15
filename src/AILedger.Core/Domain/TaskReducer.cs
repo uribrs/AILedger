@@ -1,4 +1,5 @@
 using AILedger.Core.Alternatives;
+using AILedger.Core.Artifacts;
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Constraints;
@@ -53,10 +54,7 @@ public sealed class TaskReducer : ITaskReducer
             LessonMinted minted => AddLesson(Require(state), minted.Lesson),
             LessonRecalled recalled => AddLesson(Require(state), recalled.Lesson),
             LessonMarked marked => AddLessonMark(Require(state), marked.Mark),
-            ArtifactRecorded recorded => Require(state) with
-            {
-                Artifacts = Set(Require(state).Artifacts, recorded.Artifact.ArtifactId, recorded.Artifact)
-            },
+            ArtifactRecorded recorded => ArtifactStateProjector.Add(Require(state), recorded),
             // Keyed by actor, so a later brief replaces the one before it. The gate asks whether
             // this actor is briefed against the layer as it stands, and the answer is the last
             // brief; the earlier ones stay in the log, which is where history belongs.

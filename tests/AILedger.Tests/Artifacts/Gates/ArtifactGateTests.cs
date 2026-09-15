@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Artifacts;
 
 // The two places the artifacts stop being a record and start being a rule. Entering Execution
 // requires the three task-wide documents to exist, and a verifier or code reviewer cannot close a
@@ -52,8 +52,8 @@ public sealed class ArtifactGateTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
-        ArtifactRecordTests.StartVerifierRun(task, workItemId, "RV", out var run);
+        ArtifactCommands.AddWork(task, workItemId, "w1");
+        ArtifactCommands.StartVerifierRun(task, workItemId, "RV", out var run);
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), run, AgentRunStatus.Completed, "session-RV")));
@@ -67,8 +67,8 @@ public sealed class ArtifactGateTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
-        var verifier = ArtifactRecordTests.StartVerifierRun(task, workItemId, "RV", out var run);
+        ArtifactCommands.AddWork(task, workItemId, "w1");
+        var verifier = ArtifactCommands.StartVerifierRun(task, workItemId, "RV", out var run);
         task.Apply(ArtifactCommands.Record(
             task, verifier, "A1", GovernedArtifactKind.VerifierOutput, ArtifactCommands.VerifierBody,
             workItem: workItemId, producerRun: run));
@@ -88,8 +88,8 @@ public sealed class ArtifactGateTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
-        ArtifactRecordTests.StartVerifierRun(task, workItemId, "RV", out var run);
+        ArtifactCommands.AddWork(task, workItemId, "w1");
+        ArtifactCommands.StartVerifierRun(task, workItemId, "RV", out var run);
 
         task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), run, status, null));
@@ -104,9 +104,9 @@ public sealed class ArtifactGateTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         task.RecordVerifierPass(workItemId, "RV-first");
-        ArtifactRecordTests.StartVerifierRun(task, workItemId, "RV-second", out var second);
+        ArtifactCommands.StartVerifierRun(task, workItemId, "RV-second", out var second);
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteRunCommand(
             task.OperatorId, null, task.NextCorrelation(), second, AgentRunStatus.Completed, "session-2")));
@@ -120,7 +120,7 @@ public sealed class ArtifactGateTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         task.RecordWorkingPass(workItemId);
         task.RecordVerifierPass(workItemId);
         var reviewer = new ActorId("reviewer");
@@ -150,7 +150,7 @@ public sealed class ArtifactGateTests
     {
         var task = new TestTask();
         var workItemId = new WorkItemId("W1");
-        ArtifactRecordTests.AddWork(task, workItemId, "w1");
+        ArtifactCommands.AddWork(task, workItemId, "w1");
         var worker = new ActorId("worker");
         task.Assign(worker, RoleKind.Worker, Capability.BuildContext);
         var run = new RunId("RW");
@@ -168,7 +168,7 @@ public sealed class ArtifactGateTests
     private static TestTask ReadyToExecute()
     {
         var task = new TestTask();
-        ArtifactRecordTests.AddWork(task, new WorkItemId("W1"), "w1");
+        ArtifactCommands.AddWork(task, new WorkItemId("W1"), "w1");
         // Each stage on the way records what its own arm asks for, which by Ready is the contract,
         // the plan and the roles the rest of the walk needs — and not the user request.
         task.ReachStage(TaskStage.Ready);
