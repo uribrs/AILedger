@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Lessons;
 
 // A lesson about how the kernel behaves is worth carrying to a later task in another repository, and
 // a lesson about one role's mistake is worth nothing to the other six. These tests pin the three

@@ -9,6 +9,7 @@ using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
 using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
+using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
 using AILedger.Core.WorkItems;
 
@@ -77,7 +78,7 @@ public sealed class CommandHandler : ICommandHandler
             RecordAlternativeCommand record => AlternativeRules.Record(state, record, now),
             RecordArtifactCommand record => ArtifactRules.Record(state, record, now),
             RecordContextBuiltCommand record => ContextRules.RecordContextBuilt(state, record),
-            MarkLessonBearingCommand mark => LessonRules.MarkLessonBearing(state, mark, now),
+            MarkLessonBearingCommand mark => LessonMarkRules.MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => ConstraintRules.Add(state, add, now),
             SupersedeConstraintCommand supersede => ConstraintRules.Supersede(state, supersede),
             CompleteWorkItemCommand complete => WorkItemLifecycleRules.Complete(state, complete),

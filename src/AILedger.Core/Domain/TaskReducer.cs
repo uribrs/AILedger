@@ -8,6 +8,7 @@ using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
+using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
 using AILedger.Core.WorkItems;
 
@@ -57,9 +58,9 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemAbandoned abandoned => WorkItemStateProjector.Abandon(Require(state), abandoned),
             ClaimDependenciesRepointed repointed => ClaimStateProjector.RepointDependencies(Require(state), repointed),
             DecisionOverturned overturned => DecisionStateProjector.Overturn(Require(state), overturned),
-            LessonMinted minted => AddLesson(Require(state), minted.Lesson),
-            LessonRecalled recalled => AddLesson(Require(state), recalled.Lesson),
-            LessonMarked marked => AddLessonMark(Require(state), marked.Mark),
+            LessonMinted minted => LessonStateProjector.Add(Require(state), minted),
+            LessonRecalled recalled => LessonStateProjector.Add(Require(state), recalled),
+            LessonMarked marked => LessonStateProjector.AddMark(Require(state), marked),
             ArtifactRecorded recorded => ArtifactStateProjector.Add(Require(state), recorded),
             // Keyed by actor, so a later brief replaces the one before it. The gate asks whether
             // this actor is briefed against the layer as it stands, and the answer is the last
@@ -144,12 +145,6 @@ public sealed class TaskReducer : ITaskReducer
             Roles = Set(state.Roles, assignment.ActorId, assignment),
             PendingOpeningActor = null
         };
-
-    private static GovernedTaskState AddLesson(GovernedTaskState state, Lesson lesson) =>
-        state with { Lessons = Set(state.Lessons, lesson.Id, lesson) };
-
-    private static GovernedTaskState AddLessonMark(GovernedTaskState state, LessonMark mark) =>
-        state with { LessonMarks = Set(state.LessonMarks, mark.Id, mark) };
 
     // The waiver this event was let through by, if it was let through by one. The join is causationId:
     // CommandHandler chains a command's second event to its first, and a waiver and the work.added or

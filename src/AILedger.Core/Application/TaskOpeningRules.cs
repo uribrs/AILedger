@@ -4,7 +4,7 @@ using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
 
-// Replay counterparts: ValidateTaskOpened, ValidateOpeningRole, ValidateLessonRecalled.
+// Replay counterparts: ValidateTaskOpened, ValidateOpeningRole, LessonEventValidator.ValidateRecalled.
 internal static class TaskOpeningRules
 {
     internal static IReadOnlyList<LedgerEventData> HandleOpening(LedgerCommand command, DateTimeOffset now)

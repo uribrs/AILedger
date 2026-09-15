@@ -3,10 +3,8 @@ using AILedger.Core.Contracts;
 namespace AILedger.Core.Application;
 
 /// <summary>
-/// What a lesson's verify command means. It lives here rather than in the CLI because two places
-/// have to agree about it: the command-time rule that refuses a fabricated verify, and the recheck
-/// command that runs one and judges the result. Two copies of this would drift, and a drifted copy
-/// would report a lesson as holding on a reading the mark rule never accepted.
+/// What a lesson's verify command means. It retains its public namespace because the CLI consumes
+/// it as part of the existing API, while its physical owner is the Lessons concept.
 /// </summary>
 public static class LessonVerification
 {

@@ -1,14 +1,11 @@
 using AILedger.Core.Contracts;
-using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Lessons;
 
-// Replay counterpart: TaskTransitionValidator.EnsureCitedLessonWasRecalled.
+// Replay counterpart: ReplayValidationRules.EnsureCitedLessonWasRecalled.
 internal static class LessonCitationRules
 {
-    // Mirrors TaskTransitionValidator.EnsureCitedLessonWasRecalled. Written twice, per D13.
-    //
     // The citation is checked against this task's own lessons, never against the store at
     // <home>/lessons. A foreign store is the one thing replay cannot re-read honestly: it changes
     // after the event is written, so a rule keyed on it would reject years-old history for a reason

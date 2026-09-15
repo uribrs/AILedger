@@ -3,7 +3,7 @@ using AILedger.Core.Domain;
 using AILedger.Tests.Artifacts;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Lessons;
 
 // Contract constraint 3, channel (c): a score never enters a lesson. A lesson is minted from a
 // claim, a rejected alternative or a resolved escalation, and it carries that record's own words
@@ -24,7 +24,7 @@ public sealed class LessonMintTests
 
         // An artifact whose body carries a full dimension table, in state before the mint runs.
         // The mint reads the marked record and its evidence, so this must reach no lesson; wire an
-        // artifact body into LessonRules.CreateLesson and this test is what fails.
+        // artifact body into LessonMintingRules and this test is what fails.
         task.Apply(ArtifactCommands.Record(
             task, task.OperatorId, "A-request-2", GovernedArtifactKind.UserRequest,
             "# Request\n\n" + WorkflowRetrospectiveArtifactTests.Table(),

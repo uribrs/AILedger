@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Lessons;
 
 public sealed class LessonLifecycleTests
 {

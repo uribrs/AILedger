@@ -2,7 +2,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Lessons;
 
 // A claim, decision or alternative may name the lesson that prompted it. The citation is checked
 // against this task's own lessons, never against the store at <home>/lessons: a foreign store

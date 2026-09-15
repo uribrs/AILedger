@@ -1,7 +1,7 @@
-using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
 using AILedger.Core.Domain;
+using AILedger.Core.Lessons;
 using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Decisions;

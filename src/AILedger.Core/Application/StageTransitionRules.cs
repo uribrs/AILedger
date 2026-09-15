@@ -2,6 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Artifacts;
 using AILedger.Core.Domain;
+using AILedger.Core.Lessons;
 using AILedger.Core.WorkItems;
 using static AILedger.Core.Application.CommandHandler;
 
@@ -95,7 +96,7 @@ internal static class StageTransitionRules
                 : [new StagePrerequisitesWaived(command.TargetStage, waiver, provenance), transition];
         }
     
-        var lessons = LessonRules.MintLessons(state, command.ActorId, now);
+        var lessons = LessonMintingRules.MintLessons(state, command.ActorId, now);
         if (lessons.Count == 0)
         {
             throw new GovernanceException(
