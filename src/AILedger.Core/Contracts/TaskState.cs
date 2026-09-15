@@ -60,8 +60,6 @@ public sealed record GovernedTaskState
     internal PendingBriefWaiver? PendingContextBriefWaiver { get; init; }
 }
 
-internal sealed record StagePrerequisiteWaiver(EventId EventId, ActorId ActorId, TaskStage TargetStage);
-
 internal sealed record PendingBriefWaiver(
     EventId EventId,
     ActorId ActorId,

@@ -1,7 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Stages;
 
 // Command-time only. These gates read aggregate stage state, so applying them during replay would
 // retroactively reject records that were legal under an earlier methodology.

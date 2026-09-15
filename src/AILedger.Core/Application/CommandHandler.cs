@@ -11,6 +11,7 @@ using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
 using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
+using AILedger.Core.Stages;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
@@ -72,7 +73,7 @@ public sealed class CommandHandler : ICommandHandler
             StartCoordinatorSessionCommand start => CoordinatorSessionLifecycleRules.Start(state, start, now),
             CompleteCoordinatorSessionCommand complete =>
                 CoordinatorSessionLifecycleRules.Complete(state, complete, now),
-            RequestStageTransitionCommand transition => StageTransitionRules.TransitionStage(state, transition, now),
+            RequestStageTransitionCommand transition => StageTransitionRules.Transition(state, transition, now),
             RaiseEscalationCommand raise => EscalationRules.Raise(state, raise, now),
             ResolveEscalationCommand resolve => EscalationRules.Resolve(state, resolve),
             RecordAlternativeCommand record => AlternativeRules.Record(state, record, now),

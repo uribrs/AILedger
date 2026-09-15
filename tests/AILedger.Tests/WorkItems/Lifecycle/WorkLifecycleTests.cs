@@ -278,30 +278,6 @@ public sealed class WorkLifecycleTests
         Assert.NotEqual(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 
-    // And the same run staffs no role for the stage arms.
-    [Fact]
-    public void ANoProviderRunStaffsNoRoleForAStageArm()
-    {
-        var task = Prepare(out var workItemId);
-        var researcher = new ActorId("researcher");
-        task.Assign(researcher, RoleKind.Researcher, Capability.AddClaim, Capability.BuildContext);
-        task.Apply(new StartRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("RN"), workItemId, AgentRun.NoProvider,
-            ProviderSessionId: null, SubjectActorId: researcher));
-        task.Apply(new CompleteRunCommand(
-            task.OperatorId, null, task.NextCorrelation(), new RunId("RN"), AgentRunStatus.Completed, null));
-
-        task.Apply(new AddClaimCommand(
-            task.OperatorId, null, task.NextCorrelation(), new ClaimId("C9"), "Something to research", null));
-        task.Apply(new RequestStageTransitionCommand(
-            task.OperatorId, null, task.NextCorrelation(), TaskStage.Research));
-
-        var error = Assert.Throws<GovernanceException>(() => task.Apply(new RequestStageTransitionCommand(
-            task.OperatorId, null, task.NextCorrelation(), TaskStage.Design)));
-
-        Assert.Contains("Design requires a completed Researcher run", error.Message, StringComparison.Ordinal);
-    }
-
     // Three live agents closed their own runs despite a briefing forbidding it. A launched agent
     // shares the run's actor identity, so only a secret the launcher holds can tell them apart.
     [Fact]

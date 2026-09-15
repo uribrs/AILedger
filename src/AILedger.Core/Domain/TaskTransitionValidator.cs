@@ -10,6 +10,7 @@ using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
 using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
+using AILedger.Core.Stages;
 using AILedger.Core.WorkItems;
 using static AILedger.Core.Domain.ReplayValidationRules;
 
@@ -68,10 +69,10 @@ internal static class TaskTransitionValidator
                 RunEventValidator.ValidateCompleted(Require(state), @event, completed);
                 break;
             case StagePrerequisitesWaived waived:
-                ValidateStagePrerequisitesWaived(Require(state), @event, waived);
+                StageEventValidator.ValidatePrerequisitesWaived(Require(state), @event, waived);
                 break;
             case StageTransitioned transitioned:
-                ValidateStageTransitioned(Require(state), @event, transitioned);
+                StageEventValidator.ValidateTransitioned(Require(state), @event, transitioned);
                 break;
             case EscalationRaised raised:
                 EscalationEventValidator.ValidateRaised(Require(state), @event, raised.Escalation);
@@ -320,100 +321,6 @@ internal static class TaskTransitionValidator
             }
         }
     }
-
-
-    private static void ValidateStageTransitioned(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        StageTransitioned transitioned)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.RequestTransition);
-        RequireDefined(transitioned.Previous, nameof(transitioned.Previous));
-        RequireDefined(transitioned.Current, nameof(transitioned.Current));
-        if (state.Stage != transitioned.Previous)
-        {
-            throw new GovernanceException(
-                $"Stage transition expected '{transitioned.Previous}', but task is in '{state.Stage}'.");
-        }
-
-        StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
-        if (state.PendingStagePrerequisiteWaiver is { } waiver)
-        {
-            if (waiver.ActorId != @event.ActorId ||
-                waiver.TargetStage != transitioned.Current ||
-                @event.CausationId != waiver.EventId)
-            {
-                throw new GovernanceException(
-                    "A stage prerequisite waiver must be consumed by its immediately caused transition.");
-            }
-        }
-        else
-        {
-            EnsureStagePrerequisites(state, transitioned.Current);
-        }
-        // C3 (lesson-closeout-replay-compatibility): CommandHandler requires and emits lessons for
-        // a new Learn -> Archive command. Replay deliberately does not require a preceding lesson:
-        // every archive history written before lesson events existed has none.
-
-        // The transition-reason rule is command-time only, in all three of its halves, and only the
-        // first half has to be. That a backward transition carries a reason keys on Reason being
-        // absent, and almost every stage.transitioned in this ledger was written before the field
-        // existed and carries none — a replay copy would refuse histories that were legal when
-        // they were written, which is the direction this file may never move in. The other two
-        // halves — that a forward transition carries no reason, and that a present reason is not
-        // blank — key on Reason being present, which no event written before the field can be, so
-        // they are safe by construction and could have been written here. They were left out
-        // deliberately rather than forgotten. What their absence costs is small and worth stating
-        // plainly: a hand-edited events.jsonl line could replay a stage state the command path
-        // would have refused to produce. Replay's protection against a forged line is provenance
-        // and sequence, not a second copy of every rule.
-    }
-
-    private static void ValidateStagePrerequisitesWaived(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        StagePrerequisitesWaived waived)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.RequestTransition);
-        RequireDefined(waived.TargetStage, nameof(waived.TargetStage));
-        if (string.IsNullOrWhiteSpace(waived.Reason))
-        {
-            throw new GovernanceException(
-                "Waiving stage prerequisites needs a reason; a blank waiver records nothing.");
-        }
-
-        if (!IsOperator(state, @event.ActorId))
-        {
-            throw new GovernanceException("Only an operator can transition stages without prerequisites.");
-        }
-
-        if (state.PendingStagePrerequisiteWaiver is not null)
-        {
-            throw new GovernanceException("A stage prerequisite waiver is already pending.");
-        }
-
-        StageTransitionPolicy.EnsureAllowed(state.Stage, waived.TargetStage);
-    }
-
-
-    private static void EnsureStagePrerequisites(GovernedTaskState state, TaskStage target)
-    {
-        // The coordinator's stage-engagement arms are command-time methodology rules and are
-        // deliberately absent here. Adding them during replay would reject histories that were
-        // legal before those prerequisites existed. Keep only the legacy structural gates below.
-        if (target == TaskStage.Execution && state.WorkItems.Count == 0)
-        {
-            throw new GovernanceException("Execution requires at least one governed work item.");
-        }
-
-        if (target == TaskStage.Archive &&
-            (state.Runs.Values.Any(run => run.Status is AgentRunStatus.Active) ||
-             state.Challenges.Values.Any(challenge => challenge.Status == ChallengeStatus.Open)))
-        {
-            throw new GovernanceException("A task with active runs or open challenges cannot be archived.");
-        }
-    }
-
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");
 

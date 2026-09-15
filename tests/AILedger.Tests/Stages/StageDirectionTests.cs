@@ -1,7 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Stages;
 
 // StageTransitionPolicy.IsBackward decides whether a transition is a step back through the pipeline,
 // and it decides it from the enum's ordinal rather than from a table of its own. That is cheap to

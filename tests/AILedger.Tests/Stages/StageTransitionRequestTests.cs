@@ -5,7 +5,7 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Stages;
 
 // A stage transition that goes back in the pipeline says something was learned that invalidates
 // work already done, and the arrow alone does not say what. So a backward move now carries a
@@ -20,9 +20,69 @@ namespace AILedger.Tests.Core;
 //
 // Command-time only. Every stage.transitioned already on disk carries no reason, so the rule must
 // not reach the replay validator; StagePrerequisiteReplayBoundaryTests holds that boundary.
-public sealed class StageTransitionReasonTests
+public sealed class StageTransitionRequestTests
 {
     private const string ReasonProperty = "\"reason\"";
+    private static readonly DateTimeOffset When = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void CommandTimeRefusesAStagePrerequisiteWaiverFromANonOperator()
+    {
+        var task = new TestTask();
+        var lead = new ActorId("lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.RequestTransition);
+        var handler = new CommandHandler(new NonValidatingReducer(), new AuthorizationPolicy());
+
+        var refusal = Assert.Throws<GovernanceException>(() => handler.Handle(
+            task.State,
+            new RequestStageTransitionCommand(
+                lead, null, "waive-command-time", TaskStage.Research,
+                WithoutPrerequisitesReason: "The arm is inapplicable"),
+            When));
+
+        Assert.Equal("Only an operator can transition stages without prerequisites.", refusal.Message);
+    }
+
+    [Fact]
+    public void ReplayRefusesAStagePrerequisiteWaiverFromANonOperator()
+    {
+        var task = new TestTask();
+        var lead = new ActorId("lead");
+        task.Assign(lead, RoleKind.ImplementationLead, Capability.RequestTransition);
+        var forged = new LedgerEvent(
+            GovernedTaskState.CurrentSchemaVersion,
+            new EventId($"{task.TaskId.Value}:{task.State.Version + 1:D10}"),
+            task.TaskId,
+            lead,
+            When,
+            null,
+            "waive-replay",
+            new StagePrerequisitesWaived(TaskStage.Research, "The arm is inapplicable"));
+
+        var refusal = Assert.Throws<GovernanceException>(() => new TaskReducer().Apply(task.State, forged));
+
+        Assert.Equal("Only an operator can transition stages without prerequisites.", refusal.Message);
+    }
+
+    [Fact]
+    public void ABlankWaiverIsRefusedBeforeAnUnknownSerialJustification()
+    {
+        var task = new TestTask();
+        task.ReachStage(TaskStage.Execution);
+
+        var refusal = Assert.Throws<GovernanceException>(() => task.Apply(
+            new RequestStageTransitionCommand(
+                task.OperatorId,
+                null,
+                task.NextCorrelation(),
+                TaskStage.Verification,
+                WithoutPrerequisitesReason: "   ",
+                SerialJustification: new AlternativeId("ALT-missing"))));
+
+        Assert.Equal(
+            "Waiving stage prerequisites needs a reason; a blank waiver records nothing.",
+            refusal.Message);
+    }
 
     [Fact]
     public void ABackwardTransitionWithoutAReasonIsRefused()
@@ -324,7 +384,7 @@ public sealed class StageTransitionReasonTests
         var evidenceId = new EvidenceId("E-topic");
         task.Apply(new AddEvidenceCommand(
             task.OperatorId, null, task.NextCorrelation(), evidenceId, "source-read",
-            "src/AILedger.Core/Application/StageTransitionRules.cs:22",
+            "src/AILedger.Core/Stages/Logic/StagePrerequisiteRules.cs:60",
             "The arms read state the kernel already holds", [claimId], []));
         task.Apply(new ResolveClaimCommand(
             task.OperatorId, null, task.NextCorrelation(), claimId, ClaimStatus.Validated, [evidenceId]));
@@ -332,5 +392,11 @@ public sealed class StageTransitionReasonTests
         Assert.DoesNotContain(task.State.Claims.Values, claim => claim.Status == ClaimStatus.Open);
         Assert.Equal(TaskStage.Design, task.State.Stage);
         return task;
+    }
+
+    private sealed class NonValidatingReducer : ITaskReducer
+    {
+        public GovernedTaskState Apply(GovernedTaskState? state, LedgerEvent @event) =>
+            state! with { Version = state.Version + 1 };
     }
 }

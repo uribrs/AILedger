@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Stages;
 
 // The entry-action matrix is the dual of the stage arms: the record consumed on entry to a stage
 // is produced in the stage immediately before it. These tests drive CommandHandler directly, with

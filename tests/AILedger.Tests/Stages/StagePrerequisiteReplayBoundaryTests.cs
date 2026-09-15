@@ -1,7 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Stages;
 
 // R1 (replay-gate-leak). The stage arms are methodology, and the operator is still changing it.
 // Command-time rules may tighten; replay-time rules may not, because every task already on disk

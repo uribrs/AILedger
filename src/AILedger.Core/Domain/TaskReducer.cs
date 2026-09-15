@@ -10,6 +10,7 @@ using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
 using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
+using AILedger.Core.Stages;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Domain;
@@ -45,8 +46,9 @@ public sealed class TaskReducer : ITaskReducer
                 JoinBriefWaiver(
                     Require(state), @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)),
             RunCompleted completed => RunStateProjector.Complete(Require(state), completed),
-            StagePrerequisitesWaived waived => RecordStagePrerequisiteWaiver(Require(state), @event, waived),
-            StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
+            StagePrerequisitesWaived waived =>
+                StageStateProjector.RecordPrerequisiteWaiver(Require(state), @event, waived),
+            StageTransitioned transitioned => StageStateProjector.Transition(Require(state), transitioned),
             EscalationRaised raised => EscalationStateProjector.Add(Require(state), raised),
             EscalationResolved resolved => EscalationStateProjector.Resolve(Require(state), resolved),
             AlternativeRecorded recorded => AlternativeStateProjector.Add(Require(state), recorded),
@@ -168,34 +170,6 @@ public sealed class TaskReducer : ITaskReducer
                     waiver.Provenance)
             ]
             : state.ContextBriefWaivers;
-
-    private static GovernedTaskState TransitionStage(GovernedTaskState state, StageTransitioned transitioned)
-    {
-        if (state.Stage != transitioned.Previous)
-        {
-            throw new GovernanceException(
-                $"Stage transition expected '{transitioned.Previous}', but task is in '{state.Stage}'.");
-        }
-
-        StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
-        return state with
-        {
-            Stage = transitioned.Current,
-            PendingStagePrerequisiteWaiver = null
-        };
-    }
-
-    private static GovernedTaskState RecordStagePrerequisiteWaiver(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        StagePrerequisitesWaived waived) =>
-        state with
-        {
-            PendingStagePrerequisiteWaiver = new StagePrerequisiteWaiver(
-                @event.EventId,
-                @event.ActorId,
-                waived.TargetStage)
-        };
 
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");

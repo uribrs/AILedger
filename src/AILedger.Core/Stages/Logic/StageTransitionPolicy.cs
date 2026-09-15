@@ -2,6 +2,7 @@ using AILedger.Core.Contracts;
 
 namespace AILedger.Core.Domain;
 
+// Public namespace is preserved for source compatibility; physical ownership belongs to Stages.
 public static class StageTransitionPolicy
 {
     private static readonly IReadOnlyDictionary<TaskStage, IReadOnlySet<TaskStage>> AllowedTransitions =
