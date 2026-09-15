@@ -1,9 +1,12 @@
 # standalone semantic memory
 
-Build a local, optional knowledge index over AILedger's durable records, then extend it to source
-repositories only after the first corpus proves that retrieval quality improves. The index runs in
-**shadow mode**: it can ingest, search and evaluate real data, but no kernel command, transition,
-manifest or provider launch reads it.
+Build a local, optional knowledge index over AILedger's durable records. The delivered phase 0/1
+index runs in **shadow mode**: it can ingest, search and evaluate real data, but no kernel command,
+transition, manifest or provider launch reads it. The activation task now moves beyond permanent
+shadow mode through a bounded real-task trial: an external schedule maintains the disposable index,
+and an explicit context-build option reads it as additive, non-authoritative context. Repository
+ingestion remains out of scope; mutable source is already searchable and would add a separate
+freshness problem before durable-record memory has proved useful.
 
 This is intentionally a major feature with a small first release. Phase 0 and phase 1 now deliver
 the persistence, identity, embedding and evaluation seams without turning the governance kernel into
@@ -113,6 +116,38 @@ The first release does **not**:
 The index reduces repeated I/O and the active context working set. Text, metadata, embeddings and
 search indexes normally occupy more disk than the canonical files alone. It is a retrieval and
 latency feature, not permission to discard evidence.
+
+## revised activation task — operate it to measure it
+
+The original activation gate required a synthetic or offline head-to-head to prove value before any
+kernel path read the index. That boundary was right while isolation, partial-coverage reporting and
+model identity were unproven. It became self-defeating after those controls landed: an index that no
+task can receive cannot produce evidence that its results affect real work, and the checked-in
+fixture baseline does not exactly reproduce the kernel's tag comparison or manifest order.
+
+Accepted decision `D2` on task `2026-09-09_2118-memory-index-activation` replaces that gate with a
+measured, opt-in trial:
+
+1. An external scheduler runs `ailedger-memory update` initially once per week. The kernel does not
+   become a scheduler, and context construction never writes or refreshes SQLite.
+2. `context build --memory` may add at most five role-allowed, non-superseded results within the
+   existing context budget. Canonical tag-and-recency lessons remain present and authoritative.
+3. Every added result carries canonical citations, projection freshness, and the embedding identity
+   when semantic scoring contributed. Query-embedding failure may degrade to lexical memory search.
+4. A missing, stale, corrupt, locked or identity-mismatched projection changes neither the command's
+   successful outcome nor its canonical artifacts. The diagnostic is recorded for audit, and the
+   memory contribution is omitted.
+5. A projection whose last successful update is older than eight days is stale and is not consumed.
+   This gives the weekly job one day of scheduling tolerance. Recent lessons still arrive through
+   canonical recall even when the projection is near that bound.
+6. Context-build audit data records the memory document ids delivered. Later governed records can
+   cite those ids, allowing the trial to distinguish delivered memory from memory that affected a
+   decision, claim, alternative or piece of evidence.
+
+Before the trial starts, the duplicated tag-and-recency benchmark must match the kernel's actual tag
+comparison and output order, statistics must expose indexed-through freshness, and incremental
+updates must retry unchanged documents that lack embeddings. Repository ingestion, remote embedding
+providers, replacement of canonical recall, and synchronous startup writes remain out of scope.
 
 ## the architectural boundary
 
@@ -522,14 +557,19 @@ repositories, and every result names the indexed commit and source span.
 
 Exit: labels and summaries demonstrably improve held-out queries and can be rebuilt independently.
 
-### phase 4 — optional kernel integration, separately authorized
+### phase 4 — measured context integration — active next work
 
-This phase is not included in the present feature authorization. It requires a new decision and
-governed task.
+This phase is authorized as an opt-in trial by accepted decision `D2` on
+`2026-09-09_2118-memory-index-activation`. It does not authorize replacing canonical lesson recall or
+making semantic memory a default dependency.
 
-Possible integration begins with an explicit opt-in such as a context-source adapter or
-`context build --memory`. It must retain the kernel's context budget, citations, role filtering and
-supersession behavior. Shadow evaluation results are its entry evidence.
+- Schedule incremental `ailedger-memory update` outside the kernel, initially weekly.
+- Add indexed-through freshness and missing-vector recovery before consuming the projection.
+- Add a read-only `context build --memory` source capped at five results and bounded by the existing
+  context budget, role filtering, lifecycle/supersession rules and canonical citations.
+- Preserve the current command result and canonical manifest whenever memory cannot contribute.
+- Record delivered and later-cited memory ids so the real-task trial can decide whether the feature
+  becomes a default, remains opt-in or is removed.
 
 ## delivered first-release guarantees
 
@@ -555,21 +595,30 @@ supersession behavior. Shadow evaluation results are its entry evidence.
 
 ## activation gates
 
-The memory index stays disengaged until a later, separately authorized task establishes all of the
-following:
+### opt-in real-task trial
 
-- retrieval quality exceeds the existing baseline on representative queries;
-- citations resolve reliably;
-- lifecycle and supersession filtering has no known correctness defect;
-- index freshness can be detected rather than assumed;
+The scheduled writer and `context build --memory` trial may start only when:
+
+- the benchmark baseline matches the kernel's exact tag comparison and emitted order;
+- citations, role filtering, lifecycle and supersession filtering resolve reliably;
+- statistics expose indexed-through freshness and the reader rejects a projection older than eight
+  days;
 - partial embedding coverage is directly measurable, uncovered documents are retried, and a
   zero-work update cannot replace a degraded health signal with a healthy one;
-- local privacy behavior is acceptable;
-- a named local Ollama model is installed and a model-identified live evaluation demonstrates useful
-  quality and acceptable latency on the real corpus;
-- performance and disk costs are measured on the actual repositories;
-- failure of the projection cannot prevent governed work;
-- the operator explicitly accepts the integration scope.
+- the existing loopback-only privacy and model-identity controls remain intact;
+- failure of SQLite or Ollama cannot prevent governed work or remove canonical context;
+- context audit records which memory ids were delivered and later cited.
+
+### default activation
+
+Making memory a default context source still requires evidence from the opt-in trial that:
+
+- representative real tasks use the retrieved records and improve on canonical recall alone;
+- model-identified query latency, scheduled-update duration and disk cost are acceptable;
+- stale or superseded records do not enter ordinary context;
+- the bounded memory contribution earns its provider-token cost;
+- the operator explicitly accepts default activation. Failure to earn those conditions leaves the
+  feature opt-in or removes it; it does not weaken the gates.
 
 ## open questions to earn with evidence
 
@@ -604,15 +653,20 @@ decides them.
 ## remaining work decomposition
 
 Phase 0/1 contracts, storage, durable-source normalization, retrieval, embeddings, application,
-evaluation, CLI composition and permanent verification tests are delivered. Remaining work follows
-the phase boundary above:
+evaluation, CLI composition and permanent verification tests are delivered. Remaining work now
+follows the revised activation direction:
 
-1. phase 2 adds explicitly registered repository ingestion and changed-blob/symbol indexing;
-2. phase 3 earns model-versioned classification and summaries through measured retrieval gains;
-3. phase 4 considers separately authorized, explicit kernel/context integration only after every
-   activation gate is met.
+1. align the benchmark baseline with actual kernel recall ordering and tag semantics;
+2. expose projection freshness and retry missing embeddings during incremental update;
+3. install the external weekly incremental-update schedule with observable success and failure;
+4. add the bounded, read-only `context build --memory` source and delivery/citation audit;
+5. run the opt-in trial on real tasks and decide whether memory becomes default, stays opt-in or is
+   removed.
 
-Before phase 2 starts, harden partial-embedding recovery across storage, retrieval and application:
+Repository ingestion and model-generated classification are not part of this activation task. They
+remain possible successor work only if durable-record memory first earns its cost.
+
+Before the opt-in trial starts, harden partial-embedding recovery across storage, retrieval and application:
 statistics must report embedded-document coverage, hybrid search must disclose uncovered documents,
 and incremental update must retry missing vectors without letting a no-op run hide degraded state.
 Independent phase 1 verification proved that the current shadow index remains isolated and safely
