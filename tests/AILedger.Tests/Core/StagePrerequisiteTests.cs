@@ -224,7 +224,7 @@ public sealed class StagePrerequisiteTests
     // nothing that did the work.
     //
     // The asymmetry below is deliberate and stated in both decisions, so do not "align" the two:
-    // this arm accepts Worker only, while WorkItemRules.HasCompletedWorkingRun accepts Worker or
+    // this arm accepts Worker only, while WorkItemVerificationRules.HasCompletedWorkingRun accepts Worker or
     // Researcher. The arm now matches its three neighbours, which are already exact — Design
     // requires a Researcher, Review a Verifier, Learn a CodeReviewer. Verification was the only arm
     // carrying a disjunction, and so the only one a coordinating role could satisfy.
@@ -295,7 +295,7 @@ public sealed class StagePrerequisiteTests
     // The counterintuitive half of the same decision, and so the half most likely to be lost in a
     // later refactor: a researcher maps the ground, it does not do the work. The run here is the
     // strongest form of the case — a completed Researcher run against the very work item — which is
-    // enough for WorkItemRules.HasCompletedWorkingRun to call that item worked, and still not enough
+    // enough for WorkItemVerificationRules.HasCompletedWorkingRun to call that item worked, and still not enough
     // to enter Verification. Anyone "aligning" the two predicates makes this fail.
     [Fact]
     public void AResearcherRunDoesNotSatisfyVerificationEither()

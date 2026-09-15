@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.WorkItems.Verification;
 
 // "Completed" used to mean only that someone said so. Nothing in the ledger recorded whether a
 // verifier had ever looked at the work, and nothing stopped a code reviewer from reviewing work

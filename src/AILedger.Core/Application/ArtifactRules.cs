@@ -267,7 +267,7 @@ internal static class ArtifactRules
             throw new GovernanceException(RetrospectiveStageRefusal(state.Stage));
         }
 
-        // Live is the same set ScopeOccupancyRules holds an area against: an item that is neither
+        // Live is the same set WorkItemScopeRules holds an area against: an item that is neither
         // completed, stale nor abandoned still belongs to somebody who could be briefed again.
         var live = state.WorkItems.Values
             .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale

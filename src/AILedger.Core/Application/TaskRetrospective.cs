@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using AILedger.Core.Contracts;
+using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
 
@@ -124,7 +125,8 @@ public static class TaskRetrospective
             CountBy(runs, run => CamelCase(run.Status.ToString())),
             // A null subject role predates the field rather than meaning no role held the run, so it
             // is keyed as unrecorded and NotMeasured says so when any run carries one. Reading the
-            // actor's present role instead would answer a different question, as WorkItemRules:297
+            // actor's present role instead would answer a different question, as
+            // WorkItemVerificationRules.DidWorkUnderAWorkingRole
             // records for the completion gate.
             CountBy(runs, run => run.SubjectRole is { } role ? CamelCase(role.ToString()) : "unrecorded"),
             // Verbatim, not normalised. One run in this repository carries the provider `claude-code`
@@ -438,9 +440,9 @@ public static class TaskRetrospective
                     item.Id.Value,
                     item.Status,
                     item.ResourceScope.Count,
-                    WorkItemRules.HasCompletedWorkingRun(state, item.Id),
-                    WorkItemRules.HasVerifierRunAfterLatestWork(state, item.Id),
-                    WorkItemRules.ProviderThatVerifiedItsOwnWork(state, item.Id),
+                    WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id),
+                    WorkItemVerificationRules.HasVerifierRunAfterLatestWork(state, item.Id),
+                    WorkItemVerificationRules.ProviderThatVerifiedItsOwnWork(state, item.Id),
                     waiver.Reason,
                     waiver.Provenance);
             })

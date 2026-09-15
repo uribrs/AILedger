@@ -57,8 +57,6 @@ public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
 public sealed record EvidenceAdded(Evidence Evidence) : LedgerEventData;
 public sealed record ChallengeRaised(Challenge Challenge) : LedgerEventData;
 public sealed record ChallengeDisposed(ChallengeId ChallengeId, ChallengeStatus Status) : LedgerEventData;
-public sealed record WorkItemAdded(WorkItem WorkItem) : LedgerEventData;
-public sealed record WorkItemInvalidated(WorkItemId WorkItemId, ClaimId RejectedClaimId, WorkItemStatus Status) : LedgerEventData;
 public sealed record RunStarted(AgentRun Run) : LedgerEventData;
 public sealed record RunCompleted(
     RunId RunId,
@@ -138,13 +136,6 @@ public sealed record EscalationResolved(EscalationId EscalationId, EscalationSta
 public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
 public sealed record ConstraintAdded(Constraint Constraint) : LedgerEventData;
 public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEventData;
-public sealed record WorkItemCompleted(
-    WorkItemId WorkItemId,
-    string? WithoutVerificationReason = null,
-    WaiverProvenance? Provenance = null) : LedgerEventData;
-public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
-public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
-public sealed record WorkItemAbandoned(WorkItemId WorkItemId, string Reason) : LedgerEventData;
 public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
 public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
 public sealed record LessonMarked(LessonMark Mark) : LedgerEventData;

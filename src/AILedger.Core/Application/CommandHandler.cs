@@ -2,6 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
 using AILedger.Core.Decisions;
 using AILedger.Core.Domain;
+using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
 
@@ -56,7 +57,7 @@ public sealed class CommandHandler : ICommandHandler
             ResolveDecisionCommand resolve => DecisionRules.ResolveDecision(state, resolve),
             RaiseChallengeCommand raise => ChallengeRules.RaiseChallenge(state, raise, now),
             DisposeChallengeCommand dispose => ChallengeRules.DisposeChallenge(state, dispose),
-            AddWorkItemCommand add => WorkItemRules.AddWorkItem(state, add),
+            AddWorkItemCommand add => WorkItemLifecycleRules.Add(state, add),
             StartRunCommand start => RunRules.StartRun(state, start, now),
             CompleteRunCommand complete => RunRules.CompleteRun(state, complete, now),
             StartCoordinatorSessionCommand start => CoordinatorSessionRules.StartSession(state, start, now),
@@ -71,10 +72,10 @@ public sealed class CommandHandler : ICommandHandler
             MarkLessonBearingCommand mark => LessonRules.MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => ConstraintRules.AddConstraint(state, add, now),
             SupersedeConstraintCommand supersede => ConstraintRules.SupersedeConstraint(state, supersede),
-            CompleteWorkItemCommand complete => WorkItemRules.CompleteWorkItem(state, complete),
-            BlockWorkItemCommand block => WorkItemRules.BlockWorkItem(state, block),
-            UnblockWorkItemCommand unblock => WorkItemRules.UnblockWorkItem(state, unblock),
-            AbandonWorkItemCommand abandon => WorkItemRules.AbandonWorkItem(state, abandon),
+            CompleteWorkItemCommand complete => WorkItemLifecycleRules.Complete(state, complete),
+            BlockWorkItemCommand block => WorkItemLifecycleRules.Block(state, block),
+            UnblockWorkItemCommand unblock => WorkItemLifecycleRules.Unblock(state, unblock),
+            AbandonWorkItemCommand abandon => WorkItemLifecycleRules.Abandon(state, abandon),
             _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
         };
     }

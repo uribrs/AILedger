@@ -1,5 +1,6 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Core.WorkItems;
 using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
@@ -64,7 +65,7 @@ internal static class StageTransitionRules
         // names an alternative that does not exist has recorded nothing, and that is worth refusing
         // whether or not the arm below would have fired — including under a waiver, which skips the
         // arm but still carries this id onto the event. Existence only, exactly as
-        // WorkItemRules.AddWorkItem checks its NotSplitJustification: the kernel cannot judge
+        // WorkItemLifecycleRules.Add checks its NotSplitJustification: the kernel cannot judge
         // whether the alternative says anything true, only that it is on the record.
         if (command.SerialJustification is { } serialJustification)
         {
@@ -115,11 +116,11 @@ internal static class StageTransitionRules
         AlternativeId? serialJustification)
     {
         var currentArtifacts = ArtifactRules.CurrentArtifacts(state);
-        // WorkItemRules.DidWork, not a bare Completed check: a run declaring AgentRun.NoProvider
+        // WorkItemVerificationRules.DidWork, not a bare Completed check: a run declaring AgentRun.NoProvider
         // spawns no provider, so it staffs no role. Without this, two commands stand in for a
         // Researcher run and the Design arm passes on a role nobody held.
         var completedRoles = state.Runs.Values
-            .Where(run => WorkItemRules.DidWork(run) && run.SubjectRole is not null)
+            .Where(run => WorkItemVerificationRules.DidWork(run) && run.SubjectRole is not null)
             .Select(run => run.SubjectRole!.Value)
             .ToHashSet();
         var codeBearing = state.WorkItems.Values.Any(item => item.ResourceScope.Count != 0);
@@ -254,7 +255,7 @@ internal static class StageTransitionRules
         AlternativeId? serialJustification)
     {
         var workedItems = state.WorkItems.Values
-            .Where(item => WorkItemRules.HasCompletedWorkingRun(state, item.Id))
+            .Where(item => WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id))
             .ToArray();
         if (workedItems.Length < 2 || !ArePairwiseDisjoint(workedItems))
         {
@@ -262,7 +263,7 @@ internal static class StageTransitionRules
         }
 
         var workingRuns = state.Runs.Values
-            .Where(WorkItemRules.DidWorkUnderAWorkingRole)
+            .Where(WorkItemVerificationRules.DidWorkUnderAWorkingRole)
             .Where(run => run.WorkItemId is not null)
             .ToArray();
         if (HasCrossItemOverlap(workingRuns) || serialJustification is not null)
@@ -282,7 +283,7 @@ internal static class StageTransitionRules
         {
             for (var second = first + 1; second < items.Count; second++)
             {
-                if (!ScopeOccupancyRules.AreDisjoint(items[first], items[second]))
+                if (!WorkItemScopeRules.AreDisjoint(items[first], items[second]))
                 {
                     return false;
                 }

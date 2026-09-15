@@ -1,6 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
 using AILedger.Core.Domain;
+using AILedger.Core.WorkItems;
 using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.Application;
@@ -158,7 +159,7 @@ internal static class RunRules
         if (command.WorkItemId is { } workItemId)
         {
             var workItem = Get(state.WorkItems, workItemId, "work item");
-            WorkItemRules.EnsureCanStartWork(state, command.ActorId, workItem);
+            WorkItemLifecycleRules.EnsureCanStart(state, command.ActorId, workItem);
             ClaimDependencyRules.EnsureDependenciesAreCurrent(state, workItem.DependsOnClaims);
             // The status refusal that used to stand here — Blocked, Stale, Completed or Abandoned,
             // Abandoned for the same reason Completed is and for one more: starting a run moves the
@@ -185,7 +186,8 @@ internal static class RunRules
             // them. The ordering is the whole point of having two passes, so a verifier run that
             // ended before the latest work does not open the gate either — it read a different,
             // earlier work item than the one the reviewer would be looking at.
-            if (subjectRole == RoleKind.CodeReviewer && !WorkItemRules.HasVerifierRunAfterLatestWork(state, workItemId))
+            if (subjectRole == RoleKind.CodeReviewer &&
+                !WorkItemVerificationRules.HasVerifierRunAfterLatestWork(state, workItemId))
             {
                 throw new GovernanceException(
                     $"A code reviewer can only start on work item '{workItemId}' after a verifier run has " +

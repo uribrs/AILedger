@@ -1,9 +1,10 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Tests.Core;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.WorkItems.Lifecycle;
 
 public sealed class WorkLifecycleTests
 {

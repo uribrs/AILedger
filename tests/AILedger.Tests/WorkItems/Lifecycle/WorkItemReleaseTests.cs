@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.WorkItems.Lifecycle;
 
 // A work item that turned out to be the wrong split had only two exits: finish it, or leave it
 // holding its directory area for the rest of the task. Neither is honest, and the second blocks

@@ -101,7 +101,7 @@ public sealed class WorkflowRetrospectiveArtifactTests
             task.Apply(Retrospective(task, task.OperatorId, "A-retro")));
 
         // Paused, not Active: live is every status that still holds a directory area, which is the
-        // same set ScopeOccupancyRules refuses an overlapping scope against.
+        // same set WorkItemScopeRules refuses an overlapping scope against.
         Assert.Equal(
             "A workflow retrospective is recorded only when no work item is live; 'W-stage' is still " +
             "live in status 'Paused'.",

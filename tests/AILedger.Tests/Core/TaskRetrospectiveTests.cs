@@ -850,7 +850,7 @@ public sealed class TaskRetrospectiveTests
     }
 
     // The narrowed working-run rule reaches this report without this projection being touched,
-    // because RetrospectiveWorkItem.HasCompletedWorkingRun is WorkItemRules' own predicate (C3). A
+    // because RetrospectiveWorkItem.HasCompletedWorkingRun is WorkItemVerificationRules' predicate (C3). A
     // coordinating role's run against an item is the plan being made, not work a verifier could
     // read, so the report has to say the item has done none — the same answer work complete gives.
     // Asserted here as well as in TaskDebtTests because these are two readers of one predicate, and

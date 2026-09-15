@@ -35,7 +35,7 @@ public sealed class WorkflowRetrospectiveReplayBoundaryTests
             null, null, null, new Provenance(actor, recordedAt, "artifact.record")))));
 
         Assert.Equal(TaskStage.Discovery, state.Stage);
-        // Live in the sense ScopeOccupancyRules means: not Completed, Stale or Abandoned. Starting
+        // Live in the sense WorkItemScopeRules means: not Completed, Stale or Abandoned. Starting
         // the run moved the item from Proposed to Active, and both are live.
         Assert.Equal(WorkItemStatus.Active, state.WorkItems[new WorkItemId("W1")].Status);
         Assert.Equal(AgentRunStatus.Active, state.Runs[new RunId("R1")].Status);

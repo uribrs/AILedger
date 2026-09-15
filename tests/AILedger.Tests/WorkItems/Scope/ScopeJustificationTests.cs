@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.WorkItems.Scope;
 
 // F3b. Two disjoint areas in one work item is one agent holding what two could have held. The
 // kernel cannot judge whether that was the right call — sometimes the areas really do only change

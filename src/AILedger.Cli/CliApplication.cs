@@ -570,7 +570,7 @@ public sealed class CliApplication
 
         var occupied = state.WorkItems.Values
             // Which statuses release an area is this rule written twice: the second copy is the
-            // filter in ScopeOccupancyRules.EnsureScopeIsNotAlreadyOccupied. They must change together.
+            // filter in WorkItemScopeRules.EnsureAvailable. They must change together.
             // Apart, `who` shows an operator an area as taken that `work add` hands to someone else
             // in the next command, or the reverse.
             .Where(item => item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Stale
@@ -608,7 +608,7 @@ public sealed class CliApplication
         // recorded before SubjectRole existed carries none, so it engages nothing.
         //
         // And a run declaring AgentRun.NoProvider engages nothing either, because no provider ran.
-        // This mirrors WorkItemRules.DidWork, which is the predicate the stage arms use. The two
+        // This mirrors WorkItemVerificationRules.DidWork, which is the predicate the stage arms use. The two
         // have to agree or this projection describes a gate it does not match: a verifier found it
         // reporting a provider-none run as engaged while the Design arm correctly refused on it,
         // which is the preflight lying in the one direction an operator cannot check cheaply.

@@ -2,6 +2,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
+using AILedger.Core.WorkItems;
 using static AILedger.Core.Domain.ReplayValidationRules;
 
 namespace AILedger.Core.Domain;
@@ -47,10 +48,10 @@ internal static class TaskTransitionValidator
                 ValidateChallengeDisposed(Require(state), @event, disposed);
                 break;
             case WorkItemAdded added:
-                ValidateWorkItemAdded(Require(state), @event, added.WorkItem);
+                WorkItemEventValidator.ValidateAdded(Require(state), @event, added.WorkItem);
                 break;
             case WorkItemInvalidated invalidated:
-                ValidateWorkItemInvalidated(Require(state), @event, invalidated);
+                WorkItemEventValidator.ValidateInvalidated(Require(state), @event, invalidated);
                 break;
             case RunStarted started:
                 ValidateRunStarted(Require(state), @event, started.Run);
@@ -80,16 +81,16 @@ internal static class TaskTransitionValidator
                 ValidateConstraintSuperseded(Require(state), @event, superseded);
                 break;
             case WorkItemCompleted completed:
-                ValidateWorkItemCompleted(Require(state), @event, completed);
+                WorkItemEventValidator.ValidateCompleted(Require(state), @event, completed);
                 break;
             case WorkItemBlocked blocked:
-                ValidateWorkItemBlocked(Require(state), @event, blocked);
+                WorkItemEventValidator.ValidateBlocked(Require(state), @event, blocked);
                 break;
             case WorkItemUnblocked unblocked:
-                ValidateWorkItemUnblocked(Require(state), @event, unblocked);
+                WorkItemEventValidator.ValidateUnblocked(Require(state), @event, unblocked);
                 break;
             case WorkItemAbandoned abandoned:
-                ValidateWorkItemAbandoned(Require(state), @event, abandoned);
+                WorkItemEventValidator.ValidateAbandoned(Require(state), @event, abandoned);
                 break;
             case ClaimDependenciesRepointed repointed:
                 ClaimEventValidator.ValidateDependenciesRepointed(Require(state), @event, repointed);
@@ -599,7 +600,7 @@ internal static class TaskTransitionValidator
     }
 
     // Safe by construction, on the same grounds as ValidateContextBuilt above and the waiver arm in
-    // ValidateWorkItemCompleted: every rule here keys on a field only a context.brief-waived event
+    // WorkItemEventValidator.ValidateCompleted: every rule here keys on a field only a context.brief-waived event
     // carries, and no history written before this event type existed can reach it. What must never
     // appear is the other direction — an arm requiring a brief, or a waiver, before work.added or
     // run.started. Every task in this ledger carries neither.
@@ -943,84 +944,6 @@ internal static class TaskTransitionValidator
         if (challenge.Status != ChallengeStatus.Open || disposed.Status == ChallengeStatus.Open)
         {
             throw new GovernanceException("Only an open challenge can transition to a terminal disposition.");
-        }
-    }
-
-    private static void ValidateWorkItemAdded(GovernedTaskState state, LedgerEvent @event, WorkItem workItem)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageWork, operatorRequired: true);
-        RequireAuthority(state, @event.ActorId, Capability.ManageScope, operatorRequired: true);
-        EnsureNew(state.WorkItems, workItem.Id, "work item");
-        RequireId(workItem.Id.Value, nameof(workItem.Id));
-        RequireText(workItem.Title, nameof(workItem.Title));
-        RequireDefined(workItem.Status, nameof(workItem.Status));
-        if (workItem.Status != WorkItemStatus.Proposed)
-        {
-            throw new GovernanceException("A newly added work item must have proposed status.");
-        }
-
-        EnsureUnique(workItem.DependsOnClaims, "Dependent claim IDs");
-        EnsureReferencesExist(state.Claims, workItem.DependsOnClaims, "claim");
-        EnsureDependenciesAreCurrent(state, workItem.DependsOnClaims);
-        EnsureUnique(workItem.ResourceScope, "Resource scope entries", StringComparer.Ordinal);
-        if (workItem.ResourceScope.Any(string.IsNullOrWhiteSpace) ||
-            workItem.ResourceScope.Any(scope => !Path.IsPathFullyQualified(scope)))
-        {
-            throw new GovernanceException("Resource scope entries must be non-empty absolute paths.");
-        }
-
-        // Scope occupancy is deliberately NOT checked here. It is a coordination rule about who may
-        // claim an area next, not a structural invariant of the event, and the replay validator has
-        // to accept every history that was ever legal. Adding it here made an existing log
-        // unreadable: work items recorded before the rule existed held overlapping areas legally,
-        // and re-validating their creation events failed. Command-time rules may tighten over time;
-        // replay-time rules may not.
-        //
-        // For the same reason, replay does not require a multi-area item to carry a
-        // NotSplitJustification. That rule keys on the ABSENCE of one, and W10 in the live ledger
-        // holds two areas with none — it was recorded before the rule existed. Requiring it here
-        // would reject that event and destroy the log. Only the shape below is checked, because it
-        // keys on the field being PRESENT, which no older event can be.
-        if (workItem.NotSplitJustification is { } justificationId)
-        {
-            _ = Get(state.Alternatives, justificationId, "alternative");
-        }
-
-        if (workItem.Owner is { } owner && !state.Roles.ContainsKey(owner))
-        {
-            throw new GovernanceException($"Work owner '{owner}' has no assigned role.");
-        }
-    }
-
-    private static void ValidateWorkItemInvalidated(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        WorkItemInvalidated invalidated)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ResolveClaim);
-        RequireDefined(invalidated.Status, nameof(invalidated.Status));
-        var workItem = Get(state.WorkItems, invalidated.WorkItemId, "work item");
-        // R3 (workitem-blocked-conflation): mirrors the CommandHandler filter. A Blocked item
-        // may have been blocked by the operator rather than by invalidation, so only Stale is
-        // proof that invalidation already covered it.
-        if (workItem.Status is WorkItemStatus.Stale)
-        {
-            throw new GovernanceException("An already invalidated work item cannot be invalidated again.");
-        }
-
-        var expectedStatus = workItem.Status == WorkItemStatus.Active
-            ? WorkItemStatus.Blocked
-            : WorkItemStatus.Stale;
-        if (invalidated.Status != expectedStatus)
-        {
-            throw new GovernanceException($"Work item invalidation must transition to '{expectedStatus}'.");
-        }
-
-        var claim = Get(state.Claims, invalidated.RejectedClaimId, "claim");
-        if (claim.Status is not (ClaimStatus.Rejected or ClaimStatus.Superseded) ||
-            !workItem.DependsOnClaims.Contains(claim.Id))
-        {
-            throw new GovernanceException("A work item can only be invalidated by one of its rejected or superseded claims.");
         }
     }
 
@@ -1523,177 +1446,6 @@ internal static class TaskTransitionValidator
         {
             throw new GovernanceException("Only an active constraint can be superseded.");
         }
-    }
-
-    private static void ValidateWorkItemCompleted(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        WorkItemCompleted completed)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageWork);
-        var workItem = Get(state.WorkItems, completed.WorkItemId, "work item");
-        if (workItem.Status is WorkItemStatus.Completed)
-        {
-            throw new GovernanceException("Work item is already completed.");
-        }
-
-        // Mirrors WorkItemRules.CompleteWorkItem, including its separation from the repair
-        // refusal below: an abandoned item is not damaged, so "repair it first" would misdescribe
-        // it. Safe by construction — no history predating work.abandoned carries this status.
-        if (workItem.Status is WorkItemStatus.Abandoned)
-        {
-            throw new GovernanceException(
-                "An abandoned work item cannot be completed. Add a new work item instead of reviving this one.");
-        }
-
-        if (workItem.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale)
-        {
-            throw new GovernanceException(
-                $"Work item in status '{workItem.Status}' cannot be completed before it is repaired.");
-        }
-
-        if (state.Runs.Values.Any(run =>
-                run.WorkItemId == completed.WorkItemId &&
-                run.Status is AgentRunStatus.Active))
-        {
-            throw new GovernanceException("Work item cannot be completed while a run is still active.");
-        }
-
-        if (state.Escalations.Values.Any(escalation =>
-                escalation.WorkItemId == completed.WorkItemId && escalation.Status == EscalationStatus.Open))
-        {
-            throw new GovernanceException("Work item cannot be completed while an escalation on it is open.");
-        }
-
-        // Mirrors the two waiver rules in WorkItemRules.CompleteWorkItem. Both key on the PRESENCE
-        // of WithoutVerificationReason, which is null on every event recorded before the field
-        // existed, so neither can bite on a history that was legal when it was written. This is
-        // deliberately not "a completion must carry a waiver": it only constrains the waiver when
-        // one is there.
-        if (completed.WithoutVerificationReason is { } waiver)
-        {
-            if (string.IsNullOrWhiteSpace(waiver))
-            {
-                throw new GovernanceException(
-                    "Waiving the required runs needs a reason; a blank waiver records nothing.");
-            }
-
-            if (!IsOperator(state, @event.ActorId))
-            {
-                throw new GovernanceException("Only an operator can complete work without the required runs.");
-            }
-        }
-
-        // Neither required run — the verifier's, nor a working role's — is checked here, and nor is
-        // the order they ran in. Every work item already completed in this ledger was completed
-        // with no run of any kind, so enforcing any of it at replay would reject a history that was
-        // legal when it was written and make those tasks unreadable. The ordering rule is doubly
-        // unenforceable here: it compares EndedAt against the latest working run, and an old run
-        // carries no SubjectRole, so replay cannot tell which runs were working runs at all. This is the third time the same distinction has had to be drawn, after
-        // scope occupancy and run session identity: command-time rules may tighten, replay-time
-        // rules may not.
-        //
-        // Unlike those two, the rule cannot be made safe by construction: it keys on the ABSENCE of
-        // a run, and absence is exactly what every old history has. What replay does check is the
-        // waiver above — that a reason is there and that an operator recorded it — because that
-        // keys on the PRESENCE of a new field. Whether anyone ever worked or verified the item is
-        // still never re-derived here: the event records what an operator decided, replay accepts it.
-        //
-        // The cross-provider rule added beside the ordering check —
-        // WorkItemRules.ProviderThatVerifiedItsOwnWork, which refuses a completion whose only
-        // verifier runs came from the same provider that did the work — is command-time only for
-        // the same reason and one of its own. Provider IS recorded on every run ever written, so
-        // the field is not the problem; the problem is that no verifier run before this rule was
-        // chosen under it. Any archived history that happens to have verified on the working
-        // provider was legal when it was written, and replay would now call it forged. It also inherits
-        // the ordering gate's blindness: it only counts verifier runs, and an old run carries no
-        // SubjectRole, so replay cannot tell which runs were verifications at all.
-    }
-
-    private static void ValidateWorkItemBlocked(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        WorkItemBlocked blocked)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageWork);
-        var workItem = Get(state.WorkItems, blocked.WorkItemId, "work item");
-        RequireText(blocked.Reason, nameof(blocked.Reason));
-        // Mirrors WorkItemRules.BlockWorkItem: Blocked is a live status holding the item's area,
-        // so a released item must not re-enter it. Abandoned is safe by construction — no history
-        // predating work.abandoned carries that status.
-        //
-        // Stale is deliberately NOT included here, and this is the one place the two copies of the
-        // rule differ. BlockWorkItem refused only Completed for the whole of this kernel's life, so
-        // an operator blocking a stale item was legal, and some log somewhere records one. Adding
-        // Stale here would reject that event and lose the task. Unlike Abandoned, this status is
-        // old, so the tightening is not safe by construction and stays command-time only.
-        if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Abandoned)
-        {
-            throw new GovernanceException("A completed or abandoned work item cannot be blocked.");
-        }
-
-        if (blocked.EscalationId is { } escalationId)
-        {
-            var escalation = Get(state.Escalations, escalationId, "escalation");
-            if (escalation.Status != EscalationStatus.Open)
-            {
-                throw new GovernanceException("A work item can only be blocked on an open escalation.");
-            }
-        }
-    }
-
-    private static void ValidateWorkItemUnblocked(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        WorkItemUnblocked unblocked)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageWork);
-        var workItem = Get(state.WorkItems, unblocked.WorkItemId, "work item");
-        if (workItem.Status != WorkItemStatus.Blocked)
-        {
-            throw new GovernanceException($"Only a blocked work item can be unblocked; this one is '{workItem.Status}'.");
-        }
-
-        // Mirrors WorkItemRules.UnblockWorkItem: unblocking never undoes causal invalidation.
-        if (workItem.DependsOnClaims
-            .Select(claimId => Get(state.Claims, claimId, "claim"))
-            .Any(claim => claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded))
-        {
-            throw new GovernanceException(
-                "A work item depending on a rejected or superseded claim cannot be unblocked.");
-        }
-    }
-
-    private static void ValidateWorkItemAbandoned(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        WorkItemAbandoned abandoned)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageWork, operatorRequired: true);
-        var workItem = Get(state.WorkItems, abandoned.WorkItemId, "work item");
-        RequireText(abandoned.Reason, nameof(abandoned.Reason));
-        // Mirrors WorkItemRules.AbandonWorkItem, Stale included. Every rule on this event is safe
-        // at replay whatever it keys on, because the event type itself is new: no history contains
-        // a work.abandoned at all, so none can be rejected by tightening its rules.
-        if (workItem.Status is WorkItemStatus.Completed or WorkItemStatus.Stale)
-        {
-            throw new GovernanceException("A completed or stale work item cannot be abandoned.");
-        }
-
-        // Abandoning is terminal in the same way completing is, so a second abandonment is refused
-        // rather than tolerated as idempotent.
-        if (workItem.Status is WorkItemStatus.Abandoned)
-        {
-            throw new GovernanceException("Work item is already abandoned.");
-        }
-
-        // Two command-time refusals are deliberately not repeated here: while a run on the item is
-        // active, and while an escalation on it is open. Both are coordination rules about what may
-        // happen next, like scope occupancy, rather than structural facts about the event. Both
-        // could be enforced here safely — the event type is new — but this method deliberately
-        // validates only the shape of the record, and adding one of the two and not the other would
-        // be the arbitrary choice. ValidateWorkItemCompleted does check its equivalents, because
-        // those rules predate it and every completion in every log already satisfies them.
     }
 
     private static void EnsureDependenciesAreCurrent(GovernedTaskState state, IEnumerable<ClaimId> claimIds)

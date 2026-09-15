@@ -141,7 +141,7 @@ public sealed class TaskDebtTests
     // KC1 from the code reviewer: the debt projection listed working roles positively while the
     // completion gate named the two judging roles negatively, so an item worked by any other role
     // read as clear while work complete refused it. The gate's list is positive again, deliberately,
-    // and the defect has not come back with it: both readers ask WorkItemRules.HasCompletedWorkingRun
+    // and the defect has not come back with it: both readers ask WorkItemVerificationRules.HasCompletedWorkingRun
     // — which is internal for exactly that reason — and TaskDebt keeps no role list of its own.
     // Researcher is the fixture because it is the half of the new list a later refactor drops first.
     [Fact]

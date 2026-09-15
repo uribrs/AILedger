@@ -1,6 +1,7 @@
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
+using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Domain;
 
@@ -23,8 +24,12 @@ public sealed class TaskReducer : ITaskReducer
             DecisionInvalidated invalidated => DecisionStateProjector.Invalidate(Require(state), invalidated),
             ChallengeRaised raised => Require(state) with { Challenges = Set(Require(state).Challenges, raised.Challenge.Id, raised.Challenge) },
             ChallengeDisposed disposed => DisposeChallenge(Require(state), disposed),
-            WorkItemAdded added => AddWorkItem(Require(state), @event, added),
-            WorkItemInvalidated invalidated => InvalidateWorkItem(Require(state), invalidated),
+            WorkItemAdded added => WorkItemStateProjector.Add(
+                Require(state),
+                added,
+                JoinBriefWaiver(
+                    Require(state), @event, ContextBriefWaiver.WorkItemKind, added.WorkItem.Id.Value)),
+            WorkItemInvalidated invalidated => WorkItemStateProjector.Invalidate(Require(state), invalidated),
             RunStarted started => StartRun(Require(state), @event, started),
             RunCompleted completed => CompleteRun(Require(state), completed),
             StagePrerequisitesWaived waived => RecordStagePrerequisiteWaiver(Require(state), @event, waived),
@@ -34,10 +39,10 @@ public sealed class TaskReducer : ITaskReducer
             AlternativeRecorded recorded => Require(state) with { Alternatives = Set(Require(state).Alternatives, recorded.Alternative.Id, recorded.Alternative) },
             ConstraintAdded added => Require(state) with { Constraints = Set(Require(state).Constraints, added.Constraint.Id, added.Constraint) },
             ConstraintSuperseded superseded => SupersedeConstraint(Require(state), superseded),
-            WorkItemCompleted completed => SetWorkItemStatus(Require(state), completed.WorkItemId, WorkItemStatus.Completed, null),
-            WorkItemBlocked blocked => SetWorkItemStatus(Require(state), blocked.WorkItemId, WorkItemStatus.Blocked, blocked.Reason),
-            WorkItemUnblocked unblocked => SetWorkItemStatus(Require(state), unblocked.WorkItemId, WorkItemStatus.Paused, null),
-            WorkItemAbandoned abandoned => AbandonWorkItem(Require(state), abandoned),
+            WorkItemCompleted completed => WorkItemStateProjector.Complete(Require(state), completed),
+            WorkItemBlocked blocked => WorkItemStateProjector.Block(Require(state), blocked),
+            WorkItemUnblocked unblocked => WorkItemStateProjector.Unblock(Require(state), unblocked),
+            WorkItemAbandoned abandoned => WorkItemStateProjector.Abandon(Require(state), abandoned),
             ClaimDependenciesRepointed repointed => ClaimStateProjector.RepointDependencies(Require(state), repointed),
             DecisionOverturned overturned => DecisionStateProjector.Overturn(Require(state), overturned),
             LessonMinted minted => AddLesson(Require(state), minted.Lesson),
@@ -152,36 +157,13 @@ public sealed class TaskReducer : ITaskReducer
         return state with { Challenges = Set(state.Challenges, disposed.ChallengeId, challenge) };
     }
 
-    private static GovernedTaskState InvalidateWorkItem(GovernedTaskState state, WorkItemInvalidated invalidated)
-    {
-        var workItem = state.WorkItems[invalidated.WorkItemId] with { Status = invalidated.Status };
-        return state with { WorkItems = Set(state.WorkItems, invalidated.WorkItemId, workItem) };
-    }
-
-    private static GovernedTaskState AddWorkItem(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        WorkItemAdded added) =>
-        state with
-        {
-            WorkItems = Set(state.WorkItems, added.WorkItem.Id, added.WorkItem),
-            ContextBriefWaivers = JoinBriefWaiver(
-                state, @event, ContextBriefWaiver.WorkItemKind, added.WorkItem.Id.Value)
-        };
-
     private static GovernedTaskState StartRun(GovernedTaskState state, LedgerEvent @event, RunStarted started)
     {
-        var workItems = state.WorkItems;
-        if (started.Run.WorkItemId is { } workItemId)
-        {
-            var workItem = state.WorkItems[workItemId] with { Status = WorkItemStatus.Active };
-            workItems = Set(workItems, workItemId, workItem);
-        }
+        var projected = WorkItemStateProjector.ActivateForRun(state, started.Run);
 
-        return state with
+        return projected with
         {
             Runs = Set(state.Runs, started.Run.Id, started.Run),
-            WorkItems = workItems,
             ContextBriefWaivers = JoinBriefWaiver(
                 state, @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)
         };
@@ -217,26 +199,11 @@ public sealed class TaskReducer : ITaskReducer
         // be written out here and again there, and the two drifted by ten fields (VC3, VE7).
         var run = RunCompletionProjection.Apply(state.Runs[completed.RunId], completed);
 
-        var workItems = state.WorkItems;
-        if (run.WorkItemId is { } workItemId)
-        {
-            var currentWorkItem = state.WorkItems[workItemId];
-            // Abandoned joins them because Paused is a live status: flipping a released item back to
-            // Paused would take its directory area back. Safe on old histories — no event recorded
-            // before work.abandoned existed can produce this status.
-            if (currentWorkItem.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale
-                or WorkItemStatus.Abandoned))
-            {
-                // A terminated provider process is not a claim that the work is done.
-                // Completion is asserted explicitly through work.complete.
-                workItems = Set(workItems, workItemId, currentWorkItem with { Status = WorkItemStatus.Paused });
-            }
-        }
+        var projected = WorkItemStateProjector.PauseAfterRun(state, run);
 
-        return state with
+        return projected with
         {
-            Runs = Set(state.Runs, completed.RunId, run),
-            WorkItems = workItems
+            Runs = Set(state.Runs, completed.RunId, run)
         };
     }
 
@@ -267,28 +234,6 @@ public sealed class TaskReducer : ITaskReducer
     {
         var constraint = state.Constraints[superseded.ConstraintId] with { Status = ConstraintStatus.Superseded };
         return state with { Constraints = Set(state.Constraints, superseded.ConstraintId, constraint) };
-    }
-
-    // Kept apart from SetWorkItemStatus because the reason has to survive: why an area was given up
-    // is the only thing left of the work once the item stops being touched.
-    private static GovernedTaskState AbandonWorkItem(GovernedTaskState state, WorkItemAbandoned abandoned)
-    {
-        var workItem = state.WorkItems[abandoned.WorkItemId] with
-        {
-            Status = WorkItemStatus.Abandoned,
-            AbandonReason = abandoned.Reason
-        };
-        return state with { WorkItems = Set(state.WorkItems, abandoned.WorkItemId, workItem) };
-    }
-
-    private static GovernedTaskState SetWorkItemStatus(
-        GovernedTaskState state,
-        WorkItemId workItemId,
-        WorkItemStatus status,
-        string? blockReason)
-    {
-        var workItem = state.WorkItems[workItemId] with { Status = status, BlockReason = blockReason };
-        return state with { WorkItems = Set(state.WorkItems, workItemId, workItem) };
     }
 
     private static GovernedTaskState TransitionStage(GovernedTaskState state, StageTransitioned transitioned)

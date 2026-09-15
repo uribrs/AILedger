@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
 
@@ -116,9 +117,9 @@ public sealed record TaskDebt(
         // that wrote it, not only a missing verifier.
         var awaitingVerification = state.WorkItems.Values.Count(item =>
             item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
-            WorkItemRules.HasCompletedWorkingRun(state, item.Id) &&
-            (!WorkItemRules.HasVerifierRunAfterLatestWork(state, item.Id) ||
-             WorkItemRules.ProviderThatVerifiedItsOwnWork(state, item.Id) is not null));
+            WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id) &&
+            (!WorkItemVerificationRules.HasVerifierRunAfterLatestWork(state, item.Id) ||
+             WorkItemVerificationRules.ProviderThatVerifiedItsOwnWork(state, item.Id) is not null));
 
         // The other half of the same question, and the reason it is a second count rather than a
         // widening of the first: an item that has run something and done no work the gate accepts is
@@ -141,8 +142,9 @@ public sealed record TaskDebt(
         // count exists not to have.
         var runByNoWorkingRole = state.WorkItems.Values.Count(item =>
             item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
-            !WorkItemRules.HasCompletedWorkingRun(state, item.Id) &&
-            state.Runs.Values.Any(run => run.WorkItemId == item.Id && WorkItemRules.DidWork(run)));
+            !WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id) &&
+            state.Runs.Values.Any(run =>
+                run.WorkItemId == item.Id && WorkItemVerificationRules.DidWork(run)));
 
         // state.Lessons holds both kinds and only one of them can be cited as an influence. A lesson
         // minted by this task at archive was produced by it, not handed to it, so counting those as
@@ -207,7 +209,7 @@ public sealed record TaskDebt(
     private static TaskStage? StageActivityImplies(GovernedTaskState state)
     {
         var completedRoles = state.Runs.Values
-            .Where(run => WorkItemRules.DidWork(run) && run.SubjectRole is not null)
+            .Where(run => WorkItemVerificationRules.DidWork(run) && run.SubjectRole is not null)
             .Select(run => run.SubjectRole!.Value)
             .ToHashSet();
         var currentKinds = ArtifactRules.CurrentArtifacts(state).Select(artifact => artifact.Kind).ToHashSet();
