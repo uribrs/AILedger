@@ -68,6 +68,7 @@ public sealed class TaskOpeningTagTests
     // The replay half, and the one that matters for a root that already holds tasks. Every task in
     // this repository was opened before the field existed, so the validator must accept a TaskOpened
     // that carries no tags — and it must not be reached by requiring them.
+    // Roles/task-opening plan attention R3: tasks opened before tags existed remain valid histories.
     [Fact]
     public void ReplayAcceptsATaskOpenedThatCarriesNoTags()
     {

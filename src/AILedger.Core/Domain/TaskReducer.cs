@@ -109,5 +109,4 @@ public sealed class TaskReducer : ITaskReducer
 
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");
-
 }

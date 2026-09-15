@@ -5,6 +5,8 @@ namespace AILedger.Tests.TaskOpening;
 
 public sealed class TaskOpeningTests
 {
+    // Roles/task-opening plan attention R4: command time grants the opening operator every
+    // capability currently defined.
     [Fact]
     public void OpeningTaskEstablishesOperatorWithEveryCapabilityAndCausalEvents()
     {

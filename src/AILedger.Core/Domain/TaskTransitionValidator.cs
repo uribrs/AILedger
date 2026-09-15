@@ -149,8 +149,6 @@ internal static class TaskTransitionValidator
         }
     }
 
-
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");
-
 }

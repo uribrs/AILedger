@@ -41,6 +41,18 @@ public sealed class RoleAssignmentTests
     }
 
     [Fact]
+    public void DuplicateCapabilitiesAreRefusedAtCommandTime()
+    {
+        var task = new TestTask();
+
+        var exception = Assert.Throws<GovernanceException>(() => task.Assign(
+            new ActorId("worker"), RoleKind.Worker,
+            Capability.AddClaim, Capability.AddClaim));
+
+        Assert.Equal("Capabilities cannot contain duplicates.", exception.Message);
+    }
+
+    [Fact]
     public void ActorCannotExpandItsOwnAuthorityEvenWhenItIsOperator()
     {
         var task = new TestTask();

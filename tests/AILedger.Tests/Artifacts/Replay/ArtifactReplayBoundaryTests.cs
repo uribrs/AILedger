@@ -100,59 +100,6 @@ public sealed class ArtifactReplayBoundaryTests
         Assert.Contains("operator", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    // Growing the Capability enum is the one change that reaches every task ever opened, because
-    // replay used to require an opening assignment to equal the current enum exactly. It now
-    // requires the legacy baseline instead, so an opening event written before RecordArtifact
-    // existed still replays — and command-time opening keeps granting everything.
-    [Fact]
-    public void ReplayAcceptsAnOpeningAssignmentCarryingOnlyTheCapabilitiesThatExistedWhenItWasWritten()
-    {
-        var reducer = new TaskReducer();
-        var taskId = new TaskId("legacy-opening");
-        var actor = new ActorId("operator");
-        var recordedAt = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
-        LedgerEvent Next(GovernedTaskState? current, LedgerEventData data) => new(
-            GovernedTaskState.CurrentSchemaVersion,
-            new EventId($"{taskId.Value}:{(current?.Version ?? 0) + 1:D10}"),
-            taskId, actor, recordedAt, null, "replay", data);
-
-        var state = reducer.Apply(null, Next(null, new TaskOpened("Legacy", "Goal")));
-        var legacyCapabilities = Enum.GetValues<Capability>()
-            .Where(capability => capability != Capability.RecordArtifact)
-            .ToArray();
-
-        state = reducer.Apply(state, Next(state, new RoleAssigned(new RoleAssignment(
-            actor, RoleKind.Operator, legacyCapabilities, new Provenance(actor, recordedAt, "task.open")))));
-
-        Assert.Equal(RoleKind.Operator, state.Roles[actor].Role);
-        Assert.DoesNotContain(Capability.RecordArtifact, state.Roles[actor].Capabilities);
-    }
-
-    // The loosening goes exactly as far as the baseline and no further. An opening assignment
-    // missing a capability that did exist when it was written is still a forgery.
-    [Fact]
-    public void ReplayStillRefusesAnOpeningAssignmentBelowTheLegacyBaseline()
-    {
-        var reducer = new TaskReducer();
-        var taskId = new TaskId("narrow-opening");
-        var actor = new ActorId("operator");
-        var recordedAt = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
-        LedgerEvent Next(GovernedTaskState? current, LedgerEventData data) => new(
-            GovernedTaskState.CurrentSchemaVersion,
-            new EventId($"{taskId.Value}:{(current?.Version ?? 0) + 1:D10}"),
-            taskId, actor, recordedAt, null, "replay", data);
-
-        var state = reducer.Apply(null, Next(null, new TaskOpened("Narrow", "Goal")));
-        var narrowed = Enum.GetValues<Capability>()
-            .Where(capability => capability is not (Capability.RecordArtifact or Capability.ManageWork))
-            .ToArray();
-
-        var forged = Next(state, new RoleAssigned(new RoleAssignment(
-            actor, RoleKind.Operator, narrowed, new Provenance(actor, recordedAt, "task.open"))));
-
-        Assert.Throws<GovernanceException>(() => reducer.Apply(state, forged));
-    }
-
     private static GovernedArtifact Artifact(
         string artifactId,
         GovernedArtifactKind kind,

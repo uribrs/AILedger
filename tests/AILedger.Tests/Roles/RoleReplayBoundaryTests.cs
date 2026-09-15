@@ -5,6 +5,8 @@ namespace AILedger.Tests.Roles;
 
 public sealed class RoleReplayBoundaryTests
 {
+    // Roles/task-opening plan attention R2: replay must accept the capability set emitted before
+    // RecordArtifact existed.
     [Fact]
     public void ReplayAcceptsTheLegacyOpeningCapabilityBaseline()
     {
@@ -24,6 +26,29 @@ public sealed class RoleReplayBoundaryTests
             new Provenance(operatorId, recordedAt, "task.open"))), operatorId, recordedAt));
 
         Assert.Equal(legacyCapabilities, state.Roles[operatorId].Capabilities);
+    }
+
+    [Fact]
+    public void ReplayStillRefusesAnOpeningAssignmentBelowTheLegacyBaseline()
+    {
+        var taskId = new TaskId("T1");
+        var operatorId = new ActorId("operator");
+        var recordedAt = DateTimeOffset.UnixEpoch;
+        var reducer = new TaskReducer();
+        var state = reducer.Apply(null, Event(taskId, new TaskOpened("Task", "Goal"), operatorId, recordedAt));
+        var narrowedCapabilities = Enum.GetValues<Capability>()
+            .Where(capability => capability is not (Capability.RecordArtifact or Capability.ManageWork))
+            .ToArray();
+
+        var forged = Event(taskId, new RoleAssigned(new RoleAssignment(
+            operatorId,
+            RoleKind.Operator,
+            narrowedCapabilities,
+            new Provenance(operatorId, recordedAt, "task.open"))), operatorId, recordedAt);
+
+        var exception = Assert.Throws<GovernanceException>(() => reducer.Apply(state, forged));
+
+        Assert.Contains("legacy capability baseline", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -66,6 +91,29 @@ public sealed class RoleReplayBoundaryTests
         Assert.Contains("provenance", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ReplayRejectsDuplicateCapabilities()
+    {
+        var taskId = new TaskId("T1");
+        var operatorId = new ActorId("operator");
+        var recordedAt = DateTimeOffset.UnixEpoch;
+        var reducer = new TaskReducer();
+        var state = Open(reducer, taskId, operatorId, recordedAt);
+        var duplicateCapabilities = new RoleAssignment(
+            new ActorId("worker"),
+            RoleKind.Worker,
+            [Capability.AddClaim, Capability.AddClaim],
+            new Provenance(operatorId, recordedAt, "actor.assign-role"));
+
+        var exception = Assert.Throws<GovernanceException>(() => reducer.Apply(
+            state,
+            Event(taskId, new RoleAssigned(duplicateCapabilities), operatorId, recordedAt)));
+
+        Assert.Equal("Role capabilities cannot contain duplicates.", exception.Message);
+    }
+
+    // Roles/task-opening plan attention R5: replay must reject a direct authority-changing event
+    // from a worker.
     [Fact]
     public void ReplayRejectsAuthorityChangingEventFromWorker()
     {
