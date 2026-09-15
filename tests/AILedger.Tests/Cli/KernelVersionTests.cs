@@ -243,11 +243,10 @@ public sealed class KernelVersionTests
     [InlineData("work complete", false)]
     public void OnlyReadCommandsAreExemptFromTheStalenessWarning(string command, bool exempt)
     {
-        var field = typeof(CliApplication)
-            .GetField("ReadOnlyCommands", BindingFlags.Static | BindingFlags.NonPublic)!;
-        var reads = (IReadOnlySet<string>)field.GetValue(null)!;
+        var application = Application(TextWriter.Null, TextWriter.Null);
+        Assert.True(application.CommandCatalog.TryGet(command, out var registration));
 
-        Assert.Equal(exempt, reads.Contains(command));
+        Assert.Equal(exempt, registration.IsReadOnly);
     }
 
     // The case LC6 showed was never covered: a clean tree at a different commit. `git status

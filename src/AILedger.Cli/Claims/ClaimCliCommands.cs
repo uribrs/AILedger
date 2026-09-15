@@ -1,4 +1,6 @@
 using AILedger.Core.Contracts;
+using AILedger.Cli.Routing;
+using static AILedger.Cli.Routing.CliInput;
 
 namespace AILedger.Cli.Claims;
 
@@ -7,21 +9,27 @@ namespace AILedger.Cli.Claims;
 // unrelated branch to the application's central command switch.
 internal static class ClaimCliCommands
 {
-    private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> OptionsByCommand =
+    private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> CommandOptions =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["claim add"] = Options(
+            ["claim add"] = CliCommandOptions.Set(
                 "root", "task", "actor", "id", "statement", "consequence", "from-lesson", "cause", "correlation"),
-            ["claim resolve"] = Options(
+            ["claim resolve"] = CliCommandOptions.Set(
                 "root", "task", "actor", "id", "status", "evidence", "superseded-by", "cause", "correlation")
         };
 
-    public static bool TryGetAllowedOptions(string command, out IReadOnlySet<string> allowedOptions) =>
-        OptionsByCommand.TryGetValue(command, out allowedOptions!);
+    public static IEnumerable<CliCommandRegistration> Registrations(CliCommandExecutor executor) =>
+        CommandOptions.Select(command => new CliCommandRegistration(
+            [command.Key],
+            command.Value,
+            isReadOnly: false,
+            (invocation, cancellationToken) => executor.ExecuteAsync(
+                invocation,
+                Create(command.Key, invocation.Input),
+                cancellationToken)));
 
-    public static bool TryCreate(string command, CommandLine input, out LedgerCommand? ledgerCommand)
-    {
-        ledgerCommand = command switch
+    private static LedgerCommand Create(string command, CommandLine input) =>
+        command switch
         {
             "claim add" => new AddClaimCommand(
                 Actor(input), Cause(input), input.CorrelationId, new ClaimId(input.Required("id")),
@@ -32,28 +40,6 @@ internal static class ClaimCliCommands
                 EnumValue<ClaimStatus>(input, "status"),
                 input.Many("evidence").Select(value => new EvidenceId(value)).ToArray(),
                 OptionalId(input.Optional("superseded-by"), value => new ClaimId(value))),
-            _ => null
+            _ => throw new InvalidOperationException($"Claim command '{command}' is not registered.")
         };
-
-        return ledgerCommand is not null;
-    }
-
-    private static ActorId Actor(CommandLine input) => new(input.Required("actor"));
-    private static EventId? Cause(CommandLine input) =>
-        OptionalId(input.Optional("cause"), value => new EventId(value));
-
-    private static T? OptionalId<T>(string? value, Func<string, T> factory) where T : struct =>
-        string.IsNullOrWhiteSpace(value) ? null : factory(value);
-
-    private static T EnumValue<T>(CommandLine input, string name) where T : struct, Enum =>
-        ParseEnum<T>(input.Required(name));
-
-    private static T ParseEnum<T>(string value) where T : struct, Enum =>
-        Enum.TryParse<T>(value.Replace("-", string.Empty, StringComparison.Ordinal), true, out var parsed) &&
-        Enum.IsDefined(parsed)
-            ? parsed
-            : throw new CliUsageException($"'{value}' is not a valid {typeof(T).Name}.");
-
-    private static IReadOnlySet<string> Options(params string[] names) =>
-        new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
 }
