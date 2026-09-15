@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AILedger.Cli.Claims;
+using AILedger.Cli.Decisions;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -191,6 +192,12 @@ public sealed class CliApplication
             return;
         }
 
+        if (DecisionCliCommands.TryCreate(command, input, out var decisionCommand))
+        {
+            await ExecuteAsync(service, input, decisionCommand!, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         switch (command)
         {
             case "task open":
@@ -246,19 +253,6 @@ public sealed class CliApplication
                     input.Required("source-type"), input.Required("citation"), input.Required("summary"),
                     input.Many("supports").Select(value => new ClaimId(value)).ToArray(),
                     input.Many("refutes").Select(value => new ClaimId(value)).ToArray()), cancellationToken).ConfigureAwait(false);
-                break;
-            case "decision propose":
-                await ExecuteAsync(service, input, new ProposeDecisionCommand(
-                    Actor(input), Cause(input), Correlation(input), new DecisionId(input.Required("id")),
-                    input.Required("statement"), input.Required("rationale"),
-                    input.Many("depends-on").Select(value => new ClaimId(value)).ToArray(),
-                    OptionalId(input.Optional("supersedes"), value => new DecisionId(value)),
-                    OptionalId(input.Optional("from-lesson"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
-                break;
-            case "decision resolve":
-                await ExecuteAsync(service, input, new ResolveDecisionCommand(
-                    Actor(input), Cause(input), Correlation(input), new DecisionId(input.Required("id")),
-                    EnumValue<DecisionStatus>(input, "status")), cancellationToken).ConfigureAwait(false);
                 break;
             case "challenge raise":
                 await ExecuteAsync(service, input, new RaiseChallengeCommand(
@@ -420,6 +414,7 @@ public sealed class CliApplication
     private static void ValidateOptions(string command, CommandLine input)
     {
         if (!ClaimCliCommands.TryGetAllowedOptions(command, out var allowedOptions) &&
+            !DecisionCliCommands.TryGetAllowedOptions(command, out allowedOptions) &&
             !AllowedOptions.TryGetValue(command, out allowedOptions))
         {
             throw new CliUsageException($"Unknown command '{string.Join(' ', input.Command)}'. Use --help.");
@@ -2020,11 +2015,6 @@ public sealed class CliApplication
             ["evidence add"] = Options(
                 "root", "task", "actor", "id", "source-type", "citation", "summary", "supports", "refutes",
                 "cause", "correlation"),
-            ["decision propose"] = Options(
-                "root", "task", "actor", "id", "statement", "rationale", "depends-on", "supersedes",
-                "from-lesson", "cause", "correlation"),
-            ["decision resolve"] = Options(
-                "root", "task", "actor", "id", "status", "cause", "correlation"),
             ["challenge raise"] = Options(
                 "root", "task", "actor", "id", "target-type", "target-id", "reason", "evidence",
                 "cause", "correlation"),

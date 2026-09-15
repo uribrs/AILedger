@@ -55,9 +55,6 @@ public abstract record LedgerEventData;
 public sealed record TaskOpened(string Title, string Goal, IReadOnlyList<string>? Tags = null) : LedgerEventData;
 public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
 public sealed record EvidenceAdded(Evidence Evidence) : LedgerEventData;
-public sealed record DecisionProposed(Decision Decision) : LedgerEventData;
-public sealed record DecisionResolved(DecisionId DecisionId, DecisionStatus Status) : LedgerEventData;
-public sealed record DecisionInvalidated(DecisionId DecisionId, ClaimId RejectedClaimId) : LedgerEventData;
 public sealed record ChallengeRaised(Challenge Challenge) : LedgerEventData;
 public sealed record ChallengeDisposed(ChallengeId ChallengeId, ChallengeStatus Status) : LedgerEventData;
 public sealed record WorkItemAdded(WorkItem WorkItem) : LedgerEventData;
@@ -148,7 +145,6 @@ public sealed record WorkItemCompleted(
 public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
 public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
 public sealed record WorkItemAbandoned(WorkItemId WorkItemId, string Reason) : LedgerEventData;
-public sealed record DecisionOverturned(DecisionId DecisionId, ChallengeId ChallengeId) : LedgerEventData;
 public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
 public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
 public sealed record LessonMarked(LessonMark Mark) : LedgerEventData;

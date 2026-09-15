@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
+using AILedger.Core.Decisions;
 using static AILedger.Core.Domain.ReplayValidationRules;
 
 namespace AILedger.Core.Domain;
@@ -31,13 +32,13 @@ internal static class TaskTransitionValidator
                 ValidateEvidenceAdded(Require(state), @event, added.Evidence);
                 break;
             case DecisionProposed proposed:
-                ValidateDecisionProposed(Require(state), @event, proposed.Decision);
+                DecisionEventValidator.ValidateProposed(Require(state), @event, proposed.Decision);
                 break;
             case DecisionResolved resolved:
-                ValidateDecisionResolved(Require(state), @event, resolved);
+                DecisionEventValidator.ValidateResolved(Require(state), @event, resolved);
                 break;
             case DecisionInvalidated invalidated:
-                ValidateDecisionInvalidated(Require(state), @event, invalidated);
+                DecisionEventValidator.ValidateInvalidated(Require(state), @event, invalidated);
                 break;
             case ChallengeRaised raised:
                 ValidateChallengeRaised(Require(state), @event, raised.Challenge);
@@ -94,7 +95,7 @@ internal static class TaskTransitionValidator
                 ClaimEventValidator.ValidateDependenciesRepointed(Require(state), @event, repointed);
                 break;
             case DecisionOverturned overturned:
-                ValidateDecisionOverturned(Require(state), @event, overturned);
+                DecisionEventValidator.ValidateOverturned(Require(state), @event, overturned);
                 break;
             case LessonMinted minted:
                 ValidateLessonMinted(Require(state), @event, minted.Lesson);
@@ -911,98 +912,6 @@ internal static class TaskTransitionValidator
         ValidateProvenance(@event, evidence.Provenance, "evidence.add");
     }
 
-    private static void ValidateDecisionProposed(GovernedTaskState state, LedgerEvent @event, Decision decision)
-    {
-        EnsureCitedLessonWasRecalled(state, decision.FromLesson);
-        RequireAuthority(state, @event.ActorId, Capability.ProposeDecision);
-        EnsureNew(state.Decisions, decision.Id, "decision");
-        RequireId(decision.Id.Value, nameof(decision.Id));
-        RequireText(decision.Statement, nameof(decision.Statement));
-        RequireText(decision.Rationale, nameof(decision.Rationale));
-        RequireDefined(decision.Status, nameof(decision.Status));
-        if (decision.Status != DecisionStatus.Proposed)
-        {
-            throw new GovernanceException("A newly proposed decision must have proposed status.");
-        }
-
-        EnsureUnique(decision.DependsOnClaims, "Dependent claim IDs");
-        EnsureReferencesExist(state.Claims, decision.DependsOnClaims, "claim");
-        EnsureDependenciesAreCurrent(state, decision.DependsOnClaims);
-        if (decision.Supersedes is { } supersededId)
-        {
-            if (supersededId == decision.Id)
-            {
-                throw new GovernanceException("A decision cannot supersede itself.");
-            }
-
-            EnsureDecisionIsCurrent(Get(state.Decisions, supersededId, "decision"));
-        }
-
-        ValidateProvenance(@event, decision.Provenance, "decision.propose");
-    }
-
-    private static void ValidateDecisionResolved(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        DecisionResolved resolved)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ResolveDecision);
-        RequireDefined(resolved.Status, nameof(resolved.Status));
-        if (resolved.Status is not (DecisionStatus.Accepted or DecisionStatus.Superseded))
-        {
-            throw new GovernanceException("A decision may be explicitly accepted or superseded; invalidation is causal.");
-        }
-
-        var decision = Get(state.Decisions, resolved.DecisionId, "decision");
-        if (decision.Status == DecisionStatus.Proposed)
-        {
-            if (resolved.Status == DecisionStatus.Accepted)
-            {
-                EnsureDependenciesAreCurrent(state, decision.DependsOnClaims);
-                if (decision.Supersedes is { } predecessorId)
-                {
-                    EnsureDecisionIsCurrent(Get(state.Decisions, predecessorId, "decision"));
-                    if (state.Decisions.Values.Any(candidate =>
-                            candidate.Status == DecisionStatus.Accepted &&
-                            candidate.Supersedes == predecessorId))
-                    {
-                        throw new GovernanceException(
-                            $"Decision '{predecessorId}' already has an accepted replacement.");
-                    }
-                }
-            }
-
-            return;
-        }
-
-        if (decision.Status == DecisionStatus.Accepted &&
-            resolved.Status == DecisionStatus.Superseded &&
-            state.Decisions.Values.Any(candidate =>
-                candidate.Status == DecisionStatus.Accepted && candidate.Supersedes == decision.Id))
-        {
-            return;
-        }
-
-        throw new GovernanceException(
-            $"Decision in status '{decision.Status}' cannot transition to '{resolved.Status}'.");
-    }
-
-    private static void ValidateDecisionInvalidated(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        DecisionInvalidated invalidated)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ResolveClaim);
-        var decision = Get(state.Decisions, invalidated.DecisionId, "decision");
-        EnsureDecisionIsCurrent(decision);
-        var claim = Get(state.Claims, invalidated.RejectedClaimId, "claim");
-        if (claim.Status is not (ClaimStatus.Rejected or ClaimStatus.Superseded) ||
-            !decision.DependsOnClaims.Contains(claim.Id))
-        {
-            throw new GovernanceException("A decision can only be invalidated by one of its rejected or superseded claims.");
-        }
-    }
-
     private static void ValidateChallengeRaised(GovernedTaskState state, LedgerEvent @event, Challenge challenge)
     {
         RequireAuthority(state, @event.ActorId, Capability.RaiseChallenge);
@@ -1785,41 +1694,6 @@ internal static class TaskTransitionValidator
         // validates only the shape of the record, and adding one of the two and not the other would
         // be the arbitrary choice. ValidateWorkItemCompleted does check its equivalents, because
         // those rules predate it and every completion in every log already satisfies them.
-    }
-
-    private static void ValidateDecisionOverturned(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        DecisionOverturned overturned)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ResolveDecision);
-        var decision = Get(state.Decisions, overturned.DecisionId, "decision");
-        if (decision.Status is not (DecisionStatus.Proposed or DecisionStatus.Accepted))
-        {
-            throw new GovernanceException($"Only a current decision can be overturned; this one is '{decision.Status}'.");
-        }
-
-        var challenge = Get(state.Challenges, overturned.ChallengeId, "challenge");
-        if (challenge.Status != ChallengeStatus.Supported ||
-            !string.Equals(challenge.TargetId.Trim(), decision.Id.Value, StringComparison.Ordinal))
-        {
-            throw new GovernanceException("A decision is only overturned by a supported challenge against it.");
-        }
-
-        // Mirrors the evidence bar in ChallengeRules.AddChallengeConsequence.
-        if (challenge.EvidenceIds.Count == 0)
-        {
-            throw new GovernanceException(
-                $"Challenge '{challenge.Id}' carries no evidence and cannot overturn a decision.");
-        }
-    }
-
-    private static void EnsureDecisionIsCurrent(Decision decision)
-    {
-        if (decision.Status is DecisionStatus.Superseded or DecisionStatus.Invalidated)
-        {
-            throw new GovernanceException("Only a current decision can be superseded.");
-        }
     }
 
     private static void EnsureDependenciesAreCurrent(GovernedTaskState state, IEnumerable<ClaimId> claimIds)

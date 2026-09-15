@@ -1,11 +1,12 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Decisions;
 
-// Replay counterparts: ValidateDecisionProposed, ValidateDecisionResolved, ValidateDecisionInvalidated.
+// Replay counterparts live in DecisionEventValidator.
 internal static class DecisionRules
 {
     internal static IReadOnlyList<LedgerEventData> ProposeDecision(

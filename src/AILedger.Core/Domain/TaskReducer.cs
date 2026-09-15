@@ -1,5 +1,6 @@
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
+using AILedger.Core.Decisions;
 
 namespace AILedger.Core.Domain;
 
@@ -17,9 +18,9 @@ public sealed class TaskReducer : ITaskReducer
             ClaimAdded added => ClaimStateProjector.Add(Require(state), added),
             ClaimResolved resolved => ClaimStateProjector.Resolve(Require(state), resolved),
             EvidenceAdded added => Require(state) with { Evidence = Set(Require(state).Evidence, added.Evidence.Id, added.Evidence) },
-            DecisionProposed proposed => Require(state) with { Decisions = Set(Require(state).Decisions, proposed.Decision.Id, proposed.Decision) },
-            DecisionResolved resolved => ResolveDecision(Require(state), resolved),
-            DecisionInvalidated invalidated => InvalidateDecision(Require(state), invalidated),
+            DecisionProposed proposed => DecisionStateProjector.Add(Require(state), proposed),
+            DecisionResolved resolved => DecisionStateProjector.Resolve(Require(state), resolved),
+            DecisionInvalidated invalidated => DecisionStateProjector.Invalidate(Require(state), invalidated),
             ChallengeRaised raised => Require(state) with { Challenges = Set(Require(state).Challenges, raised.Challenge.Id, raised.Challenge) },
             ChallengeDisposed disposed => DisposeChallenge(Require(state), disposed),
             WorkItemAdded added => AddWorkItem(Require(state), @event, added),
@@ -38,7 +39,7 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemUnblocked unblocked => SetWorkItemStatus(Require(state), unblocked.WorkItemId, WorkItemStatus.Paused, null),
             WorkItemAbandoned abandoned => AbandonWorkItem(Require(state), abandoned),
             ClaimDependenciesRepointed repointed => ClaimStateProjector.RepointDependencies(Require(state), repointed),
-            DecisionOverturned overturned => OverturnDecision(Require(state), overturned),
+            DecisionOverturned overturned => DecisionStateProjector.Overturn(Require(state), overturned),
             LessonMinted minted => AddLesson(Require(state), minted.Lesson),
             LessonRecalled recalled => AddLesson(Require(state), recalled.Lesson),
             LessonMarked marked => AddLessonMark(Require(state), marked.Mark),
@@ -139,23 +140,11 @@ public sealed class TaskReducer : ITaskReducer
             PendingOpeningActor = null
         };
 
-    private static GovernedTaskState ResolveDecision(GovernedTaskState state, DecisionResolved resolved)
-    {
-        var decision = state.Decisions[resolved.DecisionId] with { Status = resolved.Status };
-        return state with { Decisions = Set(state.Decisions, resolved.DecisionId, decision) };
-    }
-
     private static GovernedTaskState AddLesson(GovernedTaskState state, Lesson lesson) =>
         state with { Lessons = Set(state.Lessons, lesson.Id, lesson) };
 
     private static GovernedTaskState AddLessonMark(GovernedTaskState state, LessonMark mark) =>
         state with { LessonMarks = Set(state.LessonMarks, mark.Id, mark) };
-
-    private static GovernedTaskState InvalidateDecision(GovernedTaskState state, DecisionInvalidated invalidated)
-    {
-        var decision = state.Decisions[invalidated.DecisionId] with { Status = DecisionStatus.Invalidated };
-        return state with { Decisions = Set(state.Decisions, invalidated.DecisionId, decision) };
-    }
 
     private static GovernedTaskState DisposeChallenge(GovernedTaskState state, ChallengeDisposed disposed)
     {
@@ -272,12 +261,6 @@ public sealed class TaskReducer : ITaskReducer
         };
 
         return state with { Escalations = Set(state.Escalations, resolved.EscalationId, escalation) };
-    }
-
-    private static GovernedTaskState OverturnDecision(GovernedTaskState state, DecisionOverturned overturned)
-    {
-        var decision = state.Decisions[overturned.DecisionId] with { Status = DecisionStatus.Invalidated };
-        return state with { Decisions = Set(state.Decisions, overturned.DecisionId, decision) };
     }
 
     private static GovernedTaskState SupersedeConstraint(GovernedTaskState state, ConstraintSuperseded superseded)
