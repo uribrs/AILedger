@@ -1483,7 +1483,7 @@ public static class CoordinatorMeasurement
         // the 433 run.started events in this ledger is exactly that waiver chain.
         //
         // The walk follows context.brief-waived and nothing else, because that is the only event
-        // RunRules.StartRun emits ahead of the run. A chain that later grows a different second link
+        // RunLifecycleRules.Start emits ahead of the run. A chain that later grows a different second link
         // therefore stops at it and is reported as naming it, rather than being walked through
         // silently on the assumption that anything before a run is bookkeeping.
         public EventId? DispatchCause(LedgerEvent started)

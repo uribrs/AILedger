@@ -1672,7 +1672,7 @@ public sealed class CoordinatorMeasurementTests
         //
         // `actor` is who issues the launch, and it is what measure 3's dispatch half is attributed
         // to. Only an operator may dispatch for a different subject
-        // (`RunRules.EnsureDispatchIsPermitted`), so another coordinating seat opens a run by
+        // (`RunDispatchRules.EnsurePermitted`), so another coordinating seat opens a run by
         // naming itself as the subject.
         // `cause` is the coordinator record that prompted this dispatch, which is the input measure 10
         // reads. `withoutBriefReason` makes the command a provider launch let through the operator's

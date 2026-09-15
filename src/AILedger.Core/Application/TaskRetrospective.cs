@@ -159,7 +159,7 @@ public static class TaskRetrospective
         run.TokensInCacheRead is not null;
 
     // Every total is null when no run reported that field, and every total carries the count of runs
-    // that reported it (C4, VC2). The six cost fields are independent — RunRules:242-247 states it
+    // that reported it (C4, VC2). The six cost fields are independent — RunCompletionRecordRules states it
     // and enforces nothing across them — so one count cannot stand for all of them: a run that
     // reported output tokens and no input buckets would otherwise put a bucket total next to a
     // population that never measured it. Turns is the clearest case, because it is not one unit
@@ -693,7 +693,7 @@ public sealed record RetrospectiveMeasure(int RunsMeasured, long? Total);
 
 // RunsMeasured and RunsUnmeasured describe the any-field population: how many runs reported any cost
 // datum at all. Every total below carries its own count instead, because the six fields are
-// independent and a run may report one and none of the others (VC2, RunRules:242-247).
+// independent and a run may report one and none of the others (VC2, RunCompletionRecordRules).
 public sealed record RetrospectiveCost(
     int RunsMeasured,
     int RunsUnmeasured,

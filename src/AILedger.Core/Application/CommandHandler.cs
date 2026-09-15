@@ -9,6 +9,7 @@ using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
 using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
+using AILedger.Core.Runs;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
@@ -65,8 +66,8 @@ public sealed class CommandHandler : ICommandHandler
             RaiseChallengeCommand raise => ChallengeRules.RaiseChallenge(state, raise, now),
             DisposeChallengeCommand dispose => ChallengeRules.DisposeChallenge(state, dispose),
             AddWorkItemCommand add => WorkItemLifecycleRules.Add(state, add),
-            StartRunCommand start => RunRules.StartRun(state, start, now),
-            CompleteRunCommand complete => RunRules.CompleteRun(state, complete, now),
+            StartRunCommand start => RunLifecycleRules.Start(state, start, now),
+            CompleteRunCommand complete => RunLifecycleRules.Complete(state, complete, now),
             StartCoordinatorSessionCommand start => CoordinatorSessionLifecycleRules.Start(state, start, now),
             CompleteCoordinatorSessionCommand complete =>
                 CoordinatorSessionLifecycleRules.Complete(state, complete, now),
@@ -88,7 +89,7 @@ public sealed class CommandHandler : ICommandHandler
     }
 
     public static string HashLaunchToken(string token) =>
-        RunRules.HashLaunchToken(token);
+        RunCompletionAuthorization.HashLaunchToken(token);
 
     private CommandOutcome ApplyEvents(
         GovernedTaskState? initialState,

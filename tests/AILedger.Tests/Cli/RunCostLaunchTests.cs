@@ -4,7 +4,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Providers.Adapters;
 using AILedger.Storage;
-using AILedger.Tests.Core;
+using AILedger.Tests.Runs.Telemetry;
 using AILedger.Tests.Support;
 using System.Text.Json;
 
@@ -38,7 +38,7 @@ public sealed class RunCostLaunchTests
     public async Task ALaunchRecordsWhatTheProviderStatedTheRunCost()
     {
         using var root = new TemporaryDirectory();
-        var adapter = ClaudeAdapter(RunCostReaderTests.ClaudeResult);
+        var adapter = ClaudeAdapter(RunTelemetrySamples.ClaudeResult);
 
         var run = await LaunchAsync(root.Path, adapter);
 

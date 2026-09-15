@@ -198,7 +198,7 @@ public sealed class TaskRetrospectiveTests
         Assert.Equal(66, report.Cost.Turns.Total);
     }
 
-    // VC2: the six cost fields are independent — RunRules:242-247 states it and enforces nothing
+    // VC2: the six cost fields are independent — RunCompletionRecordRules states it and enforces nothing
     // across them — so one any-field count cannot stand for all of them. It used to: a run that
     // reported output tokens and no input buckets made an unmeasured bucket total look as though it
     // came from every measured run.

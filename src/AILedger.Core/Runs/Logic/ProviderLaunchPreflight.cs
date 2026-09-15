@@ -1,5 +1,6 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Core.Runs;
 
 namespace AILedger.Core.Application;
 
@@ -7,7 +8,7 @@ namespace AILedger.Core.Application;
 // command time — this is the same rule, run earlier, so that the refusal arrives before a provider
 // binary has been executed rather than after (VC3).
 //
-// It is a thin wrapper on purpose. The order the refusals speak in belongs to RunRules and is
+// It is a thin wrapper on purpose. The order the refusals speak in belongs to RunDispatchRules and is
 // stated there once; restating it here would be a second copy of the rule and the next change would
 // move only one of them.
 public static class ProviderLaunchPreflight
@@ -28,7 +29,7 @@ public static class ProviderLaunchPreflight
         string? withoutBriefReason = null,
         EvidenceId? staleBriefEvidenceId = null,
         WorkItemId? workItemId = null) =>
-        _ = RunRules.EnsureDispatchIsPermitted(
+        _ = RunDispatchRules.EnsurePermitted(
             state, actorId, subjectActorId, servedNow, isProviderLaunch: true,
             workItemId, withoutBriefReason, staleBriefEvidenceId);
 }

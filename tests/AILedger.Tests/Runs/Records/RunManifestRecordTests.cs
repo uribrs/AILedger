@@ -2,7 +2,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Records;
 
 // LD1: a run records which manifest briefed it, and it records it at completion rather than at
 // start, because the launcher builds the manifest after run.start (LC1) and hoisting that build

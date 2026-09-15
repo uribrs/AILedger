@@ -1037,7 +1037,7 @@ public sealed class CliApplicationTests
     }
 
     // The launch path's half of the coordinating-role refusal. The rule lives in
-    // RunRules.EnsureDispatchIsPermitted, which the command reaches and the pre-flight also runs —
+    // RunDispatchRules.EnsurePermitted, which the command reaches and the pre-flight also runs —
     // but the CLI passed no work item to the pre-flight, so the rule saw none, did not fire, and the
     // launcher resolved an adapter and probed the provider's version before the command refused it.
     // The adapter factory is the assertion for exactly that reason: an exit code alone cannot tell a
@@ -2273,7 +2273,7 @@ public sealed class CliApplicationTests
     // reading clear because of it, which is the whole of what this field was added to do.
     //
     // The state is built with a verifier and no worker on purpose. The obvious way to make an item
-    // "run by no working role" — give it a coordinating run — is no longer reachable: RunRules
+    // "run by no working role" — give it a coordinating run — is no longer reachable: RunDispatchRules
     // refuses a run against a work item held by an Operator, PlanningLead or ImplementationLead
     // outright. Verifier and CodeReviewer are neither coordinating nor working, so they are the live
     // path, and a verifier is the one of the two that can start with no work behind it. So the field

@@ -8,6 +8,7 @@ using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
+using AILedger.Core.Runs;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Domain;
@@ -37,8 +38,12 @@ public sealed class TaskReducer : ITaskReducer
                 JoinBriefWaiver(
                     Require(state), @event, ContextBriefWaiver.WorkItemKind, added.WorkItem.Id.Value)),
             WorkItemInvalidated invalidated => WorkItemStateProjector.Invalidate(Require(state), invalidated),
-            RunStarted started => StartRun(Require(state), @event, started),
-            RunCompleted completed => CompleteRun(Require(state), completed),
+            RunStarted started => RunStateProjector.Start(
+                Require(state),
+                started,
+                JoinBriefWaiver(
+                    Require(state), @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)),
+            RunCompleted completed => RunStateProjector.Complete(Require(state), completed),
             StagePrerequisitesWaived waived => RecordStagePrerequisiteWaiver(Require(state), @event, waived),
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
             EscalationRaised raised => EscalationStateProjector.Add(Require(state), raised),
@@ -146,18 +151,6 @@ public sealed class TaskReducer : ITaskReducer
     private static GovernedTaskState AddLessonMark(GovernedTaskState state, LessonMark mark) =>
         state with { LessonMarks = Set(state.LessonMarks, mark.Id, mark) };
 
-    private static GovernedTaskState StartRun(GovernedTaskState state, LedgerEvent @event, RunStarted started)
-    {
-        var projected = WorkItemStateProjector.ActivateForRun(state, started.Run);
-
-        return projected with
-        {
-            Runs = Set(state.Runs, started.Run.Id, started.Run),
-            ContextBriefWaivers = JoinBriefWaiver(
-                state, @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)
-        };
-    }
-
     // The waiver this event was let through by, if it was let through by one. The join is causationId:
     // CommandHandler chains a command's second event to its first, and a waiver and the work.added or
     // run.started beside it are exactly that pair. An event naming a different cause was not carried
@@ -180,21 +173,6 @@ public sealed class TaskReducer : ITaskReducer
                     waiver.Provenance)
             ]
             : state.ContextBriefWaivers;
-
-    private static GovernedTaskState CompleteRun(GovernedTaskState state, RunCompleted completed)
-    {
-        // Every field this payload puts on the run, and the mapping itself, are in
-        // RunCompletionProjection — shared with the memory index's replay of the same log. It used to
-        // be written out here and again there, and the two drifted by ten fields (VC3, VE7).
-        var run = RunCompletionProjection.Apply(state.Runs[completed.RunId], completed);
-
-        var projected = WorkItemStateProjector.PauseAfterRun(state, run);
-
-        return projected with
-        {
-            Runs = Set(state.Runs, completed.RunId, run)
-        };
-    }
 
     private static GovernedTaskState TransitionStage(GovernedTaskState state, StageTransitioned transitioned)
     {

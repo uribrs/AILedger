@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Dispatch;
 
 // Starting a run under the actor that will do the work meant a role holding no run authority could
 // never be launched — including the verifier and code reviewer, the two the kernel isolates most

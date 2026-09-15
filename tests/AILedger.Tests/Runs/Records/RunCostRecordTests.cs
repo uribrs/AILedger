@@ -4,8 +4,9 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
+using AILedger.Tests.Runs.Telemetry;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Records;
 
 // D3 and D4: a completed run records what it cost — turns, output tokens, three input buckets, and
 // how long it took to reach the ledger for the first time — and it records them at completion,
@@ -234,7 +235,7 @@ public sealed class RunCostRecordTests
     {
         var state = Replayed(out _, out _, out var actor, out var now);
         var cost = RunCostReader.Read([
-            new ProviderEvent(1, "result", RunCostReaderTests.ClaudeResult, "session-1", true, false)
+            new ProviderEvent(1, "result", RunTelemetrySamples.ClaudeResult, "session-1", true, false)
         ]);
 
         var outcome = new CommandHandler().Handle(state, Complete(actor, cost), now);

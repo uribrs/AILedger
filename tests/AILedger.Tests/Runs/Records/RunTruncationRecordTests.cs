@@ -5,7 +5,7 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Records;
 
 // D1: the truncated-line count reaches the run record, because a truncation nobody can see is a
 // degraded stream reported as a whole one. It travels the same road the cost fields do — a nullable

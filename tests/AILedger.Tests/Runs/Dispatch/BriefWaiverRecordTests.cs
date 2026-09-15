@@ -7,7 +7,7 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Dispatch;
 
 // A door that takes its justification and drops it before anything durable is written is a hole,
 // not a door. The waiver event always carried the reason (GC1), but nothing projected it, so

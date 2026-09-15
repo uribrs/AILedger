@@ -1,7 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Telemetry;
 
 // D4: what a run cost is read off the stream the provider already emits, not instrumented. The
 // fixtures below are the shapes E4 and E5 captured from real runs on 2026-09-08, and IE2 confirmed
@@ -12,17 +12,6 @@ namespace AILedger.Tests.Core;
 // Every absence asserted below is paired with a positive read of the same field.
 public sealed class RunCostReaderTests
 {
-    // A claude result event, trimmed to the properties the reader looks at. num_turns 125 and the
-    // usage object are R13's, from E4 and E5. Internal rather than private because
-    // RunCostRecordTests drives the same fixture through the completion command, and E4's numbers
-    // should exist once rather than in two copies that can drift apart.
-    internal const string ClaudeResult =
-        """
-        {"type":"result","subtype":"success","is_error":false,"num_turns":125,"duration_ms":1093960,
-         "session_id":"session-1","usage":{"input_tokens":2,"cache_creation_input_tokens":41368,
-         "cache_read_input_tokens":16285,"output_tokens":33110}}
-        """;
-
     // A codex turn.completed event. The usage numbers are R8's, from E4 and E5;
     // reasoning_output_tokens is on the event per IE2 and the reader deliberately ignores it.
     private const string CodexTurnCompleted =
@@ -431,7 +420,7 @@ public sealed class RunCostReaderTests
     private static string ClaudeResultWithNegative(string property)
     {
         var stated = ClaudeReported.Single(reported => reported.Property == property);
-        return ClaudeResult.Replace(
+        return RunTelemetrySamples.ClaudeResult.Replace(
             $"\"{property}\":{stated.Value}", $"\"{property}\":-{stated.Value}", StringComparison.Ordinal);
     }
 
@@ -439,7 +428,7 @@ public sealed class RunCostReaderTests
     [
         new(1, "system", """{"type":"system","session_id":"session-1"}""", "session-1", false, false),
         new(2, "assistant", """{"type":"assistant","session_id":"session-1"}""", "session-1", false, false),
-        new(3, "result", ClaudeResult, "session-1", true, false)
+        new(3, "result", RunTelemetrySamples.ClaudeResult, "session-1", true, false)
     ];
 
     private static IReadOnlyList<ProviderEvent> CodexStream() =>

@@ -59,7 +59,7 @@ internal static class EntryActionStageRules
         var subject = command.SubjectActorId ?? command.ActorId;
         if (!state.Roles.TryGetValue(subject, out var assignment))
         {
-            // Preserve RunRules' more specific unknown-role refusal.
+            // Preserve RunDispatchRules' more specific unknown-role refusal.
             return null;
         }
 

@@ -5,7 +5,7 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Runs.Records;
 
 // K16 and D7: the limit a launch was given and the provider's own reason for a run that ended other
 // than by completing both reach the run record. Without the first, a run that died at a limit the
