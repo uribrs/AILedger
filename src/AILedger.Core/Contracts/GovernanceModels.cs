@@ -62,12 +62,6 @@ public enum GovernedArtifactKind
     WorkflowRetrospective
 }
 
-public enum ConstraintStatus
-{
-    Active,
-    Superseded
-}
-
 public enum AgentRunStatus
 {
     Active,
@@ -152,14 +146,6 @@ public sealed record Alternative(
     // than a true one. An optional citation that is sometimes used is data; a mandatory one is a
     // field. Validated against the lessons this task recalled, never against the foreign store.
     LessonId? FromLesson = null);
-
-public sealed record Constraint(
-    ConstraintId Id,
-    string Statement,
-    string Source,
-    IReadOnlyList<string> Scope,
-    ConstraintStatus Status,
-    Provenance Provenance);
 
 public sealed record GovernedArtifact(
     ArtifactId ArtifactId,

@@ -2,25 +2,10 @@ using AILedger.Core.Contracts;
 
 namespace AILedger.Tests.Support;
 
-// Shared command setup belongs to test infrastructure rather than to a test class. Escalations,
-// alternatives, constraints, and work-item lifecycle tests all use this same governed shape.
+// Shared Escalation command construction belongs to test infrastructure rather than to a behavior
+// test class. Generic planning-lead setup lives separately in PlanningLeadTask.
 internal static class EscalationCommands
 {
-    public static TestTask PreparePlanningTask(out ActorId lead)
-    {
-        var task = new TestTask();
-        lead = new ActorId("planning-lead");
-        task.Assign(
-            lead,
-            RoleKind.PlanningLead,
-            Capability.AddClaim,
-            Capability.AddEvidence,
-            Capability.RaiseEscalation,
-            Capability.RecordAlternative,
-            Capability.BuildContext);
-        return task;
-    }
-
     public static void Raise(
         TestTask task,
         ActorId actor,

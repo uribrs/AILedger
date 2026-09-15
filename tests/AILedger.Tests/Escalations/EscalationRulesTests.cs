@@ -9,7 +9,7 @@ public sealed class EscalationRulesTests
     [Fact]
     public void BusinessDecisionRequiresAtLeastTwoOptionsAndARecommendationNamingOne()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
 
         Assert.Throws<GovernanceException>(() => EscalationCommands.Raise(
             task, lead, "X1", EscalationKind.BusinessDecision,
@@ -35,7 +35,7 @@ public sealed class EscalationRulesTests
     [Fact]
     public void TrueUnknownRequiresEvidenceOfTheAttemptThatFailedToAnswerIt()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
 
         Assert.Throws<GovernanceException>(() => EscalationCommands.Raise(
             task, lead, "X1", EscalationKind.TrueUnknown));
@@ -51,7 +51,7 @@ public sealed class EscalationRulesTests
     [Fact]
     public void OnlyAnOperatorResolvesAnEscalationAndResolutionRecordsTheAnswer()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
         EscalationCommands.Raise(
             task, lead, "X1", EscalationKind.BusinessDecision,
             options: ["a", "b"], recommendation: "a");
@@ -76,7 +76,7 @@ public sealed class EscalationRulesTests
     [Fact]
     public void AnOperatorMayWithdrawAnEscalationWithoutAnAnswer()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
         EscalationCommands.Raise(
             task, lead, "X1", EscalationKind.BusinessDecision,
             options: ["a", "b"], recommendation: "a");

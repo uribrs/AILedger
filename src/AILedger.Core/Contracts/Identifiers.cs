@@ -25,11 +25,6 @@ public readonly record struct AlternativeId(string Value)
     public override string ToString() => Value;
 }
 
-public readonly record struct ConstraintId(string Value)
-{
-    public override string ToString() => Value;
-}
-
 public readonly record struct LessonId(string Value)
 {
     public override string ToString() => Value;

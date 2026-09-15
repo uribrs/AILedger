@@ -2,6 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Decisions;
+using AILedger.Core.Constraints;
 using AILedger.Core.Domain;
 using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
@@ -73,8 +74,8 @@ public sealed class CommandHandler : ICommandHandler
             RecordArtifactCommand record => ArtifactRules.RecordArtifact(state, record, now),
             RecordContextBuiltCommand record => ContextRules.RecordContextBuilt(state, record),
             MarkLessonBearingCommand mark => LessonRules.MarkLessonBearing(state, mark, now),
-            AddConstraintCommand add => ConstraintRules.AddConstraint(state, add, now),
-            SupersedeConstraintCommand supersede => ConstraintRules.SupersedeConstraint(state, supersede),
+            AddConstraintCommand add => ConstraintRules.Add(state, add, now),
+            SupersedeConstraintCommand supersede => ConstraintRules.Supersede(state, supersede),
             CompleteWorkItemCommand complete => WorkItemLifecycleRules.Complete(state, complete),
             BlockWorkItemCommand block => WorkItemLifecycleRules.Block(state, block),
             UnblockWorkItemCommand unblock => WorkItemLifecycleRules.Unblock(state, unblock),

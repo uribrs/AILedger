@@ -239,18 +239,3 @@ public sealed record MarkLessonBearingCommand(
     // them. This is the twin-rule asymmetry: CommandHandler may tighten, TaskTransitionValidator
     // may not.
     VerifyExpectation? VerifyExpects = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
-public sealed record AddConstraintCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    ConstraintId ConstraintId,
-    string Statement,
-    string Source,
-    IReadOnlyList<string> Scope) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
-public sealed record SupersedeConstraintCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    ConstraintId ConstraintId) : LedgerCommand(ActorId, CausationId, CorrelationId);

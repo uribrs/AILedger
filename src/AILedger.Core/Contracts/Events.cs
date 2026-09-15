@@ -129,8 +129,6 @@ public sealed record StageTransitioned(
     string? Reason = null,
     AlternativeId? SerialJustification = null) : LedgerEventData;
 public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
-public sealed record ConstraintAdded(Constraint Constraint) : LedgerEventData;
-public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEventData;
 public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
 public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
 public sealed record LessonMarked(LessonMark Mark) : LedgerEventData;

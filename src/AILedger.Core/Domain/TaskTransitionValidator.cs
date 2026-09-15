@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
+using AILedger.Core.Constraints;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
@@ -78,10 +79,10 @@ internal static class TaskTransitionValidator
                 ValidateAlternativeRecorded(Require(state), @event, recorded.Alternative);
                 break;
             case ConstraintAdded added:
-                ValidateConstraintAdded(Require(state), @event, added.Constraint);
+                ConstraintEventValidator.ValidateAdded(Require(state), @event, added.Constraint);
                 break;
             case ConstraintSuperseded superseded:
-                ValidateConstraintSuperseded(Require(state), @event, superseded);
+                ConstraintEventValidator.ValidateSuperseded(Require(state), @event, superseded);
                 break;
             case WorkItemCompleted completed:
                 WorkItemEventValidator.ValidateCompleted(Require(state), @event, completed);
@@ -1267,41 +1268,6 @@ internal static class TaskTransitionValidator
         }
 
         ValidateProvenance(@event, alternative.Provenance, "alternative.record");
-    }
-
-    private static void ValidateConstraintAdded(GovernedTaskState state, LedgerEvent @event, Constraint constraint)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageConstraints, operatorRequired: true);
-        EnsureNew(state.Constraints, constraint.Id, "constraint");
-        RequireId(constraint.Id.Value, nameof(constraint.Id));
-        RequireText(constraint.Statement, nameof(constraint.Statement));
-        RequireText(constraint.Source, nameof(constraint.Source));
-        RequireDefined(constraint.Status, nameof(constraint.Status));
-        if (constraint.Status != ConstraintStatus.Active)
-        {
-            throw new GovernanceException("A newly added constraint must be active.");
-        }
-
-        EnsureUnique(constraint.Scope, "Constraint scope entries", StringComparer.Ordinal);
-        if (constraint.Scope.Any(string.IsNullOrWhiteSpace))
-        {
-            throw new GovernanceException("Constraint scope entries cannot be empty.");
-        }
-
-        ValidateProvenance(@event, constraint.Provenance, "constraint.add");
-    }
-
-    private static void ValidateConstraintSuperseded(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        ConstraintSuperseded superseded)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ManageConstraints, operatorRequired: true);
-        var constraint = Get(state.Constraints, superseded.ConstraintId, "constraint");
-        if (constraint.Status != ConstraintStatus.Active)
-        {
-            throw new GovernanceException("Only an active constraint can be superseded.");
-        }
     }
 
     private static void EnsureDependenciesAreCurrent(GovernedTaskState state, IEnumerable<ClaimId> claimIds)

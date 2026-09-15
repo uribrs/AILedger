@@ -1,5 +1,6 @@
 using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
+using AILedger.Core.Constraints;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
@@ -40,8 +41,8 @@ public sealed class TaskReducer : ITaskReducer
             EscalationRaised raised => EscalationStateProjector.Add(Require(state), raised),
             EscalationResolved resolved => EscalationStateProjector.Resolve(Require(state), resolved),
             AlternativeRecorded recorded => Require(state) with { Alternatives = Set(Require(state).Alternatives, recorded.Alternative.Id, recorded.Alternative) },
-            ConstraintAdded added => Require(state) with { Constraints = Set(Require(state).Constraints, added.Constraint.Id, added.Constraint) },
-            ConstraintSuperseded superseded => SupersedeConstraint(Require(state), superseded),
+            ConstraintAdded added => ConstraintStateProjector.Add(Require(state), added),
+            ConstraintSuperseded superseded => ConstraintStateProjector.Supersede(Require(state), superseded),
             WorkItemCompleted completed => WorkItemStateProjector.Complete(Require(state), completed),
             WorkItemBlocked blocked => WorkItemStateProjector.Block(Require(state), blocked),
             WorkItemUnblocked unblocked => WorkItemStateProjector.Unblock(Require(state), unblocked),
@@ -213,12 +214,6 @@ public sealed class TaskReducer : ITaskReducer
         {
             CoordinatorSessions = Set(state.CoordinatorSessions, completed.SessionId, session)
         };
-    }
-
-    private static GovernedTaskState SupersedeConstraint(GovernedTaskState state, ConstraintSuperseded superseded)
-    {
-        var constraint = state.Constraints[superseded.ConstraintId] with { Status = ConstraintStatus.Superseded };
-        return state with { Constraints = Set(state.Constraints, superseded.ConstraintId, constraint) };
     }
 
     private static GovernedTaskState TransitionStage(GovernedTaskState state, StageTransitioned transitioned)

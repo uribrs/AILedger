@@ -2,12 +2,13 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Constraints;
 
-// Replay counterparts: ValidateConstraintAdded and ValidateConstraintSuperseded.
+// Decides which Constraint events a command may emit. Historical-event admissibility stays in
+// ConstraintEventValidator so command-time rules can tighten without invalidating existing logs.
 internal static class ConstraintRules
 {
-    internal static IReadOnlyList<LedgerEventData> AddConstraint(
+    internal static IReadOnlyList<LedgerEventData> Add(
         GovernedTaskState state,
         AddConstraintCommand command,
         DateTimeOffset now)
@@ -17,12 +18,12 @@ internal static class ConstraintRules
         RequireText(command.Statement, nameof(command.Statement));
         RequireText(command.Source, nameof(command.Source));
         EnsureUnique(command.Scope, "Constraint scope entries", StringComparer.Ordinal);
-    
+
         if (command.Scope.Any(string.IsNullOrWhiteSpace))
         {
             throw new GovernanceException("Constraint scope entries cannot be empty.");
         }
-    
+
         var constraint = new Constraint(
             command.ConstraintId,
             command.Statement.Trim(),
@@ -33,7 +34,7 @@ internal static class ConstraintRules
         return [new ConstraintAdded(constraint)];
     }
 
-    internal static IReadOnlyList<LedgerEventData> SupersedeConstraint(
+    internal static IReadOnlyList<LedgerEventData> Supersede(
         GovernedTaskState state,
         SupersedeConstraintCommand command)
     {
@@ -42,7 +43,7 @@ internal static class ConstraintRules
         {
             throw new GovernanceException("Only an active constraint can be superseded.");
         }
-    
+
         return [new ConstraintSuperseded(command.ConstraintId)];
     }
 }

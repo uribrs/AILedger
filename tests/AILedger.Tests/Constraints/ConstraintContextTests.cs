@@ -6,19 +6,20 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Constraints;
 
 public sealed class ConstraintContextTests
 {
     [Fact]
     public void ActiveConstraintsEnterContextAndSupersededOnesDoNot()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
         task.Apply(new AddConstraintCommand(task.OperatorId, null, task.NextCorrelation(),
             new ConstraintId("K1"), "Keep persistence local and inspectable", "dossier v2.1", []));
         task.Apply(new AddConstraintCommand(task.OperatorId, null, task.NextCorrelation(),
             new ConstraintId("K2"), "Ship the full migration roadmap", "early draft", []));
-        task.Apply(new SupersedeConstraintCommand(task.OperatorId, null, task.NextCorrelation(), new ConstraintId("K2")));
+        task.Apply(new SupersedeConstraintCommand(
+            task.OperatorId, null, task.NextCorrelation(), new ConstraintId("K2")));
 
         var manifest = new ContextAssembler().Build(task.State, lead, null, [], DateTimeOffset.UnixEpoch);
 
@@ -42,12 +43,17 @@ public sealed class ConstraintContextTests
             path =>
             {
                 var reducer = new TaskReducer();
-                return new FileGovernedTaskService(path, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+                return new FileGovernedTaskService(
+                    path,
+                    new CommandHandler(reducer, new AuthorizationPolicy()),
+                    reducer);
             },
             _ => throw new InvalidOperationException("No provider adapter is used by this test."),
             new ContextAssembler());
         var common = new[] { "--root", root.Path, "--task", "T1", "--actor", "operator" };
-        await application.RunAsync(["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"],
+            CancellationToken.None);
         await application.RunAsync(
             ["constraint", "add", .. common, "--id", "operator-authority",
              "--statement", "Governed text supplied by the operator", "--source", "task state"],
@@ -55,16 +61,21 @@ public sealed class ConstraintContextTests
         output.GetStringBuilder().Clear();
 
         var exit = await application.RunAsync(
-            ["context", "build", .. common, "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+            ["context", "build", .. common, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
 
         using var document = JsonDocument.Parse(output.ToString());
         var constraints = document.RootElement.GetProperty("artifacts").EnumerateArray()
             .Where(artifact => artifact.GetProperty("kind").GetString() == "constraint")
             .ToArray();
         Assert.Equal(0, exit);
-        var artifact = Assert.Single(constraints, item => item.GetProperty("id").GetString() == "operator-authority");
-        Assert.Contains("Governed text supplied by the operator",
-            artifact.GetProperty("content").GetString(), StringComparison.Ordinal);
+        var artifact = Assert.Single(
+            constraints,
+            item => item.GetProperty("id").GetString() == "operator-authority");
+        Assert.Contains(
+            "Governed text supplied by the operator",
+            artifact.GetProperty("content").GetString(),
+            StringComparison.Ordinal);
     }
 
     private static string FindCognitiveRoot()

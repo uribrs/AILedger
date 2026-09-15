@@ -10,7 +10,7 @@ public sealed class AlternativeTests
     [Fact]
     public void RecordingARejectedAlternativeRequiresItsRationale()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
 
         Assert.Throws<GovernanceException>(() => task.Apply(new RecordAlternativeCommand(
             lead, null, task.NextCorrelation(), new AlternativeId("ALT1"), "Use a database", "   ", null)));
@@ -25,7 +25,7 @@ public sealed class AlternativeTests
     [Fact]
     public void AnAlternativeRejectedBeforeAnyDecisionExistsStillReachesLaterContext()
     {
-        var task = EscalationCommands.PreparePlanningTask(out var lead);
+        var task = PlanningLeadTask.Create(out var lead);
         task.Apply(new RecordAlternativeCommand(
             lead, null, task.NextCorrelation(), new AlternativeId("ALT1"),
             "Rewrite the workflow in LangGraph", "It buys a state machine we already have", null));
