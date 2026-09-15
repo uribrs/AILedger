@@ -1,5 +1,6 @@
 using AILedger.Core.Application;
 using AILedger.Core.Claims;
+using AILedger.Core.Challenges;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
 using AILedger.Core.WorkItems;
@@ -42,10 +43,10 @@ internal static class TaskTransitionValidator
                 DecisionEventValidator.ValidateInvalidated(Require(state), @event, invalidated);
                 break;
             case ChallengeRaised raised:
-                ValidateChallengeRaised(Require(state), @event, raised.Challenge);
+                ChallengeEventValidator.ValidateRaised(Require(state), @event, raised.Challenge);
                 break;
             case ChallengeDisposed disposed:
-                ValidateChallengeDisposed(Require(state), @event, disposed);
+                ChallengeEventValidator.ValidateDisposed(Require(state), @event, disposed);
                 break;
             case WorkItemAdded added:
                 WorkItemEventValidator.ValidateAdded(Require(state), @event, added.WorkItem);
@@ -913,40 +914,6 @@ internal static class TaskTransitionValidator
         ValidateProvenance(@event, evidence.Provenance, "evidence.add");
     }
 
-    private static void ValidateChallengeRaised(GovernedTaskState state, LedgerEvent @event, Challenge challenge)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.RaiseChallenge);
-        EnsureNew(state.Challenges, challenge.Id, "challenge");
-        RequireId(challenge.Id.Value, nameof(challenge.Id));
-        RequireText(challenge.TargetType, nameof(challenge.TargetType));
-        RequireText(challenge.TargetId, nameof(challenge.TargetId));
-        RequireText(challenge.Reason, nameof(challenge.Reason));
-        RequireDefined(challenge.Status, nameof(challenge.Status));
-        if (challenge.Status != ChallengeStatus.Open)
-        {
-            throw new GovernanceException("A newly raised challenge must be open.");
-        }
-
-        EnsureUnique(challenge.EvidenceIds, "Evidence IDs");
-        EnsureReferencesExist(state.Evidence, challenge.EvidenceIds, "evidence");
-        EnsureChallengeTargetExists(state, challenge.TargetType, challenge.TargetId);
-        ValidateProvenance(@event, challenge.Provenance, "challenge.raise");
-    }
-
-    private static void ValidateChallengeDisposed(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        ChallengeDisposed disposed)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.DisposeChallenge);
-        RequireDefined(disposed.Status, nameof(disposed.Status));
-        var challenge = Get(state.Challenges, disposed.ChallengeId, "challenge");
-        if (challenge.Status != ChallengeStatus.Open || disposed.Status == ChallengeStatus.Open)
-        {
-            throw new GovernanceException("Only an open challenge can transition to a terminal disposition.");
-        }
-    }
-
     private static void ValidateRunStarted(GovernedTaskState state, LedgerEvent @event, AgentRun run)
     {
         RequireAuthority(state, @event.ActorId, Capability.ManageRuns);
@@ -1457,22 +1424,6 @@ internal static class TaskTransitionValidator
         {
             throw new GovernanceException(
                 $"Dependency claim '{invalid.Id}' is '{invalid.Status}' and cannot support actionable work.");
-        }
-    }
-
-    private static void EnsureChallengeTargetExists(GovernedTaskState state, string targetType, string targetId)
-    {
-        var exists = targetType.Trim().ToLowerInvariant() switch
-        {
-            "claim" => state.Claims.Keys.Any(id => id.Value == targetId.Trim()),
-            "decision" => state.Decisions.Keys.Any(id => id.Value == targetId.Trim()),
-            "work" or "workitem" or "work-item" => state.WorkItems.Keys.Any(id => id.Value == targetId.Trim()),
-            _ => throw new GovernanceException($"Unsupported challenge target type '{targetType}'.")
-        };
-
-        if (!exists)
-        {
-            throw new GovernanceException($"Challenge target '{targetType}:{targetId}' does not exist.");
         }
     }
 

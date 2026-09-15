@@ -83,14 +83,6 @@ public enum ConstraintStatus
     Superseded
 }
 
-public enum ChallengeStatus
-{
-    Open,
-    Supported,
-    Rejected,
-    Withdrawn
-}
-
 public enum AgentRunStatus
 {
     Active,
@@ -172,16 +164,6 @@ public sealed record Evidence(
     IReadOnlyList<ClaimId> Supports,
     IReadOnlyList<ClaimId> Refutes,
     Provenance Provenance);
-
-public sealed record Challenge(
-    ChallengeId Id,
-    string TargetType,
-    string TargetId,
-    string Reason,
-    ChallengeStatus Status,
-    IReadOnlyList<EvidenceId> EvidenceIds,
-    Provenance Provenance);
-
 
 public sealed record Escalation(
     EscalationId Id,

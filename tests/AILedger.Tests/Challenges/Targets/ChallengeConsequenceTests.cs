@@ -2,7 +2,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Challenges.Targets;
 
 public sealed class ChallengeConsequenceTests
 {
@@ -19,13 +19,17 @@ public sealed class ChallengeConsequenceTests
         Assert.Equal(DecisionStatus.Invalidated, task.State.Decisions[new DecisionId("D1")].Status);
     }
 
-    [Fact]
-    public void SupportingAChallengeAgainstWorkBlocksItWithAReasonNamingTheChallenge()
+    [Theory]
+    [InlineData("work")]
+    [InlineData("workitem")]
+    [InlineData("work-item")]
+    public void SupportingAChallengeAgainstWorkBlocksItWithAReasonNamingTheChallenge(
+        string targetType)
     {
         var task = Prepare();
         task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(),
             new WorkItemId("W1"), "Build it", task.OperatorId, [], [Path.GetFullPath("src")]));
-        Raise(task, "CH1", "work", "W1", [new EvidenceId("E-refutes")]);
+        Raise(task, "CH1", targetType, "W1", [new EvidenceId("E-refutes")]);
 
         task.Apply(Dispose(task, "CH1", ChallengeStatus.Supported));
 
@@ -58,18 +62,6 @@ public sealed class ChallengeConsequenceTests
 
         Assert.Contains("refutes that claim", error.Message, StringComparison.Ordinal);
         Assert.Equal(ChallengeStatus.Open, task.State.Challenges[new ChallengeId("CH1")].Status);
-    }
-
-    [Fact]
-    public void RejectedAndWithdrawnDispositionsStillEmitOnlyTheDisposalEvent()
-    {
-        var task = Prepare();
-        Raise(task, "CH1", "claim", "C1", [new EvidenceId("E-refutes")]);
-
-        var outcome = task.Apply(Dispose(task, "CH1", ChallengeStatus.Rejected));
-
-        Assert.Single(outcome.Events);
-        Assert.Equal(ClaimStatus.Open, task.State.Claims[new ClaimId("C1")].Status);
     }
 
     // R1 (challenge-capability-replay-trap): the consequence event is authorised at replay against

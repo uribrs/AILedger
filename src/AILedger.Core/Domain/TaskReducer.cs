@@ -1,4 +1,5 @@
 using AILedger.Core.Claims;
+using AILedger.Core.Challenges;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
 using AILedger.Core.WorkItems;
@@ -22,8 +23,8 @@ public sealed class TaskReducer : ITaskReducer
             DecisionProposed proposed => DecisionStateProjector.Add(Require(state), proposed),
             DecisionResolved resolved => DecisionStateProjector.Resolve(Require(state), resolved),
             DecisionInvalidated invalidated => DecisionStateProjector.Invalidate(Require(state), invalidated),
-            ChallengeRaised raised => Require(state) with { Challenges = Set(Require(state).Challenges, raised.Challenge.Id, raised.Challenge) },
-            ChallengeDisposed disposed => DisposeChallenge(Require(state), disposed),
+            ChallengeRaised raised => ChallengeStateProjector.Add(Require(state), raised),
+            ChallengeDisposed disposed => ChallengeStateProjector.Dispose(Require(state), disposed),
             WorkItemAdded added => WorkItemStateProjector.Add(
                 Require(state),
                 added,
@@ -150,12 +151,6 @@ public sealed class TaskReducer : ITaskReducer
 
     private static GovernedTaskState AddLessonMark(GovernedTaskState state, LessonMark mark) =>
         state with { LessonMarks = Set(state.LessonMarks, mark.Id, mark) };
-
-    private static GovernedTaskState DisposeChallenge(GovernedTaskState state, ChallengeDisposed disposed)
-    {
-        var challenge = state.Challenges[disposed.ChallengeId] with { Status = disposed.Status };
-        return state with { Challenges = Set(state.Challenges, disposed.ChallengeId, challenge) };
-    }
 
     private static GovernedTaskState StartRun(GovernedTaskState state, LedgerEvent @event, RunStarted started)
     {

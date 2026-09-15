@@ -1,5 +1,6 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Claims;
+using AILedger.Core.Challenges;
 using AILedger.Core.Decisions;
 using AILedger.Core.Domain;
 using AILedger.Core.WorkItems;

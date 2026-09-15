@@ -55,8 +55,6 @@ public abstract record LedgerEventData;
 public sealed record TaskOpened(string Title, string Goal, IReadOnlyList<string>? Tags = null) : LedgerEventData;
 public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
 public sealed record EvidenceAdded(Evidence Evidence) : LedgerEventData;
-public sealed record ChallengeRaised(Challenge Challenge) : LedgerEventData;
-public sealed record ChallengeDisposed(ChallengeId ChallengeId, ChallengeStatus Status) : LedgerEventData;
 public sealed record RunStarted(AgentRun Run) : LedgerEventData;
 public sealed record RunCompleted(
     RunId RunId,
