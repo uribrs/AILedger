@@ -2,11 +2,28 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Roles;
 
-// Replay counterpart: TaskTransitionValidator.ValidateRoleAssigned.
+// Replay counterpart: RoleEventValidator.
 internal static class RoleAssignmentRules
 {
+    internal static void ValidateEnums(AssignRoleCommand command)
+    {
+        RequireDefined(command.Role, nameof(command.Role));
+        foreach (var capability in command.Capabilities)
+        {
+            RequireDefined(capability, nameof(command.Capabilities));
+        }
+    }
+
+    internal static void EnsureAuthorized(RoleAssignment assignment)
+    {
+        if (assignment.Role != RoleKind.Operator)
+        {
+            throw new GovernanceException("Only an operator can assign roles or capabilities.");
+        }
+    }
+
     internal static IReadOnlyList<LedgerEventData> AssignRole(
         GovernedTaskState state,
         AssignRoleCommand command,

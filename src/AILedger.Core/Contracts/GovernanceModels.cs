@@ -1,46 +1,6 @@
 namespace AILedger.Core.Contracts;
 
-public enum RoleKind
-{
-    Operator,
-    PlanningLead,
-    ImplementationLead,
-    Researcher,
-    Worker,
-    Verifier,
-    CodeReviewer
-}
-
-public enum Capability
-{
-    ManageRoles,
-    ManageScope,
-    AddClaim,
-    ResolveClaim,
-    AddEvidence,
-    ProposeDecision,
-    ResolveDecision,
-    RaiseChallenge,
-    DisposeChallenge,
-    ManageWork,
-    ManageRuns,
-    RequestTransition,
-    BuildContext,
-    RaiseEscalation,
-    ResolveEscalation,
-    RecordAlternative,
-    ManageConstraints,
-    RecordArtifact
-}
-
-
 public sealed record Provenance(ActorId ActorId, DateTimeOffset RecordedAt, string? Source);
-
-public sealed record RoleAssignment(
-    ActorId ActorId,
-    RoleKind Role,
-    IReadOnlyList<Capability> Capabilities,
-    Provenance AssignedBy);
 
 // As on WorkItem above: the door a launch came through is recorded by the waiver event beside this
 // run and projected into GovernedTaskState.ContextBriefWaivers, not copied onto the run.

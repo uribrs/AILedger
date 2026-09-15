@@ -2,7 +2,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.TaskOpening;
 
 // The tags a task is opened with are what bounded lesson recall selects against, so they are the one
 // field on the opening command that a later task's brief depends on. They arrived after the stage

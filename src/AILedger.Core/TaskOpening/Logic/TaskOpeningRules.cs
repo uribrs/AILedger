@@ -2,9 +2,10 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.TaskOpening;
 
-// Replay counterparts: ValidateTaskOpened, ValidateOpeningRole, LessonEventValidator.ValidateRecalled.
+// Replay counterparts: TaskOpeningEventValidator, RoleEventValidator, and
+// LessonEventValidator.ValidateRecalled.
 internal static class TaskOpeningRules
 {
     internal static IReadOnlyList<LedgerEventData> HandleOpening(LedgerCommand command, DateTimeOffset now)

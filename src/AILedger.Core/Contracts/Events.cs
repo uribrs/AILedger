@@ -49,8 +49,3 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(SessionStarted), "session.started")]
 [JsonDerivedType(typeof(SessionCompleted), "session.completed")]
 public abstract record LedgerEventData;
-
-// Tags are optional and trail the original two fields: every task opened before they existed
-// carries none, and replay must keep reading those histories.
-public sealed record TaskOpened(string Title, string Goal, IReadOnlyList<string>? Tags = null) : LedgerEventData;
-public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;

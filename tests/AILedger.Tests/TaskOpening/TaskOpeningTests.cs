@@ -1,7 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.TaskOpening;
 
 public sealed class TaskOpeningTests
 {

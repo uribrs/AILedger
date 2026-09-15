@@ -12,7 +12,9 @@ using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
 using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
+using AILedger.Core.Roles;
 using AILedger.Core.Stages;
+using AILedger.Core.TaskOpening;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
@@ -143,11 +145,7 @@ public sealed class CommandHandler : ICommandHandler
         switch (command)
         {
             case AssignRoleCommand assign:
-                RequireDefined(assign.Role, nameof(assign.Role));
-                foreach (var capability in assign.Capabilities)
-                {
-                    RequireDefined(capability, nameof(assign.Capabilities));
-                }
+                RoleAssignmentRules.ValidateEnums(assign);
                 break;
             case ResolveClaimCommand resolve:
                 RequireDefined(resolve.Status, nameof(resolve.Status));

@@ -11,7 +11,9 @@ using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
 using AILedger.Core.Lessons;
 using AILedger.Core.Runs;
+using AILedger.Core.Roles;
 using AILedger.Core.Stages;
+using AILedger.Core.TaskOpening;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Domain;
@@ -25,8 +27,8 @@ public sealed class TaskReducer : ITaskReducer
 
         var next = @event.Data switch
         {
-            TaskOpened opened => OpenTask(@event, opened),
-            RoleAssigned assigned => AssignRole(Require(state), assigned.Assignment),
+            TaskOpened opened => TaskOpeningStateProjector.Open(@event, opened),
+            RoleAssigned assigned => RoleStateProjector.Assign(Require(state), assigned.Assignment),
             ClaimAdded added => ClaimStateProjector.Add(Require(state), added),
             ClaimResolved resolved => ClaimStateProjector.Resolve(Require(state), resolved),
             EvidenceAdded added => EvidenceStateProjector.Add(Require(state), added),
@@ -105,38 +107,7 @@ public sealed class TaskReducer : ITaskReducer
         }
     }
 
-    private static GovernedTaskState OpenTask(LedgerEvent @event, TaskOpened opened)
-    {
-        return new GovernedTaskState
-        {
-            TaskId = @event.TaskId,
-            Title = opened.Title,
-            Goal = opened.Goal,
-            Tags = opened.Tags,
-            PendingOpeningActor = @event.ActorId
-        };
-    }
-
-    private static GovernedTaskState AssignRole(GovernedTaskState state, RoleAssignment assignment) =>
-        state with
-        {
-            Roles = Set(state.Roles, assignment.ActorId, assignment),
-            PendingOpeningActor = null
-        };
-
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");
 
-    private static IReadOnlyDictionary<TKey, TValue> Set<TKey, TValue>(
-        IReadOnlyDictionary<TKey, TValue> source,
-        TKey key,
-        TValue value)
-        where TKey : notnull
-    {
-        var copy = new Dictionary<TKey, TValue>(source)
-        {
-            [key] = value
-        };
-        return copy;
-    }
 }

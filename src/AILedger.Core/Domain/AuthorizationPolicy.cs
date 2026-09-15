@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.Roles;
 
 namespace AILedger.Core.Domain;
 
@@ -11,9 +12,9 @@ public sealed class AuthorizationPolicy
             throw new GovernanceException($"Actor '{command.ActorId}' has no assigned role.");
         }
 
-        if (command is AssignRoleCommand && assignment.Role != RoleKind.Operator)
+        if (command is AssignRoleCommand)
         {
-            throw new GovernanceException("Only an operator can assign roles or capabilities.");
+            RoleAssignmentRules.EnsureAuthorized(assignment);
         }
 
 

@@ -4,6 +4,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.ContextBriefing;
 using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
+using AILedger.Core.Roles;
 using static AILedger.Core.Application.CommandHandler;
 
 namespace AILedger.Core.WorkItems;

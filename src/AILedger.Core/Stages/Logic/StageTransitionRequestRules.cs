@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Core.Roles;
 
 namespace AILedger.Core.Stages;
 
