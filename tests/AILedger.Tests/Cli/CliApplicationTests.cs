@@ -41,14 +41,6 @@ public sealed class CliApplicationTests
                 ["claim", "resolve", .. source, "--id", "C1", "--status", "validated", "--evidence", "E1"],
                 CancellationToken.None),
             await application.RunAsync(
-                ["lesson", "mark", .. source, "--kind", "validated-claim", "--source", "C1",
-                 "--class", "untested", "--repo", "AILedger", "--tag", "retry", "--tag", "bounded",
-                 "--verify", "dotnet test --filter RetryTests.Bounded",
-                 "--do-not", "Do not assume retries are bounded without rerunning the test",
-                 "--lesson-actor", "verifier", "--verify-expects", "present",
-                 "--lesson-kind", "workflow", "--audience", "verifier"],
-                CancellationToken.None),
-            await application.RunAsync(
                 ["claim", "add", .. source, "--id", "C2", "--statement", "The research topic remains open"],
                 CancellationToken.None),
             await application.RunAsync(
@@ -58,20 +50,19 @@ public sealed class CliApplicationTests
                 ["actor", "attach", .. source, "--target", "researcher", "--role", "researcher"],
                 CancellationToken.None),
             await application.RunAsync(
+                ["actor", "attach", .. source, "--target", "worker", "--role", "worker"],
+                CancellationToken.None),
+            await application.RunAsync(
                 ["actor", "attach", .. source, "--target", "verifier", "--role", "verifier"],
                 CancellationToken.None),
             await application.RunAsync(
                 ["actor", "attach", .. source, "--target", "reviewer", "--role", "code-reviewer"],
                 CancellationToken.None),
-            // Adding work is refused until the acting actor has been briefed.
             await BriefAsync(source),
-            await application.RunAsync(
-                ["work", "add", .. source, "--id", "W1", "--title", "Source work", "--owner", "operator"],
-                CancellationToken.None)
+            await RecordArtifactAsync(
+                application, source, "operator", "A-request", "user-request", null, null,
+                "The governed request")
         };
-        // The walk to Archive passes through Execution, which cannot be entered without the three
-        // task-wide workflow artifacts. They are recorded here the way an operator records them.
-        exits.AddRange(await RecordExecutionArtifactsAsync(application, source));
 
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. source, "--stage", "research"], CancellationToken.None));
@@ -82,17 +73,30 @@ public sealed class CliApplicationTests
             ["run", "complete", .. source, "--run", "R-research", "--status", "completed",
              "--session", "research-session"], CancellationToken.None));
 
-        foreach (var stage in new[] { "design", "scope", "ready", "execution" })
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "design"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["run", "start", .. source, "--run", "R-artifacts", "--provider", "codex",
+             "--session", "artifact-session"], CancellationToken.None));
+        exits.Add(await RecordArtifactAsync(
+            application, source, "operator", "A-contract", "prompt-contract", null, "R-artifacts",
+            ArtifactCommands.Body));
+        exits.Add(await RecordArtifactAsync(
+            application, source, "operator", "A-plan", "orchestration-plan", null, "R-artifacts",
+            ArtifactCommands.PlanBody));
+        exits.Add(await application.RunAsync(
+            ["run", "complete", .. source, "--run", "R-artifacts", "--status", "completed",
+             "--session", "artifact-session"], CancellationToken.None));
+        foreach (var stage in new[] { "scope", "ready" })
         {
             exits.Add(await application.RunAsync(
                 ["stage", "transition", .. source, "--stage", stage], CancellationToken.None));
         }
-
-        // Verification asks for the pass that did the work, and the two roles that means are worker
-        // and implementation lead. The researcher pass above is not one of them.
         exits.Add(await application.RunAsync(
-            ["actor", "attach", .. source, "--target", "worker", "--role", "worker"],
+            ["work", "add", .. source, "--id", "W1", "--title", "Source work", "--owner", "worker"],
             CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. source, "--stage", "execution"], CancellationToken.None));
         exits.Add(await application.RunAsync(
             ["run", "start", .. source, "--subject", "worker", "--run", "R-work", "--work", "W1",
              "--provider", "codex", "--session", "work-session"], CancellationToken.None));
@@ -104,7 +108,7 @@ public sealed class CliApplicationTests
 
         exits.Add(await application.RunAsync(
             ["run", "start", .. source, "--subject", "verifier", "--run", "R-verify", "--work", "W1",
-             "--provider", "codex", "--session", "verify-session"], CancellationToken.None));
+             "--provider", "claude", "--session", "verify-session"], CancellationToken.None));
         exits.Add(await RecordArtifactAsync(
             application, source, "verifier", "A-verifier", "verifier-output", "W1", "R-verify",
             ArtifactCommands.VerifierBody));
@@ -123,7 +127,17 @@ public sealed class CliApplicationTests
             ["run", "complete", .. source, "--run", "R-review", "--status", "completed",
              "--session", "review-session"], CancellationToken.None));
         exits.Add(await application.RunAsync(
+            ["work", "complete", .. source, "--id", "W1"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
             ["stage", "transition", .. source, "--stage", "learn"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["lesson", "mark", .. source, "--kind", "validated-claim", "--source", "C1",
+             "--class", "untested", "--repo", "AILedger", "--tag", "retry", "--tag", "bounded",
+             "--verify", "dotnet test --filter RetryTests.Bounded",
+             "--do-not", "Do not assume retries are bounded without rerunning the test",
+             "--lesson-actor", "verifier", "--verify-expects", "present",
+             "--lesson-kind", "workflow", "--audience", "verifier"],
+            CancellationToken.None));
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. source, "--stage", "archive"], CancellationToken.None));
 
@@ -261,6 +275,7 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -288,6 +303,7 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", ledgerRoot, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(ledgerRoot, "T1");
+        await CliStageFixture.ToReadyAsync(application, ledgerRoot);
 
         var exit = await application.RunAsync(
             ["work", "add", "--root", ledgerRoot, "--task", "T1", "--actor", "operator",
@@ -396,6 +412,7 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", root.Path, "--task", "T2", "--actor", "operator", "--title", "Sibling", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await Service(root.Path).ExecuteAsync(new TaskId("T1"), new AddWorkItemCommand(
             new ActorId("operator"), null, "seed", new WorkItemId("W1"), "Legacy work",
             new ActorId("operator"), [], [Path.Combine(root.Path, "T2")],
@@ -519,6 +536,7 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
 
         // A work item claiming two areas now has to name the alternative explaining why it was not
         // split in two. That is a separate rule; this test is still about the parser accepting a
@@ -609,6 +627,7 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", work],
@@ -618,6 +637,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -649,6 +669,7 @@ public sealed class CliApplicationTests
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", work],
@@ -657,6 +678,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -801,13 +823,16 @@ public sealed class CliApplicationTests
             CancellationToken.None);
         await application.RunAsync(
             ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
-             "--target", "lead", "--role", "implementation-lead"], CancellationToken.None);
+             "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
-             "--id", "W1", "--title", "Work", "--owner", "lead", "--scope", allowed], CancellationToken.None);
+             "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", allowed], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
-            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "lead",
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator", "--subject", "worker",
              "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
              "--working-directory", sibling, "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
 
@@ -836,13 +861,16 @@ public sealed class CliApplicationTests
             CancellationToken.None);
         await application.RunAsync(
             ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
-             "--target", "lead", "--role", "implementation-lead"], CancellationToken.None);
+             "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
-             "--id", "W1", "--title", "Work", "--owner", "lead", "--scope", allowed], CancellationToken.None);
+             "--id", "W1", "--title", "Work", "--owner", "operator", "--scope", allowed], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
-            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "lead",
+            ["provider", "launch", "--root", root.Path, "--task", "T1", "--actor", "operator", "--subject", "worker",
              "--run", "R1", "--work", "W1", "--provider", "codex", "--executable", "/usr/bin/true",
              "--working-directory", link, "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
 
@@ -872,6 +900,7 @@ public sealed class CliApplicationTests
         // it is the same marker CodexAgentAdapter already requires before it will launch at all.
         Directory.CreateDirectory(Path.Combine(solution, ".git"));
         var project = Directory.CreateDirectory(Path.Combine(solution, "src", "AILedger.Core")).FullName;
+        var siblingProject = Directory.CreateDirectory(Path.Combine(solution, "tests", "AILedger.Tests")).FullName;
         var capture = new CapturingAdapter();
         var application = new CliApplication(
             TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
@@ -879,12 +908,17 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "worker", "--role", "worker"],
             CancellationToken.None);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
              "--scope", project], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W2", "--title", "Sibling project", "--owner", "operator",
+             "--scope", siblingProject], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--subject", "worker",
@@ -897,6 +931,10 @@ public sealed class CliApplicationTests
         var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
         Assert.Equal(0, exit);
         Assert.Contains(new RunId("R1"), state.Runs.Keys);
+        Assert.Equal(2, state.WorkItems.Count);
+        Assert.NotEqual(
+            Assert.Single(state.WorkItems[new WorkItemId("W1")].ResourceScope),
+            Assert.Single(state.WorkItems[new WorkItemId("W2")].ResourceScope));
         // Both the stored scope and the granted directory are canonical, and on macOS the temporary
         // root canonicalises (/var is a link to /private/var), so the expected ancestor is derived
         // from the stored scope rather than from the path the test composed.
@@ -917,7 +955,7 @@ public sealed class CliApplicationTests
     // The subject is a worker for the same reason as the test above: a coordinating role is refused
     // a run naming a work item a step later, and that would pass this test for the wrong reason.
     [Fact]
-    public async Task AProviderWorkingDirectoryAboveTheRepositoryOfTheScopeIsRefused()
+    public async Task R5_ProviderGrantStopsAtRepositoryRoot()
     {
         using var root = new TemporaryDirectory();
         using var providerRoot = new TemporaryDirectory();
@@ -930,11 +968,13 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
              "--scope", project], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--subject", "worker",
@@ -970,11 +1010,13 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One project", "--owner", "operator",
              "--scope", project], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         // The working directory is the repository root, which is accepted. Only the extra directory
         // is above the ceiling, so nothing but '--add-dir' can be what refuses this launch.
@@ -1027,6 +1069,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "coordinator", "--role", roleOption],
             CancellationToken.None);
@@ -1174,6 +1217,7 @@ public sealed class CliApplicationTests
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "reviewer",
              "--role", "code-reviewer"], CancellationToken.None);
@@ -1191,6 +1235,8 @@ public sealed class CliApplicationTests
             ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
              "--role", "verifier"], CancellationToken.None);
         await RecordExecutionArtifactsAsync(application, common);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
+        await CliStageFixture.ToVerificationAsync(application, root.Path);
         await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
              "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
@@ -1200,6 +1246,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["run", "complete", .. common, "--actor", "operator", "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);
+        await CliStageFixture.ToReviewAsync(application, root.Path);
 
         // This agent files no review output. The launcher therefore records the run as failed
         // instead of leaving the work item occupied by a run that can no longer be resumed.
@@ -1252,6 +1299,7 @@ public sealed class CliApplicationTests
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", .. common, "--actor", "operator", "--id", "W1", "--title", "Review it",
              "--owner", "operator", "--scope", work], CancellationToken.None);
@@ -1292,6 +1340,7 @@ public sealed class CliApplicationTests
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "lead",
              "--role", "implementation-lead"], CancellationToken.None);
@@ -1344,6 +1393,7 @@ public sealed class CliApplicationTests
             ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"],
             CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--actor", "operator", "--target", "subject", "--role", role],
             CancellationToken.None);
@@ -1356,6 +1406,8 @@ public sealed class CliApplicationTests
             ["actor", "attach", .. common, "--actor", "operator", "--target", "verifier",
              "--role", "verifier"], CancellationToken.None);
         await RecordExecutionArtifactsAsync(application, common);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
+        await CliStageFixture.ToVerificationAsync(application, root.Path);
         await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "verifier", "--run", "RV",
              "--work", "W1", "--provider", "codex", "--session", "verifier-session"], CancellationToken.None);
@@ -1365,6 +1417,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["run", "complete", .. common, "--actor", "operator", "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);
+        await CliStageFixture.ToReviewAsync(application, root.Path);
 
         // The code-reviewer half of this theory meets open question DX1 in ledger-artifacts: the
         // launcher's close of a reviewer run now requires a CodeReviewOutput this agent never
@@ -1404,6 +1457,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1441,6 +1495,7 @@ public sealed class CliApplicationTests
         await Create(TextWriter.Null, error).RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(Create(TextWriter.Null, error), root.Path);
         await Create(TextWriter.Null, error).RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Wrong split", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1487,6 +1542,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["claim", "add", .. common, "--id", "C1", "--statement", "The API is stable"],
             CancellationToken.None);
@@ -1567,6 +1623,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
 
         var refusedExit = await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Two areas", "--owner", "operator",
@@ -1600,6 +1657,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Untouched work", "--owner", "operator",
              "--scope", area], CancellationToken.None);
@@ -1627,12 +1685,14 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Unverifiable work", "--owner", "operator",
              "--scope", area], CancellationToken.None);
         // The work itself was done, so the refusal below is about the verifier pass and nothing else.
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
         await application.RunAsync(
             ["run", "start", .. common, "--subject", "worker", "--run", "RW", "--work", "W1",
              "--provider", "codex", "--session", "worker-session"], CancellationToken.None);
@@ -1667,6 +1727,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
             CancellationToken.None);
@@ -1676,6 +1737,8 @@ public sealed class CliApplicationTests
         // The work itself was done, so the refusal below is about the verifier pass and nothing else.
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await RecordExecutionArtifactsAsync(application, common);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
         await application.RunAsync(
             ["run", "start", .. common, "--subject", "worker", "--run", "RW", "--work", "W1",
              "--provider", "codex", "--session", "worker-session"], CancellationToken.None);
@@ -1683,7 +1746,7 @@ public sealed class CliApplicationTests
             ["run", "complete", .. common, "--run", "RW", "--status", "completed",
              "--session", "worker-session"], CancellationToken.None);
 
-        await RecordExecutionArtifactsAsync(application, common);
+        await CliStageFixture.ToVerificationAsync(application, root.Path);
         await application.RunAsync(
             ["run", "start", .. common, "--subject", "verifier", "--run", "RV", "--work", "W1",
              "--provider", "claude", "--session", "verifier-session"], CancellationToken.None);
@@ -1722,6 +1785,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
@@ -1756,6 +1820,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "One file", "--owner", "operator",
              "--scope", file], CancellationToken.None);
@@ -1764,6 +1829,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "worker", "--role", "worker"],
             CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
 
         var exit = await application.RunAsync(
             ["provider", "launch", .. common, "--subject", "worker",
@@ -2086,12 +2152,33 @@ public sealed class CliApplicationTests
         CliApplication application,
         IReadOnlyList<string> common)
     {
+        var arguments = common.ToList();
+        var root = common[arguments.IndexOf("--root") + 1];
+        var task = common[arguments.IndexOf("--task") + 1];
+        var originalStage = (await Service(root).GetStateAsync(new TaskId(task), CancellationToken.None))!.Stage;
         var exits = new List<int>
         {
             await RecordArtifactAsync(
                 application, common, "operator", "A-request", "user-request", null, null,
                 "The governed request")
         };
+        switch (originalStage)
+        {
+            case TaskStage.Discovery:
+                await CliStageFixture.AdvanceAsync(
+                    application, root, task, TaskStage.Research, TaskStage.Design);
+                break;
+            case TaskStage.Ready:
+                await CliStageFixture.BackAsync(application, root, TaskStage.Scope, task);
+                await CliStageFixture.BackAsync(application, root, TaskStage.Design, task);
+                break;
+            case TaskStage.Execution:
+                await CliStageFixture.BackAsync(application, root, TaskStage.Design, task);
+                break;
+            case not TaskStage.Design:
+                throw new InvalidOperationException(
+                    $"Artifact fixture cannot revise planning documents from stage '{originalStage}'.");
+        }
         exits.Add(await application.RunAsync(
             ["run", "start", .. common, "--actor", "operator", "--subject", "operator",
              "--run", "R-artifacts", "--provider", "codex",
@@ -2105,6 +2192,15 @@ public sealed class CliApplicationTests
         exits.Add(await application.RunAsync(
             ["run", "complete", .. common, "--actor", "operator", "--run", "R-artifacts",
              "--status", "completed", "--session", "artifact-session"], CancellationToken.None));
+        if (originalStage is TaskStage.Ready or TaskStage.Execution)
+        {
+            await CliStageFixture.AdvanceAsync(
+                application, root, task, TaskStage.Scope, TaskStage.Ready);
+        }
+        if (originalStage is TaskStage.Execution)
+        {
+            await CliStageFixture.ToExecutionAsync(application, root, task);
+        }
         return [.. exits];
     }
 
@@ -2196,6 +2292,7 @@ public sealed class CliApplicationTests
         await application.RunAsync(
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
             CancellationToken.None);
@@ -2206,6 +2303,8 @@ public sealed class CliApplicationTests
         // artifacts are filed first. They are filed by a coordinating run that names no work item,
         // which is the only kind such a role may hold, so they add nothing to either count below.
         await RecordExecutionArtifactsAsync(application, common);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
+        await CliStageFixture.ToVerificationAsync(application, root.Path);
         // No worker run precedes this one. The verifier has nothing to read, and the kernel does not
         // refuse it — that is the hole, not an artificial fixture.
         await application.RunAsync(

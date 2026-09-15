@@ -24,15 +24,22 @@ internal sealed class TestTask
         TaskStage.Archive
     ];
 
-    private readonly CommandHandler _handler = new();
+    private readonly ICommandHandler _handler;
     // Every event the handler produced, in the order it produced them. A projection over the log is
     // tested against what the rules actually emit rather than against a log a test composed, which
     // is the difference between pinning a rule and pinning a belief about it.
     private readonly List<LedgerEvent> _events = [];
     private int _commandNumber;
 
-    public TestTask(string taskId = "task-1", string operatorId = "operator")
+    public TestTask(
+        string taskId = "task-1",
+        string operatorId = "operator",
+        bool placeEntryStages = true)
     {
+        var reducer = new TaskReducer();
+        _handler = placeEntryStages
+            ? new StagePlacingCommandHandler(reducer)
+            : new CommandHandler(reducer, new AuthorizationPolicy());
         TaskId = new TaskId(taskId);
         OperatorId = new ActorId(operatorId);
         Apply(new OpenTaskCommand(OperatorId, null, NextCorrelation(), TaskId, "Test task", "Prove governed execution"));
@@ -140,7 +147,9 @@ internal sealed class TestTask
     }
 
     public CommandOutcome Transition(TaskStage stage) =>
-        Apply(new RequestStageTransitionCommand(OperatorId, null, NextCorrelation(), stage));
+        Apply(new RequestStageTransitionCommand(
+            OperatorId, null, NextCorrelation(), stage,
+            Reason: stage < State.Stage ? "The test fixture is exercising a governed backward edge" : null));
 
     public void Assign(ActorId actorId, RoleKind role, params Capability[] capabilities) =>
         Apply(new AssignRoleCommand(
@@ -164,7 +173,22 @@ internal sealed class TestTask
                 nameof(target), target, "Repair and Discovery are reached by a backward edge, not by the forward walk.");
         }
 
-        foreach (var stage in ForwardPipeline.Take(index + 1))
+        var currentIndex = State.Stage == TaskStage.Discovery
+            ? -1
+            : Array.IndexOf(ForwardPipeline, State.Stage);
+        if (currentIndex < 0 && State.Stage != TaskStage.Discovery)
+        {
+            throw new InvalidOperationException(
+                $"The forward fixture cannot walk from non-pipeline stage '{State.Stage}'.");
+        }
+
+        if (currentIndex > index)
+        {
+            throw new InvalidOperationException(
+                $"The forward fixture cannot walk backward from '{State.Stage}' to '{target}'.");
+        }
+
+        foreach (var stage in ForwardPipeline.Skip(currentIndex + 1).Take(index - currentIndex))
         {
             StageEvidenceFor(stage);
             Transition(stage);

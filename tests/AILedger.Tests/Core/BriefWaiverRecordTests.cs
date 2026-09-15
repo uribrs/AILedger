@@ -272,6 +272,7 @@ public sealed class BriefWaiverRecordTests
         Assert.Equal(0, await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None));
+        await MoveToReadyAsync(Service(root.Path), new TaskId("T1"), new ActorId("operator"));
         Assert.Equal(0, await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--id", "W1", "--title", "Work",
@@ -305,6 +306,7 @@ public sealed class BriefWaiverRecordTests
             actor, null, "l1", taskId, "Task", "Goal"), CancellationToken.None);
         await writer.ExecuteAsync(taskId, new RecordContextBuiltCommand(
             actor, null, "l2", null, ContextBrief.Served), CancellationToken.None);
+        await MoveToReadyAsync(writer, taskId, actor);
         await writer.ExecuteAsync(taskId, new AddWorkItemCommand(
             actor, null, "l3", new WorkItemId("W1"), "Work", null, [], [],
             SkillsServedNow: ContextBrief.Served), CancellationToken.None);
@@ -370,5 +372,19 @@ public sealed class BriefWaiverRecordTests
     {
         var reducer = new TaskReducer();
         return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+    }
+
+    private static async Task MoveToReadyAsync(
+        IGovernedTaskService service,
+        TaskId taskId,
+        ActorId actor)
+    {
+        foreach (var stage in new[] { TaskStage.Research, TaskStage.Design, TaskStage.Scope, TaskStage.Ready })
+        {
+            await service.ExecuteAsync(taskId, new RequestStageTransitionCommand(
+                actor, null, $"ready-{stage}", stage,
+                WithoutPrerequisitesReason: "This test isolates a later command-time rule"),
+                CancellationToken.None);
+        }
     }
 }

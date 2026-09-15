@@ -42,6 +42,7 @@ public sealed class CommandHandler : ICommandHandler
         }
 
         _authorizationPolicy.Authorize(state, command);
+        EntryActionStageRules.EnsureAllowed(state, command);
 
         return command switch
         {

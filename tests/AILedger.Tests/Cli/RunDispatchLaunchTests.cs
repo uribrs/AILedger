@@ -311,10 +311,13 @@ public sealed class RunDispatchLaunchTests
         Assert.Equal(0, await application.RunAsync(
             ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
             CancellationToken.None));
+        await CliStageFixture.ToReadyAsync(application, root);
         Assert.Equal(0, await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Work", "--scope", scope,
              "--cognitive-root", ContextBrief.CognitiveRoot()],
             CancellationToken.None));
+        await CliStageFixture.ToExecutionAsync(application, root);
+        await CliStageFixture.ToVerificationAsync(application, root);
     }
 
     private static CliApplication Application(ResultAdapter adapter) => new(

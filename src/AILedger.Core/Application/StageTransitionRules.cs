@@ -45,6 +45,13 @@ internal static class StageTransitionRules
                 "take a reason. Only a transition that goes back records why.");
         }
 
+        if (command.SerialJustification is not null && command.TargetStage != TaskStage.Verification)
+        {
+            throw new GovernanceException(
+                $"Transition from '{state.Stage}' to '{command.TargetStage}' cannot record a serial " +
+                "justification. Serial justification applies only when entering 'Verification'.");
+        }
+
         var waiver = TrimOrNull(command.WithoutPrerequisitesReason);
         if (command.WithoutPrerequisitesReason is not null && waiver is null)
         {
@@ -52,16 +59,29 @@ internal static class StageTransitionRules
                 "Waiving stage prerequisites needs a reason; a blank waiver records nothing.");
         }
 
+        // Validated here rather than inside the arm, beside the reason and the waiver, because the
+        // three are the same kind of thing: what the caller passed to be recorded. A caller who
+        // names an alternative that does not exist has recorded nothing, and that is worth refusing
+        // whether or not the arm below would have fired — including under a waiver, which skips the
+        // arm but still carries this id onto the event. Existence only, exactly as
+        // WorkItemRules.AddWorkItem checks its NotSplitJustification: the kernel cannot judge
+        // whether the alternative says anything true, only that it is on the record.
+        if (command.SerialJustification is { } serialJustification)
+        {
+            _ = Get(state.Alternatives, serialJustification, "alternative");
+        }
+
         if (waiver is null)
         {
-            EnsureStagePrerequisites(state, command.TargetStage);
+            EnsureStagePrerequisites(state, command.TargetStage, command.SerialJustification);
         }
         else if (!RoleAssignmentRules.IsOperator(state, command.ActorId))
         {
             throw new GovernanceException("Only an operator can transition stages without prerequisites.");
         }
 
-        var transition = new StageTransitioned(state.Stage, command.TargetStage, reason);
+        var transition = new StageTransitioned(
+            state.Stage, command.TargetStage, reason, command.SerialJustification);
         var provenance = waiver is null
             ? null
             : CoordinatorSessionRules.ProvenanceForWaiver(state, command.ActorId);
@@ -89,7 +109,10 @@ internal static class StageTransitionRules
         return events.Append(transition).ToArray();
     }
 
-    private static void EnsureStagePrerequisites(GovernedTaskState state, TaskStage target)
+    private static void EnsureStagePrerequisites(
+        GovernedTaskState state,
+        TaskStage target,
+        AlternativeId? serialJustification)
     {
         var currentArtifacts = ArtifactRules.CurrentArtifacts(state);
         // WorkItemRules.DidWork, not a bare Completed check: a run declaring AgentRun.NoProvider
@@ -179,6 +202,7 @@ internal static class StageTransitionRules
                         "Verification requires a completed Worker run. A coordinating role's run does " +
                         "not satisfy it; dispatch a Worker against the work item.");
                 }
+                EnsureSerializableFanoutIsExplained(state, serialJustification);
                 break;
     
             case TaskStage.Repair:
@@ -223,6 +247,71 @@ internal static class StageTransitionRules
             default:
                 throw new GovernanceException($"Unsupported target stage '{target}'.");
         }
+    }
+
+    private static void EnsureSerializableFanoutIsExplained(
+        GovernedTaskState state,
+        AlternativeId? serialJustification)
+    {
+        var workedItems = state.WorkItems.Values
+            .Where(item => WorkItemRules.HasCompletedWorkingRun(state, item.Id))
+            .ToArray();
+        if (workedItems.Length < 2 || !ArePairwiseDisjoint(workedItems))
+        {
+            return;
+        }
+
+        var workingRuns = state.Runs.Values
+            .Where(WorkItemRules.DidWorkUnderAWorkingRole)
+            .Where(run => run.WorkItemId is not null)
+            .ToArray();
+        if (HasCrossItemOverlap(workingRuns) || serialJustification is not null)
+        {
+            return;
+        }
+
+        throw new GovernanceException(
+            "Verification follows two or more disjoint work items whose working runs were entirely " +
+            "serial. Record an alternative explaining why they were not dispatched concurrently, " +
+            "then pass its ID as the serial justification.");
+    }
+
+    private static bool ArePairwiseDisjoint(IReadOnlyList<WorkItem> items)
+    {
+        for (var first = 0; first < items.Count; first++)
+        {
+            for (var second = first + 1; second < items.Count; second++)
+            {
+                if (!ScopeOccupancyRules.AreDisjoint(items[first], items[second]))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static bool HasCrossItemOverlap(IReadOnlyList<AgentRun> runs)
+    {
+        for (var first = 0; first < runs.Count; first++)
+        {
+            for (var second = first + 1; second < runs.Count; second++)
+            {
+                if (runs[first].WorkItemId == runs[second].WorkItemId)
+                {
+                    continue;
+                }
+
+                if (runs[first].StartedAt < runs[second].EndedAt &&
+                    runs[second].StartedAt < runs[first].EndedAt)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool IsWorkingRole(RoleKind role) =>

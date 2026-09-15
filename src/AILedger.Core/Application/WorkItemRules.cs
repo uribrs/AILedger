@@ -327,7 +327,7 @@ internal static class WorkItemRules
     // research item's work is a Researcher's run. The arm asks whether the Execution step was
     // engaged, which a Researcher's run does not answer — the Design arm already demanded one, so
     // accepting it there would let a task enter Verification on planning alone.
-    private static bool DidWorkUnderAWorkingRole(AgentRun run) =>
+    internal static bool DidWorkUnderAWorkingRole(AgentRun run) =>
         DidWork(run) && run.SubjectRole is RoleKind.Worker or RoleKind.Researcher;
 
     // Internal, not private, because TaskDebt and TaskRetrospective must answer this with the gate's

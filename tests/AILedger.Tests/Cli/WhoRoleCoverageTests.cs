@@ -25,8 +25,6 @@ public sealed class WhoRoleCoverageTests
         await Ok(error, ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"]);
         // Adding work is refused until the acting actor has been briefed.
         await ContextBrief.BuildAsync(root.Path, "T1");
-        await Ok(error, ["work", "add", .. common, "--actor", "operator", "--id", "W1",
-            "--title", "Work", "--owner", "operator"]);
         await Ok(error, ["actor", "attach", .. common, "--actor", "operator", "--target", "scout",
             "--role", "researcher"]);
         await Ok(error, ["actor", "attach", .. common, "--actor", "operator", "--target", "lead",
@@ -35,6 +33,7 @@ public sealed class WhoRoleCoverageTests
             "--role", "worker"]);
 
         // A completed run is engagement, and it is reported with the run that proves it.
+        await CliStageFixture.AdvanceAsync(Create(TextWriter.Null, error), root.Path, "T1", TaskStage.Research);
         await Ok(error, ["run", "start", .. common, "--actor", "operator", "--subject", "scout",
             "--run", "R-done", "--provider", "codex", "--session", "s-done"]);
         await Ok(error, ["run", "complete", .. common, "--actor", "operator", "--run", "R-done",
@@ -44,6 +43,12 @@ public sealed class WhoRoleCoverageTests
             "--run", "R-failed", "--provider", "codex"]);
         await Ok(error, ["run", "complete", .. common, "--actor", "operator", "--run", "R-failed",
             "--status", "failed"]);
+        await CliStageFixture.AdvanceAsync(
+            Create(TextWriter.Null, error), root.Path, "T1",
+            TaskStage.Design, TaskStage.Scope, TaskStage.Ready);
+        await Ok(error, ["work", "add", .. common, "--actor", "operator", "--id", "W1",
+            "--title", "Work", "--owner", "operator"]);
+        await CliStageFixture.ToExecutionAsync(Create(TextWriter.Null, error), root.Path);
         // Neither does a run that is still going: the pass has not finished.
         await Ok(error, ["run", "start", .. common, "--actor", "operator", "--subject", "hand",
             "--run", "R-active", "--work", "W1", "--provider", "codex", "--session", "s-active"]);
@@ -92,6 +97,7 @@ public sealed class WhoRoleCoverageTests
         await Ok(error, ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"]);
         await Ok(error, ["actor", "attach", .. common, "--actor", "operator", "--target", "scout",
             "--role", "researcher"]);
+        await CliStageFixture.AdvanceAsync(Create(TextWriter.Null, error), root.Path, "T1", TaskStage.Research);
         // Completes, because a run with no provider has no session to lose. Engages nothing,
         // because nothing ran.
         await Ok(error, ["run", "start", .. common, "--actor", "operator", "--subject", "scout",
@@ -120,6 +126,7 @@ public sealed class WhoRoleCoverageTests
         await Ok(error, ["task", "open", .. common, "--actor", "operator", "--title", "Task", "--goal", "Goal"]);
         await Ok(error, ["actor", "attach", .. common, "--actor", "operator", "--target", "scout",
             "--role", "researcher"]);
+        await CliStageFixture.AdvanceAsync(Create(TextWriter.Null, error), root.Path, "T1", TaskStage.Research);
         await Ok(error, ["run", "start", .. common, "--actor", "operator", "--subject", "scout",
             "--run", "R-done", "--provider", "codex", "--session", "s-done"]);
         await Ok(error, ["run", "complete", .. common, "--actor", "operator", "--run", "R-done",

@@ -205,6 +205,7 @@ public sealed class PipelineGateTests
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None));
         await ContextBrief.BuildAsync(root.Path, "T1");
+        await MoveToReadyAsync(Service(root.Path), new TaskId("T1"), new ActorId("operator"));
 
         var error = new StringWriter();
         var exit = await new CliApplication(
@@ -400,5 +401,19 @@ public sealed class PipelineGateTests
     {
         var reducer = new TaskReducer();
         return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+    }
+
+    private static async Task MoveToReadyAsync(
+        IGovernedTaskService service,
+        TaskId taskId,
+        ActorId actor)
+    {
+        foreach (var stage in new[] { TaskStage.Research, TaskStage.Design, TaskStage.Scope, TaskStage.Ready })
+        {
+            await service.ExecuteAsync(taskId, new RequestStageTransitionCommand(
+                actor, null, $"ready-{stage}", stage,
+                WithoutPrerequisitesReason: "This test isolates the context gate"),
+                CancellationToken.None);
+        }
     }
 }

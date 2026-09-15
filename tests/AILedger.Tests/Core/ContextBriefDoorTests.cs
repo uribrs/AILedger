@@ -225,6 +225,7 @@ public sealed class ContextBriefDoorTests
         await Run(writer, taskId, new AddEvidenceCommand(
             actor, null, "d3", new EvidenceId("E1"), "source-read",
             "cognitive/skills/code-reviewer/SKILL.md", "The edited skill is not one this item reads", [], []));
+        await MoveToReadyAsync(writer, taskId, actor);
         await Run(writer, taskId, new AddWorkItemCommand(
             actor, null, "d4", new WorkItemId("W1"), "On a stale brief", actor, [], [],
             SkillsServedNow: EditedSince, StaleBriefEvidenceId: new EvidenceId("E1")));
@@ -272,6 +273,7 @@ public sealed class ContextBriefDoorTests
         Assert.Equal(0, await application.RunAsync(
             ["task", "open", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--title", "Task", "--goal", "Goal"], CancellationToken.None));
+        await MoveToReadyAsync(Service(root.Path), new TaskId("T1"), new ActorId("operator"));
 
         var exit = await application.RunAsync(
             ["work", "add", "--root", root.Path, "--task", "T1", "--actor", "operator",
@@ -304,6 +306,19 @@ public sealed class ContextBriefDoorTests
     {
         var reducer = new TaskReducer();
         return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+    }
+
+    private static async Task MoveToReadyAsync(
+        IGovernedTaskService service,
+        TaskId taskId,
+        ActorId actor)
+    {
+        foreach (var stage in new[] { TaskStage.Research, TaskStage.Design, TaskStage.Scope, TaskStage.Ready })
+        {
+            await Run(service, taskId, new RequestStageTransitionCommand(
+                actor, null, $"ready-{stage}", stage,
+                WithoutPrerequisitesReason: "This test isolates a later command-time rule"));
+        }
     }
 
     // No ContextBrief.WithServedSkills wrapper: every command here says for itself what the layer

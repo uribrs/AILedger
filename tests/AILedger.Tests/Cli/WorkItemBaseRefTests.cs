@@ -93,6 +93,7 @@ public sealed class WorkItemBaseRefTests
             ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None));
         // Adding work is refused until the acting actor has been briefed.
         await ContextBrief.BuildAsync(root, "T1");
+        await CliStageFixture.ToReadyAsync(application, root);
         string[] add =
         [
             "work", "add", .. common, "--id", "W1", "--title", "Item", "--scope", scope,

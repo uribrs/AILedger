@@ -980,12 +980,6 @@ public sealed class TaskRetrospectiveCliTests
             await application.RunAsync(
                 ["claim", "resolve", .. common, "--id", "C1", "--status", "validated", "--evidence", "E1"],
                 CancellationToken.None),
-            await application.RunAsync(
-                ["lesson", "mark", .. common, "--kind", "validated-claim", "--source", "C1",
-                 "--class", "untested", "--repo", "AILedger", "--tag", "retry",
-                 "--verify", "dotnet test --filter RetryTests.Bounded",
-                 "--do-not", "Do not assume retries are bounded without rerunning the test",
-                 "--lesson-actor", "verifier", "--verify-expects", "present"], CancellationToken.None),
             // Entering Research asks for something left to research, and leaving it asks what the
             // research produced.
             await application.RunAsync(
@@ -1006,23 +1000,28 @@ public sealed class TaskRetrospectiveCliTests
             await application.RunAsync(
                 ["actor", "attach", .. common, "--target", "reviewer", "--role", "code-reviewer"],
                 CancellationToken.None),
-            // Adding work is refused until the acting actor has been briefed.
             await BriefAsync(common),
-            await application.RunAsync(
-                ["work", "add", .. common, "--id", "W1", "--title", "The work", "--owner", "worker"],
-                CancellationToken.None)
+            await RecordArtifactAsync(
+                application, common, "operator", "A-request", "user-request", null, null,
+                "The governed request")
         };
 
-        exits.AddRange(await RecordExecutionArtifactsAsync(application, common));
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None));
         exits.AddRange(await RunAPassAsync(application, common, "researcher", "R-research", null, null));
-        foreach (var stage in new[] { "design", "scope", "ready", "execution" })
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "design"], CancellationToken.None));
+        exits.AddRange(await RecordExecutionArtifactsAsync(application, common));
+        foreach (var stage in new[] { "scope", "ready" })
         {
             exits.Add(await application.RunAsync(
                 ["stage", "transition", .. common, "--stage", stage], CancellationToken.None));
         }
-
+        exits.Add(await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "The work", "--owner", "worker"],
+            CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["stage", "transition", .. common, "--stage", "execution"], CancellationToken.None));
         exits.AddRange(await RunAPassAsync(application, common, "worker", "R-work", "W1", null));
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "verification"], CancellationToken.None));
@@ -1035,7 +1034,15 @@ public sealed class TaskRetrospectiveCliTests
             application, common, "reviewer", "R-review", "W1",
             ("A-review", "code-review-output", "Review findings")));
         exits.Add(await application.RunAsync(
+            ["work", "complete", .. common, "--id", "W1"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "learn"], CancellationToken.None));
+        exits.Add(await application.RunAsync(
+            ["lesson", "mark", .. common, "--kind", "validated-claim", "--source", "C1",
+             "--class", "untested", "--repo", "AILedger", "--tag", "retry",
+             "--verify", "dotnet test --filter RetryTests.Bounded",
+             "--do-not", "Do not assume retries are bounded without rerunning the test",
+             "--lesson-actor", "verifier", "--verify-expects", "present"], CancellationToken.None));
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "archive"], CancellationToken.None));
         return [.. exits];
@@ -1056,7 +1063,8 @@ public sealed class TaskRetrospectiveCliTests
         {
             await application.RunAsync(
                 ["run", "start", .. common, "--subject", subject, "--run", run, .. scope,
-                 "--provider", "codex", "--session", $"session-{run}"], CancellationToken.None)
+                 "--provider", subject == "verifier" ? "claude" : "codex",
+                 "--session", $"session-{run}"], CancellationToken.None)
         };
         if (finding is { } output)
         {
@@ -1078,12 +1086,7 @@ public sealed class TaskRetrospectiveCliTests
         CliApplication application,
         string[] common)
     {
-        var exits = new List<int>
-        {
-            await RecordArtifactAsync(
-                application, common, "operator", "A-request", "user-request", null, null,
-                "The governed request")
-        };
+        var exits = new List<int>();
         exits.Add(await application.RunAsync(
             ["run", "start", .. common, "--subject", "operator", "--run", "R-artifacts",
              "--provider", "codex", "--session", "artifact-session"],

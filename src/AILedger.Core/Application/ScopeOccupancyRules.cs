@@ -48,6 +48,29 @@ internal static class ScopeOccupancyRules
         }
     }
 
+    // The same question the occupancy check asks, put to two work items that both already exist: do
+    // these two hold areas that do not touch? It belongs here and not at its caller because a second
+    // copy of PathsOverlap would be a second definition of what overlap means, and the two copies
+    // would drift the way the status filter above is warned about.
+    //
+    // It compares text, exactly as the occupancy check does, and it must. Work items recorded before
+    // AddWorkItem demanded absolute paths store relative ones — ledger-selfhost holds
+    // 'src/AILedger.Cli' — so nothing here may normalise or root a path. Path.IsPathFullyQualified is
+    // false for those, and any rooting built on it would compare a stored relative scope against an
+    // absolute one and answer wrongly.
+    //
+    // It does not trim either side, and that is what keeps it identical to the occupancy check rather
+    // than merely similar to it. That check trims one side only — the scope it has been handed
+    // straight off a command — because the other side is already stored, and AddWorkItem trims every
+    // entry before recording it. Both sides here are stored, so there is nothing left to trim, and
+    // trimming anyway would make this the stricter of the two on a scope with surrounding whitespace.
+    //
+    // An item holding no areas is disjoint from every item, including itself: it takes nothing, so it
+    // touches nothing.
+    internal static bool AreDisjoint(WorkItem first, WorkItem second) =>
+        !first.ResourceScope.Any(held =>
+            second.ResourceScope.Any(other => PathsOverlap(held, other)));
+
     private static bool PathsOverlap(string first, string second) =>
         IsSameOrInside(first, second) || IsSameOrInside(second, first);
 

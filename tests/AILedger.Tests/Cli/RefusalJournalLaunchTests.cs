@@ -149,6 +149,9 @@ public sealed class RefusalJournalLaunchTests
              "--target", "impl", "--role", "worker"], CancellationToken.None);
         // A provider launch is refused until the dispatching actor has been briefed.
         await ContextBrief.BuildAsync(root, "T1");
+        await CliStageFixture.AdvanceAsync(
+            application, root, "T1", TaskStage.Research, TaskStage.Design, TaskStage.Scope,
+            TaskStage.Ready, TaskStage.Execution);
     }
 
     private static CliApplication Application(CapturingAdapter adapter) => new(

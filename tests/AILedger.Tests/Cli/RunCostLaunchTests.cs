@@ -490,6 +490,7 @@ public sealed class RunCostLaunchTests
             _ => throw new InvalidOperationException("No provider is launched by this test."),
             new ContextAssembler());
         await OpenTaskAsync(application, root.Path);
+        await CliStageFixture.AdvanceAsync(application, root.Path, "T1", TaskStage.Research, TaskStage.Design);
         await Service(root.Path).ExecuteAsync(
             new TaskId("T1"),
             new StartRunCommand(

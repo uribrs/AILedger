@@ -100,7 +100,7 @@ public sealed class ArtifactStoreReplayTests
     private static FileGovernedTaskService Service(string root)
     {
         var reducer = new TaskReducer();
-        return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+        return new FileGovernedTaskService(root, new StagePlacingCommandHandler(reducer), reducer);
     }
 
     private static Task<CommandOutcome> Run(IGovernedTaskService service, TaskId taskId, LedgerCommand command) =>

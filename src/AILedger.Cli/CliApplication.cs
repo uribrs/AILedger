@@ -395,14 +395,19 @@ public sealed class CliApplication
                     Actor(input), Cause(input), Correlation(input), ExistingRun(input),
                     EnumValue<AgentRunStatus>(input, "status"), input.Optional("session")), cancellationToken).ConfigureAwait(false);
                 break;
-            // Both trailing options are nullable strings that mean opposite things — one excuses a
-            // refusal, the other narrates a move that was allowed — so they are passed by name. A
-            // positional call would bind '--reason' to the waiver and log the wrong sentence.
+            // Two of the three trailing options are nullable strings that mean opposite things — one
+            // excuses a refusal, the other narrates a move that was allowed — so they are passed by
+            // name. A positional call would bind '--reason' to the waiver and log the wrong
+            // sentence. The third is an alternative id, which no positional call could confuse with
+            // either string, and it is named for the same reading as its neighbours.
             case "stage transition":
                 await ExecuteAsync(service, input, new RequestStageTransitionCommand(
                     Actor(input), Cause(input), Correlation(input), EnumValue<TaskStage>(input, "stage"),
                     WithoutPrerequisitesReason: input.Optional("without-prerequisites"),
-                    Reason: input.Optional("reason")), cancellationToken).ConfigureAwait(false);
+                    Reason: input.Optional("reason"),
+                    SerialJustification: OptionalId(
+                        input.Optional("serial-because"), value => new AlternativeId(value))),
+                    cancellationToken).ConfigureAwait(false);
                 break;
             case "provider launch":
                 await LaunchProviderAsync(service, input, AgentLaunchMode.New, ledgerRoot, cancellationToken).ConfigureAwait(false);
@@ -2076,7 +2081,8 @@ public sealed class CliApplication
                 "root", "task", "actor", "id", "harness", "harness-session", "cause", "correlation"),
             ["session complete"] = Options("root", "task", "actor", "id", "cause", "correlation"),
             ["stage transition"] = Options(
-                "root", "task", "actor", "stage", "without-prerequisites", "reason", "cause", "correlation"),
+                "root", "task", "actor", "stage", "without-prerequisites", "reason", "serial-because",
+                "cause", "correlation"),
             ["provider launch"] = ProviderOptions(),
             ["provider resume"] = ProviderOptions()
         };
@@ -2360,7 +2366,7 @@ public sealed class CliApplication
                            its idle time are reported absent rather than measured against a clock the
                            projection does not take.
         stage transition   --task ID --actor ID --stage STAGE [--reason TEXT]
-                           [--without-prerequisites REASON]
+                           [--without-prerequisites REASON] [--serial-because ALTERNATIVE-ID]
         provider launch    --task ID --actor ID --run ID --provider codex|claude [provider options]
         provider resume    --task ID --actor ID --run ID --provider codex|claude --session EXACT_ID [provider options]
 
@@ -2419,6 +2425,24 @@ public sealed class CliApplication
         before the transition. A later reader therefore sees which arm was skipped and why, rather
         than only that a transition happened. The Archive arm additionally requires an eligible
         lesson-bearing mark; the waiver does not skip that gate.
+
+        stage transition --serial-because ALTERNATIVE-ID names an existing alternative explaining why
+        an execution that could have been dispatched concurrently was run serially instead. Entering
+        Verification is refused when the record shows a serial execution and nothing says why. The
+        kernel concludes serial from the runs, not from a declaration: two or more work items that
+        each carried a completed working run, holding disjoint scopes, with no two of those runs
+        overlapping in time. Disjoint scopes mean the items could have been held at the same time, so
+        running them one after another was a choice. The kernel does not judge that choice — running
+        serially is allowed, running serially unrecorded is not — in the same way --not-split-because
+        refuses an unrecorded choice not to split. The flag takes an alternative id rather than free
+        text, because an alternative carries a statement, a rejection rationale, an actor and a
+        timestamp, and free text carries none of them. The alternative must already exist: file it
+        with alternative record first, then name it here.
+
+        --serial-because and --without-prerequisites are not the same size. The waiver skips every
+        arm on the target stage at once; --serial-because answers this one arm and leaves the others
+        standing. Prefer the narrower flag: it is cheaper, and it leaves the record saying what was
+        decided rather than that a gate was stepped over.
 
         --not-split-because names an existing alternative explaining why a work item claims more
         than one --scope area instead of being split into separate items. It is required only for a

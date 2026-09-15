@@ -167,6 +167,7 @@ public sealed class ContextBuiltEventTests
 
         var service = Service(root.Path);
         var served = await ContextBrief.RecordedAsync(service, "T1");
+        await MoveToReadyAsync(service, new TaskId("T1"), new ActorId("operator"));
         foreach (var id in new[] { "W1", "W2" })
         {
             await service.ExecuteAsync(
@@ -233,6 +234,20 @@ public sealed class ContextBuiltEventTests
         Assert.Equal(0, await application.RunAsync(
             ["task", "open", "--root", root, "--task", taskId, "--actor", actorId,
              "--title", "Task", "--goal", "Goal"], CancellationToken.None));
+    }
+
+    private static async Task MoveToReadyAsync(
+        IGovernedTaskService service,
+        TaskId taskId,
+        ActorId actor)
+    {
+        foreach (var stage in new[] { TaskStage.Research, TaskStage.Design, TaskStage.Scope, TaskStage.Ready })
+        {
+            await service.ExecuteAsync(taskId, new RequestStageTransitionCommand(
+                actor, null, $"ready-{stage}", stage,
+                WithoutPrerequisitesReason: "This test isolates context projection behavior"),
+                CancellationToken.None);
+        }
     }
 
     private static async Task<ContextManifest> BuildAsync(string root, string taskId, string actorId)

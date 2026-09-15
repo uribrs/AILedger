@@ -313,7 +313,7 @@ public sealed class LessonRecallTests
     private static FileGovernedTaskService Service(string root)
     {
         var reducer = new TaskReducer();
-        return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);
+        return new FileGovernedTaskService(root, new StagePlacingCommandHandler(reducer), reducer);
     }
 
     private static FileGovernedTaskService Service(string root, string lessonRoot)
@@ -321,7 +321,7 @@ public sealed class LessonRecallTests
         var reducer = new TaskReducer();
         return new FileGovernedTaskService(
             root,
-            new CommandHandler(reducer, new AuthorizationPolicy()),
+            new StagePlacingCommandHandler(reducer),
             reducer,
             lessonStore: new FileLessonStore(lessonRoot));
     }

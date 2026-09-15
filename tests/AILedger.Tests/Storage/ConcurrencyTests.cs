@@ -119,8 +119,11 @@ public sealed class ConcurrencyTests
         Assert.Equal(3, (await service.GetStateAsync(taskId, CancellationToken.None))?.Version);
     }
 
-    private static FileGovernedTaskService CreateService(string root) =>
-        new(root, new CommandHandler(), new TaskReducer());
+    private static FileGovernedTaskService CreateService(string root)
+    {
+        var reducer = new TaskReducer();
+        return new FileGovernedTaskService(root, new StagePlacingCommandHandler(reducer), reducer);
+    }
 
     private static async Task<(CommandOutcome? Outcome, Exception? Error)> CaptureAsync(
         Func<Task<CommandOutcome>> action)
