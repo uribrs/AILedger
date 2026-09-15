@@ -1,18 +1,5 @@
 namespace AILedger.Core.Contracts;
 
-public readonly record struct DecisionId(string Value)
-{
-    public override string ToString() => Value;
-}
-
-public enum DecisionStatus
-{
-    Proposed,
-    Accepted,
-    Superseded,
-    Invalidated
-}
-
 public sealed record Decision(
     DecisionId Id,
     string Statement,
