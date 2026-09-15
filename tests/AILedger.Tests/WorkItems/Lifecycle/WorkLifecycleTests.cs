@@ -1,7 +1,6 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
-using AILedger.Tests.Core;
 using AILedger.Tests.Support;
 
 namespace AILedger.Tests.WorkItems.Lifecycle;
@@ -45,7 +44,7 @@ public sealed class WorkLifecycleTests
     public void CompletingWorkIsRefusedWhileAnEscalationOnItIsOpen()
     {
         var task = Prepare(out var workItemId);
-        EscalationTests.Raise(task, task.OperatorId, "X1", EscalationKind.BusinessDecision,
+        EscalationCommands.Raise(task, task.OperatorId, "X1", EscalationKind.BusinessDecision,
             workItemId: workItemId, options: ["a", "b"], recommendation: "a");
 
         var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
@@ -64,7 +63,7 @@ public sealed class WorkLifecycleTests
     public void BlockingRecordsAReasonAndMayCiteAnOpenEscalation()
     {
         var task = Prepare(out var workItemId);
-        EscalationTests.Raise(task, task.OperatorId, "X1", EscalationKind.BusinessDecision,
+        EscalationCommands.Raise(task, task.OperatorId, "X1", EscalationKind.BusinessDecision,
             options: ["a", "b"], recommendation: "a");
 
         task.Apply(new BlockWorkItemCommand(
@@ -105,7 +104,7 @@ public sealed class WorkLifecycleTests
     public void AManuallyBlockedItemUnblocksAndCanThenRunAndComplete()
     {
         var task = Prepare(out var workItemId);
-        EscalationTests.Raise(task, task.OperatorId, "X1", EscalationKind.BusinessDecision,
+        EscalationCommands.Raise(task, task.OperatorId, "X1", EscalationKind.BusinessDecision,
             workItemId: workItemId, options: ["a", "b"], recommendation: "a");
         task.Apply(new BlockWorkItemCommand(
             task.OperatorId, null, task.NextCorrelation(), workItemId, "Waiting on the operator", new EscalationId("X1")));

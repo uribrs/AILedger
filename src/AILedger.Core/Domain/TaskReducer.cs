@@ -3,6 +3,7 @@ using AILedger.Core.Challenges;
 using AILedger.Core.Contracts;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
+using AILedger.Core.Escalations;
 using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Domain;
@@ -36,8 +37,8 @@ public sealed class TaskReducer : ITaskReducer
             RunCompleted completed => CompleteRun(Require(state), completed),
             StagePrerequisitesWaived waived => RecordStagePrerequisiteWaiver(Require(state), @event, waived),
             StageTransitioned transitioned => TransitionStage(Require(state), transitioned),
-            EscalationRaised raised => Require(state) with { Escalations = Set(Require(state).Escalations, raised.Escalation.Id, raised.Escalation) },
-            EscalationResolved resolved => ResolveEscalation(Require(state), resolved),
+            EscalationRaised raised => EscalationStateProjector.Add(Require(state), raised),
+            EscalationResolved resolved => EscalationStateProjector.Resolve(Require(state), resolved),
             AlternativeRecorded recorded => Require(state) with { Alternatives = Set(Require(state).Alternatives, recorded.Alternative.Id, recorded.Alternative) },
             ConstraintAdded added => Require(state) with { Constraints = Set(Require(state).Constraints, added.Constraint.Id, added.Constraint) },
             ConstraintSuperseded superseded => SupersedeConstraint(Require(state), superseded),
@@ -212,18 +213,6 @@ public sealed class TaskReducer : ITaskReducer
         {
             CoordinatorSessions = Set(state.CoordinatorSessions, completed.SessionId, session)
         };
-    }
-
-    private static GovernedTaskState ResolveEscalation(GovernedTaskState state, EscalationResolved resolved)
-    {
-        var escalation = state.Escalations[resolved.EscalationId] with
-        {
-            Status = resolved.Status,
-            Resolution = resolved.Resolution,
-            ResolvedBy = resolved.ResolvedBy
-        };
-
-        return state with { Escalations = Set(state.Escalations, resolved.EscalationId, escalation) };
     }
 
     private static GovernedTaskState SupersedeConstraint(GovernedTaskState state, ConstraintSuperseded superseded)

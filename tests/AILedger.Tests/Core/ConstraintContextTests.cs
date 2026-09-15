@@ -13,7 +13,7 @@ public sealed class ConstraintContextTests
     [Fact]
     public void ActiveConstraintsEnterContextAndSupersededOnesDoNot()
     {
-        var task = EscalationTests.Prepare(out var lead);
+        var task = EscalationCommands.PreparePlanningTask(out var lead);
         task.Apply(new AddConstraintCommand(task.OperatorId, null, task.NextCorrelation(),
             new ConstraintId("K1"), "Keep persistence local and inspectable", "dossier v2.1", []));
         task.Apply(new AddConstraintCommand(task.OperatorId, null, task.NextCorrelation(),

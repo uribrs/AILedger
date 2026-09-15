@@ -62,21 +62,6 @@ public enum GovernedArtifactKind
     WorkflowRetrospective
 }
 
-// Only two things may interrupt the operator: a tradeoff no amount of research
-// settles, and a question the code and the sources cannot answer.
-public enum EscalationKind
-{
-    BusinessDecision,
-    TrueUnknown
-}
-
-public enum EscalationStatus
-{
-    Open,
-    Resolved,
-    Withdrawn
-}
-
 public enum ConstraintStatus
 {
     Active,
@@ -155,19 +140,6 @@ public sealed record RoleAssignment(
     RoleKind Role,
     IReadOnlyList<Capability> Capabilities,
     Provenance AssignedBy);
-
-public sealed record Escalation(
-    EscalationId Id,
-    EscalationKind Kind,
-    string Question,
-    EscalationStatus Status,
-    WorkItemId? WorkItemId,
-    IReadOnlyList<string> Options,
-    string? Recommendation,
-    IReadOnlyList<EvidenceId> AttemptEvidenceIds,
-    string? Resolution,
-    ActorId? ResolvedBy,
-    Provenance Provenance);
 
 public sealed record Alternative(
     AlternativeId Id,

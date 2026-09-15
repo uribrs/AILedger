@@ -195,26 +195,6 @@ public sealed record RequestStageTransitionCommand(
     // this one. A third nullable string would have widened the hazard; a distinct type closes it.
     AlternativeId? SerialJustification = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
-public sealed record RaiseEscalationCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    EscalationId EscalationId,
-    EscalationKind Kind,
-    string Question,
-    WorkItemId? WorkItemId,
-    IReadOnlyList<string> Options,
-    string? Recommendation,
-    IReadOnlyList<EvidenceId> AttemptEvidenceIds) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
-public sealed record ResolveEscalationCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    EscalationId EscalationId,
-    EscalationStatus Status,
-    string? Resolution) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
 public sealed record RecordAlternativeCommand(
     ActorId ActorId,
     EventId? CausationId,

@@ -128,8 +128,6 @@ public sealed record StageTransitioned(
     TaskStage Current,
     string? Reason = null,
     AlternativeId? SerialJustification = null) : LedgerEventData;
-public sealed record EscalationRaised(Escalation Escalation) : LedgerEventData;
-public sealed record EscalationResolved(EscalationId EscalationId, EscalationStatus Status, string? Resolution, ActorId ResolvedBy) : LedgerEventData;
 public sealed record AlternativeRecorded(Alternative Alternative) : LedgerEventData;
 public sealed record ConstraintAdded(Constraint Constraint) : LedgerEventData;
 public sealed record ConstraintSuperseded(ConstraintId ConstraintId) : LedgerEventData;

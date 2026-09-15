@@ -3,6 +3,7 @@ using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Decisions;
 using AILedger.Core.Domain;
+using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
 using AILedger.Core.WorkItems;
 
@@ -66,8 +67,8 @@ public sealed class CommandHandler : ICommandHandler
             CompleteCoordinatorSessionCommand complete =>
                 CoordinatorSessionRules.CompleteSession(state, complete, now),
             RequestStageTransitionCommand transition => StageTransitionRules.TransitionStage(state, transition, now),
-            RaiseEscalationCommand raise => EscalationRules.RaiseEscalation(state, raise, now),
-            ResolveEscalationCommand resolve => EscalationRules.ResolveEscalation(state, resolve),
+            RaiseEscalationCommand raise => EscalationRules.Raise(state, raise, now),
+            ResolveEscalationCommand resolve => EscalationRules.Resolve(state, resolve),
             RecordAlternativeCommand record => AlternativeRules.RecordAlternative(state, record, now),
             RecordArtifactCommand record => ArtifactRules.RecordArtifact(state, record, now),
             RecordContextBuiltCommand record => ContextRules.RecordContextBuilt(state, record),
