@@ -1,20 +1,20 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
-using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.ContextBriefing;
 
-// Replay counterpart: TaskTransitionValidator.ValidateContextBuilt.
-internal static class ContextRules
+// Replay counterpart: ContextEventValidator.ValidateBuilt.
+internal static class ContextBuildRules
 {
-    internal static IReadOnlyList<LedgerEventData> RecordContextBuilt(
+    internal static IReadOnlyList<LedgerEventData> Record(
         GovernedTaskState state,
         RecordContextBuiltCommand command)
     {
-        var assignment = Get(state.Roles, command.ActorId, "actor role");
+        var assignment = CommandHandler.Get(state.Roles, command.ActorId, "actor role");
         if (command.WorkItemId is { } workItemId)
         {
-            _ = Get(state.WorkItems, workItemId, "work item");
+            _ = CommandHandler.Get(state.WorkItems, workItemId, "work item");
         }
 
         // Nothing else here can refuse. A brief that fails is a brief that blocks the work it was
@@ -24,11 +24,11 @@ internal static class ContextRules
         // cognitive layer is a misconfiguration to see in the record, not a command to refuse.
         foreach (var skill in command.Skills)
         {
-            RequireText(skill.SkillId, "Skill ID");
-            RequireText(skill.ContentHash, "Skill content hash");
+            CommandHandler.RequireText(skill.SkillId, "Skill ID");
+            CommandHandler.RequireText(skill.ContentHash, "Skill content hash");
         }
 
-        EnsureUnique(
+        CommandHandler.EnsureUnique(
             command.Skills.Select(skill => skill.SkillId).ToArray(),
             "Served skill IDs",
             StringComparer.Ordinal);

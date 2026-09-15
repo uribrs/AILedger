@@ -6,6 +6,7 @@ using AILedger.Core.Challenges;
 using AILedger.Core.Decisions;
 using AILedger.Core.Constraints;
 using AILedger.Core.CoordinatorSessions;
+using AILedger.Core.ContextBriefing;
 using AILedger.Core.Domain;
 using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
@@ -78,7 +79,7 @@ public sealed class CommandHandler : ICommandHandler
             ResolveEscalationCommand resolve => EscalationRules.Resolve(state, resolve),
             RecordAlternativeCommand record => AlternativeRules.Record(state, record, now),
             RecordArtifactCommand record => ArtifactRules.Record(state, record, now),
-            RecordContextBuiltCommand record => ContextRules.RecordContextBuilt(state, record),
+            RecordContextBuiltCommand record => ContextBuildRules.Record(state, record),
             MarkLessonBearingCommand mark => LessonMarkRules.MarkLessonBearing(state, mark, now),
             AddConstraintCommand add => ConstraintRules.Add(state, add, now),
             SupersedeConstraintCommand supersede => ConstraintRules.Supersede(state, supersede),

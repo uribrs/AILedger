@@ -5,6 +5,7 @@ using AILedger.Core.Challenges;
 using AILedger.Core.Constraints;
 using AILedger.Core.Contracts;
 using AILedger.Core.CoordinatorSessions;
+using AILedger.Core.ContextBriefing;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
@@ -120,10 +121,10 @@ internal static class TaskTransitionValidator
                 ArtifactEventValidator.ValidateRecorded(Require(state), @event, recorded.Artifact);
                 break;
             case ContextBuilt built:
-                ValidateContextBuilt(Require(state), @event, built);
+                ContextEventValidator.ValidateBuilt(Require(state), @event, built);
                 break;
             case ContextBriefWaived waivedBrief:
-                ValidateContextBriefWaived(Require(state), @event, waivedBrief);
+                ContextEventValidator.ValidateBriefWaived(Require(state), @event, waivedBrief);
                 break;
             case SessionStarted started:
                 CoordinatorSessionEventValidator.ValidateStarted(Require(state), @event, started.Session);
@@ -238,89 +239,6 @@ internal static class TaskTransitionValidator
         ValidateProvenance(@event, assignment.AssignedBy, TaskOpenSource);
     }
 
-    // Reads nothing but the event in front of it and the role that event's actor held at that
-    // point. Every rule here keys on a field only a context.built event carries, so it is safe by
-    // construction: no history written before this event type existed can reach it.
-    //
-    // What must never appear in this file is the other half — an arm requiring a context.built
-    // before work.added or run.started. Command time may demand it; replay may not, because all 36
-    // tasks in this ledger were written without one.
-    private static void ValidateContextBuilt(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        ContextBuilt built)
-    {
-        RequireDefined(built.Role, nameof(built.Role));
-        var assignment = Get(state.Roles, @event.ActorId, "actor role");
-        if (built.Role != assignment.Role)
-        {
-            throw new GovernanceException(
-                $"Context brief for '{@event.ActorId}' records role '{built.Role}' but the actor held " +
-                $"'{assignment.Role}'.");
-        }
-
-        if (built.WorkItemId is { } workItemId)
-        {
-            _ = Get(state.WorkItems, workItemId, "work item");
-        }
-
-        foreach (var skill in built.Skills)
-        {
-            RequireId(skill.SkillId, "Skill ID");
-            RequireText(skill.ContentHash, "Skill content hash");
-        }
-
-        if (built.Skills.Select(skill => skill.SkillId).Distinct(StringComparer.Ordinal).Count() !=
-            built.Skills.Count)
-        {
-            throw new GovernanceException("A context brief cannot serve one skill twice.");
-        }
-    }
-
-    // Safe by construction, on the same grounds as ValidateContextBuilt above and the waiver arm in
-    // WorkItemEventValidator.ValidateCompleted: every rule here keys on a field only a context.brief-waived event
-    // carries, and no history written before this event type existed can reach it. What must never
-    // appear is the other direction — an arm requiring a brief, or a waiver, before work.added or
-    // run.started. Every task in this ledger carries neither.
-    private static void ValidateContextBriefWaived(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        ContextBriefWaived waived)
-    {
-        RequireText(waived.Action, nameof(waived.Action));
-        if ((waived.OperatorReason is not null) == (waived.StaleBriefEvidenceId is not null))
-        {
-            throw new GovernanceException(
-                "A context brief waiver carries exactly one justification: an operator's reason for an " +
-                "absent brief, or an evidence record for a stale one.");
-        }
-
-        if (waived.OperatorReason is { } reason)
-        {
-            if (string.IsNullOrWhiteSpace(reason))
-            {
-                throw new GovernanceException(
-                    "Proceeding without a brief needs a reason; a blank waiver records nothing.");
-            }
-
-            if (!IsOperator(state, @event.ActorId))
-            {
-                throw new GovernanceException(
-                    $"Only an operator can {waived.Action} without a brief.");
-            }
-        }
-
-        if (waived.StaleBriefEvidenceId is { } evidenceId)
-        {
-            _ = Get(state.Evidence, evidenceId, "evidence");
-            if (!state.ContextBuilds.ContainsKey(@event.ActorId))
-            {
-                throw new GovernanceException(
-                    $"Actor '{@event.ActorId}' has no context brief at all, so there is no stale brief to " +
-                    "proceed on.");
-            }
-        }
-    }
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");
 

@@ -60,13 +60,6 @@ public sealed record GovernedTaskState
     internal PendingBriefWaiver? PendingContextBriefWaiver { get; init; }
 }
 
-internal sealed record PendingBriefWaiver(
-    EventId EventId,
-    ActorId ActorId,
-    string? OperatorReason,
-    EvidenceId? StaleBriefEvidenceId,
-    WaiverProvenance? Provenance);
-
 public sealed record CommandOutcome(
     GovernedTaskState State,
     IReadOnlyList<LedgerEvent> Events);

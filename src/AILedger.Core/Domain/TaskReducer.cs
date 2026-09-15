@@ -5,6 +5,7 @@ using AILedger.Core.Challenges;
 using AILedger.Core.Constraints;
 using AILedger.Core.Contracts;
 using AILedger.Core.CoordinatorSessions;
+using AILedger.Core.ContextBriefing;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
@@ -37,13 +38,13 @@ public sealed class TaskReducer : ITaskReducer
             WorkItemAdded added => WorkItemStateProjector.Add(
                 Require(state),
                 added,
-                JoinBriefWaiver(
+                ContextStateProjector.JoinWaiver(
                     Require(state), @event, ContextBriefWaiver.WorkItemKind, added.WorkItem.Id.Value)),
             WorkItemInvalidated invalidated => WorkItemStateProjector.Invalidate(Require(state), invalidated),
             RunStarted started => RunStateProjector.Start(
                 Require(state),
                 started,
-                JoinBriefWaiver(
+                ContextStateProjector.JoinWaiver(
                     Require(state), @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)),
             RunCompleted completed => RunStateProjector.Complete(Require(state), completed),
             StagePrerequisitesWaived waived =>
@@ -64,33 +65,9 @@ public sealed class TaskReducer : ITaskReducer
             LessonRecalled recalled => LessonStateProjector.Add(Require(state), recalled),
             LessonMarked marked => LessonStateProjector.AddMark(Require(state), marked),
             ArtifactRecorded recorded => ArtifactStateProjector.Add(Require(state), recorded),
-            // Keyed by actor, so a later brief replaces the one before it. The gate asks whether
-            // this actor is briefed against the layer as it stands, and the answer is the last
-            // brief; the earlier ones stay in the log, which is where history belongs.
-            //
-            // built.WorkItemId is deliberately not projected. An event is appended only when the
-            // skill set is new or changed, so a work item carried here would be the one from
-            // whichever invocation happened to append and would stay wrong for every later build
-            // (MD2, SC3). The event keeps it; the projection answers a narrower question.
-            ContextBuilt built => Require(state) with
-            {
-                ContextBuilds = Set(
-                    Require(state).ContextBuilds,
-                    @event.ActorId,
-                    new ContextBuild(@event.ActorId, built.Role, built.Skills, @event.RecordedAt))
-            },
-            // Held for one step, not projected here. The waiver says a gate was opened for the event
-            // that follows it, and it is that event — work.added or run.started — that knows what the
-            // opening bought, so the two are joined there and the justification stays recorded once.
-            ContextBriefWaived waived => Require(state) with
-            {
-                PendingContextBriefWaiver = new PendingBriefWaiver(
-                    @event.EventId,
-                    @event.ActorId,
-                    waived.OperatorReason,
-                    waived.StaleBriefEvidenceId,
-                    waived.Provenance)
-            },
+            ContextBuilt built => ContextStateProjector.RecordBuild(Require(state), @event, built),
+            ContextBriefWaived waived =>
+                ContextStateProjector.RecordPendingWaiver(Require(state), @event, waived),
             SessionStarted started => CoordinatorSessionStateProjector.Start(Require(state), started),
             SessionCompleted completed => CoordinatorSessionStateProjector.Complete(Require(state), completed),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
@@ -101,8 +78,7 @@ public sealed class TaskReducer : ITaskReducer
             Version = (state?.Version ?? 0) + 1,
             // Any event other than a waiver clears the pending one, consumed or not. A waiver whose
             // command failed after it was appended must not attach itself to a later work item.
-            PendingContextBriefWaiver =
-                @event.Data is ContextBriefWaived ? next.PendingContextBriefWaiver : null
+            PendingContextBriefWaiver = ContextStateProjector.PendingWaiverAfter(@event.Data, next)
         };
     }
 
@@ -147,29 +123,6 @@ public sealed class TaskReducer : ITaskReducer
             Roles = Set(state.Roles, assignment.ActorId, assignment),
             PendingOpeningActor = null
         };
-
-    // The waiver this event was let through by, if it was let through by one. The join is causationId:
-    // CommandHandler chains a command's second event to its first, and a waiver and the work.added or
-    // run.started beside it are exactly that pair. An event naming a different cause was not carried
-    // by the pending waiver, so it records nothing — a missing join is the honest answer.
-    private static IReadOnlyList<ContextBriefWaiver> JoinBriefWaiver(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        string kind,
-        string targetId) =>
-        state.PendingContextBriefWaiver is { } waiver && @event.CausationId == waiver.EventId
-            ?
-            [
-                .. state.ContextBriefWaivers,
-                new ContextBriefWaiver(
-                    kind,
-                    targetId,
-                    waiver.ActorId,
-                    waiver.OperatorReason,
-                    waiver.StaleBriefEvidenceId,
-                    waiver.Provenance)
-            ]
-            : state.ContextBriefWaivers;
 
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");

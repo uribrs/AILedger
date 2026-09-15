@@ -1,5 +1,6 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
+using AILedger.Core.ContextBriefing;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 

@@ -54,24 +54,3 @@ public abstract record LedgerEventData;
 // carries none, and replay must keep reading those histories.
 public sealed record TaskOpened(string Title, string Goal, IReadOnlyList<string>? Tags = null) : LedgerEventData;
 public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
-// Which brief was assembled, for whom, and what it carried. The actor is not repeated here: it is
-// the envelope's ActorId on the same line of events.jsonl, and two copies of one fact are two
-// things that can disagree. Skills are ordered as served, and each carries the hash of the content
-// that was served — an id alone would leave an event that proves nothing after the skill is edited.
-public sealed record ContextBuilt(
-    RoleKind Role,
-    WorkItemId? WorkItemId,
-    IReadOnlyList<ContextSkill> Skills) : LedgerEventData;
-// One command proceeded past the context gate without a current brief, and what carried it. Emitted
-// before the event it accompanies, the way StagePrerequisitesWaived precedes its transition, so a
-// later reader sees which gate was opened rather than only that work was added.
-//
-// Exactly one of the two justifications is set, because an absent brief and a stale one are
-// different failures (C7). An absent brief can only be carried by an operator's decision — there is
-// no evidence that an unread brief was read — and a stale one by an evidence record naming what
-// changed. A waiver carrying both would say which was true of neither.
-public sealed record ContextBriefWaived(
-    string Action,
-    string? OperatorReason = null,
-    EvidenceId? StaleBriefEvidenceId = null,
-    WaiverProvenance? Provenance = null) : LedgerEventData;

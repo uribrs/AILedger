@@ -6,62 +6,12 @@ using AILedger.Storage;
 using AILedger.Tests.Support;
 using System.Text.Json;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.ContextBriefing;
 
-// A brief nothing records is unprovable. These pin the event that records one: that the operator is
-// served a selection rather than everything, in the order the pipeline runs; that the record names
-// each skill and the hash of what it said; and that building context twice changes nothing.
-public sealed class ContextBuiltEventTests
+// The durable lifecycle of building a brief: first write, idempotence, replacement, work scoping,
+// concurrent callers, and rollback when the manifest cannot be delivered.
+public sealed class ContextBuildLifecycleTests
 {
-    // C1's repair. The operator was the only role served no selection at all — eight skills,
-    // 110,298 characters, unordered. Order is asserted, not just membership: the coordinator is the
-    // entry point and the orchestrator is what it hands off to, and the manifest sorts by id, which
-    // would put them the other way round (IC1).
-    [Fact]
-    public async Task TheOperatorIsServedTheCoordinatorFirstAndTheOrchestratorSecond()
-    {
-        using var root = new TemporaryDirectory();
-        var manifest = await BuildAsync(root.Path, "T1", "operator");
-
-        var skills = manifest.Artifacts
-            .Where(artifact => artifact.Kind == ContextArtifactKind.Skill)
-            .Select(artifact => artifact.Id)
-            .ToArray();
-
-        // The two skills, in the order the pipeline runs them, and nothing else but the reference
-        // files those two skills carry. Before this change the same manifest held all eight.
-        Assert.Equal("workflow-coordinator", skills[0]);
-        Assert.Equal("task-orchestrator", skills[1]);
-        Assert.All(skills, id => Assert.True(
-            id is "workflow-coordinator" or "task-orchestrator" ||
-            id.EndsWith(":workflow-coordinator", StringComparison.Ordinal) ||
-            id.EndsWith(":task-orchestrator", StringComparison.Ordinal),
-            $"'{id}' belongs to neither skill the operator is served."));
-    }
-
-    // R4 (hashes-must-detect-a-changed-skill). An id alone records that a brief carried a skill by
-    // that name and nothing about what it said, so a skill edited afterwards would leave an event
-    // that still looks satisfied.
-    [Fact]
-    public async Task TheEventRecordsOneRowPerSkillServedWithItsContentHash()
-    {
-        using var root = new TemporaryDirectory();
-        var manifest = await BuildAsync(root.Path, "T1", "operator");
-        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
-
-        var build = state!.ContextBuilds[new ActorId("operator")];
-        Assert.Equal(RoleKind.Operator, build.Role);
-        Assert.Equal(
-            manifest.Artifacts.Count(artifact => artifact.Kind == ContextArtifactKind.Skill),
-            build.Skills.Count);
-        foreach (var skill in build.Skills)
-        {
-            var served = manifest.Artifacts.Single(artifact =>
-                artifact.Kind == ContextArtifactKind.Skill && artifact.Id == skill.SkillId);
-            Assert.Equal(ContextSkills.Hash(served.Content), skill.ContentHash);
-        }
-    }
-
     // R2 (context-build-must-stay-a-read). A read that writes on every invocation is a read three
     // agents cannot perform at once without moving the task under each other. The suppression is in
     // the caller because a zero-event outcome cannot reach disk (IC2), so this drives the CLI.
@@ -89,6 +39,7 @@ public sealed class ContextBuiltEventTests
     // holds it and suppresses, so the test passes against the caller-side check as well. It is the
     // first brief that races.
     [Fact]
+    // R4: the first-build race is the lifecycle boundary that must stay inside durable mutation.
     public async Task EightConcurrentFirstBriefsAppendOneEvent()
     {
         using var root = new TemporaryDirectory();
@@ -187,44 +138,6 @@ public sealed class ContextBuiltEventTests
         Assert.Equal(1, await CountContextBuiltAsync(root.Path, "T1"));
     }
 
-    // R1 (replay-must-not-tighten). Every task in this ledger was created before context.built
-    // existed, so replay has to keep accepting a history where work was added without one. This
-    // reduces the events directly, which is the only way to produce that history now that the
-    // command-time rule refuses to: the point is precisely that the two halves disagree.
-    [Fact]
-    public void ReplayAcceptsAHistoryThatAddsWorkWithNoContextBuiltEvent()
-    {
-        // Opened through the real commands, so the history is the shape a task actually has, and
-        // then the work item is reduced straight onto it: the command handler now refuses to
-        // produce this event without a brief, and the whole point is that replay must not.
-        var task = new TestTask("legacy-task") { AutoBuildContext = false };
-        Assert.Empty(task.State.ContextBuilds);
-
-        var replayed = new TaskReducer().Apply(task.State, Event(
-            task.TaskId, task.OperatorId, task.State.Version + 1, new WorkItemAdded(
-                new WorkItem(
-                    new WorkItemId("W1"), "Legacy work", task.OperatorId,
-                    WorkItemStatus.Proposed, [], []))));
-
-        Assert.Contains(new WorkItemId("W1"), replayed.WorkItems.Keys);
-        Assert.Empty(replayed.ContextBuilds);
-    }
-
-    // The same history, offered to the command handler, is refused. Together with the test above
-    // this is the twin-rule asymmetry stated as a test rather than as a comment: CommandHandler may
-    // tighten, TaskTransitionValidator may not.
-    [Fact]
-    public void TheCommandHandlerRefusesWhatReplayAccepts()
-    {
-        var task = new TestTask();
-        task.AutoBuildContext = false;
-
-        var refusal = Assert.Throws<GovernanceException>(() => task.Apply(new AddWorkItemCommand(
-            task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1"), "Work", null, [], [])));
-
-        Assert.Contains("has not built its context", refusal.Message, StringComparison.Ordinal);
-    }
-
     private static async Task OpenAsync(string root, string taskId, string actorId)
     {
         var application = new CliApplication(
@@ -297,17 +210,6 @@ public sealed class ContextBuiltEventTests
 
         return count;
     }
-
-    private static LedgerEvent Event(TaskId taskId, ActorId actorId, long sequence, LedgerEventData data) =>
-        new(
-            GovernedTaskState.CurrentSchemaVersion,
-            new EventId($"{taskId.Value}:{sequence:D10}"),
-            taskId,
-            actorId,
-            new DateTimeOffset(2026, 9, 10, 8, 0, 0, TimeSpan.Zero).AddMinutes(sequence),
-            null,
-            $"legacy-{sequence}",
-            data);
 
     private static IGovernedTaskService Service(string root)
     {

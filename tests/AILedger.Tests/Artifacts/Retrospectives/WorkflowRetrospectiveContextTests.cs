@@ -39,7 +39,9 @@ public sealed class WorkflowRetrospectiveContextTests
     [Fact]
     public void TheUnknownKindArmIsStillReachable()
     {
-        var method = typeof(ContextAssembler).GetMethod(
+        var projection = typeof(ContextAssembler).Assembly.GetType(
+            "AILedger.Core.ContextBriefing.ContextArtifactProjection");
+        var method = projection?.GetMethod(
             "ToContextKind",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 

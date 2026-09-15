@@ -1,9 +1,9 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
-using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.ContextBriefing;
 
 // Command time only, and it has no replay counterpart on purpose.
 //
@@ -30,7 +30,7 @@ internal static class ContextGateRules
         string? withoutBriefReason,
         EvidenceId? staleBriefEvidenceId)
     {
-        var reason = TrimOrNull(withoutBriefReason);
+        var reason = CommandHandler.TrimOrNull(withoutBriefReason);
         if (withoutBriefReason is not null && reason is null)
         {
             throw new GovernanceException(
@@ -82,7 +82,7 @@ internal static class ContextGateRules
                     $"{actorId} --cognitive-root <path>, or an operator may pass '--without-brief REASON'.");
             }
 
-            _ = Get(state.Evidence, evidenceId, "evidence");
+            _ = CommandHandler.Get(state.Evidence, evidenceId, "evidence");
             return new ContextBriefWaived(
                 action,
                 null,

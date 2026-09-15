@@ -3,12 +3,13 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.ContextBriefing;
 
-public sealed class ContextIsolationTests
+public sealed class ContextManifestIsolationTests
 {
     [Fact]
-    public void R4_CodeReviewerManifestExcludesForbiddenArtifacts()
+    // R3: role isolation is a contract of manifest assembly, not merely a policy helper detail.
+    public void CodeReviewerManifestExcludesForbiddenArtifacts()
     {
         var task = new TestTask();
         var reviewer = new ActorId("reviewer");
@@ -97,24 +98,4 @@ public sealed class ContextIsolationTests
             new ContextAssembler().Build(task.State, new ActorId("unknown"), null, [], DateTimeOffset.UnixEpoch));
     }
 
-    [Fact]
-    public void VerifierReceivesTaskOrchestratorVerifierProtocol()
-    {
-        var task = new TestTask();
-        var verifier = new ActorId("verifier");
-        task.Assign(verifier, RoleKind.Verifier, Capability.BuildContext);
-        var artifacts = new[]
-        {
-            new ContextArtifact(ContextArtifactKind.Skill, "task-orchestrator", "contains verifier protocol", []),
-            new ContextArtifact(ContextArtifactKind.Skill, "code-reviewer", "review protocol", [])
-        };
-
-        var manifest = new ContextAssembler().Build(
-            task.State, verifier, null, artifacts, DateTimeOffset.UnixEpoch);
-
-        Assert.Contains(manifest.Artifacts,
-            artifact => artifact.Kind == ContextArtifactKind.Skill && artifact.Id == "task-orchestrator");
-        Assert.DoesNotContain(manifest.Artifacts,
-            artifact => artifact.Kind == ContextArtifactKind.Skill && artifact.Id == "code-reviewer");
-    }
 }

@@ -5,7 +5,7 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.ContextBriefing;
 
 // The two doors. The gate must be unbypassable by accident and openable on purpose with a record:
 // it was the only hard refusal in this kernel with no override, and within two hours of landing it
