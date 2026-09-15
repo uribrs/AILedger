@@ -1,10 +1,12 @@
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Claims;
 
-// Replay counterparts: ValidateClaimAdded, ValidateClaimResolved, ValidateClaimDependenciesRepointed.
+// Replay counterparts: ClaimEventValidator.ValidateAdded, ClaimEventValidator.ValidateResolved,
+// ClaimEventValidator.ValidateDependenciesRepointed.
 internal static class ClaimRules
 {
     internal static IReadOnlyList<LedgerEventData> AddClaim(
@@ -16,7 +18,7 @@ internal static class ClaimRules
         EnsureNew(state.Claims, command.ClaimId, "claim");
         RequireText(command.Statement, nameof(command.Statement));
         LessonCitationRules.EnsureCitedLessonWasRecalled(state, command.FromLesson);
-    
+
         var claim = new Claim(
             command.ClaimId,
             command.Statement.Trim(),
@@ -37,12 +39,12 @@ internal static class ClaimRules
         EnsureClaimResolution(claim, command.Status);
         EnsureUnique(command.EvidenceIds, "Evidence IDs");
         EnsureReferencesExist(state.Evidence, command.EvidenceIds, "evidence");
-    
+
         if (command.Status is ClaimStatus.Validated or ClaimStatus.Rejected && command.EvidenceIds.Count == 0)
         {
             throw new GovernanceException($"A {command.Status.ToString().ToLowerInvariant()} claim requires evidence.");
         }
-    
+
         foreach (var evidenceId in command.EvidenceIds)
         {
             var evidence = state.Evidence[evidenceId];
@@ -52,23 +54,23 @@ internal static class ClaimRules
                 ClaimStatus.Rejected => evidence.Refutes.Contains(command.ClaimId),
                 _ => true
             };
-    
+
             if (!hasRequiredDirection)
             {
                 throw new GovernanceException(
                     $"Evidence '{evidenceId}' does not {EvidenceDirection(command.Status)} claim '{command.ClaimId}'.");
             }
         }
-    
+
         var replacement = EnsureSupersessionReplacement(state, command);
         var outcome = replacement is null ? (SupersessionOutcome?)null : DeriveSupersession(state, claim, replacement);
-    
+
         var events = new List<LedgerEventData>
         {
             new ClaimResolved(command.ClaimId, command.Status, command.EvidenceIds.ToArray(),
                 command.SupersededByClaimId, outcome)
         };
-    
+
         if (outcome == SupersessionOutcome.Refinement)
         {
             // The replacement was validated and nothing refutes the original, so dependent work
@@ -79,7 +81,7 @@ internal static class ClaimRules
         {
             ClaimDependencyRules.AddDependencyInvalidations(state, command.ClaimId, events);
         }
-    
+
         return events;
     }
 
@@ -92,33 +94,32 @@ internal static class ClaimRules
                 throw new GovernanceException(
                     $"A '{command.Status}' resolution cannot name a superseding claim.");
             }
-    
+
             return null;
         }
-    
+
         if (command.SupersededByClaimId is not { } replacementId)
         {
             throw new GovernanceException("Superseding a claim requires naming the claim that replaces it.");
         }
-    
+
         if (replacementId == command.ClaimId)
         {
             throw new GovernanceException("A claim cannot supersede itself.");
         }
-    
+
         var replacement = Get(state.Claims, replacementId, "claim");
         if (replacement.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
         {
             throw new GovernanceException(
                 $"Replacement claim '{replacementId}' is '{replacement.Status}' and cannot replace another claim.");
         }
-    
+
         return replacement;
     }
-    
+
     // The actor resolving a claim is usually an agent, so this is derived from state and never
     // declared. Correction is the default; refinement has to be earned.
-
     private static SupersessionOutcome DeriveSupersession(
         GovernedTaskState state,
         Claim superseded,
@@ -144,12 +145,12 @@ internal static class ClaimRules
         {
             throw new GovernanceException("Claim resolution cannot set a claim to open.");
         }
-    
+
         if (claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
         {
             throw new GovernanceException($"Claim in terminal status '{claim.Status}' cannot be resolved again.");
         }
-    
+
         if (claim.Status == target)
         {
             throw new GovernanceException($"Claim is already '{target}'.");

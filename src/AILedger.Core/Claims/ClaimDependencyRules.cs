@@ -1,10 +1,10 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
-using static AILedger.Core.Application.CommandHandler;
 
-namespace AILedger.Core.Application;
+namespace AILedger.Core.Claims;
 
-// Replay counterparts: ValidateDecisionInvalidated, ValidateWorkItemInvalidated, ValidateClaimDependenciesRepointed.
+// Replay counterparts: decision and work invalidation validators, plus
+// ClaimEventValidator.ValidateDependenciesRepointed.
 internal static class ClaimDependencyRules
 {
     internal static void AddDependencyInvalidations(
@@ -19,7 +19,7 @@ internal static class ClaimDependencyRules
         {
             events.Add(new DecisionInvalidated(decision.Id, claimId));
         }
-    
+
         foreach (var workItem in state.WorkItems.Values
                      .Where(item => item.DependsOnClaims.Contains(claimId))
                      // R3 (workitem-blocked-conflation): an operator `work block` sets the same
@@ -34,10 +34,9 @@ internal static class ClaimDependencyRules
             events.Add(new WorkItemInvalidated(workItem.Id, claimId, status));
         }
     }
-    
+
     // Disjoint work items were only ever disjoint by assertion. An area is occupied while the work
     // item holding it is still live, so a second actor cannot claim it and redo the same work.
-
     internal static void EnsureDependenciesAreCurrent(
         GovernedTaskState state,
         IEnumerable<ClaimId> claimIds)

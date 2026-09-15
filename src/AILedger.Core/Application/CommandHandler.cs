@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.Claims;
 using AILedger.Core.Domain;
 
 namespace AILedger.Core.Application;

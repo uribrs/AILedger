@@ -1,5 +1,7 @@
 using AILedger.Core.Application;
+using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
+using static AILedger.Core.Domain.ReplayValidationRules;
 
 namespace AILedger.Core.Domain;
 
@@ -20,10 +22,10 @@ internal static class TaskTransitionValidator
                 ValidateRoleAssigned(Require(state), @event, assigned.Assignment);
                 break;
             case ClaimAdded added:
-                ValidateClaimAdded(Require(state), @event, added.Claim);
+                ClaimEventValidator.ValidateAdded(Require(state), @event, added.Claim);
                 break;
             case ClaimResolved resolved:
-                ValidateClaimResolved(Require(state), @event, resolved);
+                ClaimEventValidator.ValidateResolved(Require(state), @event, resolved);
                 break;
             case EvidenceAdded added:
                 ValidateEvidenceAdded(Require(state), @event, added.Evidence);
@@ -89,7 +91,7 @@ internal static class TaskTransitionValidator
                 ValidateWorkItemAbandoned(Require(state), @event, abandoned);
                 break;
             case ClaimDependenciesRepointed repointed:
-                ValidateClaimDependenciesRepointed(Require(state), @event, repointed);
+                ClaimEventValidator.ValidateDependenciesRepointed(Require(state), @event, repointed);
                 break;
             case DecisionOverturned overturned:
                 ValidateDecisionOverturned(Require(state), @event, overturned);
@@ -889,103 +891,6 @@ internal static class TaskTransitionValidator
             digits == value.Length - 2 && char.IsLetter(value[^1]));
     }
 
-    private static void ValidateClaimAdded(GovernedTaskState state, LedgerEvent @event, Claim claim)
-    {
-        EnsureCitedLessonWasRecalled(state, claim.FromLesson);
-        RequireAuthority(state, @event.ActorId, Capability.AddClaim);
-        EnsureNew(state.Claims, claim.Id, "claim");
-        RequireId(claim.Id.Value, nameof(claim.Id));
-        RequireText(claim.Statement, nameof(claim.Statement));
-        RequireDefined(claim.Status, nameof(claim.Status));
-        if (claim.Status != ClaimStatus.Open || claim.EvidenceIds.Count != 0)
-        {
-            throw new GovernanceException("A newly added claim must be open and have no resolved evidence.");
-        }
-
-        ValidateProvenance(@event, claim.Provenance, "claim.add");
-    }
-
-    private static void ValidateClaimResolved(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        ClaimResolved resolved)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ResolveClaim);
-        RequireDefined(resolved.Status, nameof(resolved.Status));
-        var claim = Get(state.Claims, resolved.ClaimId, "claim");
-        EnsureClaimResolution(claim, resolved.Status);
-        EnsureUnique(resolved.EvidenceIds, "Evidence IDs");
-        EnsureReferencesExist(state.Evidence, resolved.EvidenceIds, "evidence");
-
-        if (resolved.Status is ClaimStatus.Validated or ClaimStatus.Rejected && resolved.EvidenceIds.Count == 0)
-        {
-            throw new GovernanceException($"A {resolved.Status.ToString().ToLowerInvariant()} claim requires evidence.");
-        }
-
-        foreach (var evidenceId in resolved.EvidenceIds)
-        {
-            var evidence = state.Evidence[evidenceId];
-            var directionMatches = resolved.Status switch
-            {
-                ClaimStatus.Validated => evidence.Supports.Contains(resolved.ClaimId),
-                ClaimStatus.Rejected => evidence.Refutes.Contains(resolved.ClaimId),
-                _ => true
-            };
-
-            if (!directionMatches)
-            {
-                throw new GovernanceException(
-                    $"Evidence '{evidenceId}' does not support the requested '{resolved.Status}' claim transition.");
-            }
-        }
-
-        // Mirrors ClaimRules.EnsureSupersessionReplacement and ClaimRules.DeriveSupersession. The outcome
-        // is carried on the event, and re-derived here so a forged one is refused.
-        if (resolved.Status != ClaimStatus.Superseded)
-        {
-            if (resolved.SupersededByClaimId is not null || resolved.Outcome is not null)
-            {
-                throw new GovernanceException(
-                    $"A '{resolved.Status}' resolution cannot name a superseding claim or outcome.");
-            }
-
-            return;
-        }
-
-        if (resolved.SupersededByClaimId is not { } replacementId)
-        {
-            throw new GovernanceException("Superseding a claim requires naming the claim that replaces it.");
-        }
-
-        if (replacementId == resolved.ClaimId)
-        {
-            throw new GovernanceException("A claim cannot supersede itself.");
-        }
-
-        var replacement = Get(state.Claims, replacementId, "claim");
-        if (replacement.Status is ClaimStatus.Rejected or ClaimStatus.Superseded)
-        {
-            throw new GovernanceException(
-                $"Replacement claim '{replacementId}' is '{replacement.Status}' and cannot replace another claim.");
-        }
-
-        if (resolved.Outcome is not { } outcome)
-        {
-            throw new GovernanceException("A supersession must record whether it was a refinement or a correction.");
-        }
-
-        RequireDefined(outcome, nameof(resolved.Outcome));
-        var expected = replacement.Status == ClaimStatus.Validated &&
-                       !state.Evidence.Values.Any(item => item.Refutes.Contains(resolved.ClaimId))
-            ? SupersessionOutcome.Refinement
-            : SupersessionOutcome.Correction;
-        if (outcome != expected)
-        {
-            throw new GovernanceException(
-                $"Supersession outcome '{outcome}' does not match the state-derived outcome '{expected}'.");
-        }
-    }
-
     private static void ValidateEvidenceAdded(GovernedTaskState state, LedgerEvent @event, Evidence evidence)
     {
         RequireAuthority(state, @event.ActorId, Capability.AddEvidence);
@@ -1657,17 +1562,6 @@ internal static class TaskTransitionValidator
     private static void ValidateAlternativeRecordedCitation(GovernedTaskState state, Alternative alternative) =>
         EnsureCitedLessonWasRecalled(state, alternative.FromLesson);
 
-    // Mirrors LessonCitationRules.EnsureCitedLessonWasRecalled. Safe here by construction: no
-    // claim, decision or alternative already on disk carries FromLesson, so every existing history
-    // passes the null branch untouched.
-    private static void EnsureCitedLessonWasRecalled(GovernedTaskState state, LessonId? fromLesson)
-    {
-        if (fromLesson is { } lessonId)
-        {
-            _ = Get(state.Lessons, lessonId, "recalled lesson");
-        }
-    }
-
     private static void ValidateAlternativeRecorded(
         GovernedTaskState state,
         LedgerEvent @event,
@@ -1893,33 +1787,6 @@ internal static class TaskTransitionValidator
         // those rules predate it and every completion in every log already satisfies them.
     }
 
-    private static void ValidateClaimDependenciesRepointed(
-        GovernedTaskState state,
-        LedgerEvent @event,
-        ClaimDependenciesRepointed repointed)
-    {
-        RequireAuthority(state, @event.ActorId, Capability.ResolveClaim);
-        var superseded = Get(state.Claims, repointed.SupersededClaimId, "claim");
-        var replacement = Get(state.Claims, repointed.ReplacementClaimId, "claim");
-        if (superseded.Status != ClaimStatus.Superseded)
-        {
-            throw new GovernanceException("Dependencies are only re-pointed away from a superseded claim.");
-        }
-
-        if (superseded.SupersededByClaimId != replacement.Id)
-        {
-            throw new GovernanceException("Dependencies can only be re-pointed at the claim that superseded them.");
-        }
-
-        // Mirrors DeriveSupersession: only an earned refinement re-points instead of invalidating.
-        if (replacement.Status != ClaimStatus.Validated ||
-            state.Evidence.Values.Any(item => item.Refutes.Contains(superseded.Id)))
-        {
-            throw new GovernanceException(
-                "Dependencies are only re-pointed when the replacement is validated and nothing refutes the original.");
-        }
-    }
-
     private static void ValidateDecisionOverturned(
         GovernedTaskState state,
         LedgerEvent @event,
@@ -1947,56 +1814,11 @@ internal static class TaskTransitionValidator
         }
     }
 
-    private static void RequireAuthority(
-        GovernedTaskState state,
-        ActorId actorId,
-        Capability capability,
-        bool operatorRequired = false)
-    {
-        var assignment = Get(state.Roles, actorId, "actor role");
-        if (operatorRequired && assignment.Role != RoleKind.Operator)
-        {
-            throw new GovernanceException("Only an operator can perform this transition.");
-        }
-
-        if (!assignment.Capabilities.Contains(capability))
-        {
-            throw new GovernanceException($"Actor '{actorId}' lacks capability '{capability}'.");
-        }
-    }
-
-    private static bool IsOperator(GovernedTaskState state, ActorId actorId) =>
-        state.Roles.TryGetValue(actorId, out var assignment) && assignment.Role == RoleKind.Operator;
-
-    private static void ValidateProvenance(LedgerEvent @event, Provenance provenance, string expectedSource)
-    {
-        if (provenance.ActorId != @event.ActorId ||
-            provenance.RecordedAt != @event.RecordedAt ||
-            !string.Equals(provenance.Source, expectedSource, StringComparison.Ordinal))
-        {
-            throw new GovernanceException(
-                "Payload provenance must match the event actor, timestamp, and transition source.");
-        }
-    }
-
     private static void EnsureDecisionIsCurrent(Decision decision)
     {
         if (decision.Status is DecisionStatus.Superseded or DecisionStatus.Invalidated)
         {
             throw new GovernanceException("Only a current decision can be superseded.");
-        }
-    }
-
-    private static void EnsureClaimResolution(Claim claim, ClaimStatus target)
-    {
-        if (target == ClaimStatus.Open)
-        {
-            throw new GovernanceException("Claim resolution cannot set a claim to open.");
-        }
-
-        if (claim.Status is ClaimStatus.Rejected or ClaimStatus.Superseded || claim.Status == target)
-        {
-            throw new GovernanceException($"Claim in status '{claim.Status}' cannot transition to '{target}'.");
         }
     }
 
@@ -2049,70 +1871,4 @@ internal static class TaskTransitionValidator
     private static GovernedTaskState Require(GovernedTaskState? state) =>
         state ?? throw new GovernanceException("Task has not been opened.");
 
-    private static TValue Get<TKey, TValue>(
-        IReadOnlyDictionary<TKey, TValue> values,
-        TKey id,
-        string kind)
-        where TKey : notnull
-    {
-        if (!values.TryGetValue(id, out var value))
-        {
-            throw new GovernanceException($"Unknown {kind} '{id}'.");
-        }
-
-        return value;
-    }
-
-    private static void EnsureNew<TKey, TValue>(
-        IReadOnlyDictionary<TKey, TValue> values,
-        TKey id,
-        string kind)
-        where TKey : notnull
-    {
-        if (values.ContainsKey(id))
-        {
-            throw new GovernanceException($"A {kind} with ID '{id}' already exists.");
-        }
-    }
-
-    private static void EnsureReferencesExist<TKey, TValue>(
-        IReadOnlyDictionary<TKey, TValue> values,
-        IEnumerable<TKey> ids,
-        string kind)
-        where TKey : notnull
-    {
-        foreach (var id in ids)
-        {
-            _ = Get(values, id, kind);
-        }
-    }
-
-    private static void EnsureUnique<T>(
-        IReadOnlyList<T> values,
-        string label,
-        IEqualityComparer<T>? comparer = null)
-    {
-        if (values.Count != values.Distinct(comparer).Count())
-        {
-            throw new GovernanceException($"{label} cannot contain duplicates.");
-        }
-    }
-
-    private static void RequireDefined<TEnum>(TEnum value, string field) where TEnum : struct, Enum
-    {
-        if (!Enum.IsDefined(value))
-        {
-            throw new GovernanceException($"'{value}' is not a defined {field} value.");
-        }
-    }
-
-    private static void RequireText(string value, string name)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new GovernanceException($"{name} is required.");
-        }
-    }
-
-    private static void RequireId(string value, string name) => RequireText(value, name);
 }

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using AILedger.Cli.Claims;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -184,6 +185,12 @@ public sealed class CliApplication
         string lessonRoot,
         CancellationToken cancellationToken)
     {
+        if (ClaimCliCommands.TryCreate(command, input, out var claimCommand))
+        {
+            await ExecuteAsync(service, input, claimCommand!, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         switch (command)
         {
             case "task open":
@@ -232,19 +239,6 @@ public sealed class CliApplication
                 break;
             case "artifact list":
                 await ListArtifactsAsync(service, input, cancellationToken).ConfigureAwait(false);
-                break;
-            case "claim add":
-                await ExecuteAsync(service, input, new AddClaimCommand(
-                    Actor(input), Cause(input), Correlation(input), new ClaimId(input.Required("id")),
-                    input.Required("statement"), input.Optional("consequence"),
-                    OptionalId(input.Optional("from-lesson"), value => new LessonId(value))), cancellationToken).ConfigureAwait(false);
-                break;
-            case "claim resolve":
-                await ExecuteAsync(service, input, new ResolveClaimCommand(
-                    Actor(input), Cause(input), Correlation(input), new ClaimId(input.Required("id")),
-                    EnumValue<ClaimStatus>(input, "status"),
-                    input.Many("evidence").Select(value => new EvidenceId(value)).ToArray(),
-                    OptionalId(input.Optional("superseded-by"), value => new ClaimId(value))), cancellationToken).ConfigureAwait(false);
                 break;
             case "evidence add":
                 await ExecuteAsync(service, input, new AddEvidenceCommand(
@@ -425,7 +419,8 @@ public sealed class CliApplication
 
     private static void ValidateOptions(string command, CommandLine input)
     {
-        if (!AllowedOptions.TryGetValue(command, out var allowedOptions))
+        if (!ClaimCliCommands.TryGetAllowedOptions(command, out var allowedOptions) &&
+            !AllowedOptions.TryGetValue(command, out allowedOptions))
         {
             throw new CliUsageException($"Unknown command '{string.Join(' ', input.Command)}'. Use --help.");
         }
@@ -2022,10 +2017,6 @@ public sealed class CliApplication
             ["artifact show"] = Options("root", "task", "actor", "id", "json"),
             ["artifact list"] = Options("root", "task", "actor", "work", "kind"),
             ["version"] = Options(),
-            ["claim add"] = Options(
-                "root", "task", "actor", "id", "statement", "consequence", "from-lesson", "cause", "correlation"),
-            ["claim resolve"] = Options(
-                "root", "task", "actor", "id", "status", "evidence", "superseded-by", "cause", "correlation"),
             ["evidence add"] = Options(
                 "root", "task", "actor", "id", "source-type", "citation", "summary", "supports", "refutes",
                 "cause", "correlation"),

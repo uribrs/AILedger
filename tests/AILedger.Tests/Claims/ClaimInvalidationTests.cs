@@ -2,9 +2,9 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.Claims;
 
-public sealed class InvalidationTests
+public sealed class ClaimInvalidationTests
 {
     [Fact]
     public void RejectingClaimInvalidatesDecisionAndBlocksActiveDependentWork()

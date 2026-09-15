@@ -54,8 +54,6 @@ public abstract record LedgerEventData;
 // carries none, and replay must keep reading those histories.
 public sealed record TaskOpened(string Title, string Goal, IReadOnlyList<string>? Tags = null) : LedgerEventData;
 public sealed record RoleAssigned(RoleAssignment Assignment) : LedgerEventData;
-public sealed record ClaimAdded(Claim Claim) : LedgerEventData;
-public sealed record ClaimResolved(ClaimId ClaimId, ClaimStatus Status, IReadOnlyList<EvidenceId> EvidenceIds, ClaimId? SupersededByClaimId = null, SupersessionOutcome? Outcome = null) : LedgerEventData;
 public sealed record EvidenceAdded(Evidence Evidence) : LedgerEventData;
 public sealed record DecisionProposed(Decision Decision) : LedgerEventData;
 public sealed record DecisionResolved(DecisionId DecisionId, DecisionStatus Status) : LedgerEventData;
@@ -150,7 +148,6 @@ public sealed record WorkItemCompleted(
 public sealed record WorkItemBlocked(WorkItemId WorkItemId, string Reason, EscalationId? EscalationId) : LedgerEventData;
 public sealed record WorkItemUnblocked(WorkItemId WorkItemId) : LedgerEventData;
 public sealed record WorkItemAbandoned(WorkItemId WorkItemId, string Reason) : LedgerEventData;
-public sealed record ClaimDependenciesRepointed(ClaimId SupersededClaimId, ClaimId ReplacementClaimId) : LedgerEventData;
 public sealed record DecisionOverturned(DecisionId DecisionId, ChallengeId ChallengeId) : LedgerEventData;
 public sealed record LessonMinted(Lesson Lesson) : LedgerEventData;
 public sealed record LessonRecalled(Lesson Lesson) : LedgerEventData;
