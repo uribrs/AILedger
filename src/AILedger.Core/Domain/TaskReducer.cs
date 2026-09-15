@@ -4,6 +4,7 @@ using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Constraints;
 using AILedger.Core.Contracts;
+using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Decisions;
 using AILedger.Core.Evidences;
 using AILedger.Core.Escalations;
@@ -82,17 +83,8 @@ public sealed class TaskReducer : ITaskReducer
                     waived.StaleBriefEvidenceId,
                     waived.Provenance)
             },
-            // The bracket, projected so that the runs pointing back at it can be selected without
-            // re-reading the log. The end is written onto the same record rather than kept as a
-            // second one: a session with no EndedAt is open, and an open bracket is why measures 1
-            // and 2 report an absent duration instead of measuring against a clock this projection
-            // does not take.
-            SessionStarted started => Require(state) with
-            {
-                CoordinatorSessions = Set(
-                    Require(state).CoordinatorSessions, started.Session.Id, started.Session)
-            },
-            SessionCompleted completed => CompleteCoordinatorSession(Require(state), completed),
+            SessionStarted started => CoordinatorSessionStateProjector.Start(Require(state), started),
+            SessionCompleted completed => CoordinatorSessionStateProjector.Complete(Require(state), completed),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 
@@ -201,17 +193,6 @@ public sealed class TaskReducer : ITaskReducer
         return projected with
         {
             Runs = Set(state.Runs, completed.RunId, run)
-        };
-    }
-
-    private static GovernedTaskState CompleteCoordinatorSession(
-        GovernedTaskState state,
-        SessionCompleted completed)
-    {
-        var session = state.CoordinatorSessions[completed.SessionId] with { EndedAt = completed.EndedAt };
-        return state with
-        {
-            CoordinatorSessions = Set(state.CoordinatorSessions, completed.SessionId, session)
         };
     }
 

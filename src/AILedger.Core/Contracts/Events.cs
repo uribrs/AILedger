@@ -152,20 +152,3 @@ public sealed record ContextBriefWaived(
     string? OperatorReason = null,
     EvidenceId? StaleBriefEvidenceId = null,
     WaiverProvenance? Provenance = null) : LedgerEventData;
-// The two ends of a coordinating session's bracket. They are the only new persisted facts this
-// measurement needs: everything else it reports is derived from actorId, sequence and timestamp over
-// events that already exist (D2).
-//
-// Optional for the whole existing history, and that is not a courtesy either. All 7,019 events in
-// this repository were written with no session, no command may be refused for lacking one, and no
-// boundary is ever inferred from a time gap, a task lifetime or an actor lifetime — an inferred
-// bracket is a fabricated measurement, which is PALT3 and attention item R2 (D7).
-//
-// Three readers of the log get an arm for these in the same change: CommandHandler at command time,
-// TaskTransitionValidator at replay, and the memory index's own HistoricalLedgerProjector, whose
-// switch throws on event data it has no arm for and which silently stopped that index rebuilding on
-// 2026-09-10 for exactly that reason. The third reader is named by role rather than by project
-// here, because the kernel may not so much as mention that project's name — R1 in the shadow
-// boundary tests scans every kernel source for it.
-public sealed record SessionStarted(CoordinatorSession Session) : LedgerEventData;
-public sealed record SessionCompleted(CoordinatorSessionId SessionId, DateTimeOffset EndedAt) : LedgerEventData;

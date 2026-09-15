@@ -5,6 +5,7 @@ using AILedger.Core.Claims;
 using AILedger.Core.Challenges;
 using AILedger.Core.Decisions;
 using AILedger.Core.Constraints;
+using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
 using AILedger.Core.Escalations;
 using AILedger.Core.Evidences;
@@ -66,9 +67,9 @@ public sealed class CommandHandler : ICommandHandler
             AddWorkItemCommand add => WorkItemLifecycleRules.Add(state, add),
             StartRunCommand start => RunRules.StartRun(state, start, now),
             CompleteRunCommand complete => RunRules.CompleteRun(state, complete, now),
-            StartCoordinatorSessionCommand start => CoordinatorSessionRules.StartSession(state, start, now),
+            StartCoordinatorSessionCommand start => CoordinatorSessionLifecycleRules.Start(state, start, now),
             CompleteCoordinatorSessionCommand complete =>
-                CoordinatorSessionRules.CompleteSession(state, complete, now),
+                CoordinatorSessionLifecycleRules.Complete(state, complete, now),
             RequestStageTransitionCommand transition => StageTransitionRules.TransitionStage(state, transition, now),
             RaiseEscalationCommand raise => EscalationRules.Raise(state, raise, now),
             ResolveEscalationCommand resolve => EscalationRules.Resolve(state, resolve),

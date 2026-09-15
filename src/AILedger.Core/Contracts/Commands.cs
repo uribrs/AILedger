@@ -99,29 +99,6 @@ public sealed record StartRunCommand(
     // kernel refuses no run for its absence.
     CoordinatorSessionId? CoordinatorSessionId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
 
-// The bracket a coordinator puts around its own work. Two commands and nothing else: the session
-// records no cost, no volume and no self-assessment, because every measure over it is derived from
-// the log rather than reported by the thing being measured (D2).
-public sealed record StartCoordinatorSessionCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    CoordinatorSessionId SessionId,
-    // Which harness hosts the coordinator — `claude-code`, `codex-cli`. Required: a session that
-    // does not say what it ran in cannot have its usage record looked for, and "no record" and
-    // "never asked" are different absences (D6).
-    string Harness,
-    // The harness's own identity for this conversation, when it exposes one. It is what a transcript
-    // is identity-checked against, and a session carrying none reports the usage read as an absence
-    // rather than trusting a path (R4, PD2).
-    string? HarnessSessionId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
-public sealed record CompleteCoordinatorSessionCommand(
-    ActorId ActorId,
-    EventId? CausationId,
-    string CorrelationId,
-    CoordinatorSessionId SessionId) : LedgerCommand(ActorId, CausationId, CorrelationId);
-
 public sealed record CompleteRunCommand(
     ActorId ActorId,
     EventId? CausationId,

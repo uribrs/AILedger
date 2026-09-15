@@ -7,6 +7,8 @@ namespace AILedger.Tests.Support;
 // signature change would otherwise land in every call site in the suite instead of in one place.
 internal static class ArtifactCommands
 {
+    private const string VerificationProvider = "verification-provider";
+
     // What a real workflow document looks like on the way in: YAML front matter, a horizontal rule,
     // indentation that carries meaning. This is the shape validated claim C10 is about — none of it
     // survives being passed as a command-line option value.
@@ -77,7 +79,7 @@ internal static class ArtifactCommands
             task.NextCorrelation(),
             run,
             workItemId,
-            "claude",
+            VerificationProvider,
             null,
             null,
             null,

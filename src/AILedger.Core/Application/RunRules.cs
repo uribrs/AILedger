@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Artifacts;
 using AILedger.Core.Claims;
 using AILedger.Core.Domain;
@@ -150,7 +151,7 @@ internal static class RunRules
             command.WithoutBriefReason, command.StaleBriefEvidenceId);
         // Checked only when the run names a session, which no run recorded before sessions existed
         // does. A run that names none is dispatched outside a bracket, and that is legal (D7).
-        CoordinatorSessionRules.EnsureDispatchingSessionIsUsable(
+        CoordinatorSessionDispatchRules.EnsureUsable(
             state, command.ActorId, command.CoordinatorSessionId);
 
         // Which role the subject holds now, recorded on the run. Role assignments change, so asking

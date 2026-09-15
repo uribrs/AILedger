@@ -1,7 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.CoordinatorSessions;
 
 // Provenance attributes a waiver; it never changes whether the waiver is accepted. These tests
 // drive the same three successful commands with and without a coordinator bracket and compare only

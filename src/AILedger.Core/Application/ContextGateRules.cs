@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
@@ -61,7 +62,7 @@ internal static class ContextGateRules
                 action,
                 reason,
                 null,
-                CoordinatorSessionRules.ProvenanceForWaiver(state, actorId));
+                CoordinatorSessionWaiverAttribution.Resolve(state, actorId));
         }
 
         var briefed = state.ContextBuilds.TryGetValue(actorId, out var build);
@@ -86,7 +87,7 @@ internal static class ContextGateRules
                 action,
                 null,
                 evidenceId,
-                CoordinatorSessionRules.ProvenanceForWaiver(state, actorId));
+                CoordinatorSessionWaiverAttribution.Resolve(state, actorId));
         }
 
         if (!briefed)

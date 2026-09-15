@@ -3,7 +3,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Tests.Support;
 
-namespace AILedger.Tests.Core;
+namespace AILedger.Tests.CoordinatorSessions;
 
 // The coordinator is modelled as a session, not as a run, and the session owns the runs it
 // dispatches (D1). These tests are about that bracket: what opens it, what closes it, what a

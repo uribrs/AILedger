@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
+using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
 using static AILedger.Core.Application.CommandHandler;
 
@@ -58,7 +59,7 @@ internal static class WorkItemLifecycleRules
             new WorkItemCompleted(
                 command.WorkItemId,
                 waiver,
-                waiver is null ? null : CoordinatorSessionRules.ProvenanceForWaiver(state, command.ActorId))
+                waiver is null ? null : CoordinatorSessionWaiverAttribution.Resolve(state, command.ActorId))
         ];
     }
 

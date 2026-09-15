@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Artifacts;
 using AILedger.Core.Domain;
 using AILedger.Core.WorkItems;
@@ -86,7 +87,7 @@ internal static class StageTransitionRules
             state.Stage, command.TargetStage, reason, command.SerialJustification);
         var provenance = waiver is null
             ? null
-            : CoordinatorSessionRules.ProvenanceForWaiver(state, command.ActorId);
+            : CoordinatorSessionWaiverAttribution.Resolve(state, command.ActorId);
         if (command.TargetStage != TaskStage.Archive)
         {
             return waiver is null
