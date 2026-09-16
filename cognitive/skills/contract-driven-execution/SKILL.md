@@ -1,6 +1,6 @@
 ---
 name: contract-driven-execution
-version: 1.5.0
+version: 1.6.1
 description: Direct-path executor for non-trivial work that has a finalized prompt contract. Performs the implementation, refactoring, research-driven coding, or agent-workflow execution against the current PromptContract artifact and records findings in the governed task. Typically invoked by `task-orchestrator` on the direct execution path.
 ---
 
@@ -71,7 +71,25 @@ Treat `prompt_contract.md` as the execution contract.
 - When execution produces evidence that moves an assumption, record it with actor `executor` and the citation that moved it — the test name, log line, correlation ID, or `file:line`. This is the cheapest moment to capture it; the verifier can only mark NEVER-TESTED for evidence nobody wrote down. In a governed task, record the claim with `ailedger claim add` and the citation with `ailedger evidence add`; `executor` names the cognition, while `--actor` uses the active actor id.
 - Work with existing user changes; do not revert unrelated edits.
 
-This skill does not run a verifier or code-reviewer pass. Those are owned by `task-orchestrator` and run after this skill returns.
+This skill does not run a verifier or code-reviewer pass. The coordinator dispatches those after the orchestrator reconciles this skill's results.
+
+### Subject assurance and repair handoff
+
+Workers/researchers execute singular owned work; they do not select assurance bundles or close
+assignments. Consume the plan's static Assurance Subjects associations and the supplied relevant
+repair findings. A finding may originally cover several members but currently apply to only some;
+retain its producer status and original/applicable coverage. An explicit empty applicable set is
+empty. Failed-producer findings are evidence to address, not completed assurance. Do not discard
+intersecting bundle findings or import unrelated outputs.
+
+Report changed paths (including untracked files, modes and deletions), fulfilled recon rows and
+focused evidence. The coordinator freezes candidate bytes and chooses independent assurance over
+the declared association. Stop editing at freeze; report any later edit even after failed/cancelled
+work. Resume of your own worker cognition does not authorize resuming a new assurance session.
+Do not file task-wide PromptContract/OrchestrationPlan from a work-scoped run. Record worker
+findings through claims/evidence and your execution report; do not invent an artifact kind. The
+later verifier/reviewer outputs inherit their new producer coverage when filed without work flags.
+Missing shared contracts or conceptual seams return BLOCKED to the orchestrator before edits.
 
 ### 4. Update State After Execution
 
@@ -81,7 +99,7 @@ surface stable decisions or constraints to an actor holding `ProposeDecision` or
 rather than editing their projections. Raise a governed escalation when a blocker meets the task's
 escalation rules.
 
-Hand control back to `task-orchestrator`, which owns the verifier and code-reviewer passes that follow.
+Hand control back to `task-orchestrator`, which reconciles readiness and returns it to the coordinator for verifier and paired reviewer dispatch.
 
 ## Stop Conditions
 
@@ -105,4 +123,4 @@ In the final response back to the orchestrator, report:
 - Any blocker or residual risk that remains.
 - The path of `execution_notes.md` for the orchestrator to inspect.
 
-Do not run a verifier-style pass here. Verifier and code-reviewer run in the orchestrator after this skill returns.
+Do not run a verifier-style pass here. The coordinator dispatches verifier and code-reviewer after orchestrator reconciliation.

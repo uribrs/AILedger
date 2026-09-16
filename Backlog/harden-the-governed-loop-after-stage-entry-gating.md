@@ -1,5 +1,8 @@
 # Harden the governed loop after stage-entry gating
 
+**done**
+covered in: e691e20 (harden governed loop after stage gating)
+
 The retrospective for `2026-09-14_0130-gate-the-entry-actions` showed that the kernel's central
 model works: refusals changed behaviour, evidence survived provider hand-offs, repair findings were
 carried forward, and the completed implementation replayed every live task. The remaining problems

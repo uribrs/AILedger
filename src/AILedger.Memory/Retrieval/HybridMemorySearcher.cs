@@ -312,6 +312,7 @@ public sealed class HybridMemorySearcher : IMemorySearcher
             Repository = candidate.Document.Repository,
             TaskId = candidate.Document.TaskId,
             WorkItemId = candidate.Document.WorkItemId,
+            CoveredWorkItemIds = MemoryDocumentCoverage.Original(candidate.Document),
             RunId = candidate.Document.RunId,
             Citations = candidate.Document.Citations,
             EmbeddingIdentity = candidate.Semantic is null ? null : semanticIdentity

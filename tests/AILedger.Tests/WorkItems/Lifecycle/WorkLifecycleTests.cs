@@ -36,6 +36,7 @@ public sealed class WorkLifecycleTests
         Assert.Equal(WorkItemStatus.Paused, task.State.WorkItems[workItemId].Status);
 
         task.RecordVerifierPass(workItemId);
+        task.RecordCodeReviewerPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
@@ -123,6 +124,7 @@ public sealed class WorkLifecycleTests
             SubjectActorId: Worker));
         task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1"));
         task.RecordVerifierPass(workItemId);
+        task.RecordCodeReviewerPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }

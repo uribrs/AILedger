@@ -112,6 +112,26 @@ Questions to answer:
 The verifier must prioritize the original user request and the contract Success Criteria over the orchestration plan. If the plan is incorrect or incomplete, it must be challenged.
 A consistent result is not sufficient if it does not satisfy the original request.
 
+## Subject assurance checklist
+
+- Does the plan declare `subject | related subjects | work items | relationship`, without inferred
+  grouping or mutable assignment state?
+- Did the orchestrator declare relationships and reconcile readiness, then the coordinator select
+  ready members, record provenance/scopes/exclusions and dispatch verifier then paired reviewer?
+- Is the verifier independent of each member, followed by fresh review paired to that exact
+  completed verifier, identical member set, working provenance and candidate?
+- Are outputs inherited from producers and applicable per member, with failed findings visible but
+  not qualifying? Does A-only repair retain unaffected B from AB, and later BC replace only B/C?
+- Do repair briefs exclude unrelated findings and reviewer inputs exclude direct/indirect narrative?
+- Do narrow grants include every scope even for a singleton, without implicit root widening?
+- Are complete modified/untracked file manifests equal before/after both passes, distinct from
+  context ManifestHash, using project-appropriate checks? For kernel changes only, was private
+  bootstrap used with the global tool unchanged?
+- Are assignment retirement/reopening derived from existing records, completed work kept terminal,
+  and the final release assured as one complete candidate rather than mixed historical candidates?
+- Are conceptual gaps batched back to Research/Design, and project final checks and closeout recorded
+  before release? For kernel changes, also require copied real-history replay before push/install.
+
 ## Code-Reviewer Boundary
 
 For invocation context, allow-list, deny-list, scope separation, and review lenses, see `code-reviewer/SKILL.md`.

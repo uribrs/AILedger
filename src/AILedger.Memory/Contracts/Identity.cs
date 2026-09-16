@@ -6,7 +6,7 @@ namespace AILedger.Memory.Contracts;
 
 public static class MemoryIdentity
 {
-    public const string NormalizerVersion = "1";
+    public const string NormalizerVersion = "2";
 
     public static string CreateDocumentId(
         string sourceIdentity,

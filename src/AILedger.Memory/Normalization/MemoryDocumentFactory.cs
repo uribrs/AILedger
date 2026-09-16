@@ -23,9 +23,13 @@ internal static class MemoryDocumentFactory
         IEnumerable<string?>? relatedIds = null,
         IEnumerable<DocumentRelation>? relations = null,
         string? repository = null,
-        string? taskId = null)
+        string? taskId = null,
+        IEnumerable<string>? coveredWorkItemIds = null,
+        IEnumerable<string>? applicableWorkItemIds = null)
     {
         var normalizedText = NormalizeText(text);
+        var coverage = NormalizeValues(coveredWorkItemIds ?? (workItemId is null ? [] : [workItemId]));
+        var applicability = NormalizeValues(applicableWorkItemIds);
         return new MemoryDocument
         {
             Id = MemoryIdentity.CreateDocumentId(source.Id, kind, recordIdentity),
@@ -34,6 +38,8 @@ internal static class MemoryDocumentFactory
             Repository = repository ?? source.Repository,
             TaskId = taskId ?? source.TaskId,
             WorkItemId = workItemId,
+            CoveredWorkItemIds = coverage,
+            ApplicableWorkItemIds = applicability,
             RunId = runId,
             ActorId = actorId,
             SourceTimestamp = sourceTimestamp,

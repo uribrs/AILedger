@@ -51,29 +51,22 @@ internal static class WorkItemStateProjector
 
     internal static GovernedTaskState ActivateForRun(GovernedTaskState state, AgentRun run)
     {
-        if (run.WorkItemId is not { } workItemId)
-        {
-            return state;
-        }
-
-        return UpdateStatus(state, workItemId, WorkItemStatus.Active);
+        foreach (var member in WorkCoverage.Effective(run.WorkItemId, run.Assurance))
+            state = UpdateStatus(state, member, WorkItemStatus.Active);
+        return state;
     }
 
     internal static GovernedTaskState PauseAfterRun(GovernedTaskState state, AgentRun run)
     {
-        if (run.WorkItemId is not { } workItemId)
+        foreach (var member in WorkCoverage.Effective(run.WorkItemId, run.Assurance))
         {
-            return state;
+            var status = state.WorkItems[member].Status;
+            if (run.Assurance is null
+                ? status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Abandoned)
+                : status == WorkItemStatus.Active)
+                state = UpdateStatus(state, member, WorkItemStatus.Paused);
         }
-
-        var current = state.WorkItems[workItemId];
-        if (current.Status is WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Abandoned)
-        {
-            return state;
-        }
-
-        // A terminated provider process is not a claim that the work is complete.
-        return UpdateStatus(state, workItemId, WorkItemStatus.Paused);
+        return state;
     }
 
     private static GovernedTaskState UpdateStatus(

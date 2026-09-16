@@ -103,7 +103,7 @@ internal static class WorkItemEventValidator
         }
 
         if (state.Runs.Values.Any(run =>
-                run.WorkItemId == completed.WorkItemId && run.Status is AgentRunStatus.Active))
+                WorkCoverage.Effective(run.WorkItemId, run.Assurance).Contains(completed.WorkItemId) && run.Status is AgentRunStatus.Active))
         {
             throw new GovernanceException("Work item cannot be completed while a run is still active.");
         }
@@ -196,6 +196,11 @@ internal static class WorkItemEventValidator
         {
             throw new GovernanceException("Work item is already abandoned.");
         }
+
+        // Presence-gated: old histories retain their original command-only coordination policy.
+        if (state.Runs.Values.Any(run => run.Assurance is not null && run.Status == AgentRunStatus.Active &&
+            WorkCoverage.Effective(run.WorkItemId, run.Assurance).Contains(abandoned.WorkItemId)))
+            throw new GovernanceException($"Work item '{abandoned.WorkItemId}' has an active assurance run and cannot be abandoned.");
 
         // Active-run and open-escalation checks remain command-time coordination policy. Replay keeps
         // this validator focused on the shape and admissible state transition of the recorded event.

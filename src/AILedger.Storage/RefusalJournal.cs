@@ -17,7 +17,7 @@ public static class RefusalSite
     public const string ProviderLaunch = "provider-launch";
 }
 
-// One refused attempt. Six fields, and Message is the kernel's own text copied verbatim: a
+// One refused attempt. Message is the kernel's own text copied verbatim: a
 // retrospective reads which gate fired, so the gate's own words are the only faithful record of it.
 public sealed record RefusalRecord(
     DateTimeOffset RecordedAt,
@@ -25,7 +25,10 @@ public sealed record RefusalRecord(
     string Command,
     string Site,
     long TaskVersion,
-    string Message);
+    string Message,
+    // Optional and trailing so journals written before executable identity was recorded remain
+    // readable, and existing construction sites remain source-compatible.
+    KernelBuildIdentity? KernelIdentity = null);
 
 // Telemetry beside the event log, never part of it. Nothing in the kernel may refuse, gate or score
 // on this file, replay never reads it, and no state carries it — so a task whose journal is deleted

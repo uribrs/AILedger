@@ -56,9 +56,10 @@ public sealed class LedgerDocumentNormalizer
             source, events, "work item", work.Id.Value, () => NormalizeWork(source, events, work, task))));
         documents.AddRange(task.Runs.Values.Select(run => NormalizeRecord(
             source, events, "run", run.Id.Value, () => NormalizeRun(source, events, run, task))));
+        var currentArtifactIds = ArtifactApplicability.Current(task).Select(artifact => artifact.ArtifactId).ToHashSet();
         documents.AddRange(task.Artifacts.Values.Select(artifact => NormalizeRecord(
             source, events, "artifact", artifact.ArtifactId.Value,
-            () => NormalizeArtifact(source, events, artifact, task))));
+            () => NormalizeArtifact(source, events, artifact, task, currentArtifactIds.Contains(artifact.ArtifactId)))));
 
         return documents.OrderBy(document => document.Id, StringComparer.Ordinal).ToArray();
     }
@@ -350,8 +351,9 @@ public sealed class LedgerDocumentNormalizer
             WorkItemBlocked item => item.WorkItemId == work.Id,
             WorkItemUnblocked item => item.WorkItemId == work.Id,
             WorkItemAbandoned item => item.WorkItemId == work.Id,
-            RunStarted item => item.Run.WorkItemId == work.Id,
-            RunCompleted item => task.Runs.TryGetValue(item.RunId, out var run) && run.WorkItemId == work.Id,
+            RunStarted item => WorkCoverage.Effective(item.Run.WorkItemId, item.Run.Assurance).Contains(work.Id),
+            RunCompleted item => task.Runs.TryGetValue(item.RunId, out var run) &&
+                WorkCoverage.Effective(run.WorkItemId, run.Assurance).Contains(work.Id),
             ClaimDependenciesRepointed item =>
                 work.DependsOnClaims.Contains(item.ReplacementClaimId) ||
                 work.DependsOnClaims.Contains(item.SupersededClaimId),
@@ -388,37 +390,56 @@ public sealed class LedgerDocumentNormalizer
             RunCompleted item => item.RunId == run.Id,
             _ => false
         });
+        var coverage = WorkCoverage.Effective(run.WorkItemId, run.Assurance).Select(id => id.Value).ToArray();
         var lifecycle = run.Status == AgentRunStatus.Active ? MemoryLifecycle.Active : MemoryLifecycle.Resolved;
         return Create(source, MemoryDocumentKind.RunSummary, run.Id.Value,
             MemoryDocumentFactory.Text(("Run", run.Id.Value), ("Status", run.Status),
-                ("Actor", run.ActorId.Value), ("Work item", run.WorkItemId?.Value),
+                ("Actor", run.ActorId.Value), ("Work items", coverage),
+                ("Candidate", run.Assurance?.CandidateId),
                 ("Provider", run.Provider), ("Model", run.Model), ("Provider version", run.ProviderVersion),
                 ("Started", run.StartedAt), ("Ended", run.EndedAt)),
             lifecycle, MemoryAuthority.RunOrWorkSummary, contributing, run.ActorId.Value,
             workItemId: run.WorkItemId?.Value, runId: run.Id.Value,
-            relatedIds: run.WorkItemId is { } workId ? [workId.Value] : [],
-            relations: run.WorkItemId is { } itemId
-                ? [new DocumentRelation { Kind = DocumentRelationKind.BelongsTo, TargetId = itemId.Value }]
-                : []);
+            relatedIds: coverage,
+            relations: coverage.Select(id => new DocumentRelation
+                { Kind = DocumentRelationKind.BelongsTo, TargetId = id }),
+            coveredWorkItemIds: coverage);
     }
 
     private static MemoryDocument NormalizeArtifact(
-        SourceDescriptor source, IReadOnlyList<LocatedLedgerEvent> events, GovernedArtifact artifact, GovernedTaskState task)
+        SourceDescriptor source, IReadOnlyList<LocatedLedgerEvent> events, GovernedArtifact artifact,
+        GovernedTaskState task, bool current)
     {
-        var contributing = Select(events, data => data is ArtifactRecorded item && item.Artifact.ArtifactId == artifact.ArtifactId);
-        var superseded = task.Artifacts.Values.Any(item => item.SupersedesArtifactId == artifact.ArtifactId);
-        var related = new[] { artifact.WorkItemId?.Value, artifact.ProducerRunId?.Value, artifact.SupersedesArtifactId?.Value };
+        var contributing = Select(events, data => data switch
+        {
+            ArtifactRecorded item => item.Artifact.ArtifactId == artifact.ArtifactId ||
+                item.Artifact.SupersedesArtifactId == artifact.ArtifactId ||
+                (item.Artifact.MemberReplacements?.Any(row => row.ArtifactIds.Contains(artifact.ArtifactId)) ?? false),
+            RunCompleted item => item.RunId == artifact.ProducerRunId,
+            _ => false
+        });
+        var coverage = WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance)
+            .Select(id => id.Value).ToArray();
+        var applicable = ArtifactApplicability.CurrentMembers(task, artifact).Select(id => id.Value).ToArray();
+        var predecessors = (artifact.MemberReplacements ?? [])
+            .SelectMany(row => row.ArtifactIds).Select(id => id.Value)
+            .Concat(artifact.SupersedesArtifactId is { } previous ? [previous.Value] : [])
+            .Distinct(StringComparer.Ordinal).ToArray();
+        var related = coverage.Cast<string?>().Concat(predecessors).Append(artifact.ProducerRunId?.Value);
+        var producerStatus = artifact.ProducerRunId is { } producerId && task.Runs.TryGetValue(producerId, out var producer)
+            ? producer.Status.ToString() : null;
         return Create(source, MemoryDocumentKind.Artifact, artifact.ArtifactId.Value,
             MemoryDocumentFactory.Text(("Artifact", artifact.Title), ("Kind", artifact.Kind),
-                ("Content", artifact.Content), ("Work item", artifact.WorkItemId?.Value),
-                ("Producer run", artifact.ProducerRunId?.Value)),
-            superseded ? MemoryLifecycle.Superseded : MemoryLifecycle.Active,
+                ("Content", artifact.Content), ("Work items", coverage), ("Applicable work items", applicable),
+                ("Candidate", artifact.Assurance?.CandidateId),
+                ("Producer run", artifact.ProducerRunId?.Value), ("Producer status", producerStatus)),
+            current ? MemoryLifecycle.Active : MemoryLifecycle.Superseded,
             MemoryAuthority.HistoricalRecord, contributing, artifact.Provenance.ActorId.Value,
             workItemId: artifact.WorkItemId?.Value, runId: artifact.ProducerRunId?.Value,
             relatedIds: related,
-            relations: artifact.SupersedesArtifactId is { } previous
-                ? [new DocumentRelation { Kind = DocumentRelationKind.Supersedes, TargetId = previous.Value }]
-                : []);
+            relations: coverage.Select(id => new DocumentRelation { Kind = DocumentRelationKind.BelongsTo, TargetId = id })
+                .Concat(predecessors.Select(id => new DocumentRelation { Kind = DocumentRelationKind.Supersedes, TargetId = id })),
+            coveredWorkItemIds: coverage, applicableWorkItemIds: applicable);
     }
 
     private static MemoryDocument Create(
@@ -434,7 +455,9 @@ public sealed class LedgerDocumentNormalizer
         string? runId = null,
         IEnumerable<string?>? tags = null,
         IEnumerable<string?>? relatedIds = null,
-        IEnumerable<DocumentRelation>? relations = null)
+        IEnumerable<DocumentRelation>? relations = null,
+        IEnumerable<string>? coveredWorkItemIds = null,
+        IEnumerable<string>? applicableWorkItemIds = null)
     {
         if (contributing.Count == 0)
         {
@@ -453,7 +476,8 @@ public sealed class LedgerDocumentNormalizer
                 EventId = item.Event.EventId.Value,
                 RecordId = recordIdentity
             }).ToArray(),
-            workItemId, runId, actorId, tags, relatedIds, relations);
+            workItemId, runId, actorId, tags, relatedIds, relations,
+            coveredWorkItemIds: coveredWorkItemIds, applicableWorkItemIds: applicableWorkItemIds);
     }
 
     private static IReadOnlyList<LocatedLedgerEvent> Select(

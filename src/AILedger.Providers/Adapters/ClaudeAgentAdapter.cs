@@ -7,7 +7,14 @@ namespace AILedger.Providers.Adapters;
 public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdapterBase(processRunner)
 {
     private const int MaximumInputBytes = 10 * 1024 * 1024;
-
+    private static readonly IReadOnlyDictionary<string, string> ReviewerMemoryControls =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = "1",
+            ["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = "1",
+            ["CLAUDE_CODE_DISABLE_ORG_MEMORY"] = "1",
+            ["CLAUDE_CODE_POST_TURN_MEMORY"] = "0"
+        };
 
     public override string Provider => "claude";
 
@@ -18,6 +25,13 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
         new(["--help"],
             ["--print", "--output-format", "--session-id", "--resume", "--permission-prompts", "--settings", "--strict-mcp-config", "--disable-slash-commands"])
     ];
+
+    protected override ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request) =>
+        request.Assurance?.VerifierRunId is not null
+            // R4 (reviewer-narrative-isolation): suppress ambient instruction files only
+            // in this reviewer child; retain authentication, permissions and directory grants.
+            ? new ProviderLaunchScope(ReviewerMemoryControls, null)
+            : base.OpenLaunchScope(request);
 
     protected override IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId)
     {
@@ -37,7 +51,9 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
             "--permission-prompts", "none",
             "--strict-mcp-config",
             "--disable-slash-commands",
-            "--settings", SandboxSettings
+            "--settings", request.Assurance?.VerifierRunId is not null
+                ? ReviewerSettings()
+                : SandboxSettings
         };
 
         if (request.Mode == AgentLaunchMode.Resume)
@@ -96,4 +112,16 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
 
     private const string SandboxSettings =
         "{\"sandbox\":{\"enabled\":true,\"failIfUnavailable\":true,\"autoAllowBashIfSandboxed\":true,\"allowUnsandboxedCommands\":false,\"excludedCommands\":[]}}";
+
+    private static string ReviewerSettings()
+    {
+        // CLI settings keep ordinary settings from restoring memory after process startup.
+        // Managed policy retains precedence; conflicting policy cannot promise isolated input.
+        using var settings = JsonDocument.Parse(SandboxSettings);
+        return JsonSerializer.Serialize(new
+        {
+            sandbox = settings.RootElement.GetProperty("sandbox"),
+            env = ReviewerMemoryControls
+        });
+    }
 }

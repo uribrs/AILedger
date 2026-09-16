@@ -2,7 +2,7 @@
 > Operator rules for all AI assistants working with this user.
 > These rules override default model behavior. They apply before any skill, task, or tool.
 > Last updated: 2026-08-03
-> version: 1.1.0
+> version: 1.1.1
 
 ---
 
@@ -146,12 +146,12 @@ These skills govern operational execution. Load the appropriate skill before sta
 
 | Skill | When to use |
 |---|---|
-| `workflow-coordinator` | Entry point for any non-trivial task. Pure routing — sequences the contract designer and the orchestrator, confirms the verifier and code-reviewer passes ran, then marks lesson-bearing outcomes and requests archival through the kernel. Does not analyze, decompose, or research itself. |
+| `workflow-coordinator` | Entry point for any non-trivial task. Pure routing — sequences the contract designer and the orchestrator, selects ready orchestrator-declared subject associations, dispatches verifier then paired reviewer and retires resolved assignments, then marks lesson-bearing outcomes and requests archival through the kernel. Does not analyze, decompose, or research itself. |
 | `prompt-contract-designer` | Invoked by the coordinator to convert rough instructions into a signed execution contract before any planning or execution begins. Recalls prior lessons from the ledger and seeds them as OPEN assumptions. Writes OPEN only — it holds no evidence. |
-| `task-orchestrator` | Invoked by the coordinator after the contract is finalized. Owns the post-contract planning: resolves external research, runs one internal recon pass **before** the path decision, then decides direct vs decompose — `decompose` by default, `direct` only with the overlapping files named in the File Ownership section. Workers own disjoint file sets, the shared surface is frozen in phase 0, and a worker that needs a missing shared artifact returns `BLOCKED:` rather than inventing one. Writes and files `orchestration_plan.md`, then specifies the governed worker runs — every worker in a phase launched concurrently, sequencing only between phases — followed by the verifier and isolated code-reviewer runs in that order. The verifier pass owns final assumption disposition against the diff. |
+| `task-orchestrator` | Invoked by the coordinator after the contract is finalized. Owns the post-contract planning: resolves external research, runs one internal recon pass **before** the path decision, then decides direct vs decompose — `decompose` by default, `direct` only with the overlapping files named in the File Ownership section. Workers own disjoint file sets, the shared surface is frozen in phase 0, and a worker that needs a missing shared artifact returns `BLOCKED:` rather than inventing one. Writes and files `orchestration_plan.md`, then specifies the governed worker runs — every worker in a phase launched concurrently, sequencing only between phases — then returns reconciled readiness to the coordinator for verifier and isolated paired reviewer dispatch in that order. Planning, relationship changes, synthesis and evidence judgment stay with the orchestrator. The verifier pass owns final assumption disposition against the diff. |
 | `contract-driven-execution` | Direct-path executor invoked by `task-orchestrator` inside a governed worker run; a coordinating role cannot hold a run against a work item. Executes against the contract and updates state. Does not run verifier or code-reviewer. |
 | `technical-researcher` | Invoked by `task-orchestrator` to investigate an OPEN external-behavior claim. Persists its output under `<taskPath>/research/<topic>.md` and records directional evidence; an operator or lead holding `ResolveClaim` resolves the triggering claim. |
-| `code-reviewer` | Invoked by `task-orchestrator` in isolation after the verifier pass on code-bearing work. Reviews code quality only. Must not be given the user request, prompt contract, orchestration plan, or verifier output. |
+| `code-reviewer` | Dispatched by `workflow-coordinator` in isolation after the verifier pass on code-bearing work. Reviews code quality only. Must not be given the user request, prompt contract, orchestration plan, or verifier output. |
 
 The pipeline:
 
@@ -167,8 +167,8 @@ workflow-coordinator
        │                   concurrently + synthesis
        │   OR
        │  direct path → contract-driven-execution   (no disjoint sets; overlapping files named)
-       ├─ verifier run                (full context; writes and files review/verifier-N.md + assumption disposition)
-       └─ code-reviewer run           (minimal context; writes and files review/code-reviewer-N.md)
+  ├─ verifier run                (full context; writes and files review/verifier-N.md + assumption disposition)
+  ├─ code-reviewer run           (minimal context; writes and files review/code-reviewer-N.md)
   └─ mark lessons and request Archive through the kernel
 ```
 

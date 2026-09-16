@@ -17,6 +17,9 @@ internal static class ArtifactEventValidator
         RequireText(artifact.Title, nameof(artifact.Title));
         RequireText(artifact.Content, nameof(artifact.Content));
 
+        if (artifact.Assurance is null && artifact.ProducerRunId is { } producer &&
+            state.Runs.TryGetValue(producer, out var run) && run.Assurance is not null)
+            throw new AILedger.Core.Domain.GovernanceException("Assurance artifact coverage: producer binding is required.");
         ArtifactScopeRules.Ensure(artifact.Kind, artifact.WorkItemId);
         var assignment = Get(state.Roles, @event.ActorId, "actor role");
         ArtifactAuthorityRules.Ensure(
@@ -26,13 +29,16 @@ internal static class ArtifactEventValidator
             assignment.Role,
             artifact.WorkItemId,
             artifact.ProducerRunId);
-        ArtifactRevisionRules.Ensure(
+        if (artifact.Assurance is not null)
+            AssuranceArtifactRules.Validate(state, artifact);
+        else ArtifactRevisionRules.Ensure(
             state,
             artifact.Kind,
             artifact.WorkItemId,
             artifact.ArtifactId,
             artifact.SupersedesArtifactId);
-        ArtifactDocumentRules.Validate(state, artifact.Kind, artifact.WorkItemId, artifact.Content);
+        ArtifactDocumentRules.Validate(state, artifact.Kind, artifact.WorkItemId, artifact.Content,
+            artifact.Assurance is null ? null : WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance));
         ValidateProvenance(@event, artifact.Provenance, "artifact.record");
     }
 }

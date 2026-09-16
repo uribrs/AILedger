@@ -350,19 +350,17 @@ public sealed class StagePrerequisiteTests
     // false here — the scoped item is Completed — and the gate that exists to force a code review
     // would be skipped by the ordinary act of completing the work first.
     [Fact]
-    public void CompletingTheScopedWorkDoesNotRelieveLearnOfItsCodeReview()
+    public void CompletingScopedWorkAfterCodeReviewAllowsLearn()
     {
         var task = CodeBearing();
         var work = new WorkItemId("W1");
         task.ReachStage(TaskStage.Review);
-        // The item carries both runs completion requires by now: the walk recorded a working pass
-        // before Verification and a verifier pass before Review, both against this item.
+        task.RecordCodeReviewerPass(work);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), work));
 
-        var refusal = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Learn));
+        task.Transition(TaskStage.Learn);
 
-        Assert.Contains(nameof(RoleKind.CodeReviewer), refusal.Message, StringComparison.Ordinal);
-        Assert.Equal(TaskStage.Review, task.State.Stage);
+        Assert.Equal(TaskStage.Learn, task.State.Stage);
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[work].Status);
         Assert.DoesNotContain(
             task.State.WorkItems.Values,

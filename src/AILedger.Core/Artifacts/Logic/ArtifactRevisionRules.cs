@@ -46,16 +46,8 @@ internal static class ArtifactRevisionRules
         }
     }
 
-    internal static IReadOnlyList<GovernedArtifact> Current(GovernedTaskState state)
-    {
-        var superseded = state.Artifacts.Values
-            .Where(item => item.SupersedesArtifactId is not null)
-            .Select(item => item.SupersedesArtifactId!.Value)
-            .ToHashSet();
-        return state.Artifacts.Values
-            .Where(item => !superseded.Contains(item.ArtifactId))
-            .ToArray();
-    }
+    internal static IReadOnlyList<GovernedArtifact> Current(GovernedTaskState state) =>
+        ArtifactApplicability.Current(state);
 
     /// <summary>
     /// Names the artifact a revision has to supersede. The rule admits one current artifact per

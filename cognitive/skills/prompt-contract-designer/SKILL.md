@@ -1,7 +1,7 @@
 ---
 
 name: prompt-contract-designer
-version: 1.4.0
+version: 1.5.2
 description: Convert rough user tasks into structured execution contracts, enforcing explicit constraints, assumptions, success criteria, and handoff rules before implementation. Consumes recalled lessons from the governed context and records them as unverified claims. Records claims as OPEN only — validation requires evidence this skill cannot hold.
 
 ---
@@ -126,7 +126,7 @@ Statuses written by the verifier pass are **terminal**. On idempotent re-runs th
 
 This skill does not run after execution and does not record outcomes.
 
-- Assumption disposition (VALIDATED / REJECTED / NEVER-TESTED, with actor and citation) is produced by the verifier pass inside `task-orchestrator`.
+- Assumption disposition (VALIDATED / REJECTED / NEVER-TESTED, with actor and citation) is produced by the verifier run dispatched by `workflow-coordinator` after orchestrator reconciliation.
 - Reusable lessons are marked through `ailedger lesson mark` by `workflow-coordinator`.
 
 Do not re-open a completed task to "update state" from this skill. Read the disposition; do not rewrite it.
@@ -244,6 +244,32 @@ If conflict is unclear or may impact correctness:
 - ask for clarification
 
 ---
+
+## Assurance coverage in the contract
+
+Define success criteria around the project's requested outcomes and risks. For related implementation
+work, require explicit subject associations in the orchestration plan and covering independent
+verification followed by a fresh isolated paired code review on the same frozen candidate. Do not
+prescribe one pair per work item or turn ordinary project assurance into kernel implementation tests.
+
+Only when changing the kernel's assurance behavior, map affected recon seams and behavior rows to
+reachable implementation proofs: per-member provenance and independence, lifecycle/ownership,
+inherited coverage, partial applicability, bounded context, all-scope grants and historical
+compatibility as applicable. Source recon alone is not a passing implementation test.
+
+Require complete modified/untracked product identity and external before/after comparison, with
+project-appropriate candidate checks and release gates. Require private kernel bootstrap, preservation
+of the known-good global tool and copied real-history replay only when changing AILedger itself.
+Ordinary projects use the existing
+compatible kernel; do not require a private kernel build or installation. The kernel binds neutral CandidateId equality; physical byte
+identity remains the coordinator's release procedure. Separate delivered-context ManifestHash from
+candidate identity. No inferred relatedness or separately managed bundle lifecycle is required.
+The orchestrator declares static associations and reconciles readiness; the coordinator selects
+ready associations, dispatches verifier then paired reviewer, and retires resolved assignments.
+Assignment state derives from runs, applicable outputs
+and member closure. Actual relationship/scope changes return through Design. Keep governing
+contract/plan artifacts task-wide and produced only by an authorized task-wide run; never add
+`--work`/`--also-work` to their filing commands.
 
 ## Execution Handoff Rule
 

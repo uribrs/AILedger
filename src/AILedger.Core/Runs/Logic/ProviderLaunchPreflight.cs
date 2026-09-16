@@ -1,6 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Core.Runs;
+using AILedger.Core.Stages;
 
 namespace AILedger.Core.Application;
 
@@ -13,6 +14,28 @@ namespace AILedger.Core.Application;
 // move only one of them.
 public static class ProviderLaunchPreflight
 {
+    /// <summary>Selects full admission for incoming or previously established assurance.</summary>
+    public static bool RequiresFullAdmission(
+        GovernedTaskState state,
+        ActorId subjectActorId,
+        WorkItemId? workItemId,
+        AssuranceBinding? assurance) =>
+        assurance is not null ||
+        (workItemId is { } member &&
+            state.Roles.TryGetValue(subjectActorId, out var subject) &&
+            subject.Role is RoleKind.Verifier or RoleKind.CodeReviewer &&
+            AssuranceRules.HasNewAssurance(state, member));
+
+    /// <summary>Checks capability, entry stage and full read-only start admission.</summary>
+    public static void EnsurePermitted(GovernedTaskState state, StartRunCommand command)
+    {
+        _ = new AuthorizationPolicy().Authorize(state, command);
+        EntryActionStageRules.EnsureAllowed(state, command);
+        RunAdmission.EnsurePermitted(state, command);
+    }
+
+    // The overload below deliberately retains the legacy dispatch-only preview subset.
+
     // The waiver the gate would produce is discarded here rather than returned: the launch records
     // it from the command below, and a pre-flight that emitted one would record a door opened for a
     // run that may still be refused on a rule this check does not carry.

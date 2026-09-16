@@ -45,6 +45,15 @@ internal static class RunEventValidator
 
         CoordinatorSessionEventValidator.ValidateDispatchLink(state, run);
 
+        if (run.Assurance is not null)
+        {
+            if (run.SubjectRole != state.Roles[run.ActorId].Role)
+                throw new GovernanceException("Assurance coverage: subject role must match its assignment.");
+            AssuranceRules.EnsureStart(state, dispatcherActorId, run.SubjectRole, run.WorkItemId,
+                run.Assurance, run.Provider, run.ProviderSessionId);
+            return;
+        }
+
         if (run.WorkItemId is not { } workItemId)
         {
             return;
@@ -67,7 +76,7 @@ internal static class RunEventValidator
         }
 
         if (state.Runs.Values.Any(current =>
-                current.WorkItemId == workItemId && current.Status is AgentRunStatus.Active))
+                WorkCoverage.Effective(current.WorkItemId, current.Assurance).Contains(workItemId) && current.Status is AgentRunStatus.Active))
         {
             throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
         }
@@ -130,6 +139,13 @@ internal static class RunEventValidator
         if (run.ProviderSessionId is not null && completed.ProviderSessionId != run.ProviderSessionId)
         {
             throw new GovernanceException("Run completion session identity does not match the started run.");
+        }
+
+        if (run.Assurance is not null && completed.Status == AgentRunStatus.Completed)
+        {
+            if (!run.HasNoProviderSessionByDeclaration && string.IsNullOrWhiteSpace(completed.ProviderSessionId))
+                throw new GovernanceException("Assurance coverage: completed provider run requires a session identity.");
+            AssuranceRules.EnsureCompletedOutput(state, run);
         }
 
         ValidateManifestRecord(completed.ManifestHash, completed.ManifestArtifactCount);

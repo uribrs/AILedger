@@ -31,7 +31,9 @@ public sealed record AgentLaunchRequest(
     string? OutputSchema,
     IReadOnlyList<string> AdditionalDirectories,
     IReadOnlyDictionary<string, string> Environment,
-    TimeSpan Timeout);
+    TimeSpan Timeout,
+    IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null,
+    AssuranceBinding? Assurance = null);
 
 public sealed record ProviderEvent(
     long Sequence,

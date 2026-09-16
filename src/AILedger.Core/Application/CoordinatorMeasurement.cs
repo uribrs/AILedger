@@ -25,10 +25,11 @@ namespace AILedger.Core.Application;
 //
 // Every avoidability verdict shows the comparison that produced it. The log is append-only with
 // monotonic versions, so for a coordinator record at sequence N everything below N was available to
-// it: a claim later refuted is a reasonable revision when the refuting evidence arrived after N, and
-// an avoidable error when it already stood below N (C2). Emitting the label alone would make the
-// verdict an opinion a reader has to trust, which is attention item R5 — so the record's sequence,
-// the evidence's sequence and the evidence id travel with it.
+// it. Availability is only a sequence fact, though: it becomes an avoidable error only when the
+// persisted reversal explicitly links that prior evidence as a contradiction. Otherwise the report
+// says priorEvidenceAvailable and leaves the semantics unjudged. Emitting the label alone would make
+// the verdict an opinion a reader has to trust, which is attention item R5 — so the record's
+// sequence, the evidence's sequence and the evidence id travel with it.
 //
 // And every population it counts is the coordinating set's own. That is the fifth thing and it is
 // the one a review found broken in four places at once: a refusal total, a dispatch delay, a
@@ -38,10 +39,11 @@ namespace AILedger.Core.Application;
 // no unfiltered list for it to reach.
 public static class CoordinatorMeasurement
 {
-    // The three values an avoidability can take, named once so that the comparison that produces them
+    // The four values an avoidability can take, named once so that the comparison that produces them
     // and the partition that groups by them cannot drift apart into two spellings of one fact.
     private const string AvoidableError = "avoidableError";
     private const string ReasonableRevision = "reasonableRevision";
+    private const string PriorEvidenceAvailable = "priorEvidenceAvailable";
     private const string Unattributable = "unattributable";
 
     // Which seats coordinate: the three that decompose work and dispatch it. A worker, a verifier, a
@@ -637,8 +639,9 @@ public static class CoordinatorMeasurement
             : new CoordinatorRatio(Math.Round((double)numerator / denominator, 2), denominator, null);
 
     // Measure 5. A claim the coordinator raised that was later rejected, or corrected by a
-    // successor. The split is a sequence comparison and never a judgement: the refuting or successor
-    // evidence either already stood below the claim's own sequence or it did not (C2).
+    // successor. Sequence establishes when the evidence was available; the persisted relationship
+    // establishes whether it explicitly contradicted the claim. Successor-supporting evidence alone
+    // remains a neutral prior-evidence fact (C2, R5).
     private static IReadOnlyList<AvoidabilityCheck> BuildReversedClaims(
         IReadOnlyList<AuthoredEvent> authored,
         SequenceIndex index)
@@ -1390,7 +1393,8 @@ public static class CoordinatorMeasurement
         return new CoordinatorActorAvoidability(
             [.. Ids(mine, AvoidableError)],
             [.. Ids(mine, ReasonableRevision)],
-            [.. Ids(mine, Unattributable)]);
+            [.. Ids(mine, Unattributable)],
+            [.. Ids(mine, PriorEvidenceAvailable)]);
     }
 
     private static IEnumerable<string> Ids(IReadOnlyList<AvoidabilityCheck> checks, string avoidability) =>
@@ -1410,7 +1414,9 @@ public static class CoordinatorMeasurement
 
     // The one place a sequence comparison is made, so that every avoidability verdict in the report
     // is made the same way and shows the same three things: the record's own sequence, the sequence
-    // of the evidence the reversal rests on, and that evidence's id.
+    // of the evidence the reversal rests on, and that evidence's id. A prior sequence establishes
+    // availability, not avoidability; the latter additionally requires an explicit persisted
+    // contradiction link supplied by the reversal-specific lookup.
     //
     // Sequence is the record's position in the log the caller supplied, one-based. The log is
     // append-only and each event increments the task version, so position is a total order over what
@@ -1503,7 +1509,7 @@ public static class CoordinatorMeasurement
             string kind,
             string recordId,
             int recordPosition,
-            (EvidenceId Id, int Position)? counterEvidence)
+            SequenceEvidence? counterEvidence)
         {
             var recordSequence = recordPosition + 1;
             // The actor that wrote the record is read off the record's own event rather than passed
@@ -1515,20 +1521,29 @@ public static class CoordinatorMeasurement
                     kind, actor, recordId, recordSequence, null, null, Unattributable,
                     $"The record stands at sequence {recordSequence} and the reversal names no " +
                     "evidence, so nothing can be compared against it. Reported as unattributable " +
-                    "rather than as either of the two splits.");
+                    "rather than assigning semantic avoidability.");
             }
 
             var evidenceSequence = evidence.Position + 1;
-            var avoidable = evidenceSequence < recordSequence;
+            var predatesRecord = evidenceSequence < recordSequence;
+            var avoidable = predatesRecord && evidence.Contradiction is not null;
             return new AvoidabilityCheck(
                 kind, actor, recordId, recordSequence, evidence.Id.Value, evidenceSequence,
-                avoidable ? AvoidableError : ReasonableRevision,
+                avoidable
+                    ? AvoidableError
+                    : predatesRecord ? PriorEvidenceAvailable : ReasonableRevision,
                 avoidable
                     ? $"Evidence {evidence.Id.Value} stands at sequence {evidenceSequence}, below the " +
-                      $"record's sequence {recordSequence}, so it was already in the log and available " +
-                      "when the record was written."
-                    : $"Evidence {evidence.Id.Value} stands at sequence {evidenceSequence}, above the " +
-                      $"record's sequence {recordSequence}, so it arrived after the record was written.");
+                      $"record's sequence {recordSequence}. {evidence.Contradiction} The exact " +
+                      "contradicting prior record is therefore cited, so this is an avoidable error."
+                    : predatesRecord
+                        ? $"Evidence {evidence.Id.Value} stands at sequence {evidenceSequence}, below " +
+                          $"the record's sequence {recordSequence}, so it was already available. The " +
+                          "persisted reversal does not identify it as a contradiction of this record; " +
+                          "reported as prior evidence available and semantically unjudged."
+                        : $"Evidence {evidence.Id.Value} stands at sequence {evidenceSequence}, above " +
+                          $"the record's sequence {recordSequence}, so it arrived after the record was " +
+                          "written.");
         }
 
         // The first later resolution that reverses a claim: a rejection, or a supersession the kernel
@@ -1560,20 +1575,27 @@ public static class CoordinatorMeasurement
         // substantive refutation, so it is what the comparison should be made against wherever one
         // exists; falling back to other cited records only where none does keeps the comparison
         // honest rather than merely non-empty.
-        public (EvidenceId Id, int Position)? CounterEvidenceFor(
+        public SequenceEvidence? CounterEvidenceFor(
             ClaimId claimId,
             ClaimResolved resolved,
             int resolvedPosition)
         {
-            var cited = resolved.EvidenceIds
+            var directRefutations = resolved.EvidenceIds
                 .Where(id => _evidence.ContainsKey(id))
                 .Where(id => _evidence[id].Evidence.Refutes.Contains(claimId))
                 .ToArray();
-            if (cited.Length == 0)
+            if (directRefutations.Length > 0)
             {
-                cited = [.. resolved.EvidenceIds.Where(id => _evidence.ContainsKey(id))];
+                var contradiction = Earliest(directRefutations);
+                return contradiction is null
+                    ? null
+                    : contradiction with
+                    {
+                        Contradiction = $"It refutes claim {claimId.Value} by name."
+                    };
             }
 
+            var cited = resolved.EvidenceIds.Where(id => _evidence.ContainsKey(id)).ToArray();
             if (cited.Length == 0 && resolved.SupersededByClaimId is { } successor)
             {
                 cited = [.. _evidence
@@ -1637,9 +1659,8 @@ public static class CoordinatorMeasurement
         // What the record that ended a decision rests on. A successor decision rests on the evidence
         // supporting the claims it depends on; an invalidation rests on the evidence that refuted the
         // claim it names; an overturn rests on the challenge's own evidence.
-        public (EvidenceId Id, int Position)? SuccessorEvidenceFor(DecisionId decisionId, DecisionOverturn overturn)
+        public SequenceEvidence? SuccessorEvidenceFor(DecisionId decisionId, DecisionOverturn overturn)
         {
-            _ = decisionId;
             if (overturn.Successor is { } successor)
             {
                 return Earliest(_evidence
@@ -1650,9 +1671,16 @@ public static class CoordinatorMeasurement
 
             if (overturn.RejectedClaimId is { } rejected)
             {
-                return Earliest(_evidence
+                var contradiction = Earliest(_evidence
                     .Where(entry => entry.Value.Evidence.Refutes.Contains(rejected))
                     .Select(entry => entry.Key));
+                return contradiction is null
+                    ? null
+                    : contradiction with
+                    {
+                        Contradiction = $"It refutes rejected dependency {rejected.Value} by name, " +
+                            $"the recorded cause that invalidated decision {decisionId.Value}."
+                    };
             }
 
             if (overturn.ChallengeId is { } challengeId)
@@ -1661,15 +1689,22 @@ public static class CoordinatorMeasurement
                     .Select(@event => @event.Data)
                     .OfType<ChallengeRaised>()
                     .FirstOrDefault(raised => raised.Challenge.Id == challengeId);
-                return challenge is null ? null : Earliest(challenge.Challenge.EvidenceIds);
+                var contradiction = challenge is null ? null : Earliest(challenge.Challenge.EvidenceIds);
+                return contradiction is null
+                    ? null
+                    : contradiction with
+                    {
+                        Contradiction = $"Supported challenge {challengeId.Value} cites it and targets " +
+                            $"decision {decisionId.Value} by name."
+                    };
             }
 
             return null;
         }
 
-        private (EvidenceId Id, int Position)? Earliest(IEnumerable<EvidenceId> candidates)
+        private SequenceEvidence? Earliest(IEnumerable<EvidenceId> candidates)
         {
-            (EvidenceId Id, int Position)? earliest = null;
+            SequenceEvidence? earliest = null;
             foreach (var candidate in candidates)
             {
                 if (!_evidence.TryGetValue(candidate, out var entry))
@@ -1677,14 +1712,19 @@ public static class CoordinatorMeasurement
                     continue;
                 }
 
-                if (earliest is null || entry.Position < earliest.Value.Position)
+                if (earliest is null || entry.Position < earliest.Position)
                 {
-                    earliest = (candidate, entry.Position);
+                    earliest = new SequenceEvidence(candidate, entry.Position, null);
                 }
             }
 
             return earliest;
         }
+
+        public sealed record SequenceEvidence(
+            EvidenceId Id,
+            int Position,
+            string? Contradiction);
     }
 
     // Which record ended a decision, reduced to the three shapes the log can produce. Exactly one of
@@ -1791,14 +1831,13 @@ public sealed record CoordinatorRatios(
     CoordinatorRatio EventsPerFindingDisposed);
 
 // The avoidability split and the comparison that produced it. RecordSequence and EvidenceSequence
-// are the two numbers it is derived from, and Comparison states the derivation in words — so a
-// reader checks the split rather than trusting it (R5, C2).
+// establish chronology, while Comparison states whether persisted causality also identifies that
+// evidence as a contradiction — so a reader checks the split rather than trusting it (R5, C2).
 //
-// Avoidability is deliberately not called a verdict here, and the distinction is not cosmetic. This
-// projection makes no judgement: it reports whether the refuting evidence already stood in the log
-// below the record's own sequence, which is a fact about the log and is checkable from the two
-// numbers beside it. ALT2 is that a projection which grades becomes a number an agent can move
-// without doing the work.
+// A predating record without an explicit contradiction link is priorEvidenceAvailable, not an
+// avoidability verdict. AvoidableError is reserved for a prior record the persisted reversal names
+// causally, and its exact id remains on the row. This keeps chronology measurable without silently
+// turning it into a semantic grade.
 public sealed record AvoidabilityCheck(
     string Kind,
     // The coordinator that wrote the record, on the row itself rather than only in the partition
@@ -2018,4 +2057,5 @@ public sealed record CoordinatorActorMeasures(
 public sealed record CoordinatorActorAvoidability(
     IReadOnlyList<string> AvoidableErrors,
     IReadOnlyList<string> ReasonableRevisions,
-    IReadOnlyList<string> Unattributable);
+    IReadOnlyList<string> Unattributable,
+    IReadOnlyList<string> PriorEvidenceAvailable);

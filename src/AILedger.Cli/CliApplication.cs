@@ -14,6 +14,7 @@ using AILedger.Cli.Evidence;
 using AILedger.Cli.Help;
 using AILedger.Cli.Lessons;
 using AILedger.Cli.Providers;
+using AILedger.Cli.Preflight;
 using AILedger.Cli.Retrospectives;
 using AILedger.Cli.Routing;
 using AILedger.Cli.Runs;
@@ -208,6 +209,8 @@ public sealed class CliApplication
         var audit = new AuditCliCommands(_executor);
         var workItems = new WorkItemCliCommands(_executor, _contextCommands);
         var runs = new RunCliCommands(_executor);
+        var preflight = new BatchPreflightCliCommands(
+            _executor, _contextCommands, _json);
         return new CliCommandCatalog(new[] { TaskCliCommands.Open(_executor) }
             .Concat(taskInspection.Registrations())
             .Append(VersionCliCommands.Registration(_executor))
@@ -228,6 +231,7 @@ public sealed class CliApplication
             .Append(StageCliCommands.Registration(_executor))
             .Concat(workItems.Registrations())
             .Concat(runs.Registrations())
+            .Append(preflight.Registration())
             .Concat(ProviderCliCommands.Registrations(_providerLauncher)));
     }
 

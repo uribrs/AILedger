@@ -72,6 +72,14 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
         var arguments = new List<string> { "exec", "--strict-config", "--sandbox", "workspace-write", "--cd", request.WorkingDirectory };
         AddOptionalGlobalArguments(arguments, request);
 
+        if (request.Assurance?.VerifierRunId is not null)
+        {
+            // R4 (reviewer-narrative-isolation): CLI precedence keeps project configuration
+            // from restoring ambient instructions outside the neutral reviewer manifest.
+            arguments.Add("--config");
+            arguments.Add("project_doc_max_bytes=0");
+        }
+
         if (request.Mode == AgentLaunchMode.Resume)
         {
             arguments.Add("resume");

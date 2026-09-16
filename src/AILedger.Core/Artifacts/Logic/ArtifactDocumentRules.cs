@@ -8,12 +8,13 @@ internal static class ArtifactDocumentRules
         GovernedTaskState state,
         GovernedArtifactKind kind,
         WorkItemId? workItemId,
-        string content)
+        string content,
+        IReadOnlyList<WorkItemId>? members = null)
     {
         switch (kind)
         {
             case GovernedArtifactKind.VerifierOutput:
-                VerifierOutputRules.Validate(state, workItemId!.Value, content);
+                VerifierOutputRules.Validate(state, members ?? [workItemId!.Value], content);
                 break;
             case GovernedArtifactKind.WorkflowRetrospective:
                 WorkflowRetrospectiveRules.Validate(content);

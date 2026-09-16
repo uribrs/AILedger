@@ -16,23 +16,37 @@ using AILedger.Core.Roles;
 using AILedger.Core.Stages;
 using AILedger.Core.TaskOpening;
 using AILedger.Core.WorkItems;
+using System.Globalization;
+using System.Reflection;
 
 namespace AILedger.Core.Application;
 
-public sealed class CommandHandler : ICommandHandler
+public interface IKernelIdentitySource
+{
+    KernelBuildIdentity KernelIdentity { get; }
+}
+
+public sealed class CommandHandler : ICommandHandler, IKernelIdentitySource
 {
     private readonly ITaskReducer _reducer;
     private readonly AuthorizationPolicy _authorizationPolicy;
+    private readonly KernelBuildIdentity _kernelIdentity;
+
+    public KernelBuildIdentity KernelIdentity => _kernelIdentity;
 
     public CommandHandler()
-        : this(new TaskReducer(), new AuthorizationPolicy())
+        : this(new TaskReducer(), new AuthorizationPolicy(), RunningKernelIdentity.Current)
     {
     }
 
-    public CommandHandler(ITaskReducer reducer, AuthorizationPolicy authorizationPolicy)
+    public CommandHandler(
+        ITaskReducer reducer,
+        AuthorizationPolicy authorizationPolicy,
+        KernelBuildIdentity? kernelIdentity = null)
     {
         _reducer = reducer;
         _authorizationPolicy = authorizationPolicy;
+        _kernelIdentity = kernelIdentity ?? RunningKernelIdentity.Current;
     }
 
     public CommandOutcome Handle(GovernedTaskState? state, LedgerCommand command, DateTimeOffset now)
@@ -117,7 +131,8 @@ public sealed class CommandHandler : ICommandHandler
                 now,
                 previous?.EventId ?? command.CausationId,
                 command.CorrelationId.Trim(),
-                eventData[index]);
+                eventData[index],
+                _kernelIdentity);
 
             state = _reducer.Apply(state, @event);
             events.Add(@event);
@@ -248,4 +263,52 @@ public sealed class CommandHandler : ICommandHandler
 
     internal static string? TrimOrNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+/// <summary>
+/// Reads the identity embedded in the running managed entry point. It deliberately never consults
+/// repository state: an installed kernel can enforce a history while its source tree is elsewhere
+/// or has moved on.
+/// </summary>
+public static class RunningKernelIdentity
+{
+    private const string Unknown = "unknown";
+    private const string BuildTimePrefix = "t";
+
+    private static readonly Lazy<KernelBuildIdentity> Identity = new(() =>
+        FromAssembly(Assembly.GetEntryAssembly() ?? typeof(RunningKernelIdentity).Assembly));
+
+    public static KernelBuildIdentity Current => Identity.Value;
+
+    public static KernelBuildIdentity FromAssembly(Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+        if (string.IsNullOrWhiteSpace(informational))
+        {
+            return new KernelBuildIdentity(Unknown, Unknown, DateTimeOffset.UnixEpoch);
+        }
+
+        var plus = informational.IndexOf('+', StringComparison.Ordinal);
+        var version = plus < 0 ? informational : informational[..plus];
+        var metadata = plus < 0
+            ? Array.Empty<string>()
+            : informational[(plus + 1)..].Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var sourceCommit = metadata.FirstOrDefault(segment =>
+            !segment.StartsWith(BuildTimePrefix, StringComparison.Ordinal)) ?? Unknown;
+        var buildTime = metadata
+            .Where(segment => segment.StartsWith(BuildTimePrefix, StringComparison.Ordinal))
+            .Select(segment => ParseBuildTime(segment[BuildTimePrefix.Length..]))
+            .FirstOrDefault(value => value is not null)
+            ?? DateTimeOffset.UnixEpoch;
+
+        return new KernelBuildIdentity(version, sourceCommit, buildTime);
+    }
+
+    private static DateTimeOffset? ParseBuildTime(string value) =>
+        long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+            : null;
 }

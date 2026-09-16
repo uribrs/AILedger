@@ -113,6 +113,7 @@ public sealed class TagRecencyBaselineSearcher : IMemorySearcher
                 Repository = candidate.Document.Repository,
                 TaskId = candidate.Document.TaskId,
                 WorkItemId = candidate.Document.WorkItemId,
+                CoveredWorkItemIds = MemoryDocumentCoverage.Original(candidate.Document),
                 RunId = candidate.Document.RunId,
                 Citations = candidate.Document.Citations
             }).ToArray();

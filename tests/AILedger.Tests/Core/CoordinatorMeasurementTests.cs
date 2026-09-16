@@ -677,9 +677,9 @@ public sealed class CoordinatorMeasurementTests
         Assert.Empty(loop.Build().ReversedClaims);
     }
 
-    // Measure 6, on the same terms and with the avoidable split genuinely reachable: the successor's
-    // own supporting evidence is what the supersession rests on, and that evidence can — as here —
-    // already have stood in the log when the decision it replaces was taken.
+    // R5 (evidence-order-overstates-avoidability): supporting evidence for a later successor may
+    // predate the original decision without contradicting it. Chronology is retained, but it is not
+    // silently strengthened into a semantic verdict.
     //
     // Driven through the command handler and not assembled by hand, and that is the point of the
     // test rather than a matter of style. The version of this test that built its own
@@ -689,7 +689,7 @@ public sealed class CoordinatorMeasurementTests
     // emits: the replacement is proposed, then resolved accepted, and that acceptance is what emits
     // `DecisionResolved(D1, Superseded)` (ZC1, ZE1).
     [Fact]
-    public void ASupersededDecisionIsSplitTheSameWay()
+    public void R5_PriorSupportingEvidenceIsNeutralWithoutARecordedContradiction()
     {
         var governed = new GovernedLoop();
         governed.AddClaim("C9");
@@ -702,9 +702,29 @@ public sealed class CoordinatorMeasurementTests
         var superseded = Assert.Single(governed.Build().SupersededDecisions);
 
         Assert.Equal("D1", superseded.RecordId);
-        Assert.Equal("avoidableError", superseded.Avoidability);
+        Assert.Equal("priorEvidenceAvailable", superseded.Avoidability);
         Assert.Equal("E1", superseded.EvidenceId);
         Assert.True(superseded.EvidenceSequence < superseded.RecordSequence);
+        Assert.Contains("semantically unjudged", superseded.Comparison, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnExplicitPriorRefutationMakesAnInvalidatedDecisionAvoidableAndCitesTheRecord()
+    {
+        var governed = new GovernedLoop();
+        governed.AddClaim("C1");
+        governed.AddEvidence("E1", refutes: "C1");
+        governed.Propose("D1", dependsOn: "C1");
+        governed.Accept("D1");
+        governed.ResolveClaim("C1", ClaimStatus.Rejected, ["E1"]);
+
+        var invalidated = Assert.Single(governed.Build().SupersededDecisions);
+
+        Assert.Equal("D1", invalidated.RecordId);
+        Assert.Equal("avoidableError", invalidated.Avoidability);
+        Assert.Equal("E1", invalidated.EvidenceId);
+        Assert.Contains("refutes rejected dependency C1 by name", invalidated.Comparison,
+            StringComparison.Ordinal);
     }
 
     // The case the projection got wrong, and it got it wrong in the direction that matters most: it
@@ -1449,7 +1469,8 @@ public sealed class CoordinatorMeasurementTests
         var superseded = Assert.Single(report.SupersededDecisions);
         Assert.Equal("planning-lead", superseded.Actor);
         var byLead = Assert.Single(report.ByActor, actor => actor.Actor == "planning-lead");
-        Assert.Equal(["D1"], byLead.SupersededDecisions.AvoidableErrors);
+        Assert.Equal(["D1"], byLead.SupersededDecisions.PriorEvidenceAvailable);
+        Assert.Empty(byLead.SupersededDecisions.AvoidableErrors);
     }
 
     // And the same measure with the seat that authored the decision outside the coordinating set. A

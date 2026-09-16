@@ -1,5 +1,8 @@
 completing a work item locks its code reviewer out forever
 
+**done**
+covered in: e691e20 (harden governed loop after stage gating)
+
 `work complete` requires a completed working run and a completed verifier run. it does not require a
 code review. `Learn` does — its arm demands a completed CodeReviewer run for code-bearing work.
 

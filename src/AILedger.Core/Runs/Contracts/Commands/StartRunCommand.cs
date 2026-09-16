@@ -26,4 +26,5 @@ public sealed record StartRunCommand(
     // The coordinating session dispatching this run, so the session owns its children (D1). Optional
     // and last: a run started outside a session, or before sessions existed, names none, and the
     // kernel refuses no run for its absence.
-    CoordinatorSessionId? CoordinatorSessionId = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    CoordinatorSessionId? CoordinatorSessionId = null,
+    AssuranceBinding? Assurance = null) : LedgerCommand(ActorId, CausationId, CorrelationId);

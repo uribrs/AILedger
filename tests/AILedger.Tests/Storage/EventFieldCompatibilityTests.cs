@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Storage;
@@ -7,6 +8,32 @@ namespace AILedger.Tests.Storage;
 
 public sealed class EventFieldCompatibilityTests
 {
+    // R3 (legacy-identity-or-projection-loss): the envelope extension is optional for old JSON,
+    // round-trips when present, and is stamped by the real command construction path.
+    [Fact]
+    public void R3_LegacyAndStampedKernelIdentityBothProject()
+    {
+        var options = LedgerJson.CreateOptions();
+        const string legacyJson = """
+            {"schemaVersion":1,"eventId":"legacy:0000000001","taskId":"legacy","actorId":"operator","recordedAt":"2026-09-14T12:00:00+00:00","correlationId":"legacy","data":{"eventType":"task.opened","title":"Legacy","goal":"Goal","tags":[]}}
+            """;
+
+        var legacy = JsonSerializer.Deserialize<LedgerEvent>(legacyJson, options);
+        Assert.NotNull(legacy);
+        Assert.Null(legacy.KernelIdentity);
+
+        var identity = new KernelBuildIdentity(
+            "2.0.123+abc1234", "abc1234", new DateTimeOffset(2026, 9, 14, 11, 30, 0, TimeSpan.Zero));
+        var handler = new CommandHandler(new TaskReducer(), new AuthorizationPolicy(), identity);
+        var outcome = handler.Handle(null, new OpenTaskCommand(
+            new ActorId("operator"), null, "open", new TaskId("stamped"), "Stamped", "Goal"),
+            new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.All(outcome.Events, @event => Assert.Equal(identity, @event.KernelIdentity));
+        var roundTripped = RoundTrip(outcome.Events[0], options);
+        Assert.Equal(identity, roundTripped.KernelIdentity);
+    }
+
     [Fact]
     public void LegacyEventsWithoutReasonSubjectRoleOrSerialJustificationReplay()
     {

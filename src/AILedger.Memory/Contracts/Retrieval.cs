@@ -36,6 +36,7 @@ public sealed record MemorySearchResult
     public string? Repository { get; init; }
     public string? TaskId { get; init; }
     public string? WorkItemId { get; init; }
+    public IReadOnlyList<string> CoveredWorkItemIds { get; init; } = [];
     public string? RunId { get; init; }
     public required IReadOnlyList<MemoryCitation> Citations { get; init; }
     public EmbeddingIdentity? EmbeddingIdentity { get; init; }

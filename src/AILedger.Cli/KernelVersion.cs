@@ -1,5 +1,6 @@
 using System.Diagnostics;
-using System.Reflection;
+using AILedger.Core.Application;
+using AILedger.Core.Contracts;
 
 namespace AILedger.Cli;
 
@@ -18,32 +19,14 @@ internal static class KernelVersion
     private const string UnknownSha = "unknown";
     private const int GitTimeoutMilliseconds = 2000;
 
-    private static readonly Lazy<(string Version, string Sha)> Stamp = new(() =>
-    {
-        var informational = typeof(KernelVersion).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (string.IsNullOrWhiteSpace(informational))
-        {
-            return ("unknown", UnknownSha);
-        }
-
-        var plus = informational.IndexOf('+', StringComparison.Ordinal);
-        if (plus < 0)
-        {
-            return (informational, UnknownSha);
-        }
-
-        // The build metadata can carry more than one segment. install.sh passes `+<short sha>`, and
-        // the SDK appends its own source revision on top, giving `+<short>.<full>`. Only the first
-        // segment is this build's own stamp; taking the rest printed the commit twice.
-        var metadata = informational[(plus + 1)..];
-        var dot = metadata.IndexOf('.', StringComparison.Ordinal);
-        return (informational[..plus], dot < 0 ? metadata : metadata[..dot]);
-    });
+    private static readonly Lazy<KernelBuildIdentity> Stamp = new(() =>
+        RunningKernelIdentity.FromAssembly(typeof(KernelVersion).Assembly));
 
     internal static string Version => Stamp.Value.Version;
 
-    internal static string Sha => Stamp.Value.Sha;
+    internal static string Sha => Stamp.Value.SourceCommit;
+
+    internal static KernelBuildIdentity Identity => Stamp.Value;
 
     internal static bool IsDirtyBuild => Version.Contains("-dirty", StringComparison.Ordinal);
 

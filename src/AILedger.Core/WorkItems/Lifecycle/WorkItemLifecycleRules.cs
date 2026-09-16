@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
+using AILedger.Core.Runs;
 using AILedger.Core.ContextBriefing;
 using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
@@ -229,11 +230,14 @@ internal static class WorkItemLifecycleRules
             return waiver;
         }
 
-        EnsureVerified(state, command.WorkItemId);
+        EnsureVerified(state, command.WorkItemId, state.WorkItems[command.WorkItemId].ResourceScope.Count != 0);
         return null;
     }
 
-    private static void EnsureVerified(GovernedTaskState state, WorkItemId workItemId)
+    private static void EnsureVerified(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        bool requiresCodeReview)
     {
         if (!WorkItemVerificationRules.HasCompletedWorkingRun(state, workItemId))
         {
@@ -265,6 +269,15 @@ internal static class WorkItemLifecycleRules
                 $"('{sameProvider}'), so nothing independent has read it. Verify it with a different " +
                 "provider, or an operator may complete it without doing so by recording why.");
         }
+
+        if ((requiresCodeReview || AssuranceRules.HasNewAssurance(state, workItemId)) &&
+            !WorkItemVerificationRules.HasCurrentCodeReviewAfterLatestVerification(state, workItemId))
+        {
+            throw new GovernanceException(
+                $"Work item '{workItemId}' has no current work-bound CodeReviewer run with its current " +
+                "CodeReviewOutput, completed after a verifier saw the latest working run. Review it after " +
+                "verification, or an operator may complete it without doing so by recording why.");
+        }
     }
 
     private static void EnsureNoActiveCoordination(
@@ -273,7 +286,7 @@ internal static class WorkItemLifecycleRules
         string transition)
     {
         if (state.Runs.Values.Any(run =>
-                run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active))
+                WorkCoverage.Effective(run.WorkItemId, run.Assurance).Contains(workItemId) && run.Status is AgentRunStatus.Active))
         {
             throw new GovernanceException($"Work item cannot be {transition} while a run is still active.");
         }

@@ -48,11 +48,11 @@ internal static class ContextArtifactProjection
         artifacts.AddRange(state.LessonMarks.Values
             .OrderBy(mark => mark.Id.Value, StringComparer.Ordinal)
             .Select(ToArtifact));
-        artifacts.AddRange(CurrentArtifacts(state)
+        artifacts.AddRange(ArtifactApplicability.Current(state)
             .Where(IsBriefable)
-            .Where(artifact => IsInWorkScope(artifact, workItem))
+            .Where(artifact => IsInWorkScope(state, artifact, workItem))
             .OrderBy(artifact => artifact.ArtifactId.Value, StringComparer.Ordinal)
-            .Select(ToArtifact));
+            .Select(artifact => ToArtifact(state, artifact)));
         if (workItem is not null)
         {
             artifacts.Add(ToArtifact(workItem));
@@ -67,34 +67,26 @@ internal static class ContextArtifactProjection
         return artifacts;
     }
 
-    // Every revision is retained in state, but only the artifact nothing supersedes is current.
-    private static IReadOnlyList<GovernedArtifact> CurrentArtifacts(GovernedTaskState state)
-    {
-        var superseded = state.Artifacts.Values
-            .Where(artifact => artifact.SupersedesArtifactId is not null)
-            .Select(artifact => artifact.SupersedesArtifactId!.Value)
-            .ToHashSet();
-        return state.Artifacts.Values
-            .Where(artifact => !superseded.Contains(artifact.ArtifactId))
-            .ToArray();
-    }
-
-    // A verifier or review output belongs to one work item, and the other items' outputs are not
-    // this agent's context.
-    private static bool IsInWorkScope(GovernedArtifact artifact, WorkItem? workItem) =>
-        workItem is null || artifact.WorkItemId is null || artifact.WorkItemId == workItem.Id;
+    private static bool IsInWorkScope(GovernedTaskState state, GovernedArtifact artifact, WorkItem? workItem) =>
+        workItem is null || artifact.WorkItemId is null ||
+        ArtifactApplicability.CurrentMembers(state, artifact).Contains(workItem.Id);
 
     // A workflow retrospective scores the agents that worked the task, so it is withheld from
     // every role. The default conversion arm remains exhaustive for future artifact kinds.
     private static bool IsBriefable(GovernedArtifact artifact) =>
         artifact.Kind != GovernedArtifactKind.WorkflowRetrospective;
 
-    private static ContextArtifact ToArtifact(GovernedArtifact artifact) =>
+    private static ContextArtifact ToArtifact(GovernedTaskState state, GovernedArtifact artifact) =>
         new(
             ToContextKind(artifact.Kind),
             artifact.ArtifactId.Value,
-            $"{artifact.Title}{Environment.NewLine}{artifact.Content}",
-            artifact.WorkItemId is { } workItemId ? [workItemId.Value] : []);
+            $"{artifact.Title}{Environment.NewLine}" +
+            (artifact.Assurance is null ? string.Empty : $"Candidate: {artifact.Assurance.CandidateId}{Environment.NewLine}") +
+            artifact.Content,
+            WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance).Select(id => id.Value).ToArray(),
+            artifact.WorkItemId is null ? null : ArtifactApplicability.CurrentMembers(state, artifact),
+            artifact.ProducerRunId,
+            artifact.ProducerRunId is { } producer && state.Runs.TryGetValue(producer, out var run) ? run.Status : null);
 
     private static ContextArtifactKind ToContextKind(GovernedArtifactKind kind) => kind switch
     {

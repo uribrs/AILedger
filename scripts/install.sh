@@ -13,13 +13,14 @@ cd "$(dirname "$0")/.."
 
 count=$(git rev-list --count HEAD 2>/dev/null || echo 0)
 sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+build_time=$(date -u +%s)
 dirty=$(git status --porcelain 2>/dev/null | head -1)
 version="2.0.$count"
 [ -n "$dirty" ] && suffix="-dirty" || suffix=""
 
 echo "packing $version$suffix from $sha"
 dotnet pack src/AILedger.Cli/AILedger.Cli.csproj -c Release -m:1 --nologo \
-    -p:Version="$version$suffix" -p:InformationalVersion="$version$suffix+$sha" >/dev/null
+    -p:Version="$version$suffix" -p:InformationalVersion="$version$suffix+$sha.t$build_time" >/dev/null
 
 dotnet tool uninstall --global AILedger.Cli >/dev/null 2>&1 || true
 dotnet tool install --global --add-source artifacts/nupkg AILedger.Cli --version "$version$suffix" >/dev/null

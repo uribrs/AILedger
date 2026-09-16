@@ -10,7 +10,10 @@ public sealed record LedgerEvent(
     DateTimeOffset RecordedAt,
     EventId? CausationId,
     string CorrelationId,
-    LedgerEventData Data);
+    LedgerEventData Data,
+    // Optional and trailing so event histories written before executable identity was recorded
+    // continue to deserialize, and existing construction sites remain source-compatible.
+    KernelBuildIdentity? KernelIdentity = null);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "eventType")]
 [JsonDerivedType(typeof(TaskOpened), "task.opened")]

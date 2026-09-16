@@ -31,10 +31,10 @@ public sealed class CliCommandCatalogTests
             new[]
             {
                 "actor attach", "alternative record", "artifact list", "artifact record", "artifact show",
-                "audit", "challenge dispose", "challenge raise", "claim add", "claim resolve",
+                "audit", "batch preflight", "challenge dispose", "challenge raise", "claim add", "claim resolve",
                 "constraint add", "constraint supersede", "context build", "decision propose",
                 "decision resolve", "escalation raise", "escalation resolve", "evidence add", "history",
-                "lesson mark", "lesson recheck", "provider launch", "provider resume", "retrospective build",
+                "lesson mark", "lesson recheck", "preflight batch", "provider launch", "provider resume", "retrospective build",
                 "retrospective record", "run complete", "run start", "session complete", "session start",
                 "stage transition", "status", "task history", "task open", "task status", "version", "who",
                 "work abandon", "work add", "work block", "work complete", "work unblock"

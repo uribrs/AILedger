@@ -91,31 +91,38 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
             var cognition = Clean(run.Provider) +
                             (run.Model is null ? string.Empty : $" {Clean(run.Model)}") +
                             (run.ProviderVersion is null ? string.Empty : $" ({Clean(run.ProviderVersion)})");
-            var work = run.WorkItemId is { } workItemId ? $" on `{Clean(workItemId.Value)}`" : string.Empty;
+            var members = WorkCoverage.Effective(run.WorkItemId, run.Assurance);
+            var work = members.Count > 0 ? $" on {JoinWorkItems(members)}" : string.Empty;
             var live = run.Status == AgentRunStatus.Active ? " ← live" : string.Empty;
             return $"- `{Clean(pair.Key.Value)}` — **{run.Status}** — {role} `{Clean(run.ActorId.Value)}`" +
                    $" via {cognition}{work}{live}";
         });
 
         builder.AppendLine().AppendLine("## Artifacts").AppendLine();
-        // Current context is the set of artifacts nothing supersedes. A list of every revision that
-        // did not say which one is live would read as five contracts rather than one contract and
-        // four repairs, so each row carries either its successor or the mark that it is the current
-        // one. Replay refuses to supersede an artifact that is not current, so a predecessor has at
-        // most one successor and this index cannot collide.
-        var successors = state.Artifacts.Values
-            .Where(artifact => artifact.SupersedesArtifactId is not null)
-            .ToDictionary(artifact => artifact.SupersedesArtifactId!.Value, artifact => artifact.ArtifactId);
+        var currentArtifacts = ArtifactApplicability.Current(state)
+            .Select(artifact => artifact.ArtifactId)
+            .ToHashSet();
         AppendItems(builder, state.Artifacts.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
         {
             var artifact = pair.Value;
-            var scope = artifact.WorkItemId is { } workItemId
-                ? $" on `{Clean(workItemId.Value)}`"
-                : " task-wide";
+            var members = WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance);
+            var scope = members.Count > 0 ? $" on {JoinWorkItems(members)}" : " task-wide";
             var producer = artifact.ProducerRunId is { } runId ? $" from `{Clean(runId.Value)}`" : string.Empty;
-            var standing = successors.TryGetValue(artifact.ArtifactId, out var successor)
-                ? $" — superseded by `{Clean(successor.Value)}`"
-                : " — current";
+            var applicableMembers = ArtifactApplicability.CurrentMembers(state, artifact);
+            var standing = currentArtifacts.Contains(artifact.ArtifactId)
+                ? " — current"
+                : " — no longer current";
+            var successor = state.Artifacts.Values.FirstOrDefault(item =>
+                item.Assurance is null && item.SupersedesArtifactId == artifact.ArtifactId);
+            if (successor is not null)
+            {
+                standing = $" — superseded by `{Clean(successor.ArtifactId.Value)}`";
+            }
+            if (members.Count > 0)
+            {
+                // Original coverage remains visible even when every member has been replaced.
+                standing += $"; applicable: {JoinWorkItems(applicableMembers)}";
+            }
             // The body is in the event log. What a reader of a projection needs is the handle to
             // read it with and the size it will be.
             return $"- `{Clean(pair.Key.Value)}` — **{artifact.Kind}** — {Clean(artifact.Title)}" +
@@ -231,6 +238,9 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
             builder.AppendLine("_None._");
         }
     }
+
+    private static string JoinWorkItems(IEnumerable<WorkItemId> members) =>
+        Join(members.Select(member => $"`{Clean(member.Value)}`"));
 
     private static string Join(IEnumerable<string> values)
     {

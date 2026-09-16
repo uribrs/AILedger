@@ -8,13 +8,18 @@ internal static class VerifierOutputRules
 {
     internal static void Validate(GovernedTaskState state, WorkItemId workItemId, string content)
     {
-        var workItem = Get(state.WorkItems, workItemId, "work item");
+        Validate(state, [workItemId], content);
+    }
+
+    internal static void Validate(GovernedTaskState state, IReadOnlyList<WorkItemId> members, string content)
+    {
+        var claims = members.SelectMany(member => Get(state.WorkItems, member, "work item").DependsOnClaims).Distinct();
         var assumptions = MarkdownTableReader.Read(content, ["id", "status", "name", "citation", "actor"]);
         MarkdownTableReader.EnsureUnique(
             assumptions.Select(row => row[0]).ToArray(),
             "Verifier assumption disposition IDs",
             StringComparer.Ordinal);
-        foreach (var claimId in workItem.DependsOnClaims.Where(id =>
+        foreach (var claimId in claims.Where(id =>
                      state.Claims[id].Status is ClaimStatus.Open or ClaimStatus.Validated))
         {
             var row = assumptions.SingleOrDefault(candidate => candidate[0] == claimId.Value)

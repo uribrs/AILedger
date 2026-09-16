@@ -1,8 +1,9 @@
 namespace AILedger.Memory.Storage;
 
+// Retain the existing public schema entry point; Version identifies the on-disk format.
 public static class MemorySchemaV1
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
     public static IReadOnlyList<string> CreateStatements { get; } =
     [
@@ -42,6 +43,8 @@ public static class MemorySchemaV1
             citations_json TEXT NOT NULL,
             content_hash TEXT NOT NULL,
             normalizer_version TEXT NOT NULL,
+            covered_work_item_ids_json TEXT,
+            applicable_work_item_ids_json TEXT,
             source_id TEXT NOT NULL REFERENCES sources(id)
         ) STRICT
         """,

@@ -100,7 +100,8 @@ internal sealed class RetrospectiveCliCommands(
                 if (JsonSerializer.Deserialize<RefusalRecord>(line, options) is { } record)
                 {
                     refusals.Add(new RetrospectiveRefusal(
-                        record.ActorId, record.Command, record.Site, record.Message));
+                        record.ActorId, record.Command, record.Site, record.Message,
+                        record.KernelIdentity));
                 }
                 else
                 {

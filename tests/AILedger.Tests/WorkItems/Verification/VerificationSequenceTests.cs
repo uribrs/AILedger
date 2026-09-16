@@ -7,9 +7,9 @@ namespace AILedger.Tests.WorkItems.Verification;
 
 // "Completed" used to mean only that someone said so. Nothing in the ledger recorded whether a
 // verifier had ever looked at the work, and nothing stopped a code reviewer from reviewing work
-// that had not been verified yet. The sequence is now imposed by the kernel: a verifier run has to
-// finish against a work item before that item can be completed or reviewed, and a run records the
-// role its subject held so the ledger can tell a verifier's pass from anybody else's.
+// that had not been verified yet. The sequence is now imposed by the kernel: required worker and
+// verifier runs must finish before a current code-reviewer pass unlocks completion, and each run
+// records its subject's role so the ledger can distinguish all three passes.
 public sealed class VerificationSequenceTests
 {
     [Fact]
@@ -41,13 +41,66 @@ public sealed class VerificationSequenceTests
     }
 
     [Fact]
-    public void ACompletedVerifierRunIsWhatUnlocksCompletion()
+    public void AllRequiredWorkerVerifierAndCodeReviewerPassesUnlockCompletion()
     {
         var task = Prepare(out var workItemId);
         task.RecordRequiredRuns(workItemId);
 
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
 
+        Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
+    }
+
+    [Fact]
+    public void ACodeBearingWorkItemCannotCompleteWithoutACurrentCodeReview()
+    {
+        var task = Prepare(out var workItemId);
+        task.RecordWorkingPass(workItemId);
+        task.RecordVerifierPass(workItemId);
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId)));
+
+        Assert.Contains(nameof(RoleKind.CodeReviewer), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(GovernedArtifactKind.CodeReviewOutput), error.Message, StringComparison.Ordinal);
+        Assert.NotEqual(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
+    }
+
+    [Fact]
+    public void ACompletedLegacyReviewerRunWithoutCodeReviewOutputCannotCompleteTheItem()
+    {
+        var state = LegacyRunsOnOneWorkItem(
+            "legacy-review-without-output", out var operatorId, out var workItemId,
+            includeReviewArtifact: false,
+            ("RW", RoleKind.Worker, "codex"),
+            ("RV", RoleKind.Verifier, "claude"),
+            ("RCR", RoleKind.CodeReviewer, "codex"));
+
+        var error = Assert.Throws<GovernanceException>(() => new CommandHandler().Handle(
+            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt));
+
+        Assert.Contains(nameof(GovernedArtifactKind.CodeReviewOutput), error.Message, StringComparison.Ordinal);
+        Assert.Contains("reviewer run", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // R1 (stale-review-satisfies-completion): a second working pass invalidates the review even
+    // after a new verifier has seen the repair. The reviewer must inspect that repaired revision.
+    [Fact]
+    public void R1_AReviewBeforeLatestWorkCannotCompleteTheItem()
+    {
+        var task = Prepare(out var workItemId);
+        task.RecordRequiredRuns(workItemId);
+        task.RecordWorkingPass(workItemId, "RW-repair");
+        task.RecordVerifierPass(workItemId, "RV-repair");
+
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new CompleteWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), workItemId)));
+
+        Assert.Contains("review", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("latest working run", error.Message, StringComparison.OrdinalIgnoreCase);
+
+        task.RecordCodeReviewerPass(workItemId, "RCR-repair");
+        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 
@@ -75,6 +128,7 @@ public sealed class VerificationSequenceTests
 
         Assert.Contains("same provider", error.Message, StringComparison.Ordinal);
         task.RecordVerifierPass(workItemId, "RV-different");
+        task.RecordCodeReviewerPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
@@ -175,6 +229,7 @@ public sealed class VerificationSequenceTests
 
         // A verifier that reads the work as it now stands is what the gate was always asking for.
         task.RecordVerifierPass(workItemId, "RV-after");
+        task.RecordCodeReviewerPass(workItemId);
         task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
 
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
@@ -211,9 +266,11 @@ public sealed class VerificationSequenceTests
     {
         var state = LegacyRunsOnOneWorkItem(
             "legacy-lead-after-verifier", out var operatorId, out var workItemId,
+            includeReviewArtifact: true,
             ("RW", RoleKind.Worker, "codex"),
             ("RV", RoleKind.Verifier, "claude"),
-            ("RL", RoleKind.ImplementationLead, "claude"));
+            ("RL", RoleKind.ImplementationLead, "claude"),
+            ("RCR", RoleKind.CodeReviewer, "codex"));
 
         var outcome = new CommandHandler().Handle(
             state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt);
@@ -232,9 +289,11 @@ public sealed class VerificationSequenceTests
     {
         var state = LegacyRunsOnOneWorkItem(
             "legacy-lead-before-verifier", out var operatorId, out var workItemId,
+            includeReviewArtifact: true,
             ("RW", RoleKind.Worker, "codex"),
             ("RL", RoleKind.ImplementationLead, "claude"),
-            ("RV", RoleKind.Verifier, "claude"));
+            ("RV", RoleKind.Verifier, "claude"),
+            ("RCR", RoleKind.CodeReviewer, "codex"));
 
         var outcome = new CommandHandler().Handle(
             state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt);
@@ -364,20 +423,37 @@ public sealed class VerificationSequenceTests
         Assert.Equal(RoleKind.CodeReviewer, task.State.Runs[new RunId("R1")].SubjectRole);
     }
 
-    // The ordering rule is about reviewing one work item. A reviewer run that names no work item
-    // has no verifier pass to wait for, so the rule must not reach it.
+    // A CodeReviewOutput is necessarily work-scoped, so a task-wide reviewer run can never produce
+    // the artifact required to close. Refuse that impossible lifecycle before creating the run.
     [Fact]
-    public void ACodeReviewerRunThatNamesNoWorkItemIsNotHeldBack()
+    public void ACodeReviewerRunThatNamesNoWorkItemIsRefused()
     {
         var task = Prepare(out _);
         var reviewer = new ActorId("reviewer");
         task.Assign(reviewer, RoleKind.CodeReviewer, Capability.BuildContext);
 
-        task.Apply(new StartRunCommand(
+        var error = Assert.Throws<GovernanceException>(() => task.Apply(new StartRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), null, "claude",
-            null, null, null, null, reviewer));
+            null, null, null, null, reviewer)));
 
-        Assert.Equal(RoleKind.CodeReviewer, task.State.Runs[new RunId("R1")].SubjectRole);
+        Assert.Contains(nameof(RoleKind.CodeReviewer), error.Message, StringComparison.Ordinal);
+        Assert.Contains("work item", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(new RunId("R1"), task.State.Runs.Keys);
+    }
+
+    [Fact]
+    public void AWorkItemWithNoResourceScopeDoesNotAcquireTheCodeReviewerRequirement()
+    {
+        var task = new TestTask();
+        var workItemId = new WorkItemId("W-prose");
+        task.Apply(new AddWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId,
+            "Record a non-code result", task.OperatorId, [], []));
+        task.RecordWorkingPass(workItemId);
+        task.RecordVerifierPass(workItemId);
+
+        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+
+        Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 
     [Fact]
@@ -463,6 +539,27 @@ public sealed class VerificationSequenceTests
         Assert.Equal(AgentRunStatus.Active, state.Runs[new RunId("R1")].Status);
     }
 
+    [Fact]
+    public void ReplayAcceptsALegacyTaskWideCodeReviewerRunStartedWithoutAWorkItem()
+    {
+        var state = Opened("legacy-task-wide-review", out var reducer, out var next, out var actor,
+            out var recordedAt);
+        var reviewer = new ActorId("reviewer");
+        state = reducer.Apply(state, next(state, actor, new RoleAssigned(new RoleAssignment(
+            reviewer, RoleKind.CodeReviewer, [Capability.BuildContext],
+            new Provenance(actor, recordedAt, "actor.assign-role")))));
+
+        // Task-wide reviewer runs were legal before command admission required --work. That new
+        // refusal cannot be copied into replay without making an already-recorded history unreadable.
+        state = reducer.Apply(state, next(state, actor, new RunStarted(new AgentRun(
+            new RunId("R1"), reviewer, null, "claude", null, AgentRunStatus.Active,
+            recordedAt, null, null, null, null, actor, RoleKind.CodeReviewer))));
+
+        Assert.Null(state.Runs[new RunId("R1")].WorkItemId);
+        Assert.Equal(RoleKind.CodeReviewer, state.Runs[new RunId("R1")].SubjectRole);
+        Assert.Equal(AgentRunStatus.Active, state.Runs[new RunId("R1")].Status);
+    }
+
     // The waiver rule is the opposite case, and it is safe to write twice. The waiver field is new,
     // so no event already on disk carries one: a rule that fires only when it is present cannot
     // reject any history that was ever legal. Both copies therefore exist, and a forged log in
@@ -520,6 +617,7 @@ public sealed class VerificationSequenceTests
         string taskId,
         out ActorId operatorId,
         out WorkItemId workItemId,
+        bool includeReviewArtifact,
         params (string Run, RoleKind Role, string Provider)[] runs)
     {
         var state = Opened(taskId, out var reducer, out _, out var actor, out var openedAt);
@@ -529,16 +627,23 @@ public sealed class VerificationSequenceTests
         operatorId = dispatcher;
         workItemId = item;
 
-        LedgerEvent At(GovernedTaskState current, DateTimeOffset when, LedgerEventData data) =>
+        LedgerEvent At(
+            GovernedTaskState current,
+            DateTimeOffset when,
+            LedgerEventData data,
+            ActorId? eventActor = null) =>
             new(GovernedTaskState.CurrentSchemaVersion,
                 new EventId($"{taskId}:{current.Version + 1:D10}"),
-                id, dispatcher, when, null, "replay", data);
+                id, eventActor ?? dispatcher, when, null, "replay", data);
 
         // One actor per role, so the subject of each run holds the role the run records.
         foreach (var role in runs.Select(run => run.Role).Distinct())
         {
+            var capabilities = role is RoleKind.Verifier or RoleKind.CodeReviewer
+                ? new[] { Capability.BuildContext, Capability.RecordArtifact }
+                : [Capability.BuildContext];
             state = reducer.Apply(state, At(state, openedAt, new RoleAssigned(new RoleAssignment(
-                Subject(role), role, [Capability.BuildContext],
+                Subject(role), role, capabilities,
                 new Provenance(dispatcher, openedAt, "actor.assign-role")))));
         }
 
@@ -553,6 +658,15 @@ public sealed class VerificationSequenceTests
             state = reducer.Apply(state, At(state, startedAt, new RunStarted(new AgentRun(
                 new RunId(runId), Subject(role), item, provider, $"session-{runId}",
                 AgentRunStatus.Active, startedAt, null, null, null, null, dispatcher, role))));
+            if (role is RoleKind.CodeReviewer && includeReviewArtifact)
+            {
+                state = reducer.Apply(state, At(state, endedAt.AddSeconds(-1), new ArtifactRecorded(
+                    new GovernedArtifact(
+                        new ArtifactId($"A-{runId}"), GovernedArtifactKind.CodeReviewOutput,
+                        "Code review", ArtifactCommands.Body, item, new RunId(runId), null,
+                        new Provenance(Subject(role), endedAt.AddSeconds(-1), "artifact.record"))),
+                    Subject(role)));
+            }
             state = reducer.Apply(state, At(state, endedAt, new RunCompleted(
                 new RunId(runId), AgentRunStatus.Completed, $"session-{runId}", endedAt)));
         }

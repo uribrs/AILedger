@@ -741,6 +741,33 @@ public sealed class TaskRetrospectiveTests
         Assert.Equal(2, report.Refusals.ByCommand["ResolveClaimCommand"]);
     }
 
+    [Fact]
+    public void RetrospectivePartitionsEventsAndRefusalsByRecordedKernelIdentity()
+    {
+        var log = new Log();
+        var identity = new KernelBuildIdentity(
+            "2.0.123+abc1234", "abc1234", new DateTimeOffset(2026, 9, 14, 11, 30, 0, TimeSpan.Zero));
+        log.Append(new StageTransitioned(TaskStage.Discovery, TaskStage.Research), identity: identity);
+
+        var report = log.Build(refusals:
+        [
+            new RetrospectiveRefusal(new ActorId("operator"), "AddWorkItemCommand", "service"),
+            new RetrospectiveRefusal(new ActorId("operator"), "StartRunCommand", "provider-launch",
+                "refused", identity)
+        ]);
+
+        var legacy = Assert.Single(report.KernelIdentityPartitions, item => item.Identity == "not recorded");
+        Assert.Null(legacy.Build);
+        Assert.Equal(2, legacy.Events);
+        Assert.Equal(1, legacy.Refusals);
+
+        var stamped = Assert.Single(report.KernelIdentityPartitions, item => item.Build == identity);
+        Assert.Equal(identity, stamped.Build);
+        Assert.Equal(1, stamped.Events);
+        Assert.Equal(1, stamped.Refusals);
+        Assert.Equal(1, stamped.RefusalsBySite["provider-launch"]);
+    }
+
     // A waiver leaves no durable trace in state — the pending waiver is transient and internal,
     // which is why TaskDebt declines to count waivers at all. The log is the only place they survive.
     [Fact]
@@ -1173,8 +1200,12 @@ public sealed class TaskRetrospectiveTests
         }
 
         // An event the projection reads out of the log without the reducer having to accept it.
-        public void Append(LedgerEventData data, int minutesIn = 0, string actor = "operator") =>
-            History.Add(Envelope(data, new ActorId(actor), minutesIn));
+        public void Append(
+            LedgerEventData data,
+            int minutesIn = 0,
+            string actor = "operator",
+            KernelBuildIdentity? identity = null) =>
+            History.Add(Envelope(data, new ActorId(actor), minutesIn, identity));
 
         // Assigned before any claim it is meant to author: a claim added by an actor holding no role
         // is refused on replay, and recall is refused once a second role exists.
@@ -1300,9 +1331,13 @@ public sealed class TaskRetrospectiveTests
             _state = _reducer.Apply(_state, @event);
         }
 
-        private LedgerEvent Envelope(LedgerEventData data, ActorId actor, int minutesIn) =>
+        private LedgerEvent Envelope(
+            LedgerEventData data,
+            ActorId actor,
+            int minutesIn,
+            KernelBuildIdentity? identity = null) =>
             new(GovernedTaskState.CurrentSchemaVersion,
                 new EventId($"{Task.Value}:{History.Count + 1:D10}"),
-                Task, actor, Start.AddMinutes(minutesIn), null, "retrospective", data);
+                Task, actor, Start.AddMinutes(minutesIn), null, "retrospective", data, identity);
     }
 }

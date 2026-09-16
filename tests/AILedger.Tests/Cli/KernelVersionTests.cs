@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Reflection.Emit;
 using AILedger.Cli;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
@@ -13,6 +14,25 @@ namespace AILedger.Tests.Cli;
 // a launcher packed before it. This is the reading half — install.sh already embeds the stamp.
 public sealed class KernelVersionTests
 {
+    // R9 (identity-evidence-stops-before-real-readers): install.sh writes commit and build time as
+    // informational-version metadata. Pin that exact contract at the parser the installed CLI uses.
+    [Fact]
+    public void InstallMetadataFormatParsesRunningKernelIdentity()
+    {
+        var stamped = AssemblyWithInformationalVersion(
+            "2.0.417-dirty+4a803bb.t1789516800.System.Private.CoreLib");
+
+        var identity = RunningKernelIdentity.FromAssembly(stamped);
+
+        Assert.Equal("2.0.417-dirty", identity.Version);
+        Assert.Equal("4a803bb", identity.SourceCommit);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1789516800), identity.BuildTime);
+
+        var noTimestamp = RunningKernelIdentity.FromAssembly(
+            AssemblyWithInformationalVersion("2.0.417+4a803bb.System.Private.CoreLib"));
+        Assert.Equal(DateTimeOffset.UnixEpoch, noTimestamp.BuildTime);
+    }
+
     [Fact]
     public async Task VersionPrintsWhatTheBuildWasMadeFrom()
     {
@@ -197,6 +217,15 @@ public sealed class KernelVersionTests
 
         Assert.NotNull(repository);
         return repository!.FullName;
+    }
+
+    private static Assembly AssemblyWithInformationalVersion(string informationalVersion)
+    {
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName($"kernel-version-{Guid.NewGuid():N}"), AssemblyBuilderAccess.Run);
+        var constructor = typeof(AssemblyInformationalVersionAttribute).GetConstructor([typeof(string)])!;
+        assembly.SetCustomAttribute(new CustomAttributeBuilder(constructor, [informationalVersion]));
+        return assembly;
     }
 
     private static string? InvokeGit(string workingDirectory, string arguments)

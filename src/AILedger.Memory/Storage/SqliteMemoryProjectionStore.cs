@@ -15,7 +15,8 @@ public sealed class SqliteMemoryProjectionStore : IMemoryProjectionStore
     private const string DocumentColumns = """
         d.id, d.kind, d.text, d.repository, d.task_id, d.work_item_id, d.run_id, d.actor_id,
         d.source_timestamp, d.source_version, d.authority, d.lifecycle, d.tags_json,
-        d.related_ids_json, d.citations_json, d.content_hash, d.normalizer_version
+        d.related_ids_json, d.citations_json, d.content_hash, d.normalizer_version,
+        d.covered_work_item_ids_json, d.applicable_work_item_ids_json
         """;
 
     private readonly string _databasePath;
@@ -286,7 +287,7 @@ public sealed class SqliteMemoryProjectionStore : IMemoryProjectionStore
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                rows.Add((ReadDocument(reader, []), reader.GetDouble(17)));
+                rows.Add((ReadDocument(reader, []), reader.GetDouble(19)));
             }
         }
 
@@ -335,7 +336,7 @@ public sealed class SqliteMemoryProjectionStore : IMemoryProjectionStore
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 var document = ReadDocument(reader, []);
-                rows.Add((document, ReadEmbedding(reader, identity, 17)));
+                rows.Add((document, ReadEmbedding(reader, identity, 19)));
             }
         }
 
@@ -421,8 +422,22 @@ public sealed class SqliteMemoryProjectionStore : IMemoryProjectionStore
             Citations = DeserializeList<MemoryCitation>(reader.GetString(14), "document citations"),
             ContentHash = reader.GetString(15),
             NormalizerVersion = reader.GetString(16),
+            CoveredWorkItemIds = ReadCoverage(reader),
+            // R1 (partial-applicability): an explicit empty array means fully replaced.
+            ApplicableWorkItemIds = reader.IsDBNull(18)
+                ? ReadCoverage(reader)
+                : DeserializeList<string>(reader.GetString(18), "applicable work identifiers"),
             Relations = relations
         };
+
+    private static IReadOnlyList<string> ReadCoverage(SqliteDataReader reader)
+    {
+        var coverage = reader.IsDBNull(17)
+            ? []
+            : DeserializeList<string>(reader.GetString(17), "covered work identifiers");
+        return coverage.Count > 0 ? coverage
+            : GetNullableString(reader, 5) is { } workItemId ? [workItemId] : [];
+    }
 
     private static async Task<IReadOnlyList<DocumentRelation>> ReadRelationsAsync(
         SqliteConnection connection,

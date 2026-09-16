@@ -46,6 +46,7 @@ internal sealed class TaskInspectionCliCommands(
                     Status = live is null ? "idle" : "working",
                     Run = live?.Id.Value,
                     WorkItem = live?.WorkItemId?.Value,
+                    CoveredWorkItemIds = live is null ? [] : WorkCoverage.Effective(live.WorkItemId, live.Assurance),
                     Provider = live?.Provider,
                     live?.Model,
                     live?.ProviderVersion,
@@ -87,6 +88,26 @@ internal sealed class TaskInspectionCliCommands(
             foreach (var artifact in artifacts.Select(item => item.Value).OfType<JsonObject>())
             {
                 artifact.Remove("content");
+                var id = artifact["artifactId"]?.GetValue<string>();
+                if (id is not null && state.Artifacts.TryGetValue(new ArtifactId(id), out var recorded))
+                {
+                    artifact["coveredWorkItemIds"] = JsonSerializer.SerializeToNode(
+                        WorkCoverage.Effective(recorded.WorkItemId, recorded.Assurance), json);
+                    artifact["applicableWorkItemIds"] = JsonSerializer.SerializeToNode(
+                        ArtifactApplicability.CurrentMembers(state, recorded), json);
+                }
+            }
+        }
+
+        if (projection["runs"] is JsonObject runs)
+        {
+            foreach (var entry in runs)
+            {
+                if (entry.Value is JsonObject run && state.Runs.TryGetValue(new RunId(entry.Key), out var recorded))
+                {
+                    run["coveredWorkItemIds"] = JsonSerializer.SerializeToNode(
+                        WorkCoverage.Effective(recorded.WorkItemId, recorded.Assurance), json);
+                }
             }
         }
 
