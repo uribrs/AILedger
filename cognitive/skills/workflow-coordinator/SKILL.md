@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.8.2
+version: 1.8.3
 description: Pure routing skill for non-trivial work. Sequences the planning, research, execution, verification, and code-review skills, then marks lesson-bearing records and requests archival through the kernel so that every non-trivial task flows through the same disciplined pipeline and produces durable artifacts in one governed task. Use this skill as the entry point whenever a request is non-trivial — implementation beyond a small one-file change, architecture or design decisions, multi-step refactoring, external API or vendor work, research, validation, or any work that should be resumable across conversations.
 ---
 
@@ -103,6 +103,12 @@ full restart, extra approval gate or automatic destructive rollback.
 ### 4. Select and dispatch assurance, then retire assignments
 
 After execution, consume the orchestrator's declared associations and reconciled readiness facts. Select ready members mechanically: completed working cognition, no active intersection, blocked dependency or open escalation, and a verifier provider independent of every member. Record selected IDs, latest working run/provider per member, scope union and exclusions. Missing or conflicting readiness returns to the orchestrator; never invent a grouping. Capture and freeze the candidate using the procedure in `task-orchestrator`.
+
+Before dispatching assurance, confirm the orchestrator has accounted for every mapped recon seam
+and behavior case, with evidence citations or an explicit disposition, and revisited entries affected
+by repairs, including related cases those repairs exposed. Return unaccounted entries to
+the orchestrator. Statements that recon was read, a rejection was fixed, or tests passed do not
+replace this accounting. The orchestrator judges the evidence; the coordinator checks its presence.
 
 Through the authorized operator, dispatch a fresh verifier with explicit membership and candidate. After its completed applicable output, unchanged-byte comparison and orchestrator finding disposition, dispatch a fresh isolated reviewer for code-bearing work with identical membership/provenance/candidate and the exact paired verifier run ID. Use the CLI forms in `task-orchestrator`; never supply task narrative or findings as reviewer framing. Complete selected source artifacts, including comments, remain review evidence under the code-reviewer source-as-data boundary. Child runs do not acquire dispatch authority from this skill.
 

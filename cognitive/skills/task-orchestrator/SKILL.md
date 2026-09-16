@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.7.2
+version: 1.7.3
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass over the codebase, then decides whether to execute directly or decompose into bounded worker subagents over disjoint file sets, each a governed work item dispatched as its own run, writes an OrchestrationPlan artifact, and returns declared subject associations and reconciled readiness for coordinator dispatch of verifier then isolated code reviewer. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`. Best suited for coding, debugging, architecture/design, migrations, research-driven work, implementation planning, and QA/review-oriented tasks where decomposition quality, verification discipline, and independent implementation review matter.
 ---
 
@@ -157,6 +157,12 @@ The recon pass writes to `<taskPath>/research/internal-recon.md`:
 ```
 
 Skip recon only for non-code-bearing work, or when the task touches one file the main thread has already read. Record the skip and its reason under Research Decisions in `orchestration_plan.md`. Do not skip it because the task feels small — that judgment is the one recon exists to inform.
+
+Before assigning implementation, show how each relevant recon finding changes a plan decision,
+implementation step, or verification obligation. Cite the finding where it is used; explain why any
+apparently relevant finding does not apply. Merely reading or linking the recon does not establish
+that the plan accounts for it. Resolve findings that could invalidate the approach before committing
+workers to that approach. Keep using the recon when the design changes.
 
 ## Planning Rules
 
@@ -390,7 +396,7 @@ Do not expose unnecessary internal detail for trivial cases.
 
 ## Synthesis
 
-If worker tasks ran, synthesize before verification.
+Reconcile the integrated result before verification on both the direct and decomposed paths.
 
 During synthesis:
 
@@ -398,6 +404,16 @@ During synthesis:
 - Resolve contradictions and duplicated work.
 - Check that each delegated task produced the expected output.
 - Identify any gaps created by handoffs or hidden dependencies.
+
+Keep the recon's mapped seams and behavior cases accounted for as work proceeds, using the existing
+plan, execution notes and ledger evidence. For every mapped seam and case, identify the actual
+implementation and supporting evidence, or state why it is not applicable or remains unresolved.
+Revisit affected entries after every design change or repair; an earlier check does not automatically
+establish the changed behavior. Missing implementation or unexplained coverage gaps return to their
+owner before formal assurance. Checks that require the assurance run itself remain explicitly pending
+for that run, not marked complete in advance. A green suite, a worker's completion statement, or an
+unchecked list is not this reconciliation. Do not defer it until closeout or create a separate report
+to duplicate the map.
 
 Do not hand verifier a pile of fragments and call it architecture.
 
@@ -497,7 +513,14 @@ for whole-approach reassessment, evaluate cumulative findings and the failing as
 simplify, replace or discard design parts as warranted, preserve useful evidence and unchanged work,
 and return a concrete revised approach before dispatch resumes.
 Batch material findings before repair; an unmapped conceptual seam returns to Research/Design
-before edits. Any changed candidate requires fresh verification and subsequent paired review,
+before edits. For each rejection requiring repair, identify the faulty assumption and trace which other callers,
+states, entry paths or combinations of behavior share it or are affected by the proposed fix.
+Investigate those related cases before calling the repair complete; reproducing and fixing only
+the reported example is insufficient. Bound the investigation by the actual dependency and failure
+paths, rather than inventing every possible permutation. Record what else was affected and the
+evidence for the repair, and update the affected recon and coverage entries. If the investigation
+changes the system model, revise recon and the plan before further implementation.
+Any changed candidate requires fresh verification and subsequent paired review,
 even if a bounded repair did not change request coverage.
 
 ## Verifier Run
