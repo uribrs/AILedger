@@ -81,6 +81,8 @@ public sealed record MemoryDocument
     public string? Repository { get; init; }
     public string? TaskId { get; init; }
     public string? WorkItemId { get; init; }
+    public IReadOnlyList<string> CoveredWorkItemIds { get; init; } = [];
+    public IReadOnlyList<string> ApplicableWorkItemIds { get; init; } = [];
     public string? RunId { get; init; }
     public string? ActorId { get; init; }
     public required DateTimeOffset SourceTimestamp { get; init; }

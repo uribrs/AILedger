@@ -7,6 +7,15 @@ public interface IContextAssembler
         ActorId actorId,
         WorkItemId? workItemId,
         IReadOnlyList<ContextArtifact> availableArtifacts,
+        DateTimeOffset assembledAt,
+        IReadOnlyList<WorkItemId>? coveredWorkItemIds = null,
+        AssuranceBinding? assurance = null);
+
+    ContextManifest BuildForRun(
+        GovernedTaskState state,
+        ActorId actorId,
+        RunId runId,
+        IReadOnlyList<ContextArtifact> availableArtifacts,
         DateTimeOffset assembledAt);
 
     // The skills this role would be served now, in manifest order. The gate needs them without

@@ -17,64 +17,16 @@ internal static class RunLifecycleRules
         StartRunCommand command,
         DateTimeOffset now)
     {
-        RequireId(command.RunId.Value, nameof(command.RunId));
-        EnsureNew(state.Runs, command.RunId, "run");
-        RequireText(command.Provider, nameof(command.Provider));
-
+        RunAdmission.EnsurePermitted(state, command);
         var subjectActorId = command.SubjectActorId ?? command.ActorId;
         ActorId? launchedBy = subjectActorId == command.ActorId ? null : command.ActorId;
+        var subjectRole = state.Roles[subjectActorId].Role;
         var briefWaiver = RunDispatchRules.EnsurePermitted(
             state, command.ActorId, command.SubjectActorId, command.SkillsServedNow,
             isProviderLaunch: command.LaunchTokenHash is not null,
             command.WorkItemId,
-            command.WithoutBriefReason, command.StaleBriefEvidenceId);
-        // Checked only when the run names a session, which no run recorded before sessions existed
-        // does. A run that names none is dispatched outside a bracket, and that is legal (D7).
-        CoordinatorSessionDispatchRules.EnsureUsable(
-            state, command.ActorId, command.CoordinatorSessionId);
-
-        // Which role the subject holds now, recorded on the run. Role assignments change, so asking
-        // the current assignment whether a past run was a verifier's answers a different question.
-        var subjectRole = state.Roles[subjectActorId].Role;
-
-        if (command.WorkItemId is { } workItemId)
-        {
-            var workItem = Get(state.WorkItems, workItemId, "work item");
-            WorkItemLifecycleRules.EnsureCanStart(state, command.ActorId, workItem);
-            ClaimDependencyRules.EnsureDependenciesAreCurrent(state, workItem.DependsOnClaims);
-            // The status refusal that used to stand here — Blocked, Stale, Completed or Abandoned,
-            // Abandoned for the same reason Completed is and for one more: starting a run moves the
-            // item to Active, which would take back a directory area already handed to another work
-            // item — now lives in RunDispatchRules.EnsurePermitted above, ahead of the coordinating-role
-            // refusal it has to precede. It therefore speaks before the owner and dependency checks
-            // above rather than after them, and is not restated here: two copies of one rule is the
-            // defect KC1 was.
-
-            var hasActiveRun = state.Runs.Values.Any(run =>
-                run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active);
-            if (hasActiveRun)
-            {
-                throw new GovernanceException($"Work item '{workItemId}' already has an active orchestration run.");
-            }
-
-            // The coordinating-role refusal that used to stand here now lives in
-            // RunDispatchRules.EnsurePermitted above, so a provider launch reaches it before it has spawned
-            // a process. It therefore speaks before the status and active-run checks above rather
-            // than after them, which is stated at its new site.
-
-            // A code reviewer reading unverified work reviews something nobody has established
-            // is finished, and its findings then compete with the verifier's instead of following
-            // them. The ordering is the whole point of having two passes, so a verifier run that
-            // ended before the latest work does not open the gate either — it read a different,
-            // earlier work item than the one the reviewer would be looking at.
-            if (subjectRole == RoleKind.CodeReviewer &&
-                !WorkItemVerificationRules.HasVerifierRunAfterLatestWork(state, workItemId))
-            {
-                throw new GovernanceException(
-                    $"A code reviewer can only start on work item '{workItemId}' after a verifier run has " +
-                    "completed against the latest work done on it.");
-            }
-        }
+            command.WithoutBriefReason, command.StaleBriefEvidenceId,
+            authorityAndBriefOnly: command.Assurance is not null);
 
         var run = new AgentRun(
             command.RunId,
@@ -104,7 +56,8 @@ internal static class RunLifecycleRules
             CoordinatorSessionId: command.CoordinatorSessionId,
             // Learned at completion like the cost fields: nothing has read the stream yet, and null
             // here is "nobody counted" rather than "nothing was cut".
-            TruncatedLines: null);
+            TruncatedLines: null,
+            Assurance: command.Assurance is null ? null : AssuranceRules.Copy(command.Assurance));
         // The waiver precedes the run it let through and carries the justification alone, as on
         // work.added: the reducer joins the pair on causationId rather than copying it onto the run.
         return briefWaiver is null ? [new RunStarted(run)] : [briefWaiver, new RunStarted(run)];
@@ -155,7 +108,11 @@ internal static class RunLifecycleRules
                 $"'--provider {AgentRun.NoProvider}' at run start and is exempt.");
         }
 
-        if (command.Status == AgentRunStatus.Completed && run.SubjectRole is RoleKind.Verifier or RoleKind.CodeReviewer)
+        if (command.Status == AgentRunStatus.Completed && run.Assurance is not null)
+            AssuranceRules.EnsureCompletedOutput(state, run);
+
+        if (run.Assurance is null && command.Status == AgentRunStatus.Completed &&
+            run.SubjectRole is RoleKind.Verifier or RoleKind.CodeReviewer)
         {
             var requiredKind = run.SubjectRole == RoleKind.Verifier
                 ? GovernedArtifactKind.VerifierOutput

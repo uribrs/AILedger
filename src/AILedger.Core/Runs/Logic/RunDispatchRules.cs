@@ -30,7 +30,8 @@ internal static class RunDispatchRules
         bool isProviderLaunch,
         WorkItemId? workItemId = null,
         string? withoutBriefReason = null,
-        EvidenceId? staleBriefEvidenceId = null)
+        EvidenceId? staleBriefEvidenceId = null,
+        bool authorityAndBriefOnly = false)
     {
         // A run is authorised by one actor and worked by another only when an operator dispatches
         // it. Starting the run under the working actor is what made the roles that hold no run
@@ -76,6 +77,8 @@ internal static class RunDispatchRules
                 "A run started by hand is not subject to the context gate, so there is nothing to waive. " +
                 "The doors are for 'provider launch' and 'work add'.");
         }
+
+        if (authorityAndBriefOnly) return briefWaiver;
 
         // Code review output is necessarily about one work item: it is filed against that item and
         // can only follow the verifier that established the item is ready to review. Admitting a

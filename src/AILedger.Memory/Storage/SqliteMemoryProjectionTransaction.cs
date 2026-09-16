@@ -225,11 +225,13 @@ internal sealed class SqliteMemoryProjectionTransaction : IMemoryProjectionTrans
             INSERT INTO documents(
                 id, kind, text, repository, task_id, work_item_id, run_id, actor_id,
                 source_timestamp, source_version, authority, lifecycle, tags_json,
-                related_ids_json, citations_json, content_hash, normalizer_version, source_id)
+                related_ids_json, citations_json, content_hash, normalizer_version,
+                covered_work_item_ids_json, applicable_work_item_ids_json, source_id)
             VALUES(
                 $id, $kind, $text, $repository, $taskId, $workItemId, $runId, $actorId,
                 $sourceTimestamp, $sourceVersion, $authority, $lifecycle, $tags,
-                $relatedIds, $citations, $contentHash, $normalizerVersion, $sourceId)
+                $relatedIds, $citations, $contentHash, $normalizerVersion,
+                $coveredWorkItemIds, $applicableWorkItemIds, $sourceId)
             ON CONFLICT(id) DO UPDATE SET
                 kind = excluded.kind,
                 text = excluded.text,
@@ -247,6 +249,8 @@ internal sealed class SqliteMemoryProjectionTransaction : IMemoryProjectionTrans
                 citations_json = excluded.citations_json,
                 content_hash = excluded.content_hash,
                 normalizer_version = excluded.normalizer_version,
+                covered_work_item_ids_json = excluded.covered_work_item_ids_json,
+                applicable_work_item_ids_json = excluded.applicable_work_item_ids_json,
                 source_id = excluded.source_id
             """,
             command =>
@@ -268,6 +272,10 @@ internal sealed class SqliteMemoryProjectionTransaction : IMemoryProjectionTrans
                 command.Parameters.AddWithValue("$citations", JsonSerializer.Serialize(document.Citations, MemoryStorageJson.Options));
                 command.Parameters.AddWithValue("$contentHash", document.ContentHash);
                 command.Parameters.AddWithValue("$normalizerVersion", document.NormalizerVersion);
+                command.Parameters.AddWithValue("$coveredWorkItemIds", JsonSerializer.Serialize(
+                    MemoryDocumentCoverage.Original(document).Order(StringComparer.Ordinal), MemoryStorageJson.Options));
+                command.Parameters.AddWithValue("$applicableWorkItemIds", JsonSerializer.Serialize(
+                    document.ApplicableWorkItemIds.Order(StringComparer.Ordinal), MemoryStorageJson.Options));
                 command.Parameters.AddWithValue("$sourceId", sourceId);
             },
             cancellationToken).ConfigureAwait(false);

@@ -1,6 +1,7 @@
 using AILedger.Core.Application;
 using AILedger.Core.Claims;
 using AILedger.Core.Contracts;
+using AILedger.Core.Runs;
 using AILedger.Core.ContextBriefing;
 using AILedger.Core.CoordinatorSessions;
 using AILedger.Core.Domain;
@@ -269,7 +270,7 @@ internal static class WorkItemLifecycleRules
                 "provider, or an operator may complete it without doing so by recording why.");
         }
 
-        if (requiresCodeReview &&
+        if ((requiresCodeReview || AssuranceRules.HasNewAssurance(state, workItemId)) &&
             !WorkItemVerificationRules.HasCurrentCodeReviewAfterLatestVerification(state, workItemId))
         {
             throw new GovernanceException(
@@ -285,7 +286,7 @@ internal static class WorkItemLifecycleRules
         string transition)
     {
         if (state.Runs.Values.Any(run =>
-                run.WorkItemId == workItemId && run.Status is AgentRunStatus.Active))
+                WorkCoverage.Effective(run.WorkItemId, run.Assurance).Contains(workItemId) && run.Status is AgentRunStatus.Active))
         {
             throw new GovernanceException($"Work item cannot be {transition} while a run is still active.");
         }

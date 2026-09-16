@@ -2,6 +2,7 @@ using System.Text.Json;
 using AILedger.Cli.ContextBriefing;
 using AILedger.Cli.Providers;
 using AILedger.Cli.Routing;
+using AILedger.Cli.Runs;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Core.Runs.Batch;
@@ -61,24 +62,32 @@ internal sealed class BatchPreflightCliCommands(
                     $"Batch preflight member at index {index} cannot be null.");
             }
 
-            return MapOrRefusal(member, actor, servedNow, invocation.LedgerRoot);
+            return MapOrRefusal(member, actor, servedNow, invocation.LedgerRoot, state);
         }).ToArray();
 
-        await executor.WriteJsonAsync(BatchPreflight.Evaluate(
-            state, new BatchPreflightRequest(members))).ConfigureAwait(false);
+        var result = BatchPreflight.Evaluate(state, new BatchPreflightRequest(members));
+        await executor.WriteJsonAsync(new
+        {
+            result.CheckedTaskVersion,
+            result.Admissible,
+            result.Members,
+            result.Causes,
+            Limitation = "Snapshot admission only: no filesystem observation, provider probing, state reservation or guarantee of later launch."
+        }).ConfigureAwait(false);
     }
 
     private static BatchPreflightMember MapOrRefusal(
         BatchPreflightCliMember member,
         ActorId actor,
         IReadOnlyList<ContextSkill>? servedNow,
-        string ledgerRoot)
+        string ledgerRoot,
+        GovernedTaskState state)
     {
         try
         {
-            return Map(member, actor, servedNow, ledgerRoot);
+            return Map(member, actor, servedNow, ledgerRoot, state);
         }
-        catch (GovernanceException refusal)
+        catch (Exception refusal) when (refusal is GovernanceException or CliUsageException)
         {
             var kind = member.WorkItem is null
                 ? BatchPreflightMemberKind.ProviderLaunch
@@ -93,7 +102,8 @@ internal sealed class BatchPreflightCliCommands(
         BatchPreflightCliMember member,
         ActorId actor,
         IReadOnlyList<ContextSkill>? servedNow,
-        string ledgerRoot)
+        string ledgerRoot,
+        GovernedTaskState state)
     {
         PlannedWorkItemPreflight? work = null;
         if (member.WorkItem is { } planned)
@@ -125,7 +135,13 @@ internal sealed class BatchPreflightCliCommands(
                 member.ProviderLaunch.WorkItemId,
                 servedNow,
                 member.ProviderLaunch.WithoutBriefReason,
-                member.ProviderLaunch.StaleBriefEvidenceId);
+                member.ProviderLaunch.StaleBriefEvidenceId,
+                member.ProviderLaunch.RunId,
+                member.ProviderLaunch.Provider,
+                AssuranceCliInput.Binding(state, member.ProviderLaunch.WorkItemId,
+                    member.ProviderLaunch.CoveredWorkItemIds,
+                    member.ProviderLaunch.CandidateId, member.ProviderLaunch.VerifierRunId,
+                    explicitCoverage: member.ProviderLaunch.CoveredWorkItemIds is not null));
 
         return new BatchPreflightMember(member.Id, work, launch);
     }
@@ -152,5 +168,10 @@ internal sealed class BatchPreflightCliCommands(
         ActorId? SubjectActorId,
         WorkItemId? WorkItemId,
         string? WithoutBriefReason = null,
-        EvidenceId? StaleBriefEvidenceId = null);
+        EvidenceId? StaleBriefEvidenceId = null,
+        IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null,
+        string? CandidateId = null,
+        RunId? VerifierRunId = null,
+        RunId? RunId = null,
+        string? Provider = null);
 }

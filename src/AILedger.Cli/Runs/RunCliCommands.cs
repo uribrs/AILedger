@@ -12,10 +12,9 @@ internal sealed class RunCliCommands(CliCommandExecutor executor)
             ["run start"],
             CliCommandOptions.Set(
                 "root", "task", "actor", "subject", "run", "work", "provider", "session",
-                "coordinator-session", "cause", "correlation"),
+                "coordinator-session", "also-work", "candidate", "verifier-run", "cause", "correlation"),
             isReadOnly: false,
-            (invocation, cancellationToken) => executor.ExecuteAsync(
-                invocation, CreateStart(invocation.Input), cancellationToken));
+            StartAsync);
         yield return new CliCommandRegistration(
             ["run complete"],
             CliCommandOptions.Set(
@@ -29,6 +28,14 @@ internal sealed class RunCliCommands(CliCommandExecutor executor)
                     EnumValue<AgentRunStatus>(invocation.Input, "status"),
                     invocation.Input.Optional("session")),
                 cancellationToken));
+    }
+
+    private async Task StartAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)
+    {
+        var state = await CliCommandExecutor.RequireStateAsync(invocation, cancellationToken).ConfigureAwait(false);
+        var binding = AssuranceCliInput.Binding(state, invocation.Input);
+        await executor.ExecuteAsync(invocation, CreateStart(invocation.Input) with { Assurance = binding },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static StartRunCommand CreateStart(CommandLine input) => new(

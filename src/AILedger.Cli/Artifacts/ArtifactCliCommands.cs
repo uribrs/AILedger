@@ -1,5 +1,6 @@
 using System.Text;
 using AILedger.Cli.Routing;
+using AILedger.Cli.Runs;
 using AILedger.Core.Contracts;
 using static AILedger.Cli.Routing.CliInput;
 
@@ -16,7 +17,7 @@ internal sealed class ArtifactCliCommands(
         yield return new CliCommandRegistration(
             ["artifact record"],
             CliCommandOptions.Set(
-                "root", "task", "actor", "id", "kind", "title", "body-stdin", "work", "run",
+                "root", "task", "actor", "id", "kind", "title", "body-stdin", "work", "also-work", "run",
                 "supersedes", "cause", "correlation"),
             isReadOnly: false,
             RecordAsync);
@@ -24,7 +25,7 @@ internal sealed class ArtifactCliCommands(
             ["artifact show"], CliCommandOptions.Set("root", "task", "actor", "id", "json"),
             isReadOnly: true, ShowAsync);
         yield return new CliCommandRegistration(
-            ["artifact list"], CliCommandOptions.Set("root", "task", "actor", "work", "kind"),
+            ["artifact list"], CliCommandOptions.Set("root", "task", "actor", "work", "also-work", "kind"),
             isReadOnly: true, ListAsync);
     }
 
@@ -42,6 +43,7 @@ internal sealed class ArtifactCliCommands(
             throw new CliUsageException("Artifact record requires redirected standard input for '--body-stdin'.");
         }
 
+        var coverage = AssuranceCliInput.Selection(input);
         var body = await ReadBodyAsync(cancellationToken).ConfigureAwait(false);
         await executor.ExecuteAsync(
             invocation,
@@ -50,7 +52,7 @@ internal sealed class ArtifactCliCommands(
                 EnumValue<GovernedArtifactKind>(input, "kind"), input.Required("title"), body,
                 OptionalId(input.Optional("work"), value => new WorkItemId(value)),
                 OptionalExistingRun(input),
-                OptionalId(input.Optional("supersedes"), value => new ArtifactId(value))),
+                OptionalId(input.Optional("supersedes"), value => new ArtifactId(value)), coverage),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -75,15 +77,20 @@ internal sealed class ArtifactCliCommands(
     private async Task ListAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)
     {
         var state = await CliCommandExecutor.RequireStateAsync(invocation, cancellationToken).ConfigureAwait(false);
-        var workItemId = OptionalId(invocation.Input.Optional("work"), value => new WorkItemId(value));
+        var selection = AssuranceCliInput.Selection(invocation.Input);
+        if (selection is null && AssuranceCliInput.Anchor(invocation.Input) is { } anchor)
+        {
+            selection = WorkCoverage.Effective(anchor, null);
+        }
         var kind = invocation.Input.Optional("kind") is { } kindValue
             ? ParseEnum<GovernedArtifactKind>(kindValue)
             : (GovernedArtifactKind?)null;
         var rows = state.Artifacts.Values
-            .Where(artifact => workItemId is null || artifact.WorkItemId == workItemId)
+            .Where(artifact => selection is null ||
+                WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance).Intersect(selection).Any())
             .Where(artifact => kind is null || artifact.Kind == kind)
             .OrderBy(artifact => artifact.ArtifactId.Value, StringComparer.Ordinal)
-            .Select(Metadata)
+            .Select(artifact => Metadata(state, artifact))
             .ToArray();
 
         await executor.WriteJsonAsync(new { state.TaskId, Artifacts = rows }).ConfigureAwait(false);
@@ -129,14 +136,20 @@ internal sealed class ArtifactCliCommands(
         return content;
     }
 
-    private static object Metadata(GovernedArtifact artifact) => new
+    private static object Metadata(GovernedTaskState state, GovernedArtifact artifact) => new
     {
         artifact.ArtifactId,
         artifact.Kind,
         artifact.Title,
         artifact.WorkItemId,
         artifact.ProducerRunId,
+        ProducerStatus = artifact.ProducerRunId is { } runId && state.Runs.TryGetValue(runId, out var producer)
+            ? producer.Status : (AgentRunStatus?)null,
         artifact.SupersedesArtifactId,
-        artifact.Provenance
+        artifact.Provenance,
+        artifact.Assurance,
+        artifact.MemberReplacements,
+        CoveredWorkItemIds = WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance),
+        ApplicableWorkItemIds = ArtifactApplicability.CurrentMembers(state, artifact)
     };
 }

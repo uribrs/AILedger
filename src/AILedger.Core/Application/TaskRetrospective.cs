@@ -374,7 +374,8 @@ public static class TaskRetrospective
 
     private static RetrospectiveArtifacts BuildArtifacts(GovernedTaskState state) =>
         new(CountBy(state.Artifacts.Values, artifact => CamelCase(artifact.Kind.ToString())),
-            state.Artifacts.Values.Count(artifact => artifact.SupersedesArtifactId is not null));
+            state.Artifacts.Values.Count(artifact => artifact.SupersedesArtifactId is not null ||
+                artifact.MemberReplacements?.Any(row => row.ArtifactIds.Count > 0) == true));
 
     // How long the operator was interrupted for. An escalation still open has no end, so its
     // duration is null rather than measured against a clock this projection deliberately does not

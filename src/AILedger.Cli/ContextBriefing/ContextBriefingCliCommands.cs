@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AILedger.Cli.Routing;
+using AILedger.Cli.Runs;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -15,7 +16,7 @@ internal sealed class ContextBriefingCliCommands(
 {
     public CliCommandRegistration Registration() => new(
         ["context build"],
-        CliCommandOptions.Set("root", "task", "actor", "work", "cognitive-root", "output"),
+        CliCommandOptions.Set("root", "task", "actor", "work", "also-work", "cognitive-root", "output"),
         isReadOnly: false,
         BuildAsync);
 
@@ -23,14 +24,14 @@ internal sealed class ContextBriefingCliCommands(
         IGovernedTaskService service,
         CommandLine input,
         ActorId actorId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        RunId runId)
     {
         var state = await service.GetStateAsync(Task(input), cancellationToken).ConfigureAwait(false)
             ?? throw new CliUsageException($"Task '{Task(input)}' was not found.");
         var artifacts = await artifactLoader.LoadAsync(
             input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
-        var workItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
-        return contextAssembler.Build(state, actorId, workItem, artifacts, DateTimeOffset.UtcNow);
+        return contextAssembler.BuildForRun(state, actorId, runId, artifacts, DateTimeOffset.UtcNow);
     }
 
     public async Task<IReadOnlyList<ContextSkill>?> CurrentSkillsAsync(
@@ -75,7 +76,7 @@ internal sealed class ContextBriefingCliCommands(
             input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
         var manifest = contextAssembler.Build(
             state, Actor(input), OptionalId(input.Optional("work"), value => new WorkItemId(value)),
-            artifacts, DateTimeOffset.UtcNow);
+            artifacts, DateTimeOffset.UtcNow, AssuranceCliInput.Selection(input));
         var skills = ContextSkills.From(manifest.Artifacts);
         var body = JsonSerializer.Serialize(manifest, json) + Environment.NewLine;
         var outputPath = input.Optional("output");

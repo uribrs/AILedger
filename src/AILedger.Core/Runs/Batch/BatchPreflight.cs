@@ -72,7 +72,19 @@ public static class BatchPreflight
                 else
                 {
                     var launch = member.ProviderLaunch!;
-                    ProviderLaunchPreflight.EnsurePermitted(
+                    if (ProviderLaunchPreflight.RequiresFullAdmission(
+                        preview, launch.SubjectActorId ?? launch.ActorId, launch.WorkItemId, launch.Assurance))
+                    {
+                        if (launch.RunId is null || string.IsNullOrWhiteSpace(launch.Provider))
+                            throw new GovernanceException("Assurance coverage: preview requires runId and provider.");
+                        ProviderLaunchPreflight.EnsurePermitted(preview, new StartRunCommand(
+                            launch.ActorId, null, $"batch-preflight:{member.Id}", launch.RunId.Value,
+                            launch.WorkItemId, launch.Provider, null, LaunchTokenHash: "preflight",
+                            SubjectActorId: launch.SubjectActorId, SkillsServedNow: launch.SkillsServedNow,
+                            WithoutBriefReason: launch.WithoutBriefReason, StaleBriefEvidenceId: launch.StaleBriefEvidenceId,
+                            Assurance: launch.Assurance));
+                    }
+                    else ProviderLaunchPreflight.EnsurePermitted(
                         preview,
                         launch.ActorId,
                         launch.SubjectActorId,

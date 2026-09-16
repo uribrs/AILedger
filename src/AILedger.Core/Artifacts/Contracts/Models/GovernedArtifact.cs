@@ -8,4 +8,6 @@ public sealed record GovernedArtifact(
     WorkItemId? WorkItemId,
     RunId? ProducerRunId,
     ArtifactId? SupersedesArtifactId,
-    Provenance Provenance);
+    Provenance Provenance,
+    AssuranceBinding? Assurance = null,
+    IReadOnlyList<ArtifactMemberReplacement>? MemberReplacements = null);

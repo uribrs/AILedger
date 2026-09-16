@@ -10,4 +10,5 @@ public sealed record RecordArtifactCommand(
     string Content,
     WorkItemId? WorkItemId,
     RunId? ProducerRunId,
-    ArtifactId? SupersedesArtifactId) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    ArtifactId? SupersedesArtifactId,
+    IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null) : LedgerCommand(ActorId, CausationId, CorrelationId);

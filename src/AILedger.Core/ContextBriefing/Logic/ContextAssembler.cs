@@ -1,6 +1,7 @@
 using AILedger.Core.ContextBriefing;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Core.Runs;
 
 namespace AILedger.Core.Application;
 
@@ -40,12 +41,64 @@ public sealed class ContextAssembler : IContextAssembler
         ActorId actorId,
         WorkItemId? workItemId,
         IReadOnlyList<ContextArtifact> availableArtifacts,
+        DateTimeOffset assembledAt,
+        IReadOnlyList<WorkItemId>? coveredWorkItemIds = null,
+        AssuranceBinding? assurance = null)
+    {
+        var assignment = GetAssignment(state, actorId);
+        EnsureCanBuildContext(assignment);
+        // R4 (reviewer-narrative-isolation): a refresh cannot downgrade a bound review.
+        if (assurance is null && assignment.Role == RoleKind.CodeReviewer &&
+            state.Runs.Values.Any(run => run.ActorId == actorId &&
+                run.Status == AgentRunStatus.Active && run.Assurance?.VerifierRunId is not null))
+        {
+            throw new GovernanceException(
+                "Assurance coverage: an active bound reviewer cannot build unbound context; use the supplied frozen manifest.");
+        }
+
+        return Assemble(state, assignment, workItemId, availableArtifacts, assembledAt,
+            coveredWorkItemIds, assurance);
+    }
+
+    public ContextManifest BuildForRun(
+        GovernedTaskState state,
+        ActorId actorId,
+        RunId runId,
+        IReadOnlyList<ContextArtifact> availableArtifacts,
         DateTimeOffset assembledAt)
     {
         var assignment = GetAssignment(state, actorId);
         EnsureCanBuildContext(assignment);
+        if (!state.Runs.TryGetValue(runId, out var run))
+            throw new GovernanceException($"Context run '{runId}': run does not exist.");
+        if (run.ActorId != actorId)
+            throw new GovernanceException($"Context run '{runId}': run belongs to actor '{run.ActorId}', not '{actorId}'.");
+        if (run.Status != AgentRunStatus.Active)
+            throw new GovernanceException($"Context run '{runId}': run must be Active; current status is '{run.Status}'.");
+
+        // The admitted run identifies this launch even when a disjoint bound review is active.
+        return Assemble(state, assignment, run.WorkItemId, availableArtifacts, assembledAt,
+            run.Assurance?.WorkItemIds, run.Assurance);
+    }
+
+    private static ContextManifest Assemble(
+        GovernedTaskState state,
+        RoleAssignment assignment,
+        WorkItemId? workItemId,
+        IReadOnlyList<ContextArtifact> availableArtifacts,
+        DateTimeOffset assembledAt,
+        IReadOnlyList<WorkItemId>? coveredWorkItemIds,
+        AssuranceBinding? assurance)
+    {
         var workItem = GetWorkItem(state, workItemId);
-        var stateArtifacts = ContextArtifactProjection.Build(state, workItem);
+        var members = WorkCoverage.Normalize(workItemId, coveredWorkItemIds ?? assurance?.WorkItemIds);
+        if (assurance is not null && !members.SequenceEqual(AssuranceRules.ValidateShape(workItemId, assurance)))
+            throw new GovernanceException("Assurance coverage: context selection must equal assurance membership.");
+        var selected = members.Select(member => GetWorkItem(state, member)!).ToArray();
+        var isolatedReviewer = assurance is not null && assignment.Role == RoleKind.CodeReviewer;
+        var stateArtifacts = isolatedReviewer ? Array.Empty<ContextArtifact>() :
+            selected.Length == 0 ? ContextArtifactProjection.Build(state, null).ToArray() :
+            selected.SelectMany(item => ContextArtifactProjection.Build(state, item)).ToArray();
         var relevantIds = stateArtifacts
             .SelectMany(artifact => artifact.RelatedIds.Append(artifact.Id))
             .ToHashSet(StringComparer.Ordinal);
@@ -75,14 +128,17 @@ public sealed class ContextAssembler : IContextAssembler
         return new ContextManifest(
             GovernedTaskState.CurrentSchemaVersion,
             state.TaskId,
-            actorId,
+            assignment.ActorId,
             assignment.Role,
             workItemId,
             state.Version,
             assignment.Capabilities.OrderBy(value => value).ToArray(),
             artifacts,
             stopConditions,
-            assembledAt);
+            assembledAt,
+            coveredWorkItemIds is null && assurance is null ? null : members.ToArray(),
+            assurance is null ? null : AssuranceRules.Copy(assurance),
+            isolatedReviewer ? selected.Select(item => new ReviewWorkItem(item.Id, item.ResourceScope.ToArray(), item.BaseRef)).ToArray() : null);
     }
 
     public IReadOnlyList<ContextSkill> SkillsServed(

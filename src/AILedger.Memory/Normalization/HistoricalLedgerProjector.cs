@@ -189,7 +189,7 @@ internal static class HistoricalLedgerProjector
     private static GovernedTaskState StartRun(GovernedTaskState state, AgentRun run)
     {
         var workItems = state.WorkItems;
-        if (run.WorkItemId is { } workItemId)
+        foreach (var workItemId in WorkCoverage.Effective(run.WorkItemId, run.Assurance))
         {
             workItems = Set(workItems, workItemId,
                 workItems[workItemId] with { Status = WorkItemStatus.Active });
@@ -206,10 +206,12 @@ internal static class HistoricalLedgerProjector
         // index reported values the log holds as absent (VC3, VE7).
         var run = RunCompletionProjection.Apply(state.Runs[completed.RunId], completed);
         var workItems = state.WorkItems;
-        if (run.WorkItemId is { } workItemId)
+        foreach (var workItemId in WorkCoverage.Effective(run.WorkItemId, run.Assurance))
         {
             var work = workItems[workItemId];
-            if (work.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Abandoned))
+            if (run.Assurance is null
+                ? work.Status is not (WorkItemStatus.Blocked or WorkItemStatus.Stale or WorkItemStatus.Abandoned)
+                : work.Status == WorkItemStatus.Active)
             {
                 workItems = Set(workItems, workItemId, work with { Status = WorkItemStatus.Paused });
             }

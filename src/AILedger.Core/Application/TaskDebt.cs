@@ -1,4 +1,5 @@
 using AILedger.Core.Contracts;
+using AILedger.Core.Runs;
 using AILedger.Core.Artifacts;
 using AILedger.Core.WorkItems;
 
@@ -154,7 +155,7 @@ public sealed record TaskDebt(
             item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
             !WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id) &&
             state.Runs.Values.Any(run =>
-                run.WorkItemId == item.Id && WorkItemVerificationRules.DidWork(run)));
+                WorkCoverage.Effective(run.WorkItemId, run.Assurance).Contains(item.Id) && WorkItemVerificationRules.DidWork(run)));
 
         // Ask the completion gate's own predicates rather than deriving another model of a current
         // review. Only scoped items owe this pass; unscoped items preserve their existing completion
@@ -162,7 +163,7 @@ public sealed record TaskDebt(
         // at most one of the three actionable work-debt counts; untouched pending items owe none.
         var awaitingCodeReview = state.WorkItems.Values.Count(item =>
             item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
-            item.ResourceScope.Count != 0 &&
+            (item.ResourceScope.Count != 0 || AssuranceRules.HasNewAssurance(state, item.Id)) &&
             WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id) &&
             WorkItemVerificationRules.HasVerifierRunAfterLatestWork(state, item.Id) &&
             WorkItemVerificationRules.ProviderThatVerifiedItsOwnWork(state, item.Id) is null &&

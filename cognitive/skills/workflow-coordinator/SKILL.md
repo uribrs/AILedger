@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.7.0
+version: 1.8.2
 description: Pure routing skill for non-trivial work. Sequences the planning, research, execution, verification, and code-review skills, then marks lesson-bearing records and requests archival through the kernel so that every non-trivial task flows through the same disciplined pipeline and produces durable artifacts in one governed task. Use this skill as the entry point whenever a request is non-trivial — implementation beyond a small one-file change, architecture or design decisions, multi-step refactoring, external API or vendor work, research, validation, or any work that should be resumable across conversations.
 ---
 
@@ -10,7 +10,7 @@ description: Pure routing skill for non-trivial work. Sequences the planning, re
 
 Route a non-trivial user task through the right skills in the right order. Use the governed task and context manifest supplied by the kernel.
 
-This skill is **pure routing**. It does not analyze, decompose, research, or judge. Every substantive decision is owned by a downstream skill.
+This skill is **pure routing**. It does not perform technical analysis, decomposition, research, or evidence adjudication. It owns routing reconsideration when the workflow stops converging; substantive reassessment belongs to the orchestrator.
 
 ## Core Rule
 
@@ -21,7 +21,7 @@ The coordinator's job is bounded to five things:
 1. Confirm the kernel and context manifest are available, and report what is missing.
 2. Consume the supplied governed task path.
 3. Invoke the planning and execution skills in the correct order.
-4. Confirm the verifier and code-reviewer passes ran.
+4. Select ready declared subject associations, dispatch verifier then paired reviewer, track and retire assurance assignments, and reconsider routing when repair does not converge.
 5. Mark the verifier's lesson-bearing records and request the Archive stage.
 
 If you find yourself making planning judgments inside this skill, stop. Move the judgment to the skill that owns it.
@@ -34,12 +34,12 @@ workflow-coordinator
   1. Consume taskPath  (supplied by the kernel)
   2. Invoke prompt-contract-designer   (triages recalled lessons from the manifest)
   3. Invoke task-orchestrator
-  4. Confirm verifier ran; confirm code-reviewer ran when code-bearing
+  4. Select ready declared associations; dispatch verifier then paired reviewer when code-bearing; retire resolved assignments
   5. Mark lesson-bearing records; request the Archive stage
   6. Report path of artifacts and any unresolved blockers
 ```
 
-The orchestrator owns everything between step 2 and step 4 — research routing, execution-path choice, worker decomposition, synthesis, verifier, and code-reviewer invocation. The coordinator never reaches into those phases.
+The orchestrator owns research routing, execution-path choice, work decomposition, subject relationships, implementation synthesis and evidence judgment. It returns reconciled readiness facts. The coordinator mechanically selects ready declared associations and dispatches assurance through the authorized operator; it does not infer relationships or perform those planning judgments.
 
 Step 5 is transcription, not judgment. The verifier already decided every assumption's status and every decision's fate; the coordinator marks the records that would change a future task and lets the kernel mint and archive them.
 
@@ -79,19 +79,47 @@ Pass `taskPath` to the orchestrator. The orchestrator reads the contract and:
 - Writes `orchestration_plan.md` and files it as the current OrchestrationPlan artifact.
 - Invokes `technical-researcher` if needed.
 - Invokes `contract-driven-execution`, or specifies a phase's disjoint worker runs and launches them concurrently, depending on chosen path.
-- Specifies the verifier run, which disposes of every assumption against what landed and records decision drift.
-- Specifies the code-reviewer run when work is code-bearing.
+- Declares subject associations and returns reconciled readiness facts, scope union, working provenance, exclusions and assurance obligations for coordinator dispatch.
+- Evaluates returned findings and plans any repairs; the coordinator dispatches fresh assurance after reconciliation.
 - Returns the assumption, attention-item, and drift rows for step 5.
 
-The coordinator does not duplicate any of these steps and does not second-guess the orchestrator's decisions.
+The coordinator does not duplicate these technical judgments. It may pause dispatch and return the approach for reassessment under the convergence check below.
 
-### 4. Confirm review passes ran
+### Convergence check before another dispatch
 
-After execution, use `ailedger status` and `ailedger artifact list` to confirm a completed verifier
-run and current VerifierOutput exist for each work item, followed by a completed code-reviewer run
-and current CodeReviewOutput when work is code-bearing.
+Before another repair or assurance dispatch, consider cumulative verifier/reviewer rejections and
+repair findings: recurring defects on the same boundary, growing scope, or effort without meaningful
+convergence may mean the approach itself needs reconsideration. Consider pausing repair dispatch
+and route a whole-approach reassessment to the orchestrator, rather than patching only the newest
+finding. Sunk cost is not a reason to continue.
 
-If either is false, stop and report. The coordinator does not silently skip these.
+The orchestrator evaluates whether to retain, simplify, replace or discard parts of the design,
+preserving useful evidence and unchanged work. Require a concrete revised approach before resuming
+a paused chain, using existing planning and authorization boundaries. Record the routing reason and
+explain the concrete failing assumption and reconsidered route to the user. This is a judgment about
+whether to continue dispatch, not a technical verdict. There is no fixed rejection count, mandatory
+full restart, extra approval gate or automatic destructive rollback.
+
+### 4. Select and dispatch assurance, then retire assignments
+
+After execution, consume the orchestrator's declared associations and reconciled readiness facts. Select ready members mechanically: completed working cognition, no active intersection, blocked dependency or open escalation, and a verifier provider independent of every member. Record selected IDs, latest working run/provider per member, scope union and exclusions. Missing or conflicting readiness returns to the orchestrator; never invent a grouping. Capture and freeze the candidate using the procedure in `task-orchestrator`.
+
+Through the authorized operator, dispatch a fresh verifier with explicit membership and candidate. After its completed applicable output, unchanged-byte comparison and orchestrator finding disposition, dispatch a fresh isolated reviewer for code-bearing work with identical membership/provenance/candidate and the exact paired verifier run ID. Use the CLI forms in `task-orchestrator`; never supply task narrative or findings as reviewer framing. Complete selected source artifacts, including comments, remain review evidence under the code-reviewer source-as-data boundary. Child runs do not acquire dispatch authority from this skill.
+
+After dispatch, use `ailedger status` and `ailedger artifact list` to confirm a completed verifier
+run and applicable current VerifierOutput exist for every selected member, followed by a completed
+paired code-reviewer run and applicable CodeReviewOutput when work is code-bearing. One covering
+pair can satisfy several members; do not require a separate pair per item. Confirm the recorded
+selection from declared associations, exact candidate/member/provenance equality, per-member verifier provider
+independence and recorded unchanged-byte comparisons. Run completion proves cognition/filed output,
+not a favorable verdict: require the orchestrator's finding dispositions before closure.
+
+Derive assignment state from runs, applicable outputs and work status. Retire resolved assignments
+from consideration after member closure, preserving history; do not rewrite runtime plan rows.
+Route changed scope/relationships and affected-subject reopening back to the orchestrator. Completed
+items remain terminal and repairs use newly declared work. The orchestrator owns relationship changes, readiness reconciliation and finding judgments; the coordinator owns mechanical selection, candidate capture, dispatch and assignment tracking.
+
+If either required pass is missing or does not cover the selected members, stop and report. The coordinator does not silently skip these.
 
 Then check the final VerifierOutput contains a row for every claim the plan treated as an assumption,
 and that no row is still OPEN. Also require the Attention Item Disposition table to cover every R-id
@@ -140,6 +168,15 @@ Do not run this step when the verifier did not run or its disposition is incompl
 task has nothing to teach, and a lesson minted from one is worse than no lesson because recall will
 hand it to a future task as evidence.
 
+For candidate-bearing releases, confirm recorded frozen-candidate evidence and project-appropriate
+final checks before operator work completion and Learn/Archive. Retrospective filing
+occurs after Archive through the operator command without a producer run. Clean committed bytes
+must match the assured product and pass release checks before release. For changes to AILedger itself, additionally require private CLI bootstrap, full
+final suite and copied real-history replay, preserving the known-good global kernel until all gates
+close; then confirm the installed source identity. Ordinary projects use their existing compatible
+kernel and do not build or install a private kernel. Route missing evidence back to its owner. Never install an intermediate
+candidate to enable its assurance, and never mutate lifecycle from a launched child run.
+
 ### 6. Report
 
 In the final response, include:
@@ -172,8 +209,8 @@ Stop and surface the issue when:
 
 - The request is ambiguous in a way that would cause wrong implementation.
 - The contract-designer reports a contract cannot be made valid.
-- The orchestrator returns without running the verifier.
-- The orchestrator returns without running the code-reviewer for code-bearing work.
+- The orchestrator cannot return reconciled readiness facts for the declared associations.
+- A dispatched verifier or required paired reviewer lacks completed, applicable coverage.
 - The verifier output has no assumption disposition table, assumptions remain OPEN, or a planned attention item is missing or unresolved. Do not archive and do not record lessons — report it.
 - The manifest conflicts with a current governing artifact.
 - Sandbox or approval restrictions block a required write.
@@ -187,14 +224,14 @@ To prevent scope creep, this skill explicitly does not:
 - Analyze the task or assess complexity (orchestrator's job).
 - Decide whether research is needed (orchestrator's job).
 - Decompose into workers or assign worker scope (orchestrator's job).
-- Invoke `technical-researcher`, `contract-driven-execution`, or `code-reviewer` directly (the orchestrator invokes them).
+- Invoke research or implementation outside the orchestrator's work plan.
 - Synthesize worker outputs (orchestrator's job).
-- Run or evaluate the verifier or code-reviewer passes (orchestrator's job; coordinator only confirms they ran).
+- Perform verifier/reviewer cognition or judge their evidence. The coordinator dispatches these runs; the orchestrator judges findings and synthesizes repairs.
 - Write Claude, Codex, or any other machine configuration.
 - Perform prior-art recall or evaluate what it returned (the designer owns initial recall; the orchestrator owns the classified delta).
 - Judge whether an assumption held, an attention item was handled, or a decision drifted (verifier's job; the coordinator transcribes its rows verbatim).
 - Write any task files (every file has a specific owner skill). The kernel owns event projections,
-  lesson minting, and archival. The coordinator authors no task content of its own.
+  lesson minting, and archival. The coordinator records routing, selection, candidate comparisons and assignment evidence through the CLI; it does not author planning or review content.
 
 If a future change tempts you to add any of these to the coordinator, push them down into the right skill instead.
 

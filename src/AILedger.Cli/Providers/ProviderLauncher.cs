@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AILedger.Cli.ContextBriefing;
 using AILedger.Cli.Routing;
+using AILedger.Cli.Runs;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -28,13 +29,28 @@ internal sealed class ProviderLauncher(
     {
         var provider = input.Required("provider").ToLowerInvariant();
         var sessionId = input.Optional("session");
+        _ = AssuranceCliInput.Selection(input);
+        if (mode == AgentLaunchMode.Resume &&
+            (input.Optional("candidate") is not null || input.Many("also-work").Count > 0 ||
+             input.Optional("verifier-run") is not null))
+        {
+            throw new GovernanceException("Frozen assurance runs require a fresh provider session; use provider launch.");
+        }
+
         if (mode == AgentLaunchMode.Resume && string.IsNullOrWhiteSpace(sessionId))
         {
             throw new CliUsageException("Provider resume requires '--session' with the exact provider session ID.");
         }
 
         var launchState = await RequireStateAsync(service, Task(input), cancellationToken).ConfigureAwait(false);
+        if (mode == AgentLaunchMode.Resume && launchState.Runs.Values.Any(run =>
+            run.Assurance is not null && run.ProviderSessionId == sessionId))
+        {
+            throw new GovernanceException("Frozen assurance runs require a fresh provider session; use provider launch.");
+        }
+
         var requestedWorkItem = OptionalId(input.Optional("work"), value => new WorkItemId(value));
+        var assurance = AssuranceCliInput.Binding(launchState, input);
         // Read once, here, and used for both the pre-flight refusal and the command below. Reading
         // it twice would leave a window where the layer changed between the check and the command.
         var servedNow = await _contextCommands.CurrentSkillsAsync(launchState, input, cancellationToken)
@@ -44,23 +60,26 @@ internal sealed class ProviderLauncher(
         ProviderGrants grants;
         try
         {
-            grants = ProviderGrantResolver.Resolve(
-                launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
-            // And the brief and the dispatch rules, on the same grounds and in the order the kernel
-            // states: authority first, then the brief, then anything with a side effect. These ran
-            // only inside the command below, which the version probe already precedes, so an actor
-            // with no brief had executed a provider binary before being refused (VC3). The kernel
-            // still refuses the launch — this only moves the refusal in front of the process.
-            //
-            // The work item is passed because the refusals keyed on it — a coordinating role cannot
-            // hold a run that names one — are part of the same set. Omitting it left that rule
-            // seeing no item, so it did not fire here and the launch paid for a version probe before
-            // the command refused it.
-            ProviderLaunchPreflight.EnsurePermitted(
-                launchState, Actor(input), Subject(input), servedNow,
-                input.Optional("without-brief"),
-                OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)),
-                requestedWorkItem);
+            if (ProviderLaunchPreflight.RequiresFullAdmission(
+                launchState, SubjectOrActor(input), requestedWorkItem, assurance))
+            {
+                var preview = CreateStartRun(input, provider, sessionId, null, "preflight", servedNow)
+                    with { Assurance = assurance };
+                ProviderLaunchPreflight.EnsurePermitted(launchState, preview);
+                grants = ProviderGrantResolver.Resolve(
+                    launchState, Actor(input), requestedWorkItem, input, ledgerRoot, assurance);
+            }
+            else
+            {
+                // Retain the legacy grant/dispatch refusal ordering and preview semantics.
+                grants = ProviderGrantResolver.Resolve(
+                    launchState, Actor(input), requestedWorkItem, input, ledgerRoot);
+                ProviderLaunchPreflight.EnsurePermitted(
+                    launchState, Actor(input), Subject(input), servedNow,
+                    input.Optional("without-brief"),
+                    OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)),
+                    requestedWorkItem);
+            }
         }
         catch (GovernanceException refusal)
         {
@@ -73,6 +92,11 @@ internal sealed class ProviderLauncher(
             throw;
         }
 
+        if (provider == AgentRun.NoProvider)
+        {
+            throw new CliUsageException("Provider launch cannot dispatch provider 'none'; use run start for a manual record.");
+        }
+
         var adapter = _adapterFactory(provider);
         var executable = ExecutableResolver.Resolve(provider, input.Optional("executable"));
         // Probed before the run is recorded, so the ledger knows which cognition ran even if the
@@ -82,7 +106,7 @@ internal sealed class ProviderLauncher(
         // the manifest, the briefing or the child's environment.
         var launchToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         var start = CreateStartRun(input, provider, sessionId, providerVersion,
-            CommandHandler.HashLaunchToken(launchToken), servedNow);
+            CommandHandler.HashLaunchToken(launchToken), servedNow) with { Assurance = assurance };
         var started = await service.ExecuteAsync(Task(input), start, cancellationToken).ConfigureAwait(false);
         var startedEventId = started.Events[^1].EventId;
         // The instant the kernel recorded the run, which is what the first-write time is measured
@@ -108,7 +132,8 @@ internal sealed class ProviderLauncher(
             // The manifest is filtered by the subject's role, not the dispatcher's. An operator who
             // dispatches a code reviewer must not hand it an operator's view of the task.
             var manifest = await _contextCommands.CreateAsync(
-                service, input, SubjectOrActor(input), cancellationToken).ConfigureAwait(false);
+                service, input, SubjectOrActor(input), cancellationToken,
+                start.RunId).ConfigureAwait(false);
             // Over the exact bytes handed to the child, not a re-serialisation of the manifest: the
             // hash names the brief one run received, so a manifest kept outside the ledger can be
             // matched to the run that read it. It is not a comparison between two runs — the
@@ -126,7 +151,8 @@ internal sealed class ProviderLauncher(
                 input.Optional("model"), input.Optional("output-schema"),
                 grants.AdditionalDirectories,
                 new Dictionary<string, string>(),
-                TimeSpan.FromSeconds(launchTimeoutSeconds.Value));
+                TimeSpan.FromSeconds(launchTimeoutSeconds.Value),
+                manifest.CoveredWorkItemIds, started.State.Runs[start.RunId].Assurance);
             // Marked delivered only once the request is fully built, because building it is fallible
             // — the timeout argument is parsed on the line above and throws on a bad value.
             // Assigning earlier recorded a brief for a run the adapter never received, which is the
@@ -251,7 +277,9 @@ internal sealed class ProviderLauncher(
         catch (GovernanceException exception) when (
             result.Status == AgentRunStatus.Completed &&
             requiredOutputKind is { } kind &&
-            exception.Message.Contains($"requires its matching '{kind}' artifact.", StringComparison.Ordinal))
+            (exception.Message.Contains($"requires its matching '{kind}' artifact.", StringComparison.Ordinal) ||
+             (start.Assurance is not null &&
+              exception.Message.StartsWith("Assurance artifact coverage:", StringComparison.Ordinal))))
         {
             missingOutputKind = kind;
             try

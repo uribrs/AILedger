@@ -5,11 +5,11 @@
   "files": [
     {
       "path": "RULES.md",
-      "sha256": "5d269bf86c6c0de62a30abf9b62f52942ac6a12982e1ee48a5eb585c93cb33f1"
+      "sha256": "fa7676ae44aeff9add2a602dd564cbe911f1854c988ad905857c88fef3078e7c"
     },
     {
       "path": "code-reviewer/SKILL.md",
-      "sha256": "68efb169fbde80b495f4caa5fb7ee5ce6da639857fa5d418d2efa1419d6ca465"
+      "sha256": "6bd5a2dc15b850613e590bddffd37bb5c1335496020f5032e776b0958b934e97"
     },
     {
       "path": "code-reviewer/references/csharp-lenses.md",
@@ -17,19 +17,19 @@
     },
     {
       "path": "contract-driven-execution/SKILL.md",
-      "sha256": "8d929b2bf48f5157e330e4acfd7e8cdf2985b32863afa408bda8103d9a7faa07"
+      "sha256": "12a68a15f36fdfd8d2f1c7e1ec591a1208e04eddbd64490180ba819f2f16fb1f"
     },
     {
       "path": "prompt-contract-designer/SKILL.md",
-      "sha256": "e9d543432d1f0c099cbaec65df494f38d82244c79c6e85bda330535d10e30530"
+      "sha256": "4cb0c9589adc88482c2bd2c21f8ee48e5c90741e02cfa2868b5508489d4c63e4"
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "7d939258db2dce1dbc8d7d29ff2f805c312d2514cedb109a1b537ec94ce09dbc"
+      "sha256": "061a29e7d7bbb61ee8962902ce4f811932076d92997711c55ef58a5bac178573"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
-      "sha256": "3dc49c188fb2872d32a813f3270303187919274dfb6ad56c07f67b3793887dc1"
+      "sha256": "4b28c8bec0c5f8cb7e9eecae578bd5f29c8e5cd978eb16d89516b7b9c2215808"
     },
     {
       "path": "technical-researcher/SKILL.md",
@@ -37,7 +37,7 @@
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "4a0fd6405ce4c367f4d4814ebe05cb061968b3d7c4231e9b77dc974e19dc56c6"
+      "sha256": "cb846623d2441167e4086d45c58432583233b4a4affbaba881a561fbff1aef5e"
     }
   ]
 }

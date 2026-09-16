@@ -1,4 +1,5 @@
 using AILedger.Core.Artifacts;
+using AILedger.Core.Runs;
 using AILedger.Core.Contracts;
 
 namespace AILedger.Core.WorkItems;
@@ -24,7 +25,9 @@ internal static class WorkItemVerificationRules
         run.Status is AgentRunStatus.Completed && !run.HasNoProviderSessionByDeclaration;
 
     internal static bool HasCompletedVerifierRun(GovernedTaskState state, WorkItemId workItemId) =>
-        state.Runs.Values.Any(run =>
+        AssuranceRules.HasNewAssurance(state, workItemId)
+            ? state.Runs.Values.Any(run => AssuranceRules.QualifiesVerifier(state, run, workItemId))
+            : state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
             DidWork(run) &&
             run.SubjectRole is RoleKind.Verifier);
@@ -37,6 +40,8 @@ internal static class WorkItemVerificationRules
 
     internal static bool HasVerifierRunAfterLatestWork(GovernedTaskState state, WorkItemId workItemId)
     {
+        if (AssuranceRules.HasNewAssurance(state, workItemId))
+            return state.Runs.Values.Any(run => AssuranceRules.QualifiesVerifier(state, run, workItemId));
         var workedAt = LatestCompletedWorkingRun(state, workItemId)?.EndedAt;
         return state.Runs.Values.Any(run =>
             run.WorkItemId == workItemId &&
@@ -49,6 +54,8 @@ internal static class WorkItemVerificationRules
         GovernedTaskState state,
         WorkItemId workItemId)
     {
+        if (AssuranceRules.HasNewAssurance(state, workItemId))
+            return state.Runs.Values.Any(run => AssuranceRules.QualifiesReview(state, run, workItemId));
         var workedAt = LatestCompletedWorkingRun(state, workItemId)?.EndedAt;
         var currentReviewRunIds = ArtifactRevisionRules.Current(state)
             .Where(artifact =>
@@ -76,6 +83,9 @@ internal static class WorkItemVerificationRules
     // either there was no work to compare or at least one independent provider verified the result.
     internal static string? ProviderThatVerifiedItsOwnWork(GovernedTaskState state, WorkItemId workItemId)
     {
+        if (AssuranceRules.HasNewAssurance(state, workItemId))
+            return state.Runs.Values.Any(run => AssuranceRules.QualifiesVerifier(state, run, workItemId))
+                ? null : LatestCompletedWorkingRun(state, workItemId)?.Provider;
         if (LatestCompletedWorkingRun(state, workItemId) is not { } worked)
         {
             return null;

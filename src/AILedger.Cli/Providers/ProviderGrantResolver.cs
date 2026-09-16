@@ -10,7 +10,8 @@ internal static class ProviderGrantResolver
         ActorId actorId,
         WorkItemId? workItemId,
         CommandLine input,
-        string ledgerRoot)
+        string ledgerRoot,
+        AssuranceBinding? assurance = null)
     {
         var requestedWorkingDirectory = input.Optional("working-directory");
         var requestedAdditionalDirectories = input.Many("add-dir");
@@ -29,7 +30,8 @@ internal static class ProviderGrantResolver
             return unscopedGrants;
         }
 
-        if (!state.WorkItems.TryGetValue(workItemId.Value, out var workItem))
+        // Preserve the legacy anchor-existence refusal before looking up the dispatcher's role.
+        if (!state.WorkItems.ContainsKey(workItemId.Value))
         {
             throw new GovernanceException($"Unknown work item '{workItemId.Value}'.");
         }
@@ -39,29 +41,40 @@ internal static class ProviderGrantResolver
             throw new GovernanceException($"Actor '{actorId}' has no assigned role.");
         }
 
-        if (workItem.Owner is { } owner && owner != actorId && actorAssignment.Role != RoleKind.Operator)
+        var members = WorkCoverage.Effective(workItemId, assurance);
+        var scopesByMember = new Dictionary<WorkItemId, string[]>();
+        foreach (var member in members)
         {
-            throw new GovernanceException($"Actor '{actorId}' does not own work item '{workItemId.Value}'.");
+            if (!state.WorkItems.TryGetValue(member, out var workItem))
+            {
+                throw new GovernanceException($"Unknown work item '{member}'.");
+            }
+
+            if (workItem.Owner is { } owner && owner != actorId && actorAssignment.Role != RoleKind.Operator)
+            {
+                throw new GovernanceException($"Actor '{actorId}' does not own work item '{member}'.");
+            }
+
+            if (workItem.ResourceScope.Any(scope => !Path.IsPathFullyQualified(scope)))
+            {
+                throw new GovernanceException(
+                    $"Work item '{member}' contains a legacy relative directory scope and must be recreated.");
+            }
+
+            var memberScopes = workItem.ResourceScope.Select(ResolveExistingScope).Distinct(PathComparer).ToArray();
+            if (memberScopes.Length == 0)
+            {
+                throw new GovernanceException($"Work item '{member}' has no directory scope for a provider run.");
+            }
+
+            scopesByMember.Add(member, memberScopes);
         }
 
-        if (workItem.ResourceScope.Any(scope => !Path.IsPathFullyQualified(scope)))
-        {
-            throw new GovernanceException(
-                $"Work item '{workItemId.Value}' contains a legacy relative directory scope and must be recreated.");
-        }
-
-        var scopes = workItem.ResourceScope
-            .Select(ResolveExistingScope)
-            .Distinct(PathComparer)
-            .ToArray();
+        var scopes = scopesByMember.Values.SelectMany(value => value).Distinct(PathComparer).ToArray();
         EnsureLedgerIsOutsideProviderDirectories(ledgerRoot, scopes);
-        if (scopes.Length == 0)
-        {
-            throw new GovernanceException($"Work item '{workItemId.Value}' has no directory scope for a provider run.");
-        }
-
+        var anchorScope = scopesByMember[workItemId.Value][0];
         var workingDirectory = ResolveExistingDirectory(
-            requestedWorkingDirectory ?? ProviderDirectoryForScope(scopes[0]));
+            requestedWorkingDirectory ?? ProviderDirectoryForScope(anchorScope));
         var additionalDirectories = requestedAdditionalDirectories.Select(ResolveExistingDirectory).ToArray();
         foreach (var grant in additionalDirectories.Prepend(workingDirectory))
         {
@@ -95,13 +108,34 @@ internal static class ProviderGrantResolver
                   $"{string.Join(", ", ceilings.Select(ceiling => $"'{ceiling}'"))}.");
         }
 
-        // The ledger is a governed channel, not work product, so it is granted separately from the
-        // work item's scope. Without this, an agent could only record truth when the ledger happened
-        // to sit inside its own scope — which two concurrent agents on disjoint scopes can never
-        // both satisfy, making concurrency and self-hosting mutually exclusive.
-        return new ProviderGrants(
-            workingDirectory,
-            [.. additionalDirectories, ResolveExistingDirectory(ledgerRoot)]);
+        // R2 (complete-grant-union): include every declared scope, without collapsing sibling
+        // directories to an ancestor. File scopes require their parent because providers grant directories.
+        var automaticDirectories = scopes.Select(ProviderDirectoryForScope).Distinct(PathComparer).ToArray();
+        if (assurance is not null && members.Count > 1)
+        {
+            foreach (var directory in automaticDirectories)
+            {
+                var isRepositoryRoot = Directory.Exists(Path.Combine(directory, ".git")) ||
+                    File.Exists(Path.Combine(directory, ".git")) ||
+                    Directory.Exists(Path.Combine(directory, ".ailedger"));
+                var explicitlyRequested = (requestedWorkingDirectory is not null &&
+                    PathComparer.Equals(workingDirectory, directory)) ||
+                    additionalDirectories.Contains(directory, PathComparer);
+                if (isRepositoryRoot && !explicitlyRequested)
+                {
+                    throw new GovernanceException(
+                        $"Assurance coverage: scope requires implicit repository-root grant '{directory}'; " +
+                        "use narrower scopes or an explicit authorized '--working-directory' or '--add-dir'.");
+                }
+            }
+        }
+
+        // Ledger writes are a separate governed channel, not a product scope.
+        return new ProviderGrants(workingDirectory,
+            automaticDirectories.Concat(additionalDirectories)
+                .Append(ResolveExistingDirectory(ledgerRoot))
+                .Where(directory => !PathComparer.Equals(directory, workingDirectory))
+                .Distinct(PathComparer).OrderBy(directory => directory, PathComparer).ToArray());
     }
 
     public static string ResolveExistingScope(string path)

@@ -41,16 +41,21 @@ internal static class CliHelpText
                            then has no live work item, then has no active run, in that check order.
                            It takes no --run because it is filed after closeout, when no run is active.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
-        context build      --task ID --actor ID [--work ID] [--cognitive-root PATH] [--output FILE]
+        context build      --task ID --actor ID [--work ID [--also-work ID ...]] [--cognitive-root PATH] [--output FILE]
                            Serves the actor its brief, then records a context.built event naming the
                            skills it carried and their content digests. A repeat build of the same
                            skill set for the same actor appends nothing and leaves the version where
                            it was, so it is a read that conditionally records audit evidence, not a
                            read with no effect on the ledger.
         artifact record    --task ID --actor ID --id ID --kind KIND --title TEXT --body-stdin
-                           [--work ID] [--run ID] [--supersedes ARTIFACT-ID]
+                           [--work ID [--also-work ID ...]] [--run ID] [--supersedes ARTIFACT-ID]
+                           New assurance output inherits its run's full membership when work flags
+                           are omitted. Supplied work flags assert exactly that set. Legacy output
+                           still requires --work; task-wide kinds must not use work flags.
         artifact show      --task ID --id ID [--json]
-        artifact list      --task ID [--work ID] [--kind KIND]
+        artifact list      --task ID [--work ID [--also-work ID ...]] [--kind KIND]
+                           Work selection intersects original coverage. Metadata retains historical
+                           coverage and reports applicable members separately.
         claim add          --task ID --actor ID --id ID --statement TEXT [--consequence TEXT]
                            [--from-lesson LESSON-ID]
         claim resolve      --task ID --actor ID --id ID --status STATUS [--evidence ID]
@@ -96,6 +101,7 @@ internal static class CliHelpText
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]
                            [--subject ID] [--coordinator-session ID]
+                           [--also-work ID ...] [--candidate SHA256] [--verifier-run ID]
         run complete       --task ID --actor ID --run ID --status STATUS [--session ID]
         session start      --task ID --actor ID --id ID --harness NAME [--harness-session ID]
                            Brackets one coordinating conversation, so the runs it dispatches are its
@@ -116,6 +122,25 @@ internal static class CliHelpText
                           --timeout-seconds N --add-dir PATH --cognitive-root PATH --output-schema VALUE
                           --without-brief REASON --with-stale-brief EVIDENCE-ID
                           --coordinator-session ID --cause EVENT-ID
+                          --also-work ID (repeatable) --candidate SHA256 --verifier-run ID
+
+        Assurance selection uses --work A --also-work B --candidate SHA256. Every member is explicit;
+        duplicates and --also-work without --work are refused. Repeated --work retains last-value
+        behavior. --candidate also opts a singleton into frozen assurance. Only verifier/reviewer
+        roles may use it. A reviewer requires --verifier-run naming a completed verifier over the
+        identical candidate and members. SHA256 is 64 lowercase hexadecimal characters: the kernel
+        checks identity equality, while the coordinator checks actual candidate bytes externally.
+        Frozen assurance requires a fresh provider launch; provider resume refuses it. Manual start
+        must omit --session and records the new session at completion. Legacy singleton resume stays
+        available. Providers receive every member scope (including every scope of a singleton) plus
+        the ledger; file scopes grant their parent directory. New bundles refuse implicit repository
+        root grants; use narrower scopes or an explicit authorized directory request.
+
+        preflight batch    --task ID --actor ID --body-stdin [--cognitive-root PATH]
+                           JSON providerLaunch members accept workItemId, coveredWorkItemIds,
+                           candidateId, verifierRunId, runId and provider. New assurance requires
+                           runId/provider. Preview checks one snapshot, never reserves work or
+                           observes candidate files, and does not guarantee a later launch.
 
         --cause EVENT-ID on a launch names the coordinator record that prompted the dispatch — the
         finding it answers, the decision it carries out. It is what lets a dispatch that answered

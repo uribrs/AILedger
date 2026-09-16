@@ -33,7 +33,10 @@ public sealed record ProviderLaunchPreflightRequest(
     WorkItemId? WorkItemId,
     IReadOnlyList<ContextSkill>? SkillsServedNow = null,
     string? WithoutBriefReason = null,
-    EvidenceId? StaleBriefEvidenceId = null);
+    EvidenceId? StaleBriefEvidenceId = null,
+    RunId? RunId = null,
+    string? Provider = null,
+    AssuranceBinding? Assurance = null);
 
 public sealed record BatchPreflightResult(
     long CheckedTaskVersion,
