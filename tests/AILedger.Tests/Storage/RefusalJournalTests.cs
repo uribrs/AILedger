@@ -41,10 +41,14 @@ public sealed class RefusalJournalTests
         // The version the refused attempt was made against, which a refusal does not advance.
         Assert.Equal(versionBeforeTheAttempt, row.TaskVersion);
         Assert.NotEqual(default, row.RecordedAt);
+        Assert.NotNull(row.KernelIdentity);
+        Assert.False(string.IsNullOrWhiteSpace(row.KernelIdentity.Version));
+        Assert.False(string.IsNullOrWhiteSpace(row.KernelIdentity.SourceCommit));
+        Assert.NotEqual(default, row.KernelIdentity.BuildTime);
     }
 
     [Fact]
-    public async Task TheRowCarriesTheSixSpecifiedFieldsAndNothingElse()
+    public async Task TheRowCarriesTheSpecifiedFieldsAndRunningKernelIdentity()
     {
         using var root = new TemporaryDirectory();
         var taskId = new TaskId("refusal-shape-task");
@@ -55,8 +59,21 @@ public sealed class RefusalJournalTests
             service, taskId, new CompleteWorkItemCommand(actor, null, "c5", new WorkItemId("W1"))));
 
         Assert.Equal(
-            ["recordedAt", "actorId", "command", "site", "taskVersion", "message"],
+            ["recordedAt", "actorId", "command", "site", "taskVersion", "message", "kernelIdentity"],
             FieldNamesOfFirstRow(root.Path, taskId));
+    }
+
+    [Fact]
+    public void ARefusalRowWrittenBeforeKernelIdentityStillDeserializesAsNotRecorded()
+    {
+        const string legacy = """
+            {"recordedAt":"2026-09-14T12:00:00+00:00","actorId":"operator","command":"CompleteWorkItemCommand","site":"service","taskVersion":4,"message":"refused"}
+            """;
+
+        var row = JsonSerializer.Deserialize<RefusalRecord>(legacy, LedgerJson.CreateOptions());
+
+        Assert.NotNull(row);
+        Assert.Null(row.KernelIdentity);
     }
 
     [Fact]
@@ -230,7 +247,8 @@ public sealed class RefusalJournalTests
                 element.GetProperty("command").GetString()!,
                 element.GetProperty("site").GetString()!,
                 element.GetProperty("taskVersion").GetInt64(),
-                element.GetProperty("message").GetString()!);
+                element.GetProperty("message").GetString()!,
+                element.GetProperty("kernelIdentity").Deserialize<KernelBuildIdentity>(LedgerJson.CreateOptions())!);
         }).ToArray();
     }
 
@@ -255,5 +273,6 @@ public sealed class RefusalJournalTests
         string Command,
         string Site,
         long TaskVersion,
-        string Message);
+        string Message,
+        KernelBuildIdentity KernelIdentity);
 }

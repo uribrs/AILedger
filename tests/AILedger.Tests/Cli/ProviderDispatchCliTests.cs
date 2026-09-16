@@ -130,6 +130,46 @@ public sealed class ProviderDispatchCliTests
     }
 
     [Fact]
+    public async Task ATaskWideCodeReviewerLaunchIsRefusedBeforeAnyProviderProcessStarts()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var solution = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        Directory.CreateDirectory(Path.Combine(solution, ".git"));
+        var factoryCalls = 0;
+        var error = new StringWriter();
+        var application = new CliApplication(
+            TextWriter.Null, error, Service,
+            _ =>
+            {
+                factoryCalls++;
+                throw new InvalidOperationException("A refused reviewer launch must resolve no adapter.");
+            },
+            new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "reviewer", "--role", "code-reviewer"],
+            CancellationToken.None);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "reviewer", "--run", "R1",
+             "--provider", "codex", "--executable", "/usr/bin/true",
+             "--working-directory", solution, "--cognitive-root", FindCognitiveRoot()],
+            CancellationToken.None);
+
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        Assert.Equal(1, exit);
+        Assert.Equal(0, factoryCalls);
+        Assert.DoesNotContain(new RunId("R1"), state!.Runs.Keys);
+        Assert.Contains(nameof(RoleKind.CodeReviewer), error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("work item", error.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Single(RefusalJournal(root.Path));
+    }
+
+    [Fact]
     public async Task ProviderLaunchCorrelatesAndCausallyLinksItsRunEvents()
     {
         using var root = new TemporaryDirectory();

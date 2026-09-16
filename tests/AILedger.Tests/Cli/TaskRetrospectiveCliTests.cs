@@ -195,6 +195,47 @@ public sealed class TaskRetrospectiveCliTests
             1, refusals.GetProperty("byCommand").GetProperty(nameof(ResolveClaimCommand)).GetInt32());
     }
 
+    // R9 (identity-evidence-stops-before-real-readers): this drives the refusal journal reader in
+    // retrospective build. A stamped row and a legacy row must remain distinct after CLI conversion.
+    [Fact]
+    public async Task StampedAndLegacyRefusalsReachDistinctRetrospectiveIdentityPartitions()
+    {
+        using var root = new TemporaryDirectory();
+        var output = new StringWriter();
+        var application = Create(output, TextWriter.Null);
+        var common = Common(root.Path);
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        var taskDirectory = new TaskWorkspacePathResolver(root.Path).Resolve(new TaskId("T1"));
+        var journal = new RefusalJournal();
+        var identity = new KernelBuildIdentity(
+            "2.0.417", "4a803bb", DateTimeOffset.FromUnixTimeSeconds(1789516800));
+        await journal.TryAppendUnderTaskLockAsync(taskDirectory, new RefusalRecord(
+            DateTimeOffset.UtcNow, new ActorId("operator"), "work add", RefusalSite.Service,
+            1, "Stamped refusal", identity));
+        await journal.TryAppendUnderTaskLockAsync(taskDirectory, new RefusalRecord(
+            DateTimeOffset.UtcNow, new ActorId("operator"), "claim resolve", RefusalSite.Service,
+            1, "Legacy refusal"));
+        output.GetStringBuilder().Clear();
+
+        var exit = await application.RunAsync(
+            ["retrospective", "build", .. common], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        using var document = JsonDocument.Parse(output.ToString());
+        var partitions = document.RootElement.GetProperty("kernelIdentityPartitions")
+            .EnumerateArray().ToArray();
+        var stamped = Assert.Single(partitions, item =>
+            item.TryGetProperty("build", out var build) &&
+            build.GetProperty("sourceCommit").GetString() == "4a803bb");
+        Assert.Equal(1, stamped.GetProperty("refusals").GetInt32());
+        Assert.Equal(1, stamped.GetProperty("refusalsByCommand").GetProperty("work add").GetInt32());
+        var legacy = Assert.Single(partitions, item =>
+            item.GetProperty("identity").GetString() == "not recorded");
+        Assert.Equal(1, legacy.GetProperty("refusals").GetInt32());
+        Assert.False(legacy.TryGetProperty("build", out _));
+    }
+
     // The third state, over the real file, because it is the reader and not the projection that can
     // see it (RC1). Storage permits the journal to be stale or truncated, so a row that will not
     // parse is a fact about this file that the count of parseable rows cannot express. A reader that

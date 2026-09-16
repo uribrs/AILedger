@@ -1,3 +1,4 @@
+using AILedger.Core.Artifacts;
 using AILedger.Core.Contracts;
 
 namespace AILedger.Core.WorkItems;
@@ -42,6 +43,33 @@ internal static class WorkItemVerificationRules
             DidWork(run) &&
             run.SubjectRole is RoleKind.Verifier &&
             (workedAt is null || run.EndedAt >= workedAt));
+    }
+
+    internal static bool HasCurrentCodeReviewAfterLatestVerification(
+        GovernedTaskState state,
+        WorkItemId workItemId)
+    {
+        var workedAt = LatestCompletedWorkingRun(state, workItemId)?.EndedAt;
+        var currentReviewRunIds = ArtifactRevisionRules.Current(state)
+            .Where(artifact =>
+                artifact.Kind == GovernedArtifactKind.CodeReviewOutput &&
+                artifact.WorkItemId == workItemId &&
+                artifact.ProducerRunId is not null)
+            .Select(artifact => artifact.ProducerRunId!.Value)
+            .ToHashSet();
+
+        return state.Runs.Values.Any(review =>
+            review.WorkItemId == workItemId &&
+            DidWork(review) &&
+            review.SubjectRole == RoleKind.CodeReviewer &&
+            currentReviewRunIds.Contains(review.Id) &&
+            (workedAt is null || review.EndedAt >= workedAt) &&
+            state.Runs.Values.Any(verifier =>
+                verifier.WorkItemId == workItemId &&
+                DidWork(verifier) &&
+                verifier.SubjectRole == RoleKind.Verifier &&
+                (workedAt is null || verifier.EndedAt >= workedAt) &&
+                review.EndedAt >= verifier.EndedAt));
     }
 
     // Returns the working provider when every qualifying verifier used that same provider. Null means

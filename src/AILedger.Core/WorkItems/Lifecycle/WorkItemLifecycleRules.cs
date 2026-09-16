@@ -229,11 +229,14 @@ internal static class WorkItemLifecycleRules
             return waiver;
         }
 
-        EnsureVerified(state, command.WorkItemId);
+        EnsureVerified(state, command.WorkItemId, state.WorkItems[command.WorkItemId].ResourceScope.Count != 0);
         return null;
     }
 
-    private static void EnsureVerified(GovernedTaskState state, WorkItemId workItemId)
+    private static void EnsureVerified(
+        GovernedTaskState state,
+        WorkItemId workItemId,
+        bool requiresCodeReview)
     {
         if (!WorkItemVerificationRules.HasCompletedWorkingRun(state, workItemId))
         {
@@ -264,6 +267,15 @@ internal static class WorkItemLifecycleRules
                 $"Work item '{workItemId}' was verified by the same provider that did the work " +
                 $"('{sameProvider}'), so nothing independent has read it. Verify it with a different " +
                 "provider, or an operator may complete it without doing so by recording why.");
+        }
+
+        if (requiresCodeReview &&
+            !WorkItemVerificationRules.HasCurrentCodeReviewAfterLatestVerification(state, workItemId))
+        {
+            throw new GovernanceException(
+                $"Work item '{workItemId}' has no current work-bound CodeReviewer run with its current " +
+                "CodeReviewOutput, completed after a verifier saw the latest working run. Review it after " +
+                "verification, or an operator may complete it without doing so by recording why.");
         }
     }
 

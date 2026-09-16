@@ -6,6 +6,50 @@ namespace AILedger.Tests.Providers;
 
 public sealed class ProviderArgumentsTests
 {
+    // R2 (line-bounded-inspection-reintroduced): both provider construction paths must receive the
+    // same byte-bounded advice. Merely mentioning redirection or head/tail would leave one long
+    // JSONL record able to cross the adapter's per-line protocol limit.
+    [Fact]
+    public async Task R2_EveryProviderBriefUsesByteBoundedInspection()
+    {
+        var codexRunner = new ScriptedProcessRunner()
+            .Enqueue(0, ["codex-cli 1.2.3"])
+            .Enqueue(0, ["--strict-config --sandbox --cd --add-dir --output-schema --json"])
+            .Enqueue(0, ["SESSION_ID --json"])
+            .Enqueue(0, ["{\"type\":\"thread.started\",\"thread_id\":\"session\"}",
+                "{\"type\":\"turn.completed\"}"]);
+        await new CodexAgentAdapter(codexRunner).RunAsync(
+            ProviderProtocolTests.Request("codex", AgentLaunchMode.New, null), CancellationToken.None);
+
+        var claudeRunner = new ScriptedProcessRunner()
+            .Enqueue(0, ["2.0.0 (Claude Code)"])
+            .Enqueue(0, ["--print --output-format --session-id --resume --permission-prompts --settings --strict-mcp-config --disable-slash-commands"])
+            .Enqueue(invocation => new ScriptedProcessResult(0,
+                [$"{{\"type\":\"result\",\"session_id\":\"{ProviderProtocolTests.ValueAfter(invocation.Arguments, "--session-id")}\",\"result\":\"done\"}}"], []));
+        await new ClaudeAgentAdapter(claudeRunner).RunAsync(
+            ProviderProtocolTests.Request("claude", AgentLaunchMode.New, null), CancellationToken.None);
+
+        var briefs = new[]
+        {
+            codexRunner.Invocations[3].StandardInput,
+            ProviderProtocolTests.ValueAfter(claudeRunner.Invocations[2].Arguments, "-p")
+        };
+
+        foreach (var brief in briefs)
+        {
+            Assert.Contains("1 MiB", brief, StringComparison.Ordinal);
+            Assert.Contains("8 MiB", brief, StringComparison.Ordinal);
+            const string log = "$TMPDIR/ailedger-command.log";
+            Assert.Contains("Governed runs receive a writable `TMPDIR`", brief, StringComparison.Ordinal);
+            Assert.Contains($"command > \"{log}\" 2>&1", brief, StringComparison.Ordinal);
+            Assert.Contains($"dd if=\"{log}\" bs=65536 count=1 skip=0", brief,
+                StringComparison.Ordinal);
+            Assert.Contains("head", brief, StringComparison.Ordinal);
+            Assert.Contains("tail", brief, StringComparison.Ordinal);
+            Assert.Contains("bound lines, not bytes", brief, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task CodexNewRunUsesGovernedNonInteractiveArgumentsAndStdin()
     {

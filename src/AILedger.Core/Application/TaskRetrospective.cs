@@ -79,7 +79,8 @@ public static class TaskRetrospective
             BuildWorkItems(state, history),
             BuildNotMeasured(state, runs, cost, refusals, debt, coordinator),
             coordinator,
-            BuildBriefWaivers(history));
+            BuildBriefWaivers(history),
+            BuildKernelIdentityPartitions(history, refusals));
     }
 
     // Two different numbers, and both belong. They differed by 2x on every task the hand run
@@ -457,6 +458,46 @@ public static class TaskRetrospective
             CountBy(waivers, waiver => WaiverOriginKey(waiver.Provenance)));
     }
 
+    // Identity is read from each persisted envelope, never inferred from its timestamp or refusal
+    // prose. This makes a self-hosting task's behavioural changes attributable to the executable
+    // that enforced them even when installed source and the running tool diverged. A null identity
+    // is retained as its own explicit partition: it means the row predates identity recording, not
+    // that it belongs to whichever kernel happened to build this report.
+    private static IReadOnlyList<RetrospectiveKernelIdentityPartition> BuildKernelIdentityPartitions(
+        IReadOnlyList<LedgerEvent> history,
+        RetrospectiveRefusalJournal? refusals)
+    {
+        var eventGroups = history.GroupBy(@event => @event.KernelIdentity);
+        var refusalGroups = (refusals?.Rows ?? Array.Empty<RetrospectiveRefusal>())
+            .GroupBy(refusal => refusal.KernelIdentity);
+        var identities = eventGroups.Select(group => group.Key)
+            .Concat(refusalGroups.Select(group => group.Key))
+            .Distinct()
+            .OrderBy(KernelIdentityKey, StringComparer.Ordinal)
+            .ToArray();
+
+        return identities.Select(identity =>
+        {
+            var events = history.Where(@event => @event.KernelIdentity == identity).ToArray();
+            var refusalRows = (refusals?.Rows ?? Array.Empty<RetrospectiveRefusal>())
+                .Where(refusal => refusal.KernelIdentity == identity)
+                .ToArray();
+            return new RetrospectiveKernelIdentityPartition(
+                KernelIdentityKey(identity),
+                identity,
+                events.Length,
+                CountBy(events, @event => EventTypeName(@event.Data.GetType())),
+                refusalRows.Length,
+                CountBy(refusalRows, refusal => refusal.Site),
+                CountBy(refusalRows, refusal => refusal.Command));
+        }).ToArray();
+    }
+
+    private static string KernelIdentityKey(KernelBuildIdentity? identity) =>
+        identity is null
+            ? "not recorded"
+            : $"{identity.Version}|{identity.SourceCommit}|{identity.BuildTime:O}";
+
     private static string WaiverOriginKey(WaiverProvenance? provenance) =>
         provenance is null ? "unrecorded" : CamelCase(provenance.Origin.ToString());
 
@@ -643,8 +684,10 @@ public static class TaskRetrospective
 // lives in AILedger.Storage and carries three more — when, at which task version, and the kernel's
 // own refusal text — and Core cannot reference Storage because the dependency runs the other way.
 //
-// Four fields rather than six on purpose: a wider copy of RefusalRecord here would be a second
-// model of a record that already exists, and this one is a parameter list rather than a model.
+// Five fields rather than the whole refusal envelope on purpose: a wider copy of RefusalRecord here
+// would be a second model of a record that already exists, and this one is a projection boundary.
+// KernelIdentity is the one additional envelope value required to partition the refusal behaviour;
+// recorded time and task version still have no use in this projection.
 //
 // Message trails the original three and defaults to empty. It is here because a repeated refusal is
 // keyed by which rule fired, not only by which command was refused: two refusals of one command
@@ -654,7 +697,8 @@ public sealed record RetrospectiveRefusal(
     ActorId ActorId,
     string Command,
     string Site,
-    string Message = "");
+    string Message = "",
+    KernelBuildIdentity? KernelIdentity = null);
 
 // What the caller found when it went looking for the journal, which is three states and not two
 // (RC1). A null journal is no file at all. A journal with UnreadableRows above zero is a file whose
@@ -775,6 +819,18 @@ public sealed record RetrospectiveBriefWaivers(
     int Total,
     IReadOnlyDictionary<string, int> ByOrigin);
 
+// A partition describes behaviour under one recorded executable. Event types expose mutations and
+// provider-run provenance; refusal sites and commands expose which boundaries that executable
+// rejected. Build is null only for the explicit legacy `not recorded` partition.
+public sealed record RetrospectiveKernelIdentityPartition(
+    string Identity,
+    KernelBuildIdentity? Build,
+    int Events,
+    IReadOnlyDictionary<string, int> EventsByType,
+    int Refusals,
+    IReadOnlyDictionary<string, int> RefusalsBySite,
+    IReadOnlyDictionary<string, int> RefusalsByCommand);
+
 public sealed record TaskRetrospectiveReport(
     TaskId Task,
     TaskStage Stage,
@@ -801,4 +857,7 @@ public sealed record TaskRetrospectiveReport(
     // Appended last so readers compiled against the earlier positional shape remain unchanged. This
     // comes from the whole log rather than BriefWaiver.Compute because a retrospective includes
     // completed work while status deliberately reports only waivers relevant to live work.
-    RetrospectiveBriefWaivers BriefWaivers);
+    RetrospectiveBriefWaivers BriefWaivers,
+    // Appended without disturbing the established serialized field order. Rows written before the
+    // envelope field existed appear under the explicit `not recorded` identity.
+    IReadOnlyList<RetrospectiveKernelIdentityPartition> KernelIdentityPartitions);

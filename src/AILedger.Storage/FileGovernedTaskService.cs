@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 
@@ -28,6 +29,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private static readonly UTF8Encoding Utf8WithoutBom = new(false);
     private readonly TaskWorkspacePathResolver _pathResolver;
     private readonly ICommandHandler _commandHandler;
+    private readonly KernelBuildIdentity _kernelIdentity;
     private readonly ITaskReducer _reducer;
     private readonly ITaskProjectionWriter _projectionWriter;
     private readonly TaskWorkspaceLayout _layout;
@@ -64,6 +66,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventLogBytes);
         _pathResolver = new TaskWorkspacePathResolver(workspaceRoot);
         _commandHandler = commandHandler ?? throw new ArgumentNullException(nameof(commandHandler));
+        _kernelIdentity = commandHandler is IKernelIdentitySource identitySource
+            ? identitySource.KernelIdentity
+            : RunningKernelIdentity.Current;
         _reducer = reducer ?? throw new ArgumentNullException(nameof(reducer));
         _layout = layout ?? new TaskWorkspaceLayout();
         _projectionWriter = projectionWriter ?? new MarkdownTaskProjectionWriter(_layout);
@@ -111,7 +116,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                 command.GetType().Name,
                 RefusalSite.Service,
                 currentState?.Version ?? 0,
-                exception.Message)).ConfigureAwait(false);
+                exception.Message,
+                _kernelIdentity)).ConfigureAwait(false);
             throw;
         }
 

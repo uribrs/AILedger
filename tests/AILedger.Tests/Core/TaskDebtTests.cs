@@ -139,6 +139,31 @@ public sealed class TaskDebtTests
         Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
     }
 
+    [Fact]
+    public void AnUnscopedIndependentlyVerifiedLiveWorkItemOwesNoCodeReviewDebtAndStaysClear()
+    {
+        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
+        state = reducer.Apply(state, next(state, actor, new WorkItemAdded(new WorkItem(
+            new WorkItemId("W1"), "Record a non-code result", actor, WorkItemStatus.Proposed, [], []))));
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt, "RW1", RoleKind.Worker, "codex");
+        state = WithCompletedRun(
+            state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "claude");
+        state = state with { Stage = TaskStage.Review };
+
+        var debt = TaskDebt.Compute(state);
+
+        Assert.Equal(0, debt.OpenClaims);
+        Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        Assert.Equal(0, debt.WorkItemsAwaitingCodeReview);
+        Assert.Equal(0, debt.LessonsRecalled);
+        Assert.Equal(0, debt.LessonsCited);
+        Assert.False(debt.RetrospectiveOwed);
+        Assert.Null(debt.StageBehindActivity);
+        Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
+        Assert.True(debt.IsClear);
+    }
+
     // KC1 from the code reviewer: the debt projection listed working roles positively while the
     // completion gate named the two judging roles negatively, so an item worked by any other role
     // read as clear while work complete refused it. The gate's list is positive again, deliberately,
@@ -225,25 +250,25 @@ public sealed class TaskDebtTests
     // them outright, and a test that asserted agreement over the accepted roles alone could not see
     // it. The item this repository most wants flagged had become the one it reported nothing about.
     //
-    // The two counts are read together because they are one answer in two parts: worked and
-    // unverified, or run and not worked. Either is a reason work complete refuses, and their sum
-    // being zero is what 'the gate accepts' means.
+    // The three counts are read together because they are one answer in three parts: worked and
+    // unverified, verified but unreviewed, or run and not worked. Any is a reason work complete
+    // refuses, and their sum being zero is what 'the gate accepts' means.
     [Theory]
-    [InlineData(RoleKind.Worker, "claude", null, null, 1, 0)]
-    [InlineData(RoleKind.Worker, "claude", RoleKind.Verifier, "claude", 1, 0)]
-    [InlineData(RoleKind.Worker, "claude", RoleKind.Verifier, "codex", 0, 0)]
-    [InlineData(RoleKind.Researcher, "claude", null, null, 1, 0)]
-    [InlineData(RoleKind.Researcher, "claude", RoleKind.Verifier, "claude", 1, 0)]
-    [InlineData(RoleKind.Researcher, "claude", RoleKind.Verifier, "codex", 0, 0)]
-    [InlineData(RoleKind.Operator, "claude", null, null, 0, 1)]
-    [InlineData(RoleKind.Operator, "claude", RoleKind.Verifier, "codex", 0, 1)]
-    [InlineData(RoleKind.PlanningLead, "claude", RoleKind.Verifier, "codex", 0, 1)]
-    [InlineData(RoleKind.ImplementationLead, "claude", RoleKind.Verifier, "codex", 0, 1)]
-    [InlineData(RoleKind.CodeReviewer, "claude", RoleKind.Verifier, "codex", 0, 1)]
-    [InlineData(null, "claude", RoleKind.Verifier, "codex", 0, 1)]
+    [InlineData(RoleKind.Worker, "claude", null, null, 1, 0, 0)]
+    [InlineData(RoleKind.Worker, "claude", RoleKind.Verifier, "claude", 1, 0, 0)]
+    [InlineData(RoleKind.Worker, "claude", RoleKind.Verifier, "codex", 0, 0, 1)]
+    [InlineData(RoleKind.Researcher, "claude", null, null, 1, 0, 0)]
+    [InlineData(RoleKind.Researcher, "claude", RoleKind.Verifier, "claude", 1, 0, 0)]
+    [InlineData(RoleKind.Researcher, "claude", RoleKind.Verifier, "codex", 0, 0, 1)]
+    [InlineData(RoleKind.Operator, "claude", null, null, 0, 1, 0)]
+    [InlineData(RoleKind.Operator, "claude", RoleKind.Verifier, "codex", 0, 1, 0)]
+    [InlineData(RoleKind.PlanningLead, "claude", RoleKind.Verifier, "codex", 0, 1, 0)]
+    [InlineData(RoleKind.ImplementationLead, "claude", RoleKind.Verifier, "codex", 0, 1, 0)]
+    [InlineData(RoleKind.CodeReviewer, "claude", RoleKind.Verifier, "codex", 0, 1, 0)]
+    [InlineData(null, "claude", RoleKind.Verifier, "codex", 0, 1, 0)]
     public void TheDebtProjectionAgreesWithWhatWorkCompleteAccepts(
         RoleKind? workRole, string workProvider, RoleKind? verifyRole, string? verifyProvider,
-        int expectedAwaitingVerification, int expectedRunByNoWorkingRole)
+        int expectedAwaitingVerification, int expectedRunByNoWorkingRole, int expectedAwaitingCodeReview)
     {
         var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
         state = WithWorkItem(state, reducer, next, actor);
@@ -256,6 +281,7 @@ public sealed class TaskDebtTests
         var debt = TaskDebt.Compute(state);
         Assert.Equal(expectedAwaitingVerification, debt.WorkItemsAwaitingVerification);
         Assert.Equal(expectedRunByNoWorkingRole, debt.WorkItemsRunByNoWorkingRole);
+        Assert.Equal(expectedAwaitingCodeReview, debt.WorkItemsAwaitingCodeReview);
 
         var accepted = true;
         try
@@ -268,8 +294,9 @@ public sealed class TaskDebtTests
             accepted = false;
         }
 
-        // No debt on either count must mean the gate accepts, and any debt must mean it refuses.
-        var owed = debt.WorkItemsAwaitingVerification + debt.WorkItemsRunByNoWorkingRole;
+        // No debt across all three counts must mean the gate accepts, and any debt must mean it refuses.
+        var owed = debt.WorkItemsAwaitingVerification + debt.WorkItemsRunByNoWorkingRole +
+            debt.WorkItemsAwaitingCodeReview;
         Assert.Equal(owed == 0, accepted);
         // And the block an operator reads has to be there whenever the gate would refuse.
         if (!accepted)
@@ -357,22 +384,24 @@ public sealed class TaskDebtTests
     // accepts a Worker only; both decisions state that difference on purpose, so it is pinned rather
     // than tidied away by someone reading the two lists side by side.
     [Fact]
-    public void AResearcherRunDoesTheWorkAndOpensTheCompletionGate()
+    public void AResearcherRunCountsAsWorkWhenVerificationAndReviewAreCurrent()
     {
-        var state = Opened(out var reducer, out var next, out var actor, out var recordedAt);
-        state = WithWorkItem(state, reducer, next, actor);
-        state = WithCompletedRun(state, reducer, next, actor, recordedAt, "R1", RoleKind.Researcher, "codex");
-        state = WithCompletedRun(
-            state, reducer, next, actor, recordedAt.AddHours(1), "RV1", RoleKind.Verifier, "claude");
+        var task = new TestTask("researcher-work-debt");
+        var work = new WorkItemId("W1");
+        task.Apply(new AddWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), work, "Work", task.OperatorId,
+            [], [Path.GetFullPath("src")]));
+        task.RecordResearcherPass("R1", work);
+        task.RecordVerifierPass(work, "RV1");
+        task.RecordCodeReviewerPass(work, "RCR1");
 
-        var debt = TaskDebt.Compute(state);
+        var debt = TaskDebt.Compute(task.State);
         Assert.Equal(0, debt.WorkItemsAwaitingVerification);
+        Assert.Equal(0, debt.WorkItemsAwaitingCodeReview);
         // Researcher is work to the gate, so the item is finished rather than stuck.
         Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
-        new CommandHandler().Handle(
-            state,
-            new CompleteWorkItemCommand(actor, null, "c-complete", new WorkItemId("W1"), null),
-            recordedAt.AddHours(2));
+        task.Apply(new CompleteWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), work, null));
     }
 
     // A run recorded before SubjectRole existed never told the kernel who worked, so it cannot
@@ -479,6 +508,24 @@ public sealed class TaskDebtTests
 
         Assert.Equal(1, owed["workItemsRunByNoWorkingRole"]!.GetValue<int>());
         Assert.False(owed.ContainsKey("isClear"));
+    }
+
+    [Fact]
+    public void TheCodeReviewDebtCountIsSerialisedIntoTheOwedBlockTheCliWrites()
+    {
+        var task = new TestTask("review-debt-json");
+        var work = new WorkItemId("W1");
+        task.Apply(new AddWorkItemCommand(
+            task.OperatorId, null, task.NextCorrelation(), work, "Work", task.OperatorId,
+            [], [Path.GetFullPath("src")]));
+        task.RecordWorkingPass(work);
+        task.RecordVerifierPass(work);
+
+        var debt = TaskDebt.Compute(task.State);
+        var owed = JsonSerializer.SerializeToNode(debt, LedgerJson.CreateOptions(indented: true))!.AsObject();
+
+        Assert.Equal(1, owed["workItemsAwaitingCodeReview"]!.GetValue<int>());
+        Assert.False(debt.IsClear);
     }
 
     // IC1: the retrospective debt is unconditional. An archived task that carries no retrospective

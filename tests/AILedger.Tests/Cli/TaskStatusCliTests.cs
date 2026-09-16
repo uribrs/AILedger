@@ -70,8 +70,9 @@ public sealed class TaskStatusCliTests
         // item at all. What it says here is only that the field reaches the output; the value that
         // matters is pinned by StatusCountsAWorkItemWhoseOnlyRunDidNoWorkTheGateAccepts below.
         Assert.Equal(
-            new[] { "coordinatorSessionOpen", "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "stageBehindActivity", "workItemsAwaitingVerification", "workItemsRunByNoWorkingRole" },
+            new[] { "coordinatorSessionOpen", "lessonsCited", "lessonsRecalled", "openClaims", "openClaimsWithSupportingEvidence", "retrospectiveOwed", "stageBehindActivity", "workItemsAwaitingCodeReview", "workItemsAwaitingVerification", "workItemsRunByNoWorkingRole" },
             owed.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal).ToArray());
+        Assert.Equal(0, owed["workItemsAwaitingCodeReview"]!.GetValue<int>());
     }
 
     // The value, at the surface an operator reads. TaskDebtTests pins the projection; what no test

@@ -60,7 +60,12 @@ public sealed record TaskDebt(
     //
     // Distinct from an item that has not started: no completed run at all is ordinary pending work
     // and is not counted here. What is counted is a run that happened and bought nothing.
-    int WorkItemsRunByNoWorkingRole = 0)
+    int WorkItemsRunByNoWorkingRole = 0,
+    // Live scoped items whose work has received a current independent verification but not the
+    // current code review the completion gate requires. Appended last so existing positional
+    // construction remains source-compatible, and kept distinct from awaiting verification so an
+    // operator can see which pass is actually owed.
+    int WorkItemsAwaitingCodeReview = 0)
 {
     // KC3: not serialised. The owed block is written only when the debt is not clear, so the field
     // could only ever read false in the output an operator sees.
@@ -95,7 +100,11 @@ public sealed record TaskDebt(
         // would be accepted for completion. Widening the count to carry that promise would fold
         // separate refusals into one number a reader could not take apart, which is what the
         // count's own argument in Compute rejects.
-        WorkItemsRunByNoWorkingRole == 0;
+        WorkItemsRunByNoWorkingRole == 0 &&
+        // V1C3: completion gained a review gate while this projection still stopped at verification,
+        // so a scoped item could report clear immediately before work complete refused it. This is
+        // a separate count because the item has already paid its verification debt.
+        WorkItemsAwaitingCodeReview == 0;
 
     public static TaskDebt Compute(GovernedTaskState state)
     {
@@ -147,6 +156,18 @@ public sealed record TaskDebt(
             state.Runs.Values.Any(run =>
                 run.WorkItemId == item.Id && WorkItemVerificationRules.DidWork(run)));
 
+        // Ask the completion gate's own predicates rather than deriving another model of a current
+        // review. Only scoped items owe this pass; unscoped items preserve their existing completion
+        // semantics. Requiring qualifying work and independent verification keeps each live item in
+        // at most one of the three actionable work-debt counts; untouched pending items owe none.
+        var awaitingCodeReview = state.WorkItems.Values.Count(item =>
+            item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale) &&
+            item.ResourceScope.Count != 0 &&
+            WorkItemVerificationRules.HasCompletedWorkingRun(state, item.Id) &&
+            WorkItemVerificationRules.HasVerifierRunAfterLatestWork(state, item.Id) &&
+            WorkItemVerificationRules.ProviderThatVerifiedItsOwnWork(state, item.Id) is null &&
+            !WorkItemVerificationRules.HasCurrentCodeReviewAfterLatestVerification(state, item.Id));
+
         // state.Lessons holds both kinds and only one of them can be cited as an influence. A lesson
         // minted by this task at archive was produced by it, not handed to it, so counting those as
         // uncited debt makes every closed task look like it owes something forever. Recall refuses a
@@ -190,7 +211,8 @@ public sealed record TaskDebt(
             retrospectiveOwed,
             StageActivityImplies(state) is { } implied && implied > state.Stage ? implied : null,
             state.CoordinatorSessions.Values.Any(session => session.EndedAt is null),
-            runByNoWorkingRole);
+            runByNoWorkingRole,
+            awaitingCodeReview);
     }
 
     /// <summary>

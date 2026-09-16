@@ -96,6 +96,18 @@ internal static class GovernedExecutionBriefing
             .AppendLine("redo work another item already owns — the manifest shows you what has been decided and what")
             .AppendLine("was already rejected, so that you extend the task rather than restart it.")
             .AppendLine()
+            .AppendLine($"Output budget for this {ProviderDisplayName(request.Provider)} integration:")
+            .AppendLine("  - Keep the total output of any one command well below 1 MiB. Command results travel inside")
+            .AppendLine("    structured provider output, and AILedger limits one received JSON line to 1 MiB and each")
+            .AppendLine("    stdout or stderr stream to 8 MiB. Treat these as integration limits, not vendor guarantees.")
+            .AppendLine("  - Governed runs receive a writable `TMPDIR`. Redirect potentially large output there, then")
+            .AppendLine("    inspect byte-bounded windows. For example:")
+            .AppendLine("      command > \"$TMPDIR/ailedger-command.log\" 2>&1")
+            .AppendLine("      dd if=\"$TMPDIR/ailedger-command.log\" bs=65536 count=1 skip=0 2>/dev/null")
+            .AppendLine("    Increase `skip` to inspect later 64 KiB windows without emitting the whole file.")
+            .AppendLine("  - Do not use `head` or `tail` as size guards: they bound lines, not bytes, so one oversized")
+            .AppendLine("    JSON line can still exceed the budget and corrupt the provider protocol.")
+            .AppendLine()
             .AppendLine("Record truth as you go. Findings are not results until they are in the ledger:")
             .AppendLine()
             .AppendLine($"  {request.LedgerCommandLine} claim add       --task {request.TaskId} --actor {request.ActorId} --id ID --statement TEXT")
@@ -137,5 +149,10 @@ internal static class GovernedExecutionBriefing
 
         return builder.ToString();
     }
+
+    private static string ProviderDisplayName(string provider) =>
+        provider.Equals("codex", StringComparison.OrdinalIgnoreCase) ? "Codex" :
+        provider.Equals("claude", StringComparison.OrdinalIgnoreCase) ? "Claude" :
+        provider;
 
 }

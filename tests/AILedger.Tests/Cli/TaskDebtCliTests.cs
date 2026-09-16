@@ -76,7 +76,8 @@ public sealed class TaskDebtCliTests
                 "coordinatorSessionOpen",
                 // A count, and zero on this fixture: the task holds no work item, so nothing can be
                 // stuck. It is asserted here only as part of the exact property set.
-                "workItemsRunByNoWorkingRole"
+                "workItemsRunByNoWorkingRole",
+                "workItemsAwaitingCodeReview"
             },
             owed.EnumerateObject().Select(property => property.Name).ToArray());
         // Every count is a number and the facts are not. Whether an archived task carries a
@@ -92,6 +93,7 @@ public sealed class TaskDebtCliTests
         Assert.Equal(JsonValueKind.False, owed.GetProperty("retrospectiveOwed").ValueKind);
         Assert.Equal(1, owed.GetProperty("openClaims").GetInt32());
         Assert.Equal(0, owed.GetProperty("openClaimsWithSupportingEvidence").GetInt32());
+        Assert.Equal(0, owed.GetProperty("workItemsAwaitingCodeReview").GetInt32());
     }
 
     private static string[] Common(string root) =>

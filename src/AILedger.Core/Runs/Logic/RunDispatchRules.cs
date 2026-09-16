@@ -77,6 +77,20 @@ internal static class RunDispatchRules
                 "The doors are for 'provider launch' and 'work add'.");
         }
 
+        // Code review output is necessarily about one work item: it is filed against that item and
+        // can only follow the verifier that established the item is ready to review. Admitting a
+        // task-wide reviewer therefore creates a run that cannot produce its required artifact.
+        // Keep this in the shared dispatch rule so provider pre-flight and command-time admission
+        // refuse the same impossible run with the same instruction.
+        if (workItemId is null &&
+            state.Roles.TryGetValue(subject, out var taskWideSubjectAssignment) &&
+            taskWideSubjectAssignment.Role == RoleKind.CodeReviewer)
+        {
+            throw new GovernanceException(
+                "A CodeReviewer run must name a work item because CodeReviewOutput is work-scoped. " +
+                "Start it with --work after that item's verifier run has completed.");
+        }
+
         // A coordinating role plans the work and dispatches it; it does not do it. Without this the
         // lead's own run counted as the item's working pass, so 'work complete' was satisfied by a
         // pass in which nobody worked. Stated as an action rather than a flag because there is no

@@ -88,6 +88,9 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new StartRunCommand(actor, null, "c14e", new RunId("RV1"), new WorkItemId("W2"), "claude", null, null, null, null, verifier));
         await Run(writer, taskId, Artifact(verifier, "c14e1", "A-RV1", GovernedArtifactKind.VerifierOutput, new WorkItemId("W2"), new RunId("RV1")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14f", new RunId("RV1"), AgentRunStatus.Completed, "session-3"));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c14g", new RunId("RCR1"), new WorkItemId("W2"), "codex", null, null, null, null, reviewer));
+        await Run(writer, taskId, Artifact(reviewer, "c14g1", "A-RCR1", GovernedArtifactKind.CodeReviewOutput, new WorkItemId("W2"), new RunId("RCR1")));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14h", new RunId("RCR1"), AgentRunStatus.Completed, "session-r1"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c15", new WorkItemId("W2")));
 
         // F2: a released area really is free again, proven by a second work item taking it after a
@@ -100,6 +103,9 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new StartRunCommand(actor, null, "c19", new RunId("RV2"), new WorkItemId("W6"), "claude", null, null, null, null, verifier));
         await Run(writer, taskId, Artifact(verifier, "c19a", "A-RV2", GovernedArtifactKind.VerifierOutput, new WorkItemId("W6"), new RunId("RV2")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c20", new RunId("RV2"), AgentRunStatus.Completed, "session-4"));
+        await Run(writer, taskId, new StartRunCommand(actor, null, "c20a", new RunId("RCR2"), new WorkItemId("W6"), "codex", null, null, null, null, reviewer));
+        await Run(writer, taskId, Artifact(reviewer, "c20b", "A-RCR2", GovernedArtifactKind.CodeReviewOutput, new WorkItemId("W6"), new RunId("RCR2")));
+        await Run(writer, taskId, new CompleteRunCommand(actor, null, "c20c", new RunId("RCR2"), AgentRunStatus.Completed, "session-r2"));
         await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c21", new WorkItemId("W6")));
 
         // The waived completion: its reason is a new field on an existing event, so it has to

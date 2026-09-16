@@ -271,10 +271,10 @@ public sealed class WorkItemCliTests
         Assert.Equal(WorkItemStatus.Completed, state!.WorkItems[new WorkItemId("W1")].Status);
     }
 
-    // The path the pipeline is meant to take, driven end to end: an operator dispatches a run to a
-    // verifier, closes it, and only then does the completion go through.
+    // The path the pipeline is meant to take, driven end to end: an operator completes the worker,
+    // verifier, and reviewer passes in order, and only then does work completion go through.
     [Fact]
-    public async Task AVerifierRunRecordedThroughTheCliUnlocksCompletion()
+    public async Task AReviewerRunRecordedThroughTheCliUnlocksCompletion()
     {
         using var root = new TemporaryDirectory();
         using var scopeRoot = new TemporaryDirectory();
@@ -288,6 +288,9 @@ public sealed class WorkItemCliTests
         await CliStageFixture.ToReadyAsync(application, root.Path);
         await application.RunAsync(
             ["actor", "attach", .. common, "--target", "verifier", "--role", "verifier"],
+            CancellationToken.None);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "reviewer", "--role", "code-reviewer"],
             CancellationToken.None);
         await application.RunAsync(
             ["work", "add", .. common, "--id", "W1", "--title", "Verified work", "--owner", "operator",
@@ -316,6 +319,16 @@ public sealed class WorkItemCliTests
         await application.RunAsync(
             ["run", "complete", .. common, "--run", "RV", "--status", "completed",
              "--session", "verifier-session"], CancellationToken.None);
+        await CliStageFixture.ToReviewAsync(application, root.Path);
+        await application.RunAsync(
+            ["run", "start", .. common, "--subject", "reviewer", "--run", "RCR", "--work", "W1",
+             "--provider", "codex", "--session", "reviewer-session"], CancellationToken.None);
+        await RecordArtifactAsync(
+            application, ["--root", root.Path, "--task", "T1"], "reviewer", "A-RCR", "code-review-output",
+            "W1", "RCR", ArtifactCommands.Body);
+        await application.RunAsync(
+            ["run", "complete", .. common, "--run", "RCR", "--status", "completed",
+             "--session", "reviewer-session"], CancellationToken.None);
         var completeExit = await application.RunAsync(
             ["work", "complete", .. common, "--id", "W1"], CancellationToken.None);
 
@@ -323,6 +336,7 @@ public sealed class WorkItemCliTests
         Assert.Equal(0, completeExit);
         Assert.Equal(string.Empty, error.ToString());
         Assert.Equal(RoleKind.Verifier, state!.Runs[new RunId("RV")].SubjectRole);
+        Assert.Equal(RoleKind.CodeReviewer, state.Runs[new RunId("RCR")].SubjectRole);
         Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
     }
 

@@ -341,7 +341,8 @@ internal sealed class ProviderLauncher(
                 taskVersion,
                 // The gate's own text, verbatim. A category derived from it would be a second,
                 // looser model of what the gate requires (C5).
-                refusal.Message));
+                refusal.Message,
+                RunningKernelIdentity.Current));
 
     // The cost is a required parameter rather than an optional one, because the defect this item
     // exists to fix is six fields that shipped with nothing populating them (IC4). A new closing

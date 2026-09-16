@@ -316,12 +316,14 @@ internal sealed class TestTask
     public RunId RecordCodeReviewerPass(WorkItemId workItemId, string runId = "RCR") =>
         RecordPass(workItemId, runId, new ActorId("reviewer"), RoleKind.CodeReviewer);
 
-    // Both runs a completion needs. Tests whose subject is some other rule call this and stop
-    // caring how many gates completion has grown; only the tests that pin a gate stage one alone.
+    // All independent passes a code-bearing completion needs. Tests whose subject is some other
+    // rule call this and stop caring how many gates completion has grown; only tests that pin a
+    // particular gate stage the preceding passes alone.
     public void RecordRequiredRuns(WorkItemId workItemId)
     {
         RecordWorkingPass(workItemId);
         RecordVerifierPass(workItemId);
+        RecordCodeReviewerPass(workItemId);
     }
 
     // Entering Execution now requires a current user request, prompt contract and orchestration
