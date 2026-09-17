@@ -277,7 +277,7 @@ public sealed class ProviderProtocolTests
             Request("codex", AgentLaunchMode.Resume, "session-1"), CancellationToken.None);
 
         Assert.Equal(AgentRunStatus.ProtocolError, result.Status);
-        Assert.Contains("output exceeded", result.Failure, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Malformed provider JSONL", result.Failure, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(result.Events);
     }
 

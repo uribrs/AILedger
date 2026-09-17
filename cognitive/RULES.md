@@ -105,13 +105,12 @@ the working tree. If you build inside it anyway, delete what you made before you
 
 ### Running the .NET suite inside a governed run
 
-Do not run `dotnet test`. The provider frames one command's whole result as a single line and the
-per-line cap is 1 MiB, so total output near that size raises `ProtocolError` and ends your run —
-losing every finding you have not yet filed. This is validated claim C4/C5 on
-`2026-09-10_0903-overlong-line-kills-a-run`; it has killed four runs and cost two whole verification
-rounds. `VSTest` is also unusable: its IPC socket bind is denied.
+Redirect test output to a file and inspect bounded excerpts. Provider stdout JSON records are
+preserved whole; there is no separate 1 MiB cutoff. The 8 MiB stream and total-retention caps still
+apply. In restricted sandboxes, `VSTest` may fail because its IPC socket bind is denied; use the
+fallback below when normal `dotnet test` cannot run.
 
-Build with `dotnet build -m:1`, then host xunit in-process: load the test assembly with
+For that fallback, build with `dotnet build -m:1`, then host xunit in-process: load the test assembly with
 `Assembly.LoadFrom`, find methods carrying `FactAttribute` or `TheoryAttribute` by attribute *name*,
 and read `InlineDataAttribute` rows through its `GetData` method. Four separate runs have each
 rediscovered the same four defects, so they are written down here once:

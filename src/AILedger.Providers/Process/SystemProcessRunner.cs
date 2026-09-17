@@ -34,7 +34,9 @@ public sealed class SystemProcessRunner : IProcessRunner
         IReadOnlyList<Task> activeTasks = [];
         try
         {
-            var stdout = DrainAsync(process.StandardOutput, onStandardOutputLine, tally, linked.Token);
+            // Protocol JSON must reach the adapter whole; the existing stream ceiling bounds it.
+            var stdout = DrainAsync(process.StandardOutput, onStandardOutputLine, tally, linked.Token,
+                ProviderOutputLimits.MaximumCharactersPerStream);
             var stderr = DrainAsync(process.StandardError, onStandardErrorLine, tally, linked.Token);
             var stdin = WriteInputAsync(process, invocation.StandardInput, linked.Token);
             var exit = process.WaitForExitAsync(linked.Token);
@@ -202,32 +204,20 @@ public sealed class SystemProcessRunner : IProcessRunner
     }
 
     /// <summary>
-    /// Reads one stream line by line and returns how many lines had to be cut to the per-line cap.
+    /// Reads one stream line by line and returns how many lines had to be cut to its configured cap.
     /// </summary>
     /// <remarks>
-    /// An overlong line used to throw here and end the run as <c>ProtocolError</c>. Nothing about a
-    /// line this kernel cannot hold makes the four hundred lines before it untrustworthy, and four
-    /// runs across three tasks were lost to it — one at seven and a half minutes having written
-    /// nothing to the ledger. So the line is cut and counted instead, and the count leaves with the
-    /// result so a reader of the run can tell its output was degraded (C1, C3, D1). It leaves on
-    /// <see cref="TruncatedLineTally"/> as well, because a drain that dies never returns and that
-    /// is the run whose count is worth the most (CC2).
-    ///
-    /// Which faults still reach <c>ProtocolError</c>, so that a stream this kernel genuinely cannot
-    /// follow is still refused rather than looped over (R5):
-    ///   - the per-stream cap above, which is what "no newline in megabytes" becomes: a producer
-    ///     that never emits a newline is cut at the first megabyte and then keeps being read, and
-    ///     dies here at <see cref="ProviderOutputLimits.MaximumCharactersPerStream"/>;
-    ///   - the adapter's retained-output cap, which a run of many truncated lines still crosses;
-    ///   - a line that is not JSON, which the adapter records as a parse failure;
-    ///   - a pipe closed mid-record, which leaves the stream with no terminal event;
-    ///   - a nonzero exit, a conflicting session identity, or a terminal event that is not last.
+    /// Stderr is plain text and may be cut here. Stdout carries JSON records, so its line cap is
+    /// the stream ceiling: the adapter receives a complete record without dropping its contents.
+    /// Cutting raw JSON here would turn successful runs into parse failures.
+    /// Both streams remain bounded by MaximumCharactersPerStream, including discarded characters.
     /// </remarks>
     internal static async Task<int> DrainAsync(
         StreamReader reader,
         Func<string, CancellationToken, ValueTask> receiver,
         TruncatedLineTally? tally,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int maximumCharactersPerLine = ProviderOutputLimits.MaximumCharactersPerLine)
     {
         var buffer = new char[4096];
         var line = new StringBuilder();
@@ -276,7 +266,7 @@ public sealed class SystemProcessRunner : IProcessRunner
                     // No newline followed it, so it is content, and it counts against the cap like
                     // any other character.
                     heldCarriageReturn = false;
-                    if (!Append('\r', line, tally, ref truncatedLines, ref discardingRestOfLine))
+                    if (!Append('\r', line, tally, ref truncatedLines, ref discardingRestOfLine, maximumCharactersPerLine))
                     {
                         continue;
                     }
@@ -288,7 +278,7 @@ public sealed class SystemProcessRunner : IProcessRunner
                     continue;
                 }
 
-                Append(character, line, tally, ref truncatedLines, ref discardingRestOfLine);
+                Append(character, line, tally, ref truncatedLines, ref discardingRestOfLine, maximumCharactersPerLine);
             }
         }
 
@@ -312,15 +302,16 @@ public sealed class SystemProcessRunner : IProcessRunner
         StringBuilder line,
         TruncatedLineTally? tally,
         ref int truncatedLines,
-        ref bool discardingRestOfLine)
+        ref bool discardingRestOfLine,
+        int maximumCharactersPerLine)
     {
         line.Append(character);
-        if (line.Length <= ProviderOutputLimits.MaximumCharactersPerLine)
+        if (line.Length <= maximumCharactersPerLine)
         {
             return true;
         }
 
-        line.Length = ProviderOutputLimits.MaximumCharactersPerLine;
+        line.Length = maximumCharactersPerLine;
         truncatedLines++;
         // The same count, on an object the caller still holds. A drain that dies before it can
         // return — a receiver crossing the adapter's retained-output cap — leaves its count here

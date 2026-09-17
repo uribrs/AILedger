@@ -412,8 +412,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
 
     private static void ReserveOutput(string line, ref long retainedCharacters)
     {
-        if (line.Length > ProviderOutputLimits.MaximumCharactersPerLine ||
-            Interlocked.Add(ref retainedCharacters, line.Length + 1L) > ProviderOutputLimits.MaximumRetainedCharacters)
+        // Preserve complete protocol records; the total retention budget bounds their size.
+        if (Interlocked.Add(ref retainedCharacters, line.Length + 1L) > ProviderOutputLimits.MaximumRetainedCharacters)
         {
             throw new InvalidDataException("Provider output exceeded the retained-output limit.");
         }

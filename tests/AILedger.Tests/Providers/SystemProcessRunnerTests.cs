@@ -80,12 +80,9 @@ public sealed class SystemProcessRunnerTests
         Assert.Contains("output exceeded", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    // CC2 on the real process path: a receiver that ends the run is how the adapter's retained-
-    // output cap ends it, and what the drain had already cut has to survive the cancellation and
-    // reap that follow. Two megabytes with no newline in them is one line, cut at the cap and
-    // delivered at end of stream, and then refused.
+    // Stdout reaches the receiver whole; only the adapter can trim protocol payloads safely.
     [Fact]
-    public async Task RealProcessTruncationCountSurvivesAReceiverThatEndsTheRun()
+    public async Task RealProcessDoesNotCutProtocolBeforeTheReceiver()
     {
         if (!File.Exists("/usr/bin/head"))
         {
@@ -103,12 +100,16 @@ public sealed class SystemProcessRunnerTests
 
         await Assert.ThrowsAsync<InvalidDataException>(() => new SystemProcessRunner().RunAsync(
             invocation,
-            static (_, _) => throw new InvalidDataException("Provider output exceeded the retained-output limit."),
+            static (line, _) =>
+            {
+                Assert.Equal(2097152, line.Length);
+                throw new InvalidDataException("Provider output exceeded the retained-output limit.");
+            },
             static (_, _) => ValueTask.CompletedTask,
             tally,
             CancellationToken.None));
 
-        Assert.Equal(1, tally.Observed);
+        Assert.Null(tally.Observed);
     }
 
     [Fact]
