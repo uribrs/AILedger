@@ -32,11 +32,13 @@ public sealed class CliCommandCatalogTests
             {
                 "actor attach", "alternative record", "artifact list", "artifact record", "artifact show",
                 "audit", "batch preflight", "challenge dispose", "challenge raise", "claim add", "claim resolve",
-                "constraint add", "constraint supersede", "context build", "decision propose",
+                "closeout evidence", "closeout status", "constraint add", "constraint supersede",
+                "context build", "decision propose",
                 "decision resolve", "escalation raise", "escalation resolve", "evidence add", "history",
                 "lesson mark", "lesson recheck", "preflight batch", "provider launch", "provider resume", "retrospective build",
                 "retrospective record", "run complete", "run start", "session complete", "session start",
-                "stage transition", "status", "task history", "task open", "task status", "version", "who",
+                "stage transition", "status", "task cleanup apply", "task cleanup plan", "task history",
+                "task open", "task status", "version", "who",
                 "work abandon", "work add", "work block", "work complete", "work unblock"
             },
             application.CommandCatalog.Names.OrderBy(name => name, StringComparer.Ordinal).ToArray());
@@ -70,6 +72,26 @@ public sealed class CliCommandCatalogTests
         Assert.Contains(declaredMethods, method => method.Name == nameof(CliApplication.CreateDefault));
         Assert.Contains(declaredMethods, method => method.Name == nameof(CliApplication.RunAsync));
         Assert.NotNull(type.GetProperty(nameof(CliApplication.HarnessTranscriptRoot)));
+    }
+
+    [Theory]
+    [InlineData("closeout", "evidence")]
+    [InlineData("closeout", "status")]
+    public async Task CloseoutReadsRequireTheDocumentedActorOption(string group, string command)
+    {
+        var error = new StringWriter();
+        var application = new CliApplication(
+            TextWriter.Null,
+            error,
+            Service,
+            _ => throw new InvalidOperationException("Provider adapter is not used by this test."),
+            new ContextAssembler());
+
+        var exit = await application.RunAsync(
+            [group, command, "--root", "/unused", "--task", "T1"], CancellationToken.None);
+
+        Assert.Equal(2, exit);
+        Assert.Contains("Missing required option '--actor'", error.ToString(), StringComparison.Ordinal);
     }
 
     private static CliApplication Application() => new(

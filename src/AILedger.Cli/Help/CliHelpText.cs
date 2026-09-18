@@ -40,6 +40,23 @@ internal static class CliHelpText
                            Records a workflow retrospective only after the task reaches Archive,
                            then has no live work item, then has no active run, in that check order.
                            It takes no --run because it is filed after closeout, when no run is active.
+        closeout evidence  --task ID --actor ID
+                           Reports every assurance revision in event order with its digest, producer,
+                           coverage and applicability; work-item runs; claims, evidence and challenges;
+                           completeness counts; and loose review files matched to filed bodies.
+                           It gathers facts and makes no finding, repair, severity, lesson or grade judgement.
+        closeout status    --task ID --actor ID [--index-database PATH]
+                           Reports every closeout eligibility check independently, lesson publication,
+                           canonical log digests, and either the configured index path's presence or
+                           an explicit not-configured result.
+        task cleanup plan  --task ID --actor ID [--output FILE]
+                           Writes a complete retention manifest without deleting task material. Every
+                           file carries its digest, length, decision, reason, durable replacement when
+                           one exists, and diagnostics lost by an authorised removal.
+        task cleanup apply --task ID --actor ID --plan FILE
+                           Applies exactly one manifest after rechecking eligibility, task identity,
+                           state and canonical-log snapshots, every file, and path/link containment.
+                           Intent and per-file receipts make interruption resumable and repetition idempotent.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID [--also-work ID ...]] [--cognitive-root PATH] [--output FILE]
                            Serves the actor its brief, then records a context.built event naming the
@@ -307,4 +324,3 @@ internal static class CliHelpText
         the version an event produced is its position in the log, which status reports as "version".
         """;
 }
-

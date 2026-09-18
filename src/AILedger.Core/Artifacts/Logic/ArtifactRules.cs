@@ -54,6 +54,11 @@ internal static class ArtifactRules
             WorkflowRetrospectiveRules.EnsureEntryCondition(state);
         }
 
+        if (command.Kind == GovernedArtifactKind.CloseoutSynthesis)
+        {
+            CloseoutSynthesisRules.EnsureEntryCondition(state);
+        }
+
         ArtifactDocumentRules.Validate(state, command.Kind, command.WorkItemId, command.Content);
 
         return [new ArtifactRecorded(new GovernedArtifact(

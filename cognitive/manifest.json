@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepositoryPath": "/Users/user/Dev/Uri/localprojects/AILedger",
-  "generatedAtUtc": "2026-09-14T11:47:02Z",
+  "generatedAtUtc": "2026-09-18T07:02:32Z",
   "files": [
     {
       "path": "RULES.md",
@@ -25,7 +25,7 @@
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "34eefac38d71c51c035a9e75cb7d8f9a04fe8bbd2b48c63c51be82ee9238b805"
+      "sha256": "adc820a082c7103b21297a1e800392924dc4222375506b807866196da52a86d2"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
@@ -37,7 +37,7 @@
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "42a5f7fcd8221458814cad606a4f05bb795b81fa4efbb6f3d7beecc99beb31c6"
+      "sha256": "45d8506145a9b9599b82e4ade0bc2f6bafce2b3254a2b8d73ef7862446ed1735"
     }
   ]
 }

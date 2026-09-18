@@ -1,7 +1,7 @@
 ---
 name: workflow-coordinator
-version: 1.8.3
-description: Pure routing skill for non-trivial work. Sequences the planning, research, execution, verification, and code-review skills, then marks lesson-bearing records and requests archival through the kernel so that every non-trivial task flows through the same disciplined pipeline and produces durable artifacts in one governed task. Use this skill as the entry point whenever a request is non-trivial — implementation beyond a small one-file change, architecture or design decisions, multi-step refactoring, external API or vendor work, research, validation, or any work that should be resumable across conversations.
+version: 1.8.4
+description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
 # Workflow Coordinator
@@ -16,13 +16,15 @@ This skill is **pure routing**. It does not perform technical analysis, decompos
 
 Use this skill at the start of any non-trivial task. Skip for trivial work (single-line edits, syntax fixes, simple explanations, one-off lookups).
 
-The coordinator's job is bounded to five things:
+The coordinator's job is bounded to six things:
 
 1. Confirm the kernel and context manifest are available, and report what is missing.
 2. Consume the supplied governed task path.
 3. Invoke the planning and execution skills in the correct order.
 4. Select ready declared subject associations, dispatch verifier then paired reviewer, track and retire assurance assignments, and reconsider routing when repair does not converge.
-5. Mark the verifier's lesson-bearing records and request the Archive stage.
+5. Route the orchestrator's closeout synthesis, mark lesson-bearing records, request Archive, and
+   route the post-Archive retrospective.
+6. Report closeout eligibility and, only when requested, route plan-then-apply retention.
 
 If you find yourself making planning judgments inside this skill, stop. Move the judgment to the skill that owns it.
 
@@ -35,13 +37,16 @@ workflow-coordinator
   2. Invoke prompt-contract-designer   (triages recalled lessons from the manifest)
   3. Invoke task-orchestrator
   4. Select ready declared associations; dispatch verifier then paired reviewer when code-bearing; retire resolved assignments
-  5. Mark lesson-bearing records; request the Archive stage
-  6. Report path of artifacts and any unresolved blockers
+  5. Route and require the closeout synthesis
+  6. Mark lesson-bearing records; request Archive; verify publication
+  7. Route and require the post-Archive retrospective; check closeout status
+  8. If requested and eligible, route retention plan then apply
+  9. Report paths and unresolved blockers
 ```
 
 The orchestrator owns research routing, execution-path choice, work decomposition, subject relationships, implementation synthesis and evidence judgment. It returns reconciled readiness facts. The coordinator mechanically selects ready declared associations and dispatches assurance through the authorized operator; it does not infer relationships or perform those planning judgments.
 
-Step 5 is transcription, not judgment. The verifier already decided every assumption's status and every decision's fate; the coordinator marks the records that would change a future task and lets the kernel mint and archive them.
+Step 6 is transcription, not judgment. The verifier already decided every assumption's status and every decision's fate; the coordinator marks the records that would change a future task and lets the kernel mint and archive them.
 
 ## Workflow
 
@@ -81,7 +86,7 @@ Pass `taskPath` to the orchestrator. The orchestrator reads the contract and:
 - Invokes `contract-driven-execution`, or specifies a phase's disjoint worker runs and launches them concurrently, depending on chosen path.
 - Declares subject associations and returns reconciled readiness facts, scope union, working provenance, exclusions and assurance obligations for coordinator dispatch.
 - Evaluates returned findings and plans any repairs; the coordinator dispatches fresh assurance after reconciliation.
-- Returns the assumption, attention-item, and drift rows for step 5.
+- Returns the closeout synthesis plus the assumption, attention-item, and drift rows for steps 5–6.
 
 The coordinator does not duplicate these technical judgments. It may pause dispatch and return the approach for reassessment under the convergence check below.
 
@@ -134,10 +139,22 @@ it returned. This is a presence check, not a judgment — the coordinator does n
 evidence is good, only that the required rows exist and are terminal. If rows are missing or
 non-terminal, stop and report; do not proceed to step 5.
 
-### 5. Record lessons and archive
+### 5. Route the closeout synthesis
+
+Before any lesson is marked, route the settled assurance record back to the orchestrator. The
+coordinator supplies the output of `ailedger closeout evidence --task TASK --actor ACTOR` and checks
+presence, not quality: the orchestrator wrote `closeout_synthesis.md`, the kernel accepted a current
+task-wide `CloseoutSynthesis`, and the artifact has the required findings and retention tables.
+
+The orchestrator owns the judgments: distinct-finding identity, first detection, opportunity,
+repair history, disposition, lesson and retention evidence. The coordinator must not recreate them
+from counts or from only the current reports. An empty findings table is valid. If the synthesis
+names an actionable defect, return it to planned repair and fresh assurance before closeout resumes.
+
+### 6. Record lessons and archive
 
 Mechanical transcription through `ailedger lesson mark`. No judgment — the verifier already made
-every call.
+every call, and the synthesis has recorded the task's assurance history.
 
 1. Read the assumption disposition, attention-item disposition, and decision-drift rows from the
    current VerifierOutput artifact.
@@ -167,8 +184,14 @@ ailedger lesson mark --task TASK --actor ACTOR --source SOURCE --repo REPO \
 `--actor` is the lead or operator issuing the mutation. `--lesson-actor` is the cognition that
 established it. Omit `--verify-expects` only when `--verify` is `none — <reason>`.
 
-5. Ask the operator to request `ailedger stage transition --stage archive`. The kernel validates the
+5. For each non-`none` lesson in the synthesis, mark the eligible claim, alternative, or resolved
+   escalation it names. A lesson with no eligible governed source returns to the orchestrator; do not
+   silently drop it or invent a source.
+6. Ask the operator to request `ailedger stage transition --stage archive`. The kernel validates the
    stage arm, mints the marked lessons, publishes them to the lesson store, and archives the task.
+7. Check publication rather than inferring it from a successful transition. `closeout status`
+   reports minted-lesson publication independently; a publication failure after the Archive commit
+   must be reconciled before cleanup can become eligible.
 
 Do not run this step when the verifier did not run or its disposition is incomplete. An unverified
 task has nothing to teach, and a lesson minted from one is worse than no lesson because recall will
@@ -183,7 +206,41 @@ close; then confirm the installed source identity. Ordinary projects use their e
 kernel and do not build or install a private kernel. Route missing evidence back to its owner. Never install an intermediate
 candidate to enable its assurance, and never mutate lifecycle from a launched child run.
 
-### 6. Report
+### 7. Route the retrospective and check closeout status
+
+After Archive and lesson-publication reconciliation, route a scoring agent to build the deterministic
+retrospective and apply `docs/self-scoring-rubric.md`. D6 consumes the current synthesis and the
+`closeout evidence` projection; grades remain agent judgments and no score is a cleanup gate. File
+the ten-dimension body through the no-producer command:
+
+```bash
+ailedger retrospective build --task TASK > "$TMPDIR/retrospective-input.json"
+ailedger retrospective record --task TASK --actor ACTOR --id ID \
+  --title "Workflow retrospective" --body-stdin < <taskPath>/workflow_retrospective.md
+```
+
+Then run `ailedger closeout status --task TASK --actor ACTOR`. Read every eligibility row
+independently: Archive stage, no live work, no active runs, no open escalations/challenges, current
+synthesis, current retrospective, and minted lessons. Confirm publication and configured memory
+ingestion beside those rows. An unconfigured standalone index is reported as a named absence, not a
+failure. Retained canonical sources must still permit rebuilding it.
+
+### 8. Retention, and only when requested
+
+Cleanup is a separate operator action, never an Archive or retrospective side effect. It is available
+only after every closeout eligibility check passes:
+
+```bash
+ailedger task cleanup plan --task TASK --actor ACTOR
+ailedger task cleanup apply --task TASK --actor ACTOR --plan FILE
+```
+
+`plan` changes no original task material. Read its snapshot binding and every proposed deletion,
+durable replacement and lost-diagnostics field before applying it. Only a `delete` row in the current
+synthesis can mark a file; unknown, unmatched, cited and unreadable material remains retained. Never
+use a numeric grade as a gate. Do not apply a stale plan or continue after a refusal.
+
+### 9. Report
 
 In the final response, include:
 
@@ -205,6 +262,10 @@ The kernel supplies `taskPath`; downstream skills keep their human-readable outp
   review/
     verifier-N.md           (written by the verifier run)
     code-reviewer-N.md      (written by the code-reviewer run)
+  closeout_synthesis.md     (written by task-orchestrator before lessons are marked)
+  workflow_retrospective.md (written by the post-Archive scoring agent)
+  cleanup/
+    <plan-id>.plan.json     (written before any approved removals)
 ```
 
 - `N` is a numeric suffix that increments when review passes are re-run after repairs (`verifier-1.md`, `verifier-2.md`, etc.). Existing files are not overwritten.
@@ -218,6 +279,9 @@ Stop and surface the issue when:
 - The orchestrator cannot return reconciled readiness facts for the declared associations.
 - A dispatched verifier or required paired reviewer lacks completed, applicable coverage.
 - The verifier output has no assumption disposition table, assumptions remain OPEN, or a planned attention item is missing or unresolved. Do not archive and do not record lessons — report it.
+- The closeout synthesis is absent, is refused, or exposes an actionable defect that has not returned
+  through repair and assurance.
+- Lesson publication, retrospective filing, or any closeout eligibility row remains unsatisfied.
 - The manifest conflicts with a current governing artifact.
 - Sandbox or approval restrictions block a required write.
 
@@ -249,8 +313,11 @@ In the final response, report:
 - The execution path the orchestrator chose, and a one-line rationale.
 - Whether research was performed, and what topics.
 - Verifier and code-reviewer outcomes (pass / repairs made / accepted risks).
+- The closeout synthesis and retrospective artifact ids, plus closeout eligibility.
 - Any assumption that ended NEVER-TESTED or REJECTED, and any attention item left unresolved. Name these even when the work succeeded — they are the part the operator cannot recover later.
 - What was marked lesson-bearing, and whether the kernel archived the task.
+- Whether a cleanup plan was produced or applied; if not, say whether it was ineligible or simply
+  not requested.
 - Any unresolved blocker.
 
 Keep the report short. The artifacts in the task directory are the durable record; the response is a pointer.

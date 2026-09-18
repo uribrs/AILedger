@@ -1,7 +1,7 @@
 ---
 name: task-orchestrator
-version: 1.7.3
-description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass over the codebase, then decides whether to execute directly or decompose into bounded worker subagents over disjoint file sets, each a governed work item dispatched as its own run, writes an OrchestrationPlan artifact, and returns declared subject associations and reconciled readiness for coordinator dispatch of verifier then isolated code reviewer. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`. Best suited for coding, debugging, architecture/design, migrations, research-driven work, implementation planning, and QA/review-oriented tasks where decomposition quality, verification discipline, and independent implementation review matter.
+version: 1.7.6
+description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
 # Task Orchestrator
@@ -40,7 +40,10 @@ Follow this sequence:
 13. Return verifier finding dispositions to the coordinator for paired code-reviewer dispatch on code-bearing work with **minimal context only** (see the Code-Reviewer Run section). The reviewer writes and files `review/code-reviewer-N.md`.
 14. Repair material code-review findings or record accepted technical risks explicitly.
 15. Append final notes to `execution_notes.md`.
-16. Return the final assumption disposition, attention-item disposition, and decision-drift rows to the coordinator, which marks lesson-bearing records through the kernel.
+16. After the technical repair and assurance cycle has settled, build and file the closeout synthesis.
+    If it exposes an actionable defect, return to repair and fresh assurance before closeout continues.
+17. Return the synthesis plus the final assumption disposition, attention-item disposition, and
+    decision-drift rows to the coordinator, which marks lesson-bearing records through the kernel.
 
 Roles:
 
@@ -650,6 +653,89 @@ and files it as `CodeReviewOutput` from its active work-scoped run.
 Batch material findings and follow Subject-associated assurance / Repair applicability above. A conceptual omission returns to Research/Design; changed candidate bytes require fresh verification and paired review. If repair is not feasible, record the risk for the authorized decision-maker and distinguish it from verifier gaps.
 
 Do not suppress findings to keep the final answer clean.
+
+## Closeout Synthesis
+
+After the technical cycle has settled and before any lesson is marked, write the cited account of
+what the task's assurance found. The coordinator routes this step; it does not decide whether two
+reports describe one defect, whether a role had an earlier opportunity, or whether a repair worked.
+
+Read the deterministic facts first:
+
+```bash
+ailedger closeout evidence --task TASK --actor ACTOR
+```
+
+The projection inventories every assurance revision in log order and joins it to producer, role,
+provider/model/status/failure, work coverage, applicability, candidate binding and content digest.
+It also reports the runs against each work item, claim/evidence/challenge provenance and completeness
+counts. It holds no verdict field. Use the returned artifact ids to read the canonical report bodies;
+`artifact list` already inventories superseded revisions, but does not supply the projection's order,
+producer joins or digest. Inspect unmatched loose reports separately rather than treating them as
+duplicates.
+
+Write `<taskPath>/closeout_synthesis.md`, then file its body as a task-wide artifact with no producer
+run and no work flags:
+
+```bash
+ailedger artifact record --task TASK --actor ACTOR --id ID --kind CloseoutSynthesis \
+  --title "What this task's assurance found" --body-stdin \
+  < <taskPath>/closeout_synthesis.md
+```
+
+The body has two kernel-checked tables. The findings header is:
+
+`finding | kind | severity | detection | occurrences | opportunity | repair | disposition | lesson`
+
+- `finding` is unique within the synthesis. Preserve original report/claim ids in the cited cells;
+  the same local label in two reports does not make the findings identical.
+- `kind` is `product-defect`, `test-defect`, `process-defect`, `evidence-gap`, or `observation`.
+- `severity` is `high`, `medium`, `low`, or `unmeasured`.
+- `detection` names and cites the first recorded role, actor, run, artifact and event position.
+- `occurrences` cites later occurrences and calls their relationship same defect, shared root cause,
+  duplicate, unrelated, or uncertain. Use `none` when there are none.
+- `opportunity` is `missed`, `detected-in-scope`, `outside-scope`, `introduced-later`, or
+  `insufficient-evidence`. Use `missed` only for the same candidate when the role had the scope and
+  information at the time. Absence from a report is not itself a miss.
+- `repair` is `demonstrated`, `unverified`, `incomplete`, `reintroduced`, `repair-regression`,
+  `accepted-risk`, `not-attempted`, or `not-rechecked`.
+- `disposition` is `verified-fixed`, `still-present`, `accepted-risk`, `disputed`, `deferred`, or
+  `not-rechecked`. A validated historical claim does not prove the defect remains.
+- `lesson` is the future check or behavior change, with its eligible claim, alternative, or resolved
+  escalation source. When the finding earns no lesson, the cell must be exactly the lowercase word
+  `none`. Any other wording counts as a lesson that the task must mark and mint. Do not invent a
+  lesson source that the kernel cannot mark.
+
+The retention header is `path | decision | reason | evidence`. Paths are task-relative and unique;
+the decision is `delete` or `retain`; reason and evidence are non-empty. A `delete` row is the only
+semantic authority cleanup receives, so it must cite the finding or evidence that makes the loss
+acceptable. Never mark canonical logs, the lock, cleanup audit records, unknown material, unmatched
+reports, unreadable material, or cited evidence for deletion. Both tables may contain no data rows;
+an empty finding set is a real result and must not be padded.
+
+The kernel also checks the physical Markdown shape. Apply these rules to each table:
+
+- Put a real separator row immediately after the header, with the same number of cells as the
+  header and at least three dashes in every cell.
+- The table region is the contiguous run of non-blank lines after that separator. Every line in the
+  region must be a pipe row with exactly the header's cell count. Prose and headings are legal only
+  outside the region, separated from it by a blank line.
+- After that region ends, do not put another well-formed pipe row with that table's width anywhere
+  later in the body. The kernel treats it as an orphan row. Consequently, no other nine-column table
+  may follow the findings region and no other four-column table may follow the retention region. A
+  same-width table between the two required tables is legal only when it precedes the required table
+  whose width it shares.
+- Include each required header exactly once. The findings and retention tables may appear in either
+  order. Prose, headings and trailing blank lines outside both regions are legal.
+
+Before filing, check for the refusal-worthy shapes: a missing or malformed separator; an extra pipe
+or missing leading/trailing pipe that changes a row's width; prose or a heading inside a contiguous
+table region; a blank line that splits data rows and leaves an orphan row; a duplicate required
+header; or any same-width orphan pipe row after a table region.
+
+If synthesis exposes a still-actionable defect, return it through planned repair and fresh assurance.
+Do not turn it into retrospective prose or an implicit accepted risk. Numeric grades are not written
+here and never control cleanup.
 
 ## Output Style
 

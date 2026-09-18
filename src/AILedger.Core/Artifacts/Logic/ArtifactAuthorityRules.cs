@@ -25,12 +25,11 @@ internal static class ArtifactAuthorityRules
             return;
         }
 
-        // A retrospective is filed once the task is archived, when no run is active by definition,
-        // so it can no more name a producer run than a user request can. Its authority therefore
-        // comes from the actor's assignment rather than a producer run.
-        if (kind == GovernedArtifactKind.WorkflowRetrospective)
+        // These task-wide closeout artifacts may be filed when no run is active. Their authority
+        // therefore comes from the actor's assignment rather than a producer run.
+        if (kind is GovernedArtifactKind.WorkflowRetrospective or GovernedArtifactKind.CloseoutSynthesis)
         {
-            EnsureRetrospectiveAuthority(actorRole, producerRunId);
+            EnsureNoProducerAuthority(kind, actorRole, producerRunId);
             return;
         }
 
@@ -70,12 +69,18 @@ internal static class ArtifactAuthorityRules
         }
     }
 
-    private static void EnsureRetrospectiveAuthority(RoleKind actorRole, RunId? producerRunId)
+    private static void EnsureNoProducerAuthority(
+        GovernedArtifactKind kind,
+        RoleKind actorRole,
+        RunId? producerRunId)
     {
         if (producerRunId is not null)
         {
-            throw new GovernanceException(
-                "A workflow-retrospective artifact is recorded after closeout and cannot name a producer run.");
+            throw new GovernanceException(kind == GovernedArtifactKind.WorkflowRetrospective
+                ? "A workflow-retrospective artifact is recorded after closeout and cannot name a producer run."
+                : "A closeout-synthesis artifact is task-wide judgement over the whole record and " +
+                  "cannot name a producer run; it is filed by an operator or a lead, from Review " +
+                  "onward, including after the task is archived.");
         }
 
         if (actorRole is not (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead))

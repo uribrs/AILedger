@@ -4,6 +4,7 @@ using AILedger.Cli.Alternatives;
 using AILedger.Cli.Artifacts;
 using AILedger.Cli.Audit;
 using AILedger.Cli.Challenges;
+using AILedger.Cli.Closeout;
 using AILedger.Cli.Claims;
 using AILedger.Cli.Constraints;
 using AILedger.Cli.ContextBriefing;
@@ -211,12 +212,16 @@ public sealed class CliApplication
         var runs = new RunCliCommands(_executor);
         var preflight = new BatchPreflightCliCommands(
             _executor, _contextCommands, _json);
+        var closeout = new CloseoutCliCommands(_executor);
+        var cleanup = new TaskCleanupCliCommands(_executor);
         return new CliCommandCatalog(new[] { TaskCliCommands.Open(_executor) }
             .Concat(taskInspection.Registrations())
             .Append(VersionCliCommands.Registration(_executor))
             .Append(ActorCliCommands.Registration(_executor))
             .Concat(artifacts.Registrations())
             .Concat(retrospectives.Registrations())
+            .Concat(closeout.Registrations())
+            .Concat(cleanup.Registrations())
             .Concat(lessons.Registrations())
             .Append(audit.Registration())
             .Append(_contextCommands.Registration())

@@ -19,6 +19,9 @@ internal static class ArtifactDocumentRules
             case GovernedArtifactKind.WorkflowRetrospective:
                 WorkflowRetrospectiveRules.Validate(content);
                 break;
+            case GovernedArtifactKind.CloseoutSynthesis:
+                CloseoutSynthesisRules.Validate(content);
+                break;
         }
     }
 }

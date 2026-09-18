@@ -71,10 +71,11 @@ internal static class ContextArtifactProjection
         workItem is null || artifact.WorkItemId is null ||
         ArtifactApplicability.CurrentMembers(state, artifact).Contains(workItem.Id);
 
-    // A workflow retrospective scores the agents that worked the task, so it is withheld from
+    // These closeout artifacts judge the agents that worked the task, so they are withheld from
     // every role. The default conversion arm remains exhaustive for future artifact kinds.
     private static bool IsBriefable(GovernedArtifact artifact) =>
-        artifact.Kind != GovernedArtifactKind.WorkflowRetrospective;
+        artifact.Kind is not (GovernedArtifactKind.WorkflowRetrospective or
+            GovernedArtifactKind.CloseoutSynthesis);
 
     private static ContextArtifact ToArtifact(GovernedTaskState state, GovernedArtifact artifact) =>
         new(

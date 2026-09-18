@@ -266,6 +266,7 @@ public sealed class KernelVersionTests
     // agent is the case this warning exists for.
     [InlineData("context build", false)]
     [InlineData("artifact list", true)]
+    [InlineData("task cleanup plan", false)]
     [InlineData("claim add", false)]
     [InlineData("provider launch", false)]
     [InlineData("stage transition", false)]

@@ -2,15 +2,17 @@
 
 How to score one archived governed task across the ten dimensions of `Backlog/self-scoring.md`.
 
-You are a scoring agent. You have two things and nothing else: the output of
-`ailedger retrospective build --task <id>`, and the task's own ledger. Everything below tells you
+You are a scoring agent. You have three things and nothing else: the output of
+`ailedger retrospective build --task <id>`, the output of
+`ailedger closeout evidence --task <id> --actor <actor>`, and the task's own ledger. Everything below tells you
 what each dimension may read, what it may cite, what you have to supply that no field carries, which
 measures a `notMeasured` key takes away from it, and what forces it to `unmeasured`.
 
 This document consumes the evidence-binding table fixed in the prompt contract for task
 `2026-09-07_2136-workflow-retrospective`, revision 4. It does not author it. Every field named here
-was read in real `retrospective build` output on the six calibration tasks under kernel 2.0.90 from
-`b54a538`.
+from the retrospective projection was read in real `retrospective build` output on the six
+calibration tasks under kernel 2.0.90 from `b54a538`. The later assurance-evidence projection is
+identified separately below; do not mistake its joined facts for calibration or scoring judgments.
 
 ---
 
@@ -27,6 +29,11 @@ Calibration items 1 to 4 emit eighteen blocks for that reason; items 5 and 7 emi
 
 The projection scores nothing. It has no score field of any kind. It gives you counts, durations,
 joins and a list of what it could not measure. Every score in your output is yours.
+
+**The assurance-evidence projection.** `ailedger closeout evidence --task <id> --actor <actor>`
+joins every verifier/reviewer revision to its producing run, role, provider, candidate and log order,
+and reports completeness. It is deterministic and has no finding, opportunity, repair, lesson or
+grade verdict. D6 is its direct consumer; other dimensions do not turn its counts into scores.
 
 **The ledger.** The task's event log, reachable with `ailedger history --task <id>` and
 `ailedger status --task <id>`. This is where you read a claim's statement, an evidence record's
@@ -537,7 +544,36 @@ calibration task is.
 `artifacts.byKind.codeReviewOutput`; `artifacts.supersessions`;
 `workItems[].verifierRanAfterLatestWork`.
 
-**Records it may cite.** The verifier's and reviewer's claims **by claim id**, which is how you
+Also read the deterministic `closeout evidence` projection: `assuranceRevisions` with event order,
+currentness, content digest, producer run/role/actor/provider/model/status/failure, coverage,
+applicability and candidate binding; the runs under each `workItem`; and `completeness`. These are
+joined facts, not a verdict. In particular, the projection never decides that two reports describe
+the same defect, that a role missed an opportunity, that a repair worked, or what score D6 earns.
+
+**Records it may cite.** The current `CloseoutSynthesis` artifact, when the task filed one. Its
+findings table is the cited account this dimension otherwise has to reconstruct from report prose:
+one row per distinct finding, with first detection, other occurrences, opportunity, repair,
+disposition and lesson. Cite the synthesis artifact and finding id together. Treat `opportunity`,
+`repair`, `disposition`, `lesson` and `severity` as agent judgments; follow their cited report,
+run, claim and evidence identifiers before relying on them. A task with no synthesis is scored from
+the assurance bodies and ledger records as before; state which route you used.
+
+In a finding that earns no lesson, the `lesson` cell must be exactly the lowercase word `none`.
+Any other wording counts as a lesson that the task must mark and mint before cleanup eligibility can
+pass; do not treat variants such as `None.`, `n/a`, or `none needed` as lesson-free.
+
+The filed synthesis has two kernel-checked Markdown tables, and their physical shape is part of the
+artifact contract. Each header is followed immediately by a separator of the same width, with at
+least three dashes per cell. Its table region is the contiguous non-blank run after that separator,
+and every line in the region is a pipe row of exactly the header width. A same-width pipe row later
+in the body is refused as an orphan, so another nine-column table cannot follow the findings region
+and another four-column table cannot follow the retention region; placing such a table before the
+required table whose width it shares is admitted. Duplicate required headers are refused. The two
+required tables may appear in either order, and prose, headings and trailing blank lines are admitted
+outside their regions. Thus a filed synthesis has passed these shape checks; they do not make its
+severity, opportunity, repair, disposition or lesson judgments deterministic.
+
+Also cite the verifier's and reviewer's claims **by claim id**, which is how you
 establish that they found different things. Artifact ids of verifier and review outputs. Run ids
 with their subject roles and actors. And the run-record fields of section 4, cited by run id with
 the field named: `truncatedLines` says whether the run's own stream was complete, `providerVersion`
@@ -550,6 +586,18 @@ from `providerVersion` (`AC22`, and section 4).
 finding the same defect is one finding and one duplicated cost. Read both sets of claims and
 compare. Supply also whether each finding was repaired and whether the repair was demonstrated, by
 following the finding's claim id forward to the record that resolved it and the run that proved it.
+
+`artifact list` inventories historical revisions, including superseded ones, but does not establish
+their log order, join them to the producing run's role/provider/model/terminal failure, or provide a
+content digest. Use `closeout evidence` for those facts. Its completeness counts name reports from
+unfinished runs, reports with no producer, and reports without candidate binding; a clean-looking
+current report is not proof that the assurance history was complete.
+
+Keep four histories distinct: a repair that left the root cause (`incomplete`), a defect that
+returned after a demonstrated fix (`reintroduced`), a new defect caused by the repair
+(`repair-regression`), and an evidence gap carried across passes (one finding with multiple
+occurrences, not one defect per report). The synthesis vocabulary preserves those distinctions;
+mention counts alone do not.
 
 Do not infer independence from a provider difference alone. Independence is about what the actor was
 given: a reviewer handed the verifier's output is not independent of it whatever provider it ran on.
