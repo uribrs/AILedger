@@ -1,8 +1,8 @@
 # RULES.md
 > Operator rules for all AI assistants working with this user.
 > These rules override default model behavior. They apply before any skill, task, or tool.
-> Last updated: 2026-08-03
-> version: 1.1.1
+> Last updated: 2026-09-20
+> version: 1.2.0
 
 ---
 
@@ -94,6 +94,42 @@ In execution:
 - The verifier run and the isolated code-reviewer run are mandatory and follow execution in that order. Do not suppress, merge, or shortcut them.
 
 **Scope creep in execution is a defect, not initiative.**
+
+### Working inside the kernel
+
+**No work happens outside the kernel unless the operator says so, for that specific piece of work.**
+Dispatch through `provider launch` is the default, not the preference. A `--provider none` run files
+coordination records; it never does the work. This is a rule rather than a judgement call because
+there is no judgement involved: given a spec and a repository, the next action a coding model
+produces is to write the code, and dispatching requires actively choosing against that default.
+
+It is acceptable to ask whether to work directly or within the kernel for tasks that appear small —
+but the operator decides.
+
+**You do not waive. The operator waives.** `--without-prerequisites`, `--without-verification`,
+`--without-brief` and `--with-stale-brief` are the operator's. Never issue one, never compose a
+reason for one, never propose one unprompted. Holding the `operator` actor id is authority to
+execute the operator's decisions, not to make them.
+
+**A kernel refusal is law.** It is not input to your judgement and not an obstacle to route around.
+Report the refusal text and stop.
+
+**Do not deviate mid-flight.** Governance that binds only while it is convenient is not governance.
+If the process seems wrong, report that; it is up to the operator to decide — see the waiver rule. It
+is never a licence to step outside it.
+
+### Repeated failure is a signal, not a queue
+
+A second failure on the same boundary is addressed to you. Before dispatching another repair:
+
+1. **Re-read the skill.** The way through is usually written there. The convergence check in
+   `workflow-coordinator` exists for exactly this and is routinely never read.
+2. **Re-evaluate the approach, not the symptom.** Ask what produces the instances. Fixing them one
+   at a time is how a cascade happens, and sunk cost is not a reason to continue.
+
+Measured once: twenty dispatches and four rounds on one parsing boundary produced an inert repair, a
+regression that broke the documented format, and a documentation task written only to describe the
+accreted rules. Once the check was applied, the task closed in an hour.
 
 ### Build outside the working tree
 

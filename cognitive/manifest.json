@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "sourceRepositoryPath": "/Users/user/Dev/Uri/localprojects/AILedger",
-  "generatedAtUtc": "2026-09-18T07:02:32Z",
+  "generatedAtUtc": "2026-09-20T07:16:38Z",
   "files": [
     {
       "path": "RULES.md",
-      "sha256": "a02dd94657bbffe0db48e89ce370bae6e0cdebb4f6a5935737b20437119481e8"
+      "sha256": "584ef75c28234f261eea9d9b0be35a27199f78d6b14efa8ecdf5546d3978f75b"
     },
     {
       "path": "code-reviewer/SKILL.md",

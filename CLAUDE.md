@@ -226,6 +226,16 @@ back `Cancelled`, which reads like a governance failure and is not one.
 A coordinating lead should not also be implementing. Own the plan, the findings and the
 documentation; give the code to the agents you dispatch.
 
+This is a rule, not a preference, and `cognitive/RULES.md` states it in full under *Working inside
+the kernel*. No work happens outside the kernel unless the operator says so, for that specific piece
+of work. You may ask whether something small warrants a direct edit — the operator decides. You do
+not waive: `--without-prerequisites`, `--without-verification`, `--without-brief` and
+`--with-stale-brief` are the operator's alone. A kernel refusal is law; report it and stop.
+
+And when the same boundary fails twice, stop dispatching repairs: re-read the skill, because the way
+through is usually written there, then question the approach rather than the symptom. *Repeated
+failure is a signal, not a queue* in the same file has the measurement.
+
 ## Identifiers when more than one agent is writing
 
 Claim, evidence, decision and alternative ids are one flat namespace per task, and nothing allocates
