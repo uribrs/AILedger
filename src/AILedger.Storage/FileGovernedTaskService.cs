@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using AILedger.Core.Application;
@@ -108,9 +109,16 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         {
             // Every command-time rule refusal leaves through this one call, which is why the
             // journal has a single write site here rather than one per rule. The version recorded
-            // is the one the refused attempt was made against, and the exception is rethrown
-            // unchanged: the caller sees the same refusal it would have seen without a journal.
-            await _refusalJournal.TryAppendAsync(taskDirectory, new RefusalRecord(
+            // is the one the refused attempt was made against, and the row carries the kernel's own
+            // text: the counter below is appended to what the caller is told and never to what is
+            // written, so the journal stays a record of what each rule said rather than of what it
+            // had already said before.
+            //
+            // The caller no longer sees the same refusal it would have seen without a journal, and
+            // that is deliberate. The journal is still not consulted by any rule: the count reaches
+            // the message and stops there, no predicate reads it, no event carries it and the exit
+            // status is the type's as it always was.
+            var appended = await _refusalJournal.TryAppendAsync(taskDirectory, new RefusalRecord(
                 DateTimeOffset.UtcNow,
                 command.ActorId,
                 command.GetType().Name,
@@ -118,7 +126,29 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                 currentState?.Version ?? 0,
                 exception.Message,
                 _kernelIdentity)).ConfigureAwait(false);
-            throw;
+
+            // Counted after the append, so the number names this refusal and not the one before it,
+            // and so it equals what a reader counting rows in the file would find. When the append
+            // was lost the file is one row short of the truth, which is why the notice is told
+            // whether the row landed rather than trusting the count to be complete.
+            var recurrence = await _refusalJournal
+                .TryCountAsync(taskDirectory, command.ActorId, exception.Message).ConfigureAwait(false);
+            if (RepetitionNotice(recurrence, appended) is not { } notice)
+            {
+                throw;
+            }
+
+            // A replacement exception, because GovernanceException is sealed and carries only a
+            // message, so there is nowhere to put the original. Its stack is copied onto the
+            // replacement before the throw: without that line the trace of the rule that actually
+            // refused is discarded and replaced by one rooted here, and it is discarded on exactly
+            // the second and every later occurrence of a rule — the first keeps it through the bare
+            // rethrow above. That is the wrong way round. The repeated case is the one this
+            // increment exists to make legible, and it is the one a maintainer most needs a frame
+            // for.
+            var counted = new GovernanceException(exception.Message + notice);
+            ExceptionDispatchInfo.SetRemoteStackTrace(counted, exception.StackTrace ?? string.Empty);
+            throw counted;
         }
 
         ValidateOutcome(taskId, currentState, outcome);
@@ -134,6 +164,55 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         await TryPublishMintedLessonsAsync(outcome.Events).ConfigureAwait(false);
         await TryRepairDerivedStateAsync(taskDirectory, outcome.State).ConfigureAwait(false);
         return outcome;
+    }
+
+    // The second and every later time one rule refuses one actor on one task, said in the refusal
+    // itself. The first says nothing: one refusal is an answer, and only the repetition is the
+    // signal cognitive/RULES.md names under "Repeated failure is a signal, not a queue".
+    //
+    // Uncapped on purpose. A cap mutes the line at the point it starts being true — on
+    // 2026-09-17_1440 the third occurrence of one rule was the beginning of a sixteen-refusal
+    // pattern and not the end of it, and a counter that stops at three would have said the same
+    // thing at the third as at the sixteenth.
+    //
+    // Last of the printed lines, below the rule's sentence and below any diagnostic lines a rule
+    // adds, because everything above it is about this refusal and this is the only line that is
+    // about the actor. Two callers depend on that placement: ProviderLauncher matches a run-output
+    // refusal with Contains and with StartsWith, and both survive a line appended at the end.
+    private static string? RepetitionNotice(RefusalRecurrence recurrence, bool rowWasWritten)
+    {
+        // The row this refusal failed to write is counted before the gate below, not left out of the
+        // count and then compensated for in the wording. The count comes from the file, the file is
+        // then short by exactly the row for the refusal being reported, and that row is known to be
+        // one: the append is attempted once and TryAppendAsync returns false only when it threw.
+        //
+        // Gating on the short number instead is the defect RR4 found: at the second refusal of a
+        // rule the count is one, one is below the gate, and the refusal says nothing at all — the
+        // occurrence this increment exists to catch, silenced by the one journal failure that leaves
+        // the read working. The total is exact, so it is stated as a total (D15).
+        var occurrences = rowWasWritten ? recurrence.Occurrences : recurrence.Occurrences + 1;
+        if (occurrences < 2)
+        {
+            return null;
+        }
+
+        // Stated as a floor when rows were lost, because a short count reported as a total
+        // understates repetition exactly when the journal is damaged. An occurrence of one beside
+        // unreadable rows prints nothing at all: the true number may be higher, and inventing a
+        // first-refusal notice to say so would put a line under every rule that has damaged rows.
+        //
+        // Rows that could not be read are now the only thing that makes the number a floor. They are
+        // the one shortfall whose size is unknown — a row that could not be written is one row and
+        // is counted above. The reason is not named: the rows that could not be read are the
+        // operator's to go and look at.
+        var count = recurrence.IsFloor
+            ? $"refusal {occurrences} or more of this rule for you on this task"
+            : $"refusal {occurrences} of this rule for you on this task";
+        var unreadable = recurrence.UnreadableRows > 0
+            ? $"; {recurrence.UnreadableRows} journal " +
+              $"{(recurrence.UnreadableRows == 1 ? "row" : "rows")} could not be read"
+            : string.Empty;
+        return $"{Environment.NewLine}  {count}{unreadable}";
     }
 
     // Archiving is the moment a lesson exists, and the store is how it reaches a task in another

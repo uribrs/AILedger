@@ -58,7 +58,8 @@ internal static class ClaimRules
             if (!hasRequiredDirection)
             {
                 throw new GovernanceException(
-                    $"Evidence '{evidenceId}' does not {EvidenceDirection(command.Status)} claim '{command.ClaimId}'.");
+                    $"Evidence '{evidenceId}' does not {EvidenceDirection(command.Status)} claim '{command.ClaimId}'." +
+                    DirectionalContext(state, command.Status, evidence, command.ClaimId));
             }
         }
 
@@ -138,6 +139,52 @@ internal static class ClaimRules
         ClaimStatus.Rejected => "refute",
         _ => "relate to"
     };
+
+    // What the two records actually point at, appended to the refusal that says they do not point at
+    // each other. On one task sixteen of thirty-two refusals were this rule, arriving in paired
+    // rounds over eight claims, and every one of them said the pair was wrong while none said the
+    // evidence pointed at nothing — which was the single cause behind all eight. Both lines are
+    // in-memory lookups: the selected evidence is already held and state.Evidence is already
+    // materialised, so the refusal path reads no file and refusals.jsonl feeds nothing here.
+    //
+    // Both lines name both directions, always, with the direction the command asked for first. A
+    // first revision printed only the requested direction, which rendered evidence attached the
+    // wrong way round byte-for-byte identically to evidence attached to nothing — the one shape the
+    // caller most needs told apart from the other.
+    private static string DirectionalContext(
+        GovernedTaskState state,
+        ClaimStatus status,
+        Evidence evidence,
+        ClaimId claimId)
+    {
+        var requested = status == ClaimStatus.Rejected ? ClaimStatus.Rejected : ClaimStatus.Validated;
+        var opposite = requested == ClaimStatus.Rejected ? ClaimStatus.Validated : ClaimStatus.Rejected;
+
+        return $"{Environment.NewLine}  {evidence.Id.Value} " +
+               $"{PointsAt(evidence, requested)}, {PointsAt(evidence, opposite)}" +
+               $"{Environment.NewLine}  {claimId.Value} is " +
+               $"{PointedAtBy(state, claimId, requested)}, {PointedAtBy(state, claimId, opposite)}";
+    }
+
+    private static string PointsAt(Evidence evidence, ClaimStatus direction) =>
+        $"{(direction == ClaimStatus.Rejected ? "refutes" : "supports")}: " +
+        Names(DirectedClaims(evidence, direction).Select(id => id.Value));
+
+    private static string PointedAtBy(GovernedTaskState state, ClaimId claimId, ClaimStatus direction) =>
+        $"{(direction == ClaimStatus.Rejected ? "refuted by" : "supported by")}: " +
+        Names(state.Evidence.Values
+            .Where(candidate => DirectedClaims(candidate, direction).Contains(claimId))
+            .Select(candidate => candidate.Id.Value));
+
+    private static IReadOnlyList<ClaimId> DirectedClaims(Evidence evidence, ClaimStatus status) =>
+        status == ClaimStatus.Rejected ? evidence.Refutes : evidence.Supports;
+
+    // Ordinal, so two runs of the same refusal read the same way.
+    private static string Names(IEnumerable<string> ids)
+    {
+        var ordered = ids.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        return ordered.Length == 0 ? "(none)" : string.Join(", ", ordered);
+    }
 
     private static void EnsureClaimResolution(Claim claim, ClaimStatus target)
     {

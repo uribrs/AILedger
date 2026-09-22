@@ -236,6 +236,15 @@ And when the same boundary fails twice, stop dispatching repairs: re-read the sk
 through is usually written there, then question the approach rather than the symptom. *Repeated
 failure is a signal, not a queue* in the same file has the measurement.
 
+A launch you do not watch is a launch nobody is watching. Background it and `wait`, or poll it on a
+bounded interval — never end a turn with a run active and no loop on it, because the run will finish
+into silence and the operator becomes the monitor. When it ends, read its final output, its ledger
+writes and its refusals before saying what it did, and report the outcome in one line before
+diagnosing it. A run whose status is `completed` and whose ledger writes are zero is a run that
+cognition never reached; it still satisfies every stage arm that asks only for a completed run of its
+role, so nothing but you will catch it. `cognitive/RULES.md` states this in full under *A dispatch is
+not finished until you have read its result*, with the measurement.
+
 ## Identifiers when more than one agent is writing
 
 Claim, evidence, decision and alternative ids are one flat namespace per task, and nothing allocates

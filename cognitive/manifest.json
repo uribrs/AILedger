@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "sourceRepositoryPath": "/Users/user/Dev/Uri/localprojects/AILedger",
-  "generatedAtUtc": "2026-09-20T07:16:38Z",
+  "generatedAtUtc": "2026-09-20T13:10:00Z",
   "files": [
     {
       "path": "RULES.md",
-      "sha256": "584ef75c28234f261eea9d9b0be35a27199f78d6b14efa8ecdf5546d3978f75b"
+      "sha256": "e05d5bc9e78215bbd474c23c398b629d38c861d928cfe67a03f744905a5f3412"
     },
     {
       "path": "code-reviewer/SKILL.md",
@@ -25,7 +25,7 @@
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "adc820a082c7103b21297a1e800392924dc4222375506b807866196da52a86d2"
+      "sha256": "32f92fcbde0089ac5abf85f8a41a8eb80e1f294f1db0e1187d3caf70e67333d2"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
@@ -33,11 +33,23 @@
     },
     {
       "path": "technical-researcher/SKILL.md",
-      "sha256": "aac084ba242b39c0cbb442367a37c4aa1963d93a894fb32b8f08429f09e6c35b"
+      "sha256": "4c0a93a3207cf204cd37877c917ba959034fdd33fb37b9f79bf447688cc67d20"
+    },
+    {
+      "path": "technical-researcher/references/output-contract.md",
+      "sha256": "176c17d69f951c12439a6acf7dd3f777d03d867c923393eff73d8600593d0180"
+    },
+    {
+      "path": "technical-researcher/references/research-standards.md",
+      "sha256": "a9ac35989bdf18ee2528451e336183f2dfcf8028c836482cb042ae8b1c017ca7"
+    },
+    {
+      "path": "technical-researcher/references/task-emphasis.md",
+      "sha256": "97d6b70c2f3379233c7a99e5199356c66b307262d18ef80e0ab222eed74450e6"
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "45d8506145a9b9599b82e4ade0bc2f6bafce2b3254a2b8d73ef7862446ed1735"
+      "sha256": "ee822000dee0595b228505b2467a195d67fefa031d8e130ccdb02acc37f8a902"
     }
   ]
 }

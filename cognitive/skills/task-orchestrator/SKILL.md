@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.7.6
+version: 1.7.9
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
@@ -29,20 +29,22 @@ Follow this sequence:
 2. Read the contract as the sole problem statement. Classify the task provisionally; if the contract is too thin to classify, stop and name the missing information instead of rebuilding it.
 3. Resolve any OPEN external-behavior assumption that blocks useful recon.
 4. Run the **internal recon** pass for code-bearing work. It precedes the path decision, because its output determines both the solution shape and whether workers can be briefed precisely. See Internal Recon.
-5. Correct the classification against recon, identify task-specific attention items, and perform bounded classified prior-art recall.
-6. Decide whether **external** research is needed from OPEN assumptions or from a classified question that could change a live solution decision. Invoke `technical-researcher` for each required topic.
-7. Write the required Problem Classification section of `orchestration_plan.md`. Do not choose an execution path until the section is concrete and recon-corrected.
-8. Decide execution path: `decompose` (bounded workers) unless the work cannot be split into disjoint file sets. See Execution Path Decision. Complete the rest of `orchestration_plan.md` and file it as the current OrchestrationPlan artifact.
-9. If `direct`: invoke `contract-driven-execution` with `taskPath`.
-10. If `decompose`: freeze the shared surface first, then fan workers out over disjoint file sets; synthesize in the main thread.
-11. Return declared subject associations and reconciled readiness facts to the coordinator for verifier dispatch. The verifier writes and files `review/verifier-N.md` against the contract and produced artifacts.
-12. Repair verifier issues or record unresolved request-coverage gaps explicitly.
-13. Return verifier finding dispositions to the coordinator for paired code-reviewer dispatch on code-bearing work with **minimal context only** (see the Code-Reviewer Run section). The reviewer writes and files `review/code-reviewer-N.md`.
-14. Repair material code-review findings or record accepted technical risks explicitly.
-15. Append final notes to `execution_notes.md`.
-16. After the technical repair and assurance cycle has settled, build and file the closeout synthesis.
+5. From recon and authoritative sources, identify consequential unknowns, correct the classification, identify task-specific attention items, and perform bounded classified prior-art recall.
+6. Decide whether **external** research is needed from OPEN assumptions or from a classified question that could change a live solution decision. Invoke `technical-researcher` for each required topic; research needed to settle a critical unknown is not blocked by that unknown.
+7. Incorporate completed research and finalize the planning preflight and source-obligation gate. An unresolved critical unknown now blocks only the dependent choice it could overturn; bound the rest.
+8. Write the required preflight, obligation, walkthrough, consequential-assumption, and Problem Classification sections of `orchestration_plan.md`. Do not choose an execution path until the gate is complete and recon-corrected.
+9. Decide execution path: `decompose` (bounded workers) unless the work cannot be split into disjoint file sets. See Execution Path Decision. Complete the rest of `orchestration_plan.md`, file it as the current OrchestrationPlan artifact, and return it to the coordinator for the mechanical completeness check.
+10. Do not dispatch implementation until the coordinator permits the existing execution continuation. This handoff adds neither user approval nor a mandatory new provider run.
+11. If permitted and `direct`: invoke `contract-driven-execution` with `taskPath`.
+12. If permitted and `decompose`: freeze the shared surface first, then fan workers out over disjoint file sets; synthesize in the main thread.
+13. Return declared subject associations and reconciled readiness facts to the coordinator for verifier dispatch. The verifier writes and files `review/verifier-N.md` against the contract and produced artifacts.
+14. Repair verifier issues or record unresolved request-coverage gaps explicitly.
+15. Return verifier finding dispositions to the coordinator for paired code-reviewer dispatch on code-bearing work with **minimal context only** (see the Code-Reviewer Run section). The reviewer writes and files `review/code-reviewer-N.md`.
+16. Repair material code-review findings or record accepted technical risks explicitly.
+17. Append final notes to `execution_notes.md`.
+18. After the technical repair and assurance cycle has settled, build and file the closeout synthesis.
     If it exposes an actionable defect, return to repair and fresh assurance before closeout continues.
-17. Return the synthesis plus the final assumption disposition, attention-item disposition, and
+19. Return the synthesis plus the final assumption disposition, attention-item disposition, and
     decision-drift rows to the coordinator, which marks lesson-bearing records through the kernel.
 
 Roles:
@@ -167,6 +169,39 @@ apparently relevant finding does not apply. Merely reading or linking the recon 
 that the plan accounts for it. Resolve findings that could invalidate the approach before committing
 workers to that approach. Keep using the recon when the design changes.
 
+## Planning Preflight and Obligation Gate
+
+After preliminary classification, recon, and any necessary research, but before finalizing Problem
+Classification or choosing an execution path, ground the plan in the current task and the sources
+that govern it. Put the result in the existing `orchestration_plan.md`; do not create a parallel
+preflight report. Each preflight check must state its concrete consequence for scope, design,
+ownership, or verification. A check may confirm the proposed choice; do not invent a change merely
+to make the row look useful.
+
+Apply the gate proportionately to every non-trivial task. Keep it compact for narrow work. Use a
+reasoned `n/a: <reason>` where a walkthrough layer is genuinely absent and use a justified exclusion
+as an obligation when an authoritative source puts something out of scope. Do not invent a system
+layer, source, risk, owner, or separate agent run merely to fill the form.
+
+The plan must contain the exact deterministic shape under Orchestration Plan File. Its four required
+sections may appear in any order, but each appears exactly once outside fenced code and each required
+table belongs to its own section. The parts serve these purposes:
+
+1. **Preflight Evidence** establishes premise, live task/baseline/concurrency state, representative
+   verification feasibility, affected boundaries and ownership, and lesson applicability.
+2. **Source Obligation Map** derives one canonical set of requirements, prohibitions, conditions,
+   and justified exclusions from authoritative sources, with an owner and verification for each.
+3. **Proposed Change Walkthrough** traces actual producers, persistence, material consumers, and
+   failure paths, using a citation or reasoned non-applicability for every layer.
+4. **Consequential Assumptions and Recon Stop** asks what plausible discovery would force redesign.
+   Investigate high-impact answers before dependent implementation. A remaining uncertainty is
+   bounded only when its consequence, handling, and owner are explicit. End recon only when no
+   remaining unknown can invalidate the selected scope, design, ownership, or verification strategy.
+
+This is an evidence and decision gate, not semantic citation adjudication. A citation must be
+present, but neither the document shape nor the coordinator's completeness check establishes that it
+is correct. Evidence judgment remains with the roles that already own it.
+
 ## Planning Rules
 
 Use the manifest's PromptContract, constraints, decisions, and any completed research to bound the plan.
@@ -198,12 +233,16 @@ Use the direct path when recon showed the work cannot be split by file — one c
 
 On the direct path:
 
-- Invoke `contract-driven-execution` with `taskPath`. It performs the work and updates `execution_notes.md`.
+- After the filed plan has returned to the coordinator and the coordinator permits execution to
+  continue, invoke `contract-driven-execution` with `taskPath`. It performs the work and updates
+  `execution_notes.md`.
 - After it returns, reconcile readiness and return the declared association to the coordinator for verifier then paired reviewer dispatch when code-bearing.
 
 ### 2. Decompose Path
 
-Run it as **freeze, then fan out**. The order is what removes the need to mediate between workers at runtime.
+After the filed plan has returned to the coordinator and the coordinator permits execution to
+continue, run it as **freeze, then fan out**. The order is what removes the need to mediate between
+workers at runtime.
 
 **Phase 0 — freeze the shared surface.** Everything two or more workers must agree on — interfaces, types, method signatures, DTO shapes, test contracts — is written before any consumer worker starts, from the Shared surface to freeze section of recon. Do it in the main thread when it is small, or give it to one worker whose only job is that surface. After phase 0, no worker needs anything another worker is still producing.
 
@@ -240,7 +279,7 @@ Resume when the worker must react to feedback on **its own output** — integrat
 
 Record the choice per worker in `orchestration_plan.md`. It is a cost decision, so it belongs in the plan rather than in the moment.
 
-If execution reveals hidden complexity, invalid assumptions, or stronger-than-expected dependencies, re-run task analysis and switch execution path. Revise `orchestration_plan.md` and file a new OrchestrationPlan artifact with `--supersedes` when reclassifying. Reclassify early; do not continue against a flawed decomposition.
+If execution reveals hidden complexity, invalid assumptions, or stronger-than-expected dependencies, re-run task analysis and switch execution path. Revise `orchestration_plan.md`, file a new OrchestrationPlan artifact with `--supersedes`, and return it for the coordinator's completeness check before resuming implementation. Reclassify early; do not continue against a flawed decomposition.
 
 ## Orchestration Plan File
 
@@ -254,10 +293,71 @@ ailedger artifact record --task TASK --actor ACTOR --run RUN --id ARTIFACT-ID \
 
 A revision uses a new artifact id and `--supersedes ARTIFACT-ID`.
 
+After filing, return the plan to `workflow-coordinator` for its mechanical completeness check. Do not
+start direct or decomposed implementation before it permits the existing execution continuation;
+this is not a new user-approval gate or a requirement for another provider run.
+
+The four gate sections below are structurally required for every newly recorded OrchestrationPlan.
+They may appear in any order, but each exact level-two heading must occur once outside fenced code.
+A section ends at the next level-one or level-two heading outside fenced code, and its table must be
+inside that section. Header names are exact after trimming and case-insensitive comparison; every
+separator cell matches `:?-{3,}:?`.
+
+- **Preflight Evidence:** header `check | evidence | result | planning consequence`. Include exactly
+  one row for each required key: `premise`, `live state and baseline`, `verification feasibility`,
+  `affected boundaries and ownership`, and `lesson applicability`. Every cell is non-empty.
+  Additional rows are allowed when every cell is non-empty and the check key is unique.
+- **Source Obligation Map:** header `id | authoritative source | requirement, prohibition, condition,
+  or justified exclusion | owner | verification`. Include at least one row. Every cell is non-empty;
+  ids are unique uppercase `O<n>` values beginning at `O1` or later (`O[1-9][0-9]*`).
+- **Proposed Change Walkthrough:** header `layer | evidence or reasoned non-applicability | planned
+  result`. Include exactly one row for each required key: `producer`, `persistence`, `material
+  consumers`, and `failure paths`. Every cell is non-empty. The evidence cell is either a non-empty
+  citation or `n/a: <non-empty reason>`; admission checks presence and shape, not truth.
+- **Consequential Assumptions and Recon Stop:** header `id | assumption | evidence | disposition |
+  consequence | handling | owner`. Include at least one row with a unique id. `id`, `assumption`,
+  `evidence`, and `disposition` are always non-empty. Allowed dispositions are `validated`,
+  `rejected`, `not-applicable`, and `bounded`. A `bounded` row requires consequence, handling, and
+  owner values other than `n/a`, `none`, or `-`. The other terminal dispositions may use `n/a`.
+  `blocked` is not terminal and is refused.
+
+When no consequential assumptions remain, use exactly one assumptions row with id `none`, assumption
+`No consequential assumptions remain`, a non-empty evidence or rationale, disposition
+`not-applicable`, and `n/a` for consequence, handling, and owner. Do not mix this row with others.
+Other prose and unrelated sections are allowed. Fenced examples do not satisfy or duplicate any
+required heading or table.
+
 Required structure:
 
 ```markdown
 # Orchestration Plan
+
+## Preflight Evidence
+| check | evidence | result | planning consequence |
+|---|---|---|---|
+| premise | <citation> | <finding> | <scope/design/ownership/verification consequence> |
+| live state and baseline | <citation> | <finding> | <consequence> |
+| verification feasibility | <citation> | <finding or limitation> | <consequence> |
+| affected boundaries and ownership | <citation> | <finding> | <consequence> |
+| lesson applicability | <lesson provenance or source citation> | <applied or excluded with rationale> | <consequence> |
+
+## Source Obligation Map
+| id | authoritative source | requirement, prohibition, condition, or justified exclusion | owner | verification |
+|---|---|---|---|---|
+| O1 | <citation> | <one obligation or justified exclusion> | <owner> | <observable check> |
+
+## Proposed Change Walkthrough
+| layer | evidence or reasoned non-applicability | planned result |
+|---|---|---|
+| producer | <citation or n/a: reason> | <planned result> |
+| persistence | <citation or n/a: reason> | <planned result> |
+| material consumers | <citation or n/a: reason> | <planned result> |
+| failure paths | <citation or n/a: reason> | <planned result> |
+
+## Consequential Assumptions and Recon Stop
+| id | assumption | evidence | disposition | consequence | handling | owner |
+|---|---|---|---|---|---|---|
+| A1 | <assumption> | <citation or rationale> | validated / rejected / not-applicable / bounded | <required for bounded; otherwise n/a allowed> | <required for bounded; otherwise n/a allowed> | <required for bounded; otherwise n/a allowed> |
 
 ## Problem Classification
 
@@ -344,6 +444,43 @@ Maximum 3 rows. If there are none: `No research needed — <concrete reason>.`
 The filed OrchestrationPlan artifact is the durable plan. Work items, runs, claims, decisions, and
 constraints are separate governed records and must not be duplicated as writable task state.
 
+Compact compliant form, intentionally showing reordered sections, a syntactically non-empty false
+citation, reasoned non-applicability, and the no-assumptions representation:
+
+```markdown
+# Orchestration Plan
+
+## Source Obligation Map
+| id | authoritative source | requirement, prohibition, condition, or justified exclusion | owner | verification |
+|---|---|---|---|---|
+| O1 | request.md:1 | Keep the current behavior. | worker | focused test |
+
+## Consequential Assumptions and Recon Stop
+| id | assumption | evidence | disposition | consequence | handling | owner |
+|---|---|---|---|---|---|---|
+| none | No consequential assumptions remain | recon.md:1 | not-applicable | n/a | n/a | n/a |
+
+## Preflight Evidence
+| check | evidence | result | planning consequence |
+|---|---|---|---|
+| premise | does-not-exist.md:1 | Gap observed. | Keep scope narrow. |
+| live state and baseline | status probe | Clean isolated baseline. | Own only isolated paths. |
+| verification feasibility | test list | Focused test is runnable. | Require that test. |
+| affected boundaries and ownership | source map | One command boundary. | One implementation owner. |
+| lesson applicability | n/a: no lesson matched the classified task | No applicable lesson. | Add no lesson-derived work. |
+
+## Proposed Change Walkthrough
+| layer | evidence or reasoned non-applicability | planned result |
+|---|---|---|
+| producer | CommandHandler.cs:1 | Validate at command admission. |
+| persistence | Event.cs:1 | Persist valid body unchanged. |
+| material consumers | Consumer.cs:1 | Consume the recorded plan. |
+| failure paths | n/a: no external failure boundary exists | Refusal occurs before event creation. |
+```
+
+The false `does-not-exist.md:1` citation is structurally valid. Its presence must not be represented
+as proof that the citation is correct.
+
 ## Workstream Design
 
 The main thread owns:
@@ -389,7 +526,10 @@ The orchestrator then produces the artifact, or extends phase 0 and re-runs the 
 
 ## Planning Depth
 
-Match planning depth to task size.
+Match planning depth to task size. The coordinator excludes trivial work before this skill is invoked.
+For every non-trivial task that reaches this skill, retain all four gate sections and use reasoned
+non-applicability where a walkthrough layer is genuinely absent; proportionality changes depth, not
+the required structural coverage.
 
 On the direct path, keep the plan lightweight: brief analysis, direct execution, verifier, code-reviewer when code-bearing.
 
@@ -760,6 +900,7 @@ Patterns not surfaced by the rules above:
 - Marking an assumption VALIDATED because the work completed, rather than because evidence moved it.
 - Leaving assumptions undisposed, which reads as "held" and is the failure this pipeline has produced most often.
 - Producing generic classes or attention items with no causal path, planned handling, or task-specific citation.
+- Treating preflight as a heading checklist: uncited claims, checks with no planning consequence, duplicated obligations, or unknowns labeled bounded without consequence, handling, and owner.
 - Mapping the existing topology carefully and never projecting the new artifact into it, so an interaction that invalidates the design is met at runtime instead of at planning.
 - Writing a tripwire test that builds its own convenient version of the artifact instead of driving the production path, so the test and the shipped code diverge silently.
 - Recording a planned handling that names an intention rather than a test, guard, research topic, or explicit acceptance. A handling nothing can resolve is an undisposed assumption wearing a plan's clothes.
@@ -780,13 +921,14 @@ Patterns not surfaced by the rules above:
 When this skill triggers, internally follow this compact prompt shape:
 
 1. Read the context manifest and its current PromptContract.
-2. Classify from the contract; stop if it is too thin to classify.
+2. Classify provisionally from the contract; stop if it is too thin to classify.
 3. Resolve only research that blocks recon, then run internal recon and write `research/internal-recon.md`.
-4. Correct the classification; record at most five attention items and three decision-changing research questions. Run required research.
-5. Write the bounded Problem Classification section. Only then choose direct vs decompose, complete `orchestration_plan.md`, and file the OrchestrationPlan artifact.
-6. Execute directly, or freeze the shared surface and launch each phase's disjoint workers concurrently; synthesize worker output.
-7. Return reconciled readiness and declared associations to the coordinator for verifier dispatch; evaluate findings and plan repairs when needed.
-8. Return verification dispositions to the coordinator for paired isolated reviewer dispatch; evaluate material findings and reconcile repairs for fresh assurance.
-9. Append final `execution_notes.md` and return the assumption, attention-item, and decision-drift rows.
+4. Identify consequential unknowns and correct the classification; record at most five attention items and three decision-changing research questions.
+5. Route required external research through `technical-researcher`, then finalize the cited preflight, canonical obligation map, system walkthrough, and consequential-assumption dispositions. After investigation, stop only the dependent choice on any unresolved critical unknown.
+6. Choose direct vs decompose, complete `orchestration_plan.md`, file the OrchestrationPlan artifact, and return it to the coordinator for its mechanical completeness check.
+7. When the coordinator permits the existing execution continuation, execute directly, or freeze the shared surface and launch each phase's disjoint workers concurrently; synthesize worker output.
+8. Return reconciled readiness and declared associations to the coordinator for verifier dispatch; evaluate findings and plan repairs when needed.
+9. Return verification dispositions to the coordinator for paired isolated reviewer dispatch; evaluate material findings and reconcile repairs for fresh assurance.
+10. Append final `execution_notes.md` and return the assumption, attention-item, and decision-drift rows.
 
 Use judgment. The point is to improve execution quality, not to build a bureaucracy in miniature.

@@ -1,6 +1,6 @@
 ---
 name: technical-researcher
-version: 1.2.0
+version: 1.3.0
 description: Research external technical targets and produce decision-support recommendations grounded in official docs, official-adjacent artifacts, and community evidence. Use when investigation of a product, API, platform, tool, integration, library, SDK, service, or protocol is required for integration design, implementation planning, bug investigation, capability verification, migration analysis, or compatibility analysis. Typically invoked by `task-orchestrator` to resolve an OPEN external-behavior claim in the governed task.
 ---
 
@@ -76,7 +76,7 @@ Classify the task as exactly one of:
 - migration or compatibility analysis
 - other, explicitly stated
 
-Read [task-emphasis.md](./references/task-emphasis.md) when choosing depth and emphasis.
+Read [task-emphasis.md](./references/task-emphasis.md) for what this classification selects: the evidence to go after and the evidence that lets you stop. Depth is a property of the decision the research supports, not of the classification.
 
 ### 2. Evaluate documentation access
 
@@ -91,7 +91,7 @@ Use `partially gated` or `fully gated` when official documentation likely exists
 
 ### 3. Gather evidence
 
-Use the source order and claim labeling rules in [research-standards.md](./references/research-standards.md).
+Label every claim using the rules in [research-standards.md](./references/research-standards.md). The source order is Core Operating Rules 2 to 4 above.
 
 From official and official-adjacent sources, extract what is relevant:
 

@@ -862,15 +862,15 @@ public static class CoordinatorMeasurement
             "sessions of one actor.");
     }
 
-    // Which rule refused, as far as the message can say. Every quoted literal becomes one
-    // placeholder, so two refusals differing only in the id they name key as the one lesson they
-    // are. Nothing narrower is available: RefusalRecord carries the kernel's text and no rule id,
-    // and giving it one would change a record written on a failure path by every command in the
-    // kernel. The raw message is kept on the row this key produces.
-    private static readonly System.Text.RegularExpressions.Regex QuotedLiteral =
-        new("'[^']*'", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-
-    private static string RefusalRule(string message) => QuotedLiteral.Replace(message, "'X'");
+    // Which rule refused, as far as the message can say — RefusalRuleKey holds the definition and
+    // states why it is the first line with quoted literals normalised. It is called and not copied
+    // because the kernel's own refusal path now counts an actor's repetition of a rule by the same
+    // key, and two copies of this answer would drift apart silently. Keyed on the whole message,
+    // one rule refusing one actor sixteen times became sixteen keys, sixteen first-time rows and no
+    // repeat at all; RepeatedKeys keeps only rows whose Repeats is above zero, so the rule did not
+    // merely undercount — it left the report. That is the flattering direction the normalisation
+    // exists to keep this measure out of.
+    private static string RefusalRule(string message) => RefusalRuleKey.Of(message);
 
     // Measures 10, 11 and 12. Three questions about one population — the dispatches this coordinator
     // made — grouped here because they are the three the record could not answer at all until it

@@ -2,7 +2,7 @@
 > Operator rules for all AI assistants working with this user.
 > These rules override default model behavior. They apply before any skill, task, or tool.
 > Last updated: 2026-09-20
-> version: 1.2.0
+> version: 1.3.0
 
 ---
 
@@ -130,6 +130,33 @@ A second failure on the same boundary is addressed to you. Before dispatching an
 Measured once: twenty dispatches and four rounds on one parsing boundary produced an inert repair, a
 regression that broke the documented format, and a documentation task written only to describe the
 accreted rules. Once the check was applied, the task closed in an hour.
+
+### A dispatch is not finished until you have read its result
+
+**Wait on every run you dispatch, and check it periodically until it ends.** A launched run is work
+in flight, not work delivered. Block on the launch, or poll it on a bounded interval; never end a
+turn with a run active and nothing watching it. The operator is not the monitor.
+
+Then read what it produced before saying anything about it:
+
+- **A run that ended is not a run that worked.** Read its final output, its ledger writes and its
+  refusals. "Completed" is a process fact, not a result.
+- **A completed run that wrote nothing to the ledger is a run that cognition never reached.** Report
+  it as a failure. It still satisfies every stage arm that asks only for a completed run of its role,
+  which is why nothing else will catch it.
+- **Report the result within a minute of it arriving**, before diagnosing it. A one-line "R1
+  completed in 59s, wrote nothing, three blockers" costs nothing and lets the operator redirect. The
+  diagnosis can follow; it must not precede the report.
+
+Measured on 2026-09-20, one morning, one session: a researcher run ended at 08:21 and was noticed at
+08:50 — twenty-nine minutes, of which the diagnosis needed one. A worker run ended and was noticed
+only when the operator asked what the holdup was. Both had already produced everything they were
+going to produce. The cost is never in the run; it is in the silence after it.
+
+The reason this is a rule and not a habit: ending a turn produces something to show and waiting
+produces nothing, so after a dispatch the next thing a model generates is a status message, and that
+message ends the turn. Watching requires actively choosing against that default — the same shape as
+dispatching rather than writing the code yourself.
 
 ### Build outside the working tree
 

@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.8.4
+version: 1.8.7
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -35,7 +35,7 @@ workflow-coordinator
   0. Preflight  (kernel + current context manifest available?)
   1. Consume taskPath  (supplied by the kernel)
   2. Invoke prompt-contract-designer   (triages recalled lessons from the manifest)
-  3. Invoke task-orchestrator
+  3. Invoke task-orchestrator for planning; check its filed plan; permit the existing execution continuation
   4. Select ready declared associations; dispatch verifier then paired reviewer when code-bearing; retire resolved assignments
   5. Route and require the closeout synthesis
   6. Mark lesson-bearing records; request Archive; verify publication
@@ -79,16 +79,38 @@ After this step, the contract must be valid. If the designer reports it could no
 Pass `taskPath` to the orchestrator. The orchestrator reads the contract and:
 
 - Classifies the task, grounds material failure modes against recon, and records their planned handling before choosing an execution path.
-- Decides whether research is needed.
-- Decides execution path (direct vs decompose).
-- Writes `orchestration_plan.md` and files it as the current OrchestrationPlan artifact.
-- Invokes `technical-researcher` if needed.
-- Invokes `contract-driven-execution`, or specifies a phase's disjoint worker runs and launches them concurrently, depending on chosen path.
+- Identifies consequential unknowns, decides whether research is needed, and invokes `technical-researcher` when required.
+- Incorporates completed research, finalizes the planning gate, and decides execution path (direct vs decompose).
+- Writes `orchestration_plan.md`, files it as the current OrchestrationPlan artifact, and returns it before implementation dispatch.
+- After the completeness check below passes, continues through the existing orchestration flow to invoke `contract-driven-execution`, or specify a phase's disjoint worker runs and launch them concurrently, depending on chosen path.
 - Declares subject associations and returns reconciled readiness facts, scope union, working provenance, exclusions and assurance obligations for coordinator dispatch.
 - Evaluates returned findings and plans any repairs; the coordinator dispatches fresh assurance after reconciliation.
 - Returns the closeout synthesis plus the assumption, attention-item, and drift rows for steps 5–6.
 
 The coordinator does not duplicate these technical judgments. It may pause dispatch and return the approach for reassessment under the convergence check below.
+
+Before any implementation dispatch, mechanically confirm that the returned current OrchestrationPlan
+was filed and contains each exact gate section once: **Preflight Evidence**, **Source Obligation Map**,
+**Proposed Change Walkthrough**, and **Consequential Assumptions and Recon Stop**. Section order is not
+part of this check. Require the served table shapes and confirm:
+
+- all five preflight keys are present once with non-empty evidence, result, and planning consequence:
+  `premise`, `live state and baseline`, `verification feasibility`, `affected boundaries and
+  ownership`, and `lesson applicability`;
+- at least one uniquely identified `O<n>` obligation names a non-empty authoritative source,
+  requirement/prohibition/condition/justified exclusion, owner, and verification;
+- the walkthrough contains `producer`, `persistence`, `material consumers`, and `failure paths`
+  once each, with a non-empty citation or `n/a: <reason>` and a planned result; and
+- each consequential-assumption row uses `validated`, `rejected`, `not-applicable`, or `bounded`.
+  A bounded row has a non-placeholder consequence, handling, and owner. `blocked` is not terminal.
+  The exact sole no-assumptions row defined by `task-orchestrator` is allowed.
+
+New artifact admission enforces this deterministic shape. Treat an admission refusal or any missing
+current artifact as a failed completeness check: return it to the orchestrator and name the structural
+omission. This boundary does not adjudicate whether a citation is correct, repeat the orchestrator's
+analysis, require section ordering, require invented content, or add another provider run. When the
+check passes, permit the orchestrator's existing execution continuation; this is not a new user
+approval gate.
 
 ### Convergence check before another dispatch
 
@@ -276,6 +298,8 @@ Stop and surface the issue when:
 
 - The request is ambiguous in a way that would cause wrong implementation.
 - The contract-designer reports a contract cannot be made valid.
+- The current OrchestrationPlan is missing or fails the pre-dispatch completeness check; return it to
+  the orchestrator and do not permit implementation dispatch.
 - The orchestrator cannot return reconciled readiness facts for the declared associations.
 - A dispatched verifier or required paired reviewer lacks completed, applicable coverage.
 - The verifier output has no assumption disposition table, assumptions remain OPEN, or a planned attention item is missing or unresolved. Do not archive and do not record lessons — report it.

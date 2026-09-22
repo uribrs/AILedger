@@ -1,5 +1,6 @@
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
+using AILedger.Storage;
 using AILedger.Tests.Support;
 
 namespace AILedger.Tests.Core;
@@ -1125,6 +1126,97 @@ public sealed class CoordinatorMeasurementTests
         // Keyed on the rule and reported as the kernel said it: a reader is shown the first of the
         // two messages and not the placeholder they were grouped under.
         Assert.Equal("Unknown claim 'C20'.", repeated.Message);
+    }
+
+    // A refusal that prints diagnostic lines under its sentence is still one rule. The claim
+    // resolution refusal below names the records it rejected on two appended lines, and it names
+    // them unquoted, so the placeholder substitution cannot reach them: keyed on the whole message
+    // these two rows are two keys, two first-time rows and no repeat, and RepeatedKeys keeps only
+    // rows with a repeat, so the rule disappears from the report rather than merely undercounting.
+    // The measure the appended lines are meant to make legible is the one they were blinding.
+    [Fact]
+    public void TwoRefusalsOfOneRuleWithDifferentDiagnosticLinesAreOneLessonAndOneRepeat()
+    {
+        var loop = new Loop();
+        var journal = new RetrospectiveRefusalJournal(
+        [
+            new RetrospectiveRefusal(new ActorId("operator"), "claim resolve", "service",
+                "Evidence 'E1' does not support claim 'C1'." + Environment.NewLine +
+                "  E1 supports: (none), refutes: (none)" + Environment.NewLine +
+                "  C1 is supported by: (none), refuted by: (none)"),
+            new RetrospectiveRefusal(new ActorId("operator"), "claim resolve", "service",
+                "Evidence 'E3' does not support claim 'C7'." + Environment.NewLine +
+                "  E3 supports: C9, refutes: (none)" + Environment.NewLine +
+                "  C7 is supported by: E8, refuted by: (none)")
+        ], UnreadableRows: 0);
+
+        var refusals = loop.Build(journal).Refusals;
+
+        Assert.NotNull(refusals);
+        Assert.Equal(2, refusals!.Rows);
+        Assert.Equal(1, refusals.FirstTime);
+        Assert.Equal(1, refusals.Repeat);
+        var repeated = Assert.Single(refusals.RepeatedKeys);
+        Assert.Equal(2, repeated.Occurrences);
+    }
+
+    // The kernel now counts an actor's repetition of a rule while the command is still in flight, and
+    // this measure groups the same rows after the task is over. They agree because there is one
+    // definition of the key and both call it: RefusalRuleKey. This test is what fails if a copy is
+    // reintroduced and the two drift — nothing else would, and the counter would then be wrong in the
+    // flattering direction while the report stayed right.
+    //
+    // The two messages differ in the id they quote and in the diagnostic line below the sentence,
+    // which are the two ways a rule's text varies between occurrences and the two the key normalises.
+    [Fact]
+    public async Task TheKernelsRepetitionCounterAndThisMeasureAgreeOnWhatOneRuleIs()
+    {
+        const string first = "Unknown claim 'C20'.\n  C20 is not a record in this task";
+        const string second = "Unknown claim 'C21'.\n  C21 is not a record in this task";
+        var actor = new ActorId("operator");
+
+        var refusals = new Loop().Build(new RetrospectiveRefusalJournal(
+        [
+            new RetrospectiveRefusal(actor, "claim resolve", "service", first),
+            new RetrospectiveRefusal(actor, "claim resolve", "service", second)
+        ], UnreadableRows: 0)).Refusals;
+
+        using var root = new TemporaryDirectory();
+        var journal = new RefusalJournal();
+        await journal.TryAppendUnderTaskLockAsync(root.Path, new RefusalRecord(
+            DateTimeOffset.UtcNow, actor, "ResolveClaimCommand", RefusalSite.Service, 1, first, null));
+        await journal.TryAppendUnderTaskLockAsync(root.Path, new RefusalRecord(
+            DateTimeOffset.UtcNow, actor, "ResolveClaimCommand", RefusalSite.Service, 2, second, null));
+
+        // One lesson taught once and repeated once, said by both.
+        Assert.NotNull(refusals);
+        Assert.Equal(1, refusals!.FirstTime);
+        Assert.Equal(1, refusals.Repeat);
+        Assert.Equal(2, Assert.Single(refusals.RepeatedKeys).Occurrences);
+        Assert.Equal(2, (await journal.TryCountAsync(root.Path, actor, second)).Occurrences);
+    }
+
+    // The same sentence recorded on two machines is one rule. Environment.NewLine is a carriage
+    // return and a newline on Windows, so a first line cut at the newline alone keeps the carriage
+    // return, and that one character is enough to make the two journals two keys.
+    [Fact]
+    public void OneRuleKeysTheSameWhicheverLineEndingItsRefusalWasWrittenWith()
+    {
+        var loop = new Loop();
+        var journal = new RetrospectiveRefusalJournal(
+        [
+            new RetrospectiveRefusal(new ActorId("operator"), "claim resolve", "service",
+                "Evidence 'E1' does not support claim 'C1'.\r\n  E1 supports: (none), refutes: (none)"),
+            new RetrospectiveRefusal(new ActorId("operator"), "claim resolve", "service",
+                "Evidence 'E2' does not support claim 'C2'.\n  E2 supports: C3, refutes: (none)")
+        ], UnreadableRows: 0);
+
+        var refusals = loop.Build(journal).Refusals;
+
+        Assert.NotNull(refusals);
+        Assert.Equal(1, refusals!.FirstTime);
+        Assert.Equal(1, refusals.Repeat);
+        Assert.Single(refusals.RepeatedKeys);
     }
 
     // An unreadable row carries no actor, so it can be placed on neither side of the filter. It

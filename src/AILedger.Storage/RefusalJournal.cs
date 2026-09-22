@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 
 namespace AILedger.Storage;
@@ -30,10 +31,31 @@ public sealed record RefusalRecord(
     // readable, and existing construction sites remain source-compatible.
     KernelBuildIdentity? KernelIdentity = null);
 
+// How many rows this task's journal already holds for one rule and one actor, and how many rows it
+// could not read while counting. Occurrences is a floor whenever UnreadableRows is above zero, and
+// the two travel together for that reason: a count taken from a partly readable file that is
+// reported as a total is the defect 2026-09-09_1010 recorded as RC1, and separating the two fields
+// is what stops a caller from printing one without the other.
+//
+// Zero occurrences is the answer for a journal that is absent, empty, entirely unreadable, or that
+// simply holds no row for this pair. The caller prints nothing in all four cases, so none of them
+// has to be told apart from the others here.
+internal readonly record struct RefusalRecurrence(long Occurrences, long UnreadableRows)
+{
+    internal static RefusalRecurrence None => new(0, 0);
+
+    internal bool IsFloor => UnreadableRows > 0;
+}
+
 // Telemetry beside the event log, never part of it. Nothing in the kernel may refuse, gate or score
 // on this file, replay never reads it, and no state carries it — so a task whose journal is deleted
 // materialises exactly the state it did before. That is what makes it safe to write from a failure
 // path: the file can be absent, stale or truncated without any consequence for task truth.
+//
+// Counting is now read from here on a command path, which is new and is the only reading this file
+// admits: the number reaches the refusal message the operator is about to see and nothing else. No
+// rule, gate, score, event or projected state may take it, because the value that makes this file
+// safe to write from a failure path is the same value that bars it from any decision (K4).
 public sealed class RefusalJournal
 {
     public const string FileName = "refusals.jsonl";
@@ -71,7 +93,12 @@ public sealed class RefusalJournal
     // the launch site, therefore sees only the locking method. The InternalsVisibleTo grant beside
     // this file keeps it reachable from AILedger.Tests, where pointing the probe at it is what
     // proves the concurrency test detects the defect it was written for (ALT8).
-    internal async Task TryAppendAsync(string taskDirectory, RefusalRecord refusal)
+    //
+    // Returns whether the row landed. The caller counts the file straight afterwards and names the
+    // number in the refusal, so a row that was lost would make that number one short and it would
+    // be stated as a total. False is how the caller learns to state a floor instead; it is not an
+    // error to handle, and no caller may fail on it.
+    internal async Task<bool> TryAppendAsync(string taskDirectory, RefusalRecord refusal)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(taskDirectory);
         ArgumentNullException.ThrowIfNull(refusal);
@@ -79,11 +106,13 @@ public sealed class RefusalJournal
         try
         {
             await AppendAsync(taskDirectory, refusal).ConfigureAwait(false);
+            return true;
         }
         catch (Exception exception) when (!IsFatal(exception))
         {
             // A lost row costs a retrospective one line. Failing the caller would cost the operator
             // the refusal message itself.
+            return false;
         }
     }
 
@@ -110,6 +139,93 @@ public sealed class RefusalJournal
         {
             // Includes the bound expiring: AcquireAsync honours the token in both the semaphore
             // wait and the file-lock retry, and a cancelled wait leaves the row unwritten.
+        }
+    }
+
+    // How many rows this journal holds for one actor and the rule that produced this message,
+    // counted after the row for this refusal has been appended, so the number is exactly what a
+    // reader of the file would count and exactly what a retrospective will later group. It is read
+    // by the service's refusal path while that path holds the task's mutation lease, so it takes no
+    // lock: the lease is not re-entrant and acquiring it a second time would stall the full deadline,
+    // as the comment on TryAppendAsync above already records. Sharing is ReadWrite so an open writer
+    // never turns a count into an exception. W2C4 is the claim that a refused command still returns.
+    //
+    // Best-effort by construction, like every other method here. Every caller is already on a
+    // refusal path, so a throw would replace the governance message the operator needs with an I/O
+    // error about a telemetry file — and a journal that could fail a command would invert the one
+    // property this file's header promises. An absent, empty, unreadable or wholly unparseable
+    // journal all return None, which prints nothing and leaves the refusal exactly as it is today.
+    //
+    // A row that cannot be read is counted as unreadable rather than skipped, because it offers no
+    // actor and no message to test and so can be neither admitted nor excluded. That covers a row
+    // that does not parse and a row that parses into something the key cannot read. That makes the
+    // number a floor, which the caller must say rather than report as a total.
+    internal async Task<RefusalRecurrence> TryCountAsync(
+        string taskDirectory,
+        ActorId actorId,
+        string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskDirectory);
+        ArgumentNullException.ThrowIfNull(message);
+
+        try
+        {
+            var path = ResolvePath(taskDirectory);
+            if (!File.Exists(path))
+            {
+                return RefusalRecurrence.None;
+            }
+
+            var rule = RefusalRuleKey.Of(message);
+            var occurrences = 0L;
+            var unreadable = 0L;
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite,
+                bufferSize: 4096,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            using var reader = new StreamReader(stream, Utf8WithoutBom);
+            while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                // The whole row is inside the guard, not the deserialisation alone. A row can be
+                // well-formed JSON and still be unusable — a null message deserialises and then
+                // throws where the rule key reads it — and a fault there escaping the loop would
+                // discard every row already counted and return None, which prints nothing at all
+                // where a floor is the honest answer. Any fault on one row costs that row and says
+                // so; only the read itself failing costs the count.
+                try
+                {
+                    var row = JsonSerializer.Deserialize<RefusalRecord>(line, _json);
+                    if (row is null)
+                    {
+                        unreadable++;
+                    }
+                    else if (row.ActorId == actorId &&
+                             string.Equals(RefusalRuleKey.Of(row.Message), rule, StringComparison.Ordinal))
+                    {
+                        occurrences++;
+                    }
+                }
+                catch (Exception exception) when (!IsFatal(exception))
+                {
+                    unreadable++;
+                }
+            }
+
+            return new RefusalRecurrence(occurrences, unreadable);
+        }
+        catch (Exception exception) when (!IsFatal(exception))
+        {
+            // A count abandoned partway is discarded rather than returned short: half a file read is
+            // a number nobody can qualify, and silence is the honest form of it.
+            return RefusalRecurrence.None;
         }
     }
 
