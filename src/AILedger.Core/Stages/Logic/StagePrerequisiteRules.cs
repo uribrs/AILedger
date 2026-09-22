@@ -15,18 +15,25 @@ internal static class StagePrerequisiteRules
     {
         var currentArtifacts = ArtifactRevisionRules.Current(state);
         var completedRoles = CompletedRoles(state);
+        var isBackward = StageTransitionPolicy.IsBackward(state.Stage, target);
 
         switch (target)
         {
             case TaskStage.Discovery:
                 break;
             case TaskStage.Research:
-                EnsureResearch(state);
+                if (!isBackward)
+                    EnsureResearch(state);
                 break;
             case TaskStage.Design:
-                EnsureDesign(state, completedRoles);
+                // R2 (stale-claim-certification): backward entry opens the replanning workspace.
+                if (!isBackward)
+                    EnsureDesign(state, completedRoles);
                 break;
             case TaskStage.Scope:
+                // R1 (both-research-arms): recovery must satisfy full readiness before moving on.
+                if (state.Stage == TaskStage.Design)
+                    EnsureDesign(state, completedRoles);
                 EnsureCurrentArtifact(currentArtifacts, target, GovernedArtifactKind.PromptContract);
                 break;
             case TaskStage.Ready:
@@ -73,7 +80,9 @@ internal static class StagePrerequisiteRules
 
     private static void EnsureDesign(GovernedTaskState state, IReadOnlySet<RoleKind> completedRoles)
     {
-        EnsureCompletedRole(completedRoles, RoleKind.Researcher, "Design");
+        // R1 (both-research-arms): external research supplements current recon.
+        if (InternalReconRules.EnsureDesign(state))
+            EnsureCompletedRole(completedRoles, RoleKind.Researcher, "Design");
         if (state.Alternatives.Count == 0 &&
             !state.Decisions.Values.Any(decision => decision.Status == DecisionStatus.Accepted))
         {

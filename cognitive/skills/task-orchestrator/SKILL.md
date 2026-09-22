@@ -1,12 +1,12 @@
 ---
 name: task-orchestrator
-version: 1.7.9
+version: 1.7.11
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
 # Task Orchestrator
 
-This skill is the planning brain for non-trivial work after a contract exists. It expects the current PromptContract in the context manifest and the governed task directory supplied as `taskPath`. If that input is missing, stop and ask the coordinator to run `prompt-contract-designer` first.
+This skill is the planning brain for non-trivial work. For Design planning it expects the current PromptContract in the context manifest and the governed task directory supplied as `taskPath`. A task-wide pre-Design recon run in Research instead consumes the task goal, request, claims and constraints; it files InternalRecon and returns before contract/plan authoring. If the contract is missing outside that recon-only step, stop and ask the coordinator to run `prompt-contract-designer` first.
 
 Keep planning, decomposition, dependency reasoning, and synthesis centralized in the orchestrator's own run, and **do no implementation there** — the orchestrator dispatches, it does not execute. `workflow-coordinator` routes to this skill and dispatches no workers of its own; the kernel calls the role holding this run a coordinating role, and refuses it any run against a work item for the same reason. Every piece of work is performed by a subagent dispatched as its own governed run. Return reconciled readiness to `workflow-coordinator`, which selects ready declared associations and dispatches independent verification then paired isolated review when code-bearing. The orchestrator retains planning and evidence judgment.
 
@@ -19,11 +19,11 @@ The orchestrator is invoked with one required input:
 Before doing anything else, read the context manifest: the current PromptContract, task goal, claims,
 decisions, active constraints, recalled lessons, work items, and stop conditions.
 
-If the PromptContract is missing Constraints or Success Criteria, stop. The orchestrator does not execute against an invalid contract.
+For Design planning, if the PromptContract is missing Constraints or Success Criteria, stop. The orchestrator does not execute against an invalid contract.
 
 ## Operating Rules
 
-Follow this sequence:
+For a pre-Design recon-only run, follow Internal Recon and return to the launcher. For Design planning, follow this sequence:
 
 1. Read the context manifest.
 2. Read the contract as the sole problem statement. Classify the task provisionally; if the contract is too thin to classify, stop and name the missing information instead of rebuilding it.
@@ -132,7 +132,7 @@ Recon exists for two reasons, and the ordering follows from the first:
 1. **The path decision depends on it.** Separability and file ownership are unknowable before you know what the code looks like, so deciding first and scoring Worker clarity "low" is a verdict about the planner's information, not the task's shape.
 2. **It is what makes decomposition cheap.** The expensive part of workers is not coordination, it is duplicated discovery — N workers each re-deriving the same conventions and reaching N different answers. One recon pass, cited by every brief, replaces that. It pays for itself at two workers, and on the direct path `contract-driven-execution` reads it instead of exploring, so it is never pure overhead.
 
-Delegate it to one recon subagent, dispatched as its own run, with a bounded output contract. Recon that returns an essay has failed; recon returns a map.
+Have the authorized operator dispatch one task-wide recon producer in Research, using an Operator, PlanningLead or ImplementationLead subject with real provider cognition and no work item or assurance binding. The producer follows this Internal Recon section; it does not need a PromptContract that cannot yet be filed. Recon returns a bounded map. Reuse current eligible recon for subsequent Design planning rather than repeating discovery.
 
 **Read the durable layer first.** Most repos already carry one — a rules file (`CLAUDE.md` / `RULES.md`) and, in some, a curated how-to store (`ai/skills/<topic>/SKILL.md`). Read those before reading source, cite them rather than restating them, and cover only the delta: the specific subsystem this task touches. Never regenerate that layer as part of a task run; authoring a repo's rules file is a deliberate operator action, not a pipeline step.
 
@@ -161,7 +161,78 @@ The recon pass writes to `<taskPath>/research/internal-recon.md`:
 - <thing that will bite, with a path or a citation>
 ```
 
-Skip recon only for non-code-bearing work, or when the task touches one file the main thread has already read. Record the skip and its reason under Research Decisions in `orchestration_plan.md`. Do not skip it because the task feels small — that judgment is the one recon exists to inform.
+A narrow task may reuse already-read sources or explain why codebase mapping is inapplicable in its report; it still requires a governed InternalRecon artifact for Design admission. A loose Markdown report or completed Researcher run does not replace it.
+
+### File recon for forward Design admission
+
+After recording recon claims and evidence, generate the current structured template:
+
+```bash
+ailedger artifact recon-template --task TASK > <taskPath>/research/internal-recon.json
+```
+
+Complete the JSON with exactly these version-1 fields: `schemaVersion` (1), `taskId`,
+`claimSetHash`, `assessments`, and `report`. Preserve the generated task ID and lowercase SHA-256
+claim digest. Every claim, including resolved and superseded claims, must appear exactly once as
+`{"claimId":"ID","domain":"internal"}` or with domain `external`. Null template domains and an
+empty report deliberately fail admission. Put the human-readable recon Markdown in `report`;
+classification is the producer's explicit judgment, never inferred from that prose. Do not add
+properties or duplicate keys. Use the shared template command rather than computing a second hash.
+
+File the completed JSON as the active producer's own task-wide artifact, in Research or Design:
+
+```bash
+ailedger artifact record --task TASK --actor LEAD --run RECON-RUN --id RECON-ID \
+  --kind InternalRecon --title "Internal recon" --body-stdin < <taskPath>/research/internal-recon.json
+```
+
+Do not supply work flags. A Worker or Researcher cannot file this artifact. The producer returns;
+its launcher completes the run. Forward Research-to-Design and Design-to-Scope require that current revision's producer to have completed
+real cognition successfully; active, failed, cancelled and provider-none runs do not qualify.
+A recon-only producer can complete before a PromptContract exists. Never close your own run.
+
+If any assessment is external (including a resolved or superseded claim), BOTH recon and completed
+real Researcher cognition are required. Keep `technical-researcher` external-facing; resolve every
+Open external claim through directional evidence and an authorized resolver. Internal Open claims
+are allowed by this gate, without implying implementation readiness. All-internal recon needs no
+Researcher. The alternative-or-accepted-decision Design prerequisite still applies.
+
+Claim additions, changed statements, resolutions/evidence attachments and supersession invalidate
+the digest. After external research and resolution, or any other claim change, regenerate the
+template, reassess all claims and file a new producer-owned revision with a new ID and
+`--supersedes RECON-ID`; its active producer must then finish before forward admission. Unattached evidence,
+unrelated events and producer completion do not change the digest. Do not fall back to an older
+recon when the current revision is stale or its producer is ineligible. Return readiness to the
+launcher for the Design transition, then contract and plan authoring can proceed.
+
+### Recover stale or missing recon through replanning
+
+Initial forward Research-to-Design admission is strict. Reasoned backward entry into Design is
+replanning access: it does not require current recon, completed external research or the
+alternative/accepted-decision prerequisite merely to enter. It is not permission to implement.
+Use existing legal backward edges through the authorized operator, with a nonblank reason for
+each backward transition. Scope-to-Research remains illegal; retreat through Design first.
+
+For a resolved internal claim change at Scope, retreat to Design, regenerate the complete
+all-claim template, reassess and file a producer-owned superseding InternalRecon, and return for
+the launcher to complete its real producer. No fabricated Open claim or Researcher is needed.
+The same Design refresh works for an empty claim set. A legacy downstream task missing recon
+can retreat to Design and file its first revision there, without a supersedes flag.
+
+For a newly external Open claim, retreat through Design to Research. Complete real external
+Researcher cognition and authorized claim resolution, then regenerate the all-claim template,
+file superseding recon and have its launcher complete the producer before strict forward Design
+admission. Resolved external assessments lacking completed Researcher cognition use this same
+Research route. Backward Research access permits resolved or empty claim sets; forward
+Discovery-to-Research still requires an Open claim. Keep both research arms and the outward
+researcher boundary intact.
+
+Forward Design-to-Scope rechecks the complete Design predicate: current claim binding, successful
+real current producer, no Open external assessment, completed Researcher cognition if any
+assessment is external, and an alternative or accepted decision. It also requires the current
+PromptContract. Refresh recon after claim changes from contract/plan revision before leaving
+Design; revise the contract and plan as needed. Active or failed producers and older superseded
+recon cannot satisfy this exit. Backward entry never bypasses these forward requirements.
 
 Before assigning implementation, show how each relevant recon finding changes a plan decision,
 implementation step, or verification obligation. Cite the finding where it is used; explain why any
@@ -411,7 +482,7 @@ Maximum 3 rows. If there are none: `No research needed — <concrete reason>.`
 ## Research Decisions
 - External topic: <topic-slug> — triggered by: assumption:<id> | classification:<tag> — status: pending | complete
 - (or: "None needed. <one-line rationale>.")
-- Internal recon: complete → research/internal-recon.md | skipped — <reason>
+- Internal recon: current InternalRecon artifact/producer IDs → research/internal-recon.md; cite classification and claim binding (explain inapplicable mapping in the report).
 
 ## File Ownership
 (Required on both paths. This is the record that the path decision was made rather than defaulted.)

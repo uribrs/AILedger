@@ -9,6 +9,8 @@ internal static class ContextRolePolicy
     private static readonly IReadOnlySet<ContextArtifactKind> ReviewerExclusions =
         new HashSet<ContextArtifactKind>
         {
+            // R5 (reviewer-isolation): recon carries producer planning intent.
+            ContextArtifactKind.InternalRecon,
             ContextArtifactKind.UserRequest,
             ContextArtifactKind.PromptContract,
             ContextArtifactKind.OrchestrationPlan,

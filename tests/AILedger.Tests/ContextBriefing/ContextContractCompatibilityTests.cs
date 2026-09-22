@@ -23,8 +23,9 @@ public sealed class ContextContractCompatibilityTests
         Assert.Equal("AILedger.Core.Domain", typeof(ContextAlreadyBriefedException).Namespace);
 
         Assert.Equal(
-            Enumerable.Range(0, 18),
+            Enumerable.Range(0, 19),
             Enum.GetValues<ContextArtifactKind>().Select(value => (int)value));
+        Assert.Equal(18, (int)ContextArtifactKind.InternalRecon);
         AssertConstructor<ContextSkill>(typeof(string), typeof(string));
         AssertConstructor<ContextBuilt>(
             typeof(RoleKind), typeof(WorkItemId?), typeof(IReadOnlyList<ContextSkill>));

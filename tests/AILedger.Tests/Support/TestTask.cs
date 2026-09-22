@@ -205,7 +205,7 @@ internal sealed class TestTask
                 RecordResearchTopic();
                 break;
             case TaskStage.Design:
-                RecordResearcherPass();
+                RecordInternalRecon();
                 RecordDiscardedAlternative();
                 break;
             case TaskStage.Scope:
@@ -264,6 +264,22 @@ internal sealed class TestTask
             OperatorId, null, NextCorrelation(), new AlternativeId(alternativeId),
             "Walk the stages without recording what was considered",
             "The next actor would re-propose the approach this one discarded", null));
+    }
+
+    public void RecordInternalRecon(string artifactId = "A-recon", string runId = "R-recon")
+    {
+        var lead = GoverningLead();
+        var run = StartGoverningRun(runId);
+        var template = InternalReconDocuments.CreateTemplate(State);
+        var body = System.Text.Json.JsonSerializer.Serialize(template with
+        {
+            Assessments = template.Assessments.Select(row => row with { Domain = "internal" }).ToArray(),
+            Report = "Inspected local contracts for the staged test."
+        });
+        Apply(ArtifactCommands.Record(this, lead, artifactId, GovernedArtifactKind.InternalRecon,
+            body, producerRun: run));
+        Apply(new CompleteRunCommand(OperatorId, null, NextCorrelation(), run,
+            AgentRunStatus.Completed, $"session-{runId}"));
     }
 
     // A research pass holds no directory area, so its run names no work item. The Design arm reads

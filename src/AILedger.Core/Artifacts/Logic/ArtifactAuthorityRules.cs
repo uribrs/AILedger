@@ -45,6 +45,9 @@ internal static class ArtifactAuthorityRules
                 $"Artifact producer run '{runId}' must be active and belong to actor '{actorId}'.");
         }
 
+        if (kind == GovernedArtifactKind.InternalRecon)
+            InternalReconRules.EnsureProducer(run, actorId);
+
         if (workItemId is not null && run.WorkItemId != workItemId)
         {
             throw new GovernanceException($"Artifact work item must match producer run '{runId}'.");

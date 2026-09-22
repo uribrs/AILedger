@@ -326,21 +326,13 @@ public sealed class StageTransitionRequestTests
         Assert.Equal(TaskStage.Design, task.State.Stage);
     }
 
-    // A real operator case: a move that goes back and whose target arm refuses. Both trailing
+    // An explicit historical waiver remains recorded on backward access. Both trailing
     // strings are set at once, and both are recorded — the waiver on its own event, the reason on
     // the transition — so a reader finds which arm was skipped and what sent the work back.
     [Fact]
     public void AWaivedBackwardTransitionRecordsBothItsReasonAndItsWaiver()
     {
         var task = ResearchTopicSettledAtDesign();
-
-        // The arm does refuse this target, so the waiver is what carries the move rather than a
-        // prerequisite that was satisfied anyway.
-        var armRefusal = Assert.Throws<GovernanceException>(() => task.Apply(
-            new RequestStageTransitionCommand(
-                task.OperatorId, null, task.NextCorrelation(), TaskStage.Research,
-                Reason: "The evidence settled the claim but raised a question the design cannot answer")));
-        Assert.Equal("Research requires at least one open claim to investigate.", armRefusal.Message);
 
         var outcome = task.Apply(new RequestStageTransitionCommand(
             task.OperatorId, null, task.NextCorrelation(), TaskStage.Research,
@@ -373,9 +365,7 @@ public sealed class StageTransitionRequestTests
         return task;
     }
 
-    // A task at Design whose one claim has been validated, so the Research arm behind it now
-    // refuses: there is no open claim left to research. This is the cheapest backward edge whose
-    // target arm genuinely fails, which is what the waiver tests need.
+    // A task at Design whose only claim is resolved; backward Research now permits recovery.
     private static TestTask ResearchTopicSettledAtDesign()
     {
         var task = new TestTask();

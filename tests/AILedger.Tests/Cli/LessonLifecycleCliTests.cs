@@ -71,6 +71,7 @@ public sealed class LessonLifecycleCliTests
             ["run", "complete", .. source, "--run", "R-research", "--status", "completed",
              "--session", "research-session"], CancellationToken.None));
 
+        await InternalReconCliSetup.RecordAsync(application, source);
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. source, "--stage", "design"], CancellationToken.None));
         exits.Add(await application.RunAsync(

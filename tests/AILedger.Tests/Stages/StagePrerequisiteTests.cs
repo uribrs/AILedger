@@ -80,17 +80,17 @@ public sealed class StagePrerequisiteTests
     }
 
     [Fact]
-    public void EnteringDesignRequiresACompletedResearcherRunAndAnApproachOnTheRecord()
+    public void EnteringDesignRequiresCompletedReconAndAnApproachOnTheRecord()
     {
         var task = new TestTask();
         task.RecordResearchTopic();
         task.Transition(TaskStage.Research);
 
         var withoutResearcher = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Design));
-        Assert.Contains(nameof(RoleKind.Researcher), withoutResearcher.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(nameof(GovernedArtifactKind.InternalRecon), withoutResearcher.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(TaskStage.Research, task.State.Stage);
 
-        task.RecordResearcherPass();
+        task.RecordInternalRecon();
         var withoutApproach = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Design));
         Assert.Contains("alternative", withoutApproach.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(TaskStage.Research, task.State.Stage);
@@ -109,7 +109,7 @@ public sealed class StagePrerequisiteTests
         var task = new TestTask();
         task.RecordResearchTopic();
         task.Transition(TaskStage.Research);
-        task.RecordResearcherPass();
+        task.RecordInternalRecon();
         var decisionId = new DecisionId("D1");
         task.Apply(new ProposeDecisionCommand(
             task.OperatorId, null, task.NextCorrelation(), decisionId,
@@ -530,7 +530,7 @@ public sealed class StagePrerequisiteTests
 
         // Neither does reassigning the actor whose completed run was something else. The run holds
         // the role its subject had when it started; the present assignment answers another question.
-        task.Assign(new ActorId("researcher"), RoleKind.Verifier, Capability.BuildContext, Capability.RecordArtifact);
+        task.Assign(task.GoverningLead(), RoleKind.Verifier, Capability.BuildContext, Capability.RecordArtifact);
         var afterReassignment = Assert.Throws<GovernanceException>(() => task.Transition(TaskStage.Review));
         Assert.Contains(nameof(RoleKind.Verifier), afterReassignment.Message, StringComparison.Ordinal);
         Assert.Equal(TaskStage.Verification, task.State.Stage);

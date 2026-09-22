@@ -39,6 +39,8 @@ internal static class EntryActionStageRules
             TaskStage.Design,
             TaskStage.Scope,
             TaskStage.Ready),
+        GovernedArtifactKind.InternalRecon =>
+            Rule("artifact record --kind InternalRecon", TaskStage.Research, TaskStage.Design),
         GovernedArtifactKind.PromptContract =>
             Rule("artifact record --kind PromptContract", TaskStage.Design),
         GovernedArtifactKind.OrchestrationPlan =>

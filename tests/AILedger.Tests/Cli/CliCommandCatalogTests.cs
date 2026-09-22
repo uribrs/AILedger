@@ -30,7 +30,7 @@ public sealed class CliCommandCatalogTests
         Assert.Equal(
             new[]
             {
-                "actor attach", "alternative record", "artifact list", "artifact record", "artifact show",
+                "actor attach", "alternative record", "artifact list", "artifact recon-template", "artifact record", "artifact show",
                 "audit", "batch preflight", "challenge dispose", "challenge raise", "claim add", "claim resolve",
                 "closeout evidence", "closeout status", "constraint add", "constraint supersede",
                 "context build", "decision propose",

@@ -34,6 +34,7 @@ public sealed class WorkflowRetrospectiveCommandTests
     public async Task R1_CommandReportsTheActiveRunRefusalFromCore()
     {
         var task = Archived();
+        task.Assign(new ActorId("researcher"), RoleKind.Researcher, Capability.BuildContext);
         task.Apply(new StartRunCommand(
             task.OperatorId, null, task.NextCorrelation(), new RunId("R-late"), null, "codex",
             null, null, null, null, new ActorId("researcher")));

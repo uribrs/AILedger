@@ -65,6 +65,19 @@ internal static class CliHelpText
                            skill set for the same actor appends nothing and leaves the version where
                            it was, so it is a read that conditionally records audit evidence, not a
                            read with no effect on the ledger.
+        artifact recon-template --task ID [--root PATH]
+                           Read-only JSON template; fill every domain with internal or external and
+                           report with nonblank recon Markdown. Keep taskId and claimSetHash intact.
+                           Includes resolved/superseded claims; null domains are not admissible.
+                           Example: artifact recon-template --task T > recon.json
+                           Complete recon.json, then file from its active task-wide lead run:
+                           artifact record --task T --actor LEAD --run R --id IR1 --kind InternalRecon
+                             --title "Internal recon" --body-stdin < recon.json
+                           To refresh changed claims, regenerate and complete the template, then
+                           record a new id IR2 with --supersedes IR1. Never reuse a stale digest.
+                           Filing is allowed in Research/Design; the launcher completes the real
+                           producer before Design. External claims require completed Researcher
+                           cognition too, and no external claim may remain Open.
         artifact record    --task ID --actor ID --id ID --kind KIND --title TEXT --body-stdin
                            [--work ID [--also-work ID ...]] [--run ID] [--supersedes ARTIFACT-ID]
                            New assurance output inherits its run's full membership when work flags

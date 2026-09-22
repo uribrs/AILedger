@@ -275,6 +275,24 @@ public sealed class LessonRecallTests
                      TaskStage.Execution
                  })
         {
+            if (stage == TaskStage.Design)
+            {
+                var state = await service.GetStateAsync(source, CancellationToken.None);
+                var template = InternalReconDocuments.CreateTemplate(state!);
+                var body = System.Text.Json.JsonSerializer.Serialize(template with
+                {
+                    Assessments = template.Assessments.Select(row => row with { Domain = "internal" }).ToArray(),
+                    Report = "Local lesson lifecycle recon."
+                });
+                var recon = new RunId("R-recon");
+                await Run(service, source, new StartRunCommand(actor, null, correlation.Next(),
+                    recon, null, "codex", null));
+                await Run(service, source, new RecordArtifactCommand(actor, null, correlation.Next(),
+                    new ArtifactId("A-recon"), GovernedArtifactKind.InternalRecon, "Recon", body,
+                    null, recon, null));
+                await Run(service, source, new CompleteRunCommand(actor, null, correlation.Next(),
+                    recon, AgentRunStatus.Completed, "recon-session"));
+            }
             await Run(service, source, new RequestStageTransitionCommand(actor, null, correlation.Next(), stage));
         }
 

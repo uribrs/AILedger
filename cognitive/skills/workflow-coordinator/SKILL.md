@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.8.7
+version: 1.8.9
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -34,7 +34,7 @@ If you find yourself making planning judgments inside this skill, stop. Move the
 workflow-coordinator
   0. Preflight  (kernel + current context manifest available?)
   1. Consume taskPath  (supplied by the kernel)
-  2. Invoke prompt-contract-designer   (triages recalled lessons from the manifest)
+  2. Route pre-Design recon/research; then invoke prompt-contract-designer (triages recalled lessons)
   3. Invoke task-orchestrator for planning; check its filed plan; permit the existing execution continuation
   4. Select ready declared associations; dispatch verifier then paired reviewer when code-bearing; retire resolved assignments
   5. Route and require the closeout synthesis
@@ -63,7 +63,50 @@ does not create, locate, move, or archive task directories.
 
 If the request is trivial, do not invoke this pipeline. Answer directly.
 
-### 2. Invoke prompt-contract-designer
+### 2. Route pre-Design recon, then invoke prompt-contract-designer
+
+Before initial forward Research-to-Design admission, route the Research-stage recon-only step to `task-orchestrator` through
+an authorized task-wide Operator, PlanningLead or ImplementationLead run with real cognition, no
+work item and no assurance binding. This step consumes the request, goal, constraints and claims
+before a PromptContract can be filed. The recon producer files its own structured `InternalRecon`
+using `artifact recon-template` and `artifact record --kind InternalRecon --body-stdin --run RUN`,
+then returns. Its launcher completes it before requesting Design; child runs never close themselves.
+Do not ask Workers or external Researchers to file recon, and do not file it on another actor's behalf.
+
+Consume the orchestrator's classifications without redoing them. If any assessment is external,
+route its required external research through `technical-researcher`: BOTH current eligible recon
+and completed real Researcher cognition are required, with no external claim still Open. After
+claim resolution or other claim-set changes, return to the recon producer for a fresh template,
+complete reassessment and explicit `--supersedes` revision from an active run; wait for that
+producer to complete too. All-internal recon requires no Researcher. A loose report, skipped map,
+older revision or provider-none run cannot satisfy the recon prerequisite. Keep the separate
+alternative-or-accepted-decision prerequisite. The kernel checks current binding and producer
+eligibility on forward Research-to-Design and again on forward Design-to-Scope; a refusal stops
+the operation.
+
+Once Design is admitted, continue contract authoring. If already in Design, consume the current
+recon and route any necessary refresh to its producer rather than repeating discovery.
+
+For downstream recovery, route the orchestrator through existing reasoned backward transitions.
+Backward Design entry permits replanning despite stale or missing recon; it does not authorize
+implementation. From Scope, retreat to Design with a nonblank reason, not directly to Research
+(the latter edge is illegal). For resolved internal changes or an empty claim set, route a fresh
+all-claim template and producer-owned recon revision in Design, then wait for its launcher to
+complete real cognition. Do not invent an Open claim or dispatch an unnecessary Researcher.
+Legacy tasks lacking recon file their first revision in Design; existing recon is explicitly
+superseded.
+
+Newly external Open claims require another reasoned retreat from Design to Research for real
+Researcher cognition and authorized resolution, followed by fresh all-claim recon and completed
+producer before strict forward Design admission. Resolved external assessments still missing
+Researcher cognition take the same route. Backward Research permits no-Open recovery; forward
+Discovery-to-Research still requires an Open claim. The orchestrator owns these judgments.
+
+Before forward Design-to-Scope, reconcile any claim changes from contract/plan authoring and route
+recon refresh as needed. That exit checks the full Design predicate again, including both arms
+when external, no Open external claim, current binding, successful real current producer and the
+alternative-or-accepted-decision prerequisite, plus the current PromptContract. Wait for the
+producer to complete and revise contract/plan as needed; backward entry cannot bypass this gate.
 
 Always run the designer for non-trivial work, even when a contract already exists — re-running is idempotent and may add claims or revise the contract.
 

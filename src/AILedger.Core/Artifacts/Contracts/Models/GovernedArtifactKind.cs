@@ -14,5 +14,6 @@ public enum GovernedArtifactKind
     WorkflowRetrospective,
     // Appended last so existing serialized enum names and values remain unchanged. This task-wide,
     // no-producer artifact preserves closeout findings and retention judgements in the event log.
-    CloseoutSynthesis
+    CloseoutSynthesis,
+    InternalRecon
 }

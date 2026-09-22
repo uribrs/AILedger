@@ -13,6 +13,11 @@ internal static class ArtifactDocumentRules
     {
         switch (kind)
         {
+            // R4 (historical-replay): only the new kind gains representation invariants.
+            case GovernedArtifactKind.InternalRecon:
+                InternalReconRules.EnsureFilingStage(state);
+                InternalReconRules.Validate(state, content);
+                break;
             case GovernedArtifactKind.VerifierOutput:
                 VerifierOutputRules.Validate(state, members ?? [workItemId!.Value], content);
                 break;

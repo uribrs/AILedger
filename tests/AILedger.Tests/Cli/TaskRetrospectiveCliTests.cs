@@ -1050,6 +1050,7 @@ public sealed class TaskRetrospectiveCliTests
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "research"], CancellationToken.None));
         exits.AddRange(await RunAPassAsync(application, common, "researcher", "R-research", null, null));
+        await InternalReconCliSetup.RecordAsync(application, common);
         exits.Add(await application.RunAsync(
             ["stage", "transition", .. common, "--stage", "design"], CancellationToken.None));
         exits.AddRange(await RecordExecutionArtifactsAsync(application, common));

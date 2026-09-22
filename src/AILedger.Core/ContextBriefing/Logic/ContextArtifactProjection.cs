@@ -94,6 +94,7 @@ internal static class ContextArtifactProjection
 
     private static ContextArtifactKind ToContextKind(GovernedArtifactKind kind) => kind switch
     {
+        GovernedArtifactKind.InternalRecon => ContextArtifactKind.InternalRecon,
         GovernedArtifactKind.UserRequest => ContextArtifactKind.UserRequest,
         GovernedArtifactKind.PromptContract => ContextArtifactKind.PromptContract,
         GovernedArtifactKind.OrchestrationPlan => ContextArtifactKind.OrchestrationPlan,

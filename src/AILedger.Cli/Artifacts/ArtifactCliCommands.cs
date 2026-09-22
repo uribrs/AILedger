@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using AILedger.Cli.Routing;
 using AILedger.Cli.Runs;
 using AILedger.Core.Contracts;
@@ -15,6 +16,9 @@ internal sealed class ArtifactCliCommands(
     public IEnumerable<CliCommandRegistration> Registrations()
     {
         yield return new CliCommandRegistration(
+            ["artifact recon-template"], CliCommandOptions.Set("root", "task"),
+            isReadOnly: true, ReconTemplateAsync);
+        yield return new CliCommandRegistration(
             ["artifact record"],
             CliCommandOptions.Set(
                 "root", "task", "actor", "id", "kind", "title", "body-stdin", "work", "also-work", "run",
@@ -27,6 +31,15 @@ internal sealed class ArtifactCliCommands(
         yield return new CliCommandRegistration(
             ["artifact list"], CliCommandOptions.Set("root", "task", "actor", "work", "also-work", "kind"),
             isReadOnly: true, ListAsync);
+    }
+
+    private async Task ReconTemplateAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)
+    {
+        var state = await CliCommandExecutor.RequireStateAsync(invocation, cancellationToken).ConfigureAwait(false);
+        // Templates retain null domains so authors can fill every assessment explicitly.
+        var template = JsonSerializer.Serialize(
+            InternalReconDocuments.CreateTemplate(state), new JsonSerializerOptions { WriteIndented = true });
+        await executor.WriteLineAsync(template).ConfigureAwait(false);
     }
 
     private async Task RecordAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)
