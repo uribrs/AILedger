@@ -152,6 +152,7 @@ internal static class GovernedExecutionBriefing
             .AppendLine("scope. Finishing your work item is not the same as the work being correct: the operator")
             .AppendLine("confirms that separately.");
 
+        AppendGovernedTestCommand(builder, request.WorkingDirectory);
         return builder.ToString();
     }
 
@@ -217,7 +218,29 @@ internal static class GovernedExecutionBriefing
             .AppendLine("Never issue run start, run complete or stage transition, or complete/block any covered work item.")
             .AppendLine("Do not change source or expand scope. Stop and report any manifest stop condition or missing required input.")
             .AppendLine("Raise a governed escalation only for a business decision (options and recommendation) or true unknown (evidence of the failed attempt).");
+        AppendGovernedTestCommand(builder, request.WorkingDirectory);
         return builder.ToString();
+    }
+
+    private static void AppendGovernedTestCommand(StringBuilder builder, string workingDirectory)
+    {
+        for (var directory = new DirectoryInfo(workingDirectory); directory is not null; directory = directory.Parent)
+        {
+            var script = Path.Combine(directory.FullName, "scripts", "test-governed.sh");
+            if (!File.Exists(Path.Combine(directory.FullName, "AILedger.sln")) || !File.Exists(script))
+                continue;
+
+            builder.AppendLine()
+                .AppendLine("This AILedger checkout supplies a reusable governed .NET test command:")
+                .AppendLine($"  sh {Quote(script)}")
+                .AppendLine("Use it for the suite: it builds outside the checkout and runs native xUnit without VSTest socket IPC.")
+                .AppendLine("It retains build/test logs in TMPDIR and returns nonzero for test failures or runner errors.")
+                .AppendLine("For a single suite, append its assembly name, then an optional test-name substring; see tools/GovernedTests/README.md.")
+                .AppendLine("Some integration tests need platform application-data write access; this command does not grant it.")
+                .AppendLine("Do not reconstruct a reflection test runner. If execution is denied, record the missing capability")
+                .AppendLine("and stop that operation; do not retry the denied action through a different command spelling.");
+            return;
+        }
     }
 
     private static string Quote(string value) => "'" + value.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
