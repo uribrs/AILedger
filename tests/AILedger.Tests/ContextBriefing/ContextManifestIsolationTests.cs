@@ -58,7 +58,11 @@ public sealed class ContextManifestIsolationTests
 
         Assert.Contains(manifest.Artifacts, artifact => artifact.Kind == ContextArtifactKind.Claim && artifact.Id == "C1");
         Assert.DoesNotContain(manifest.Artifacts, artifact => artifact.Kind == ContextArtifactKind.Claim && artifact.Id == "C2");
-        Assert.Equal(manifest.Artifacts.OrderBy(item => item.Kind).ThenBy(item => item.Id), manifest.Artifacts);
+        Assert.Equal(ContextArtifactKind.WorkItem, manifest.Artifacts[0].Kind);
+        Assert.Equal(ContextArtifactKind.Claim, manifest.Artifacts[1].Kind);
+        var repeated = new ContextAssembler().Build(task.State, actor, new WorkItemId("W1"),
+            available.AsEnumerable().Reverse().ToArray(), DateTimeOffset.UnixEpoch);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(manifest), System.Text.Json.JsonSerializer.Serialize(repeated));
         Assert.Equal(["scope-change"], manifest.StopConditions);
     }
 

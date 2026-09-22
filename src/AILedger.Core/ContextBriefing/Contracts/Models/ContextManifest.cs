@@ -13,4 +13,5 @@ public sealed record ContextManifest(
     DateTimeOffset AssembledAt,
     IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null,
     AssuranceBinding? Assurance = null,
-    IReadOnlyList<ReviewWorkItem>? ReviewWorkItems = null);
+    IReadOnlyList<ReviewWorkItem>? ReviewWorkItems = null,
+    ContextBudgetReport? Budget = null);

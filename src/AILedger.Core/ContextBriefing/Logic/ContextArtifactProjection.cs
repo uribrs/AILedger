@@ -17,14 +17,17 @@ internal static class ContextArtifactProjection
             new(ContextArtifactKind.TaskGoal, "task-stage", state.Stage.ToString(), [state.TaskId.Value])
         };
 
-        var claims = SelectClaims(state, workItem);
-        var claimIds = claims.Select(claim => claim.Id).ToHashSet();
         var decisions = state.Decisions.Values
-            .Where(decision => workItem is null || decision.DependsOnClaims.Any(claimIds.Contains))
+            .Where(decision => decision.Status is not (DecisionStatus.Superseded or DecisionStatus.Invalidated))
+            .Where(decision => workItem is null || decision.DependsOnClaims.Any(workItem.DependsOnClaims.Contains))
             .OrderBy(decision => decision.Id.Value, StringComparer.Ordinal)
             .ToArray();
+        var claims = SelectClaims(state, workItem, decisions);
+        var claimIds = claims.Select(claim => claim.Id).ToHashSet();
+        var evidenceIds = claims.SelectMany(claim => claim.EvidenceIds).ToHashSet();
         var evidence = state.Evidence.Values
-            .Where(item => workItem is null || item.Supports.Any(claimIds.Contains) || item.Refutes.Any(claimIds.Contains))
+            .Where(item => workItem is null || evidenceIds.Contains(item.Id) ||
+                item.Supports.Any(claimIds.Contains) || item.Refutes.Any(claimIds.Contains))
             .OrderBy(item => item.Id.Value, StringComparer.Ordinal)
             .ToArray();
 
@@ -129,25 +132,46 @@ internal static class ContextArtifactProjection
                 .OrderBy(id => id, StringComparer.Ordinal)
                 .ToArray());
 
-    private static IReadOnlyList<Claim> SelectClaims(GovernedTaskState state, WorkItem? workItem) =>
-        state.Claims.Values
-            .Where(claim => workItem is null || workItem.DependsOnClaims.Contains(claim.Id))
+    private static IReadOnlyList<Claim> SelectClaims(
+        GovernedTaskState state, WorkItem? workItem, IReadOnlyList<Decision> decisions)
+    {
+        var ids = (workItem is null
+                ? state.Claims.Values.Where(claim => claim.Status != ClaimStatus.Superseded).Select(claim => claim.Id)
+                : workItem.DependsOnClaims)
+            .Concat(decisions.SelectMany(decision => decision.DependsOnClaims)).ToHashSet();
+        // An explicitly referenced stale claim must remain visible, together with its replacement.
+        // A visited set also makes this safe when inspecting an old, cyclic supersession chain.
+        var pending = new Queue<ClaimId>(ids);
+        while (pending.TryDequeue(out var id))
+        {
+            if (state.Claims.TryGetValue(id, out var claim) &&
+                claim.SupersededByClaimId is { } replacement && ids.Add(replacement))
+                pending.Enqueue(replacement);
+        }
+
+        return state.Claims.Values.Where(claim => ids.Contains(claim.Id))
             .OrderBy(claim => claim.Id.Value, StringComparer.Ordinal)
             .ToArray();
+    }
 
     private static ContextArtifact ToArtifact(Claim claim) =>
         new(
             ContextArtifactKind.Claim,
             claim.Id.Value,
-            $"{claim.Status}: {claim.Statement}",
-            claim.EvidenceIds.Select(id => id.Value).OrderBy(id => id, StringComparer.Ordinal).ToArray());
+            $"{claim.Status}: {claim.Statement}" +
+            (claim.SupersededByClaimId is { } replacement ? $"{Environment.NewLine}Replaced by: {replacement}" : string.Empty),
+            claim.EvidenceIds.Select(id => id.Value)
+                .Concat(claim.FromLesson is { } lesson ? [lesson.Value] : Array.Empty<string>())
+                .OrderBy(id => id, StringComparer.Ordinal).ToArray());
 
     private static ContextArtifact ToArtifact(Decision decision) =>
         new(
             ContextArtifactKind.Decision,
             decision.Id.Value,
             $"{decision.Status}: {decision.Statement}{Environment.NewLine}Rationale: {decision.Rationale}",
-            decision.DependsOnClaims.Select(id => id.Value).OrderBy(id => id, StringComparer.Ordinal).ToArray());
+            decision.DependsOnClaims.Select(id => id.Value)
+                .Concat(decision.FromLesson is { } lesson ? [lesson.Value] : Array.Empty<string>())
+                .OrderBy(id => id, StringComparer.Ordinal).ToArray());
 
     private static ContextArtifact ToArtifact(Evidence evidence) =>
         new(

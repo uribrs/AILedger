@@ -1,5 +1,57 @@
 the manifest is filtered by role and nothing else, and every turn pays for it
 
+## investigation and implementation, 2026-09-22
+
+The original diagnosis below overstated the missing filter. Before this change, a `--work` brief
+already selected that item's claims, decisions, evidence and applicable artifacts. The additional
+`IsRelevant` check was redundant: its set contained every projected artifact's own id.
+
+Scoped briefs now place selected work and its dependency records first. Decisions selected for that
+work bring their other prerequisite claims, and claims bring evidence referenced directly as well as
+directionally. Superseded claims and superseded/invalidated decisions are omitted by default. A stale
+claim explicitly referenced by selected work or a current decision remains visible with its replacement;
+rejected claims remain because they record an approach that failed. Role and bound-review isolation
+are unchanged.
+
+`context build`, `provider launch` and `provider resume` enforce a default **262,144-byte** serialized
+UTF-8 JSON limit, configurable with `--max-context-bytes`. The CLI includes its newline in the bound.
+Background lessons and lesson marks may be omitted as whole records, with a bounded count and retrieval
+notice in the manifest. Rules, skills, task records and lessons referenced by claims/decisions are never
+truncated. If those required inputs do not fit, delivery fails with a measured size and instructions
+to narrow the work brief or explicitly raise the limit. Provider execution does not start with that
+oversized brief. The pure core assembler remains a projection; the delivery boundary enforces the limit.
+
+### measured comparison, not a turn-count claim
+
+A read-only comparison used the pre-change binaries from commit `54330e4` and the new binaries against
+the same saved task state and cognitive files. The saved task had grown to 159 claims, 185 evidence
+records and 15 decisions, so these are not reconstructed launch-time manifests. Assembly time was fixed
+to the Unix epoch in both measurements; sizes include one newline.
+
+| brief | before, bytes | after, bytes |
+|---|---:|---:|
+| worker, whole task | 261,384 | 257,947 |
+| worker, W1 | 71,625 | 71,698 |
+| worker, W2 | 74,023 | 74,096 |
+| verifier, W1 | 147,783 | 147,856 |
+| verifier, whole task | 337,542 | refused: required inputs alone exceed 262,144 |
+
+The scoped briefs grow by 73 bytes of explicit budget metadata. This **does not demonstrate a
+reduction in turns or provider spend** on that task. It demonstrates that its work scoping already
+worked, that obsolete whole-task records can be removed, and that oversized initial manifests now
+have a delivery guard. This limit does not cover provider conversation history, resumed sessions,
+tool outputs, or total billed tokens. The separately implemented governed-test runner addresses the
+permission/retry loops seen in the expensive runs.
+
+Regression coverage is in `ContextDependencyTests`, `ContextManifestBudgetTests` and
+`ContextBudgetDeliveryTests`: dependency selection, stale-record handling, exact byte boundaries,
+escaped Unicode, whole-record omissions, protected records, and context/provider delivery failures.
+The provider tests use an in-process adapter; they incur no provider charges.
+Validation: 54 context tests passed through `dotnet test`; the full `scripts/test-governed.sh` run
+passed 1,328 main tests and 97 memory tests with zero failures, skips or runner errors.
+
+## original backlog diagnosis
+
 `context build` serves an actor the rules artifact, the skills for its role, the task goal, every
 active constraint, every claim, every piece of evidence, every decision, every rejected alternative,
 the artifact bodies and the stop conditions. The only filter is the subject's **role** — a reviewer

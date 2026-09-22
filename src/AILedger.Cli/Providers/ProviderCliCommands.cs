@@ -20,7 +20,7 @@ internal static class ProviderCliCommands
         CliCommandOptions.Set(
             "root", "task", "actor", "subject", "run", "work", "provider", "session", "executable",
             "also-work", "candidate", "verifier-run", "working-directory", "model", "timeout-seconds", "add-dir", "cognitive-root", "output-schema",
-            "without-brief", "with-stale-brief", "coordinator-session", "cause", "correlation"),
+            "without-brief", "with-stale-brief", "coordinator-session", "cause", "correlation", "max-context-bytes"),
         isReadOnly: false,
         (invocation, cancellationToken) => launcher.LaunchAsync(
             invocation.Service, invocation.Input, mode, invocation.LedgerRoot, cancellationToken));

@@ -8,24 +8,6 @@ namespace AILedger.Core.Application;
 // Public namespace is preserved for source compatibility; physical ownership belongs to Context Briefing.
 public sealed class ContextAssembler : IContextAssembler
 {
-    private static readonly IReadOnlySet<ContextArtifactKind> AlwaysIncludedKinds =
-        new HashSet<ContextArtifactKind>
-        {
-            ContextArtifactKind.Rules,
-            ContextArtifactKind.Skill,
-            ContextArtifactKind.TaskGoal,
-            ContextArtifactKind.Constraint,
-            ContextArtifactKind.StopCondition,
-            // Discarded approaches, open escalations, lessons, and marks govern the whole task.
-            ContextArtifactKind.Escalation,
-            ContextArtifactKind.Alternative,
-            ContextArtifactKind.Lesson,
-            ContextArtifactKind.LessonMark,
-            ContextArtifactKind.UserRequest,
-            ContextArtifactKind.PromptContract,
-            ContextArtifactKind.OrchestrationPlan
-        };
-
     // The five governed workflow kinds come from replayed state. The cognitive root is the only
     // input without an event behind it and legitimately arrives from outside.
     private static readonly IReadOnlySet<ContextArtifactKind> CallerSuppliedKinds =
@@ -90,7 +72,7 @@ public sealed class ContextAssembler : IContextAssembler
         IReadOnlyList<WorkItemId>? coveredWorkItemIds,
         AssuranceBinding? assurance)
     {
-        var workItem = GetWorkItem(state, workItemId);
+        GetWorkItem(state, workItemId);
         var members = WorkCoverage.Normalize(workItemId, coveredWorkItemIds ?? assurance?.WorkItemIds);
         if (assurance is not null && !members.SequenceEqual(AssuranceRules.ValidateShape(workItemId, assurance)))
             throw new GovernanceException("Assurance coverage: context selection must equal assurance membership.");
@@ -99,9 +81,6 @@ public sealed class ContextAssembler : IContextAssembler
         var stateArtifacts = isolatedReviewer ? Array.Empty<ContextArtifact>() :
             selected.Length == 0 ? ContextArtifactProjection.Build(state, null).ToArray() :
             selected.SelectMany(item => ContextArtifactProjection.Build(state, item)).ToArray();
-        var relevantIds = stateArtifacts
-            .SelectMany(artifact => artifact.RelatedIds.Append(artifact.Id))
-            .ToHashSet(StringComparer.Ordinal);
         var lessonAudiences = state.Lessons.Values
             .Where(lesson => lesson.Audience is { Count: > 0 })
             .ToDictionary(lesson => lesson.Id.Value, lesson => lesson.Audience!, StringComparer.Ordinal);
@@ -109,8 +88,8 @@ public sealed class ContextAssembler : IContextAssembler
         var artifacts = stateArtifacts
             .Concat(availableArtifacts.Where(artifact => CallerSuppliedKinds.Contains(artifact.Kind)))
             .Where(artifact => ContextRolePolicy.IsAllowed(assignment.Role, artifact, lessonAudiences))
-            .Where(artifact => IsRelevant(artifact, workItem, relevantIds))
-            .OrderBy(artifact => artifact.Kind)
+            .OrderBy(artifact => members.Count > 0 ? DependencyRank(artifact.Kind) : 0)
+            .ThenBy(artifact => artifact.Kind)
             .ThenBy(artifact => ContextRolePolicy.SkillRank(assignment.Role, artifact))
             .ThenBy(artifact => artifact.Id, StringComparer.Ordinal)
             .ThenBy(artifact => artifact.Content, StringComparer.Ordinal)
@@ -180,16 +159,13 @@ public sealed class ContextAssembler : IContextAssembler
         return workItem;
     }
 
-    private static bool IsRelevant(
-        ContextArtifact artifact,
-        WorkItem? workItem,
-        IReadOnlySet<string> relevantIds)
+    // Projection has already selected the dependency records. Put that brief before the task-wide tail.
+    private static int DependencyRank(ContextArtifactKind kind) => kind switch
     {
-        if (AlwaysIncludedKinds.Contains(artifact.Kind) || workItem is null)
-        {
-            return true;
-        }
-
-        return relevantIds.Contains(artifact.Id) || artifact.RelatedIds.Any(relevantIds.Contains);
-    }
+        ContextArtifactKind.WorkItem => 0,
+        ContextArtifactKind.Claim => 1,
+        ContextArtifactKind.Decision => 2,
+        ContextArtifactKind.Evidence => 3,
+        _ => 4
+    };
 }

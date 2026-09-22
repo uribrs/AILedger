@@ -59,6 +59,7 @@ internal static class CliHelpText
                            Intent and per-file receipts make interruption resumable and repetition idempotent.
         actor attach       --task ID --actor OPERATOR --target ID --role ROLE [--capability CAP]
         context build      --task ID --actor ID [--work ID [--also-work ID ...]] [--cognitive-root PATH] [--output FILE]
+                           [--max-context-bytes N] (default 262144 UTF-8 bytes)
                            Serves the actor its brief, then records a context.built event naming the
                            skills it carried and their content digests. A repeat build of the same
                            skill set for the same actor appends nothing and leaves the version where
@@ -140,6 +141,12 @@ internal static class CliHelpText
                           --without-brief REASON --with-stale-brief EVIDENCE-ID
                           --coordinator-session ID --cause EVENT-ID
                           --also-work ID (repeatable) --candidate SHA256 --verifier-run ID
+                          --max-context-bytes N (default 262144; required context must fit)
+
+        Context prioritizes selected work and its dependencies, omits obsolete claims/decisions unless
+        still required, and preserves role isolation. The byte budget may omit background lessons/marks;
+        the manifest reports omissions. Required records, instructions and referenced lessons are never
+        truncated. Narrow --work or explicitly raise the limit when required context alone is too large.
 
         Assurance selection uses --work A --also-work B --candidate SHA256. Every member is explicit;
         duplicates and --also-work without --work are refused. Repeated --work retains last-value
