@@ -32,6 +32,35 @@ and deletes it at run end, copying credentials in rather than exposing the opera
 Without them: `provider launch` refuses, and no work item can be completed, because completion
 requires a working run and a verifier run.
 
+## Optional C# navigation for governed Codex runs
+
+### Roslyn CodeLens MCP 2.18.1 and .NET 10
+
+Install with `sh scripts/install-roslyn.sh`. The pinned tool lives in
+`~/.ailedger/tools/roslyn/2.18.1`; .NET 10 must be installed separately. This requirement
+is additional to the kernel's .NET 8 target. NuGet access is needed for installation,
+and the analyzed solution's package dependencies must be restored for reliable results.
+
+The Codex adapter supplies an explicit nine-tool navigation allowlist in its temporary
+configuration. It does not rely on an interactive MCP registration. Claude currently
+retains CLI navigation; wiring Roslyn into that adapter remains unimplemented.
+
+Without Roslyn, for unsupported solution layouts, or for non-C# work: agents retain CLI
+search and file reads. Roslyn is not required to run the kernel or complete a task.
+CLI navigation uses available shell tools such as `rg`; Git is also needed for the
+repository workflow, and the Codex adapter requires a git checkout.
+
+See [Roslyn navigation](../docs/roslyn-navigation.md) for supported layouts, overrides,
+refresh requirements, timeouts and limitations. This optional integration has been tested;
+token savings have not been established. Graphify and Serena trials are not production
+dependencies and are not wired into provider launches.
+
+## Package dependencies
+
+NuGet package versions are declared in the individual `.csproj` files under `src/`,
+`tests/` and `tools/GovernedTests/`; `dotnet restore` resolves their transitive dependencies.
+The external tools listed here supplement those package declarations.
+
 ## Required only for semantic memory (not yet activated)
 
 The index at `src/AILedger.Memory` is dormant. Nothing in the kernel reads it, and a machine without
@@ -77,9 +106,9 @@ Workarounds, in order of preference:
 
 Diagnosed and fixed by codex; the record is `2026-09-09_1944-ollama-digest-mismatch`.
 
-## Not a dependency, deliberately
+## Repository indexing boundary
 
-**Repository content is not indexed.** Ledger records are append-only, so an index over them cannot
-go stale, and no existing tool searches them semantically. Repository content is mutable, so an
-index over it is stale between every commit, and `grep` already answers it exactly and for free.
-Recorded on task `2026-09-09_2118-memory-index-activation`.
+The kernel does not require a persistent repository-content index. Optional Roslyn navigation
+loads a solution for the provider session; its workspace must be refreshed after edits or
+checkout changes. This supplements CLI navigation and is separate from the optional ledger
+semantic-memory service described above.

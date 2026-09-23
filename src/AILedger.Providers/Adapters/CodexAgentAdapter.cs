@@ -37,7 +37,8 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
 
     // Codex discovers skills and AGENTS.md under CODEX_HOME. The operator's own home carries a
     // full interactive install — including its own copies of the pipeline skills — so a governed
-    // run gets a purpose-built home holding only authentication and the model choice. Ledger
+    // run gets a purpose-built home holding authentication, the model choice and optional
+    // explicitly configured Roslyn navigation. Ledger
     // serves the role's skills through the manifest; the ambient copies would be a second source
     // of the same rules, diverging the moment either is edited.
     protected override ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request)
@@ -59,7 +60,8 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
         File.CreateSymbolicLink(Path.Combine(governedHome, "auth.json"), credentials);
         var configuration = request.Model is null
             ? string.Empty
-            : $"model = \"{request.Model}\"{Environment.NewLine}";
+            : $"model = {RoslynNavigation.Quote(request.Model)}{Environment.NewLine}";
+        configuration += RoslynNavigation.Configuration(request);
         File.WriteAllText(Path.Combine(governedHome, "config.toml"), configuration);
 
         return new ProviderLaunchScope(
@@ -98,7 +100,8 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
 
     // Codex takes its prompt from stdin, so the briefing leads and the manifest follows it.
     protected override string ComposeStandardInput(AgentLaunchRequest request) =>
-        GovernedExecutionBriefing.For(request, request.LedgerRoot) + Environment.NewLine + request.StandardInput;
+        GovernedExecutionBriefing.For(request, request.LedgerRoot) + Environment.NewLine +
+        RoslynNavigation.Guidance + Environment.NewLine + request.StandardInput;
 
     protected override ProviderEvent ParseEvent(long sequence, string json) => ProviderProtocol.ParseCodex(sequence, json);
 

@@ -14,6 +14,10 @@ Requirements:
 - For live provider runs, an installed and authenticated `codex` or `claude` CLI with the capabilities described in [Provider operation](docs/operator-guide.md#provider-operation)
 - Nothing else. The kernel is one dotnet global tool and depends on no external service.
 
+Optional C# navigation for governed Codex runs uses Roslyn CodeLens MCP 2.18.1 and .NET 10.
+See [setup and fallback behavior](docs/roslyn-navigation.md); other-language navigation and
+Claude currently use CLI tools.
+
 The semantic memory index at `src/AILedger.Memory` is **dormant and optional**. Activating it would
 add a local Ollama service and a 669 MB embedding model, and `ollama pull` currently fails on this
 network for a reason worth knowing before you try. Every dependency, what stops working without it,
