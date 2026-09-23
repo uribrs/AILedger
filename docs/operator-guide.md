@@ -338,4 +338,4 @@ Discovery → Research → Design → Scope → Ready → Execution → Verifica
                                       Learn ↔ review
 ```
 
-Use `stage transition`; transitions outside the implemented graph fail. Entering `Execution` requires at least one work item. Entering `Archive` requires no active/pending run, no open challenge, and at least one lesson-bearing source. Archive mints lessons but remains a lifecycle state, not cold storage or deletion.
+Use `stage transition`; transitions outside the implemented graph fail. Entering `Execution` requires at least one work item. Entering `Archive` requires no active/pending run, no open challenge, and at least one lesson-bearing source. Archive mints lessons but remains a lifecycle state, not cold storage or deletion. This summary is partial: [coordinator-operating-manual.md](coordinator-operating-manual.md#stage-graph-and-arms) states every stage arm, action gate and supported recovery, checked against kernel source.
