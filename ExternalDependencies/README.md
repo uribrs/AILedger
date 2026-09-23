@@ -23,16 +23,16 @@ Without it: nothing builds and nothing installs.
 `provider launch` runs one of them inside a governed run. A verifier must come from a different
 provider than the work it verifies, so in practice both are needed rather than either.
 
-    codex     /Users/user/.local/bin/codex, codex-cli 0.151.0-alpha.7.2
-    claude    Claude Code 2.1.266
+    codex     /Users/user/.local/bin/codex, codex-cli 0.155.0-alpha.9.2
+    claude    Claude Code 2.1.280
 
 Codex authentication is read from `CODEX_HOME`; the launcher builds a temporary `CODEX_HOME` per run
-and deletes it at run end, copying credentials in rather than exposing the operator's own home.
+and deletes it at run end, linking authentication without exposing the operator's full configuration.
 
 Without them: `provider launch` refuses, and no work item can be completed, because completion
 requires a working run and a verifier run.
 
-## Optional C# navigation for governed Codex runs
+## Guarded C# navigation for governed Codex and Claude runs
 
 ### Roslyn CodeLens MCP 2.18.1 and .NET 10
 
@@ -41,18 +41,23 @@ Install with `sh scripts/install-roslyn.sh`. The pinned tool lives in
 is additional to the kernel's .NET 8 target. NuGet access is needed for installation,
 and the analyzed solution's package dependencies must be restored for reliable results.
 
-The Codex adapter supplies an explicit eleven-tool navigation allowlist in its temporary
-configuration. Its stdio bridge starts Roslyn empty and checks on-demand solution selections
-against the launch's directory grants. It does not rely on an interactive MCP registration. Claude currently
-retains CLI navigation; wiring Roslyn into that adapter remains unimplemented.
+Both adapters supply an explicit eleven-tool navigation allowlist in temporary configuration.
+The stdio bridge starts Roslyn empty and checks on-demand solution selections against navigation
+directories. Scoped workers can load their repository's solution without receiving broader
+provider write grants. No interactive MCP registration is needed. Both providers also receive
+a PreToolUse hook blocking covered C# shell/Grep searches without a recorded Roslyn failure.
+Codex's app-server hook metadata API must support scoped trust; unsupported versions fail
+preflight. Hooks were execution-tested on the CLI versions listed above using local mock APIs.
 
-Without Roslyn, for unsupported solution layouts, or for non-C# work: agents retain CLI
-search and file reads. Roslyn is not required to run the kernel or complete a task.
-CLI navigation uses available shell tools such as `rg`; Git is also needed for the
-repository workflow, and the Codex adapter requires a git checkout.
+Non-C# searches and targeted source reads retain CLI access. C# content searches require Roslyn;
+an observed bridge failure permits one scoped CLI fallback for ten minutes. Missing Roslyn is
+a dependency failure, not an unrestricted opt-out. Unsupported standalone-project layouts need
+a solution for semantic navigation. The kernel's non-navigation commands do not require Roslyn.
+CLI navigation uses shell tools such as `rg`; Git is needed for the repository workflow,
+and the Codex adapter requires a git checkout.
 
 See [Roslyn navigation](../docs/roslyn-navigation.md) for supported layouts, overrides,
-refresh requirements, timeouts and limitations. This optional integration has been tested;
+refresh requirements, hook coverage limits, timeouts and fallback rules. This integration has been tested;
 token savings have not been established. Graphify and Serena trials are not production
 dependencies and are not wired into provider launches.
 

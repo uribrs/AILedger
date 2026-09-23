@@ -14,7 +14,7 @@ Requirements:
 - For live provider runs, an installed and authenticated `codex` or `claude` CLI with the capabilities described in [Provider operation](docs/operator-guide.md#provider-operation)
 - Nothing else. The kernel is one dotnet global tool and depends on no external service.
 
-Optional C# navigation for governed Codex runs uses Roslyn CodeLens MCP 2.18.1 and .NET 10.
+Guarded C# navigation for governed Codex and Claude runs uses Roslyn CodeLens MCP 2.18.1 and .NET 10.
 See [setup and fallback behavior](docs/roslyn-navigation.md); other-language navigation and
 Claude currently use CLI tools.
 

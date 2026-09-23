@@ -3,8 +3,18 @@ using AILedger.Core.Contracts;
 
 namespace AILedger.Providers.Adapters;
 
-public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapterBase(processRunner)
+public sealed class CodexAgentAdapter : AgentAdapterBase
 {
+    private readonly Func<string, string, string, string, CancellationToken, Task> trustHook;
+
+    public CodexAgentAdapter(IProcessRunner processRunner) : this(processRunner, CodexHookTrust.TrustAsync) { }
+
+    internal CodexAgentAdapter(IProcessRunner processRunner,
+        Func<string, string, string, string, CancellationToken, Task> trustHook) : base(processRunner)
+    {
+        this.trustHook = trustHook;
+    }
+
     public override string Provider => "codex";
 
     protected override IReadOnlyList<CapabilityProbe> CapabilityProbes =>
@@ -41,7 +51,8 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
     // explicitly configured Roslyn navigation. Ledger
     // serves the role's skills through the manifest; the ambient copies would be a second source
     // of the same rules, diverging the moment either is edited.
-    protected override ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request)
+    protected override async Task<ProviderLaunchScope> OpenLaunchScopeAsync(AgentLaunchRequest request,
+        CancellationToken cancellationToken)
     {
         var operatorHome = Environment.GetEnvironmentVariable("CODEX_HOME")
                            ?? Path.Combine(
@@ -55,19 +66,61 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
 
         var governedHome = Directory.CreateDirectory(
             Path.Combine(Path.GetTempPath(), $"ailedger-codex-{request.RunId.Value}-{Guid.NewGuid():N}")).FullName;
-        // Linked, not copied: a governed run should not put a second copy of the operator's
-        // credentials on disk for its duration.
-        File.CreateSymbolicLink(Path.Combine(governedHome, "auth.json"), credentials);
-        var configuration = request.Model is null
-            ? string.Empty
-            : $"model = {RoslynNavigation.Quote(request.Model)}{Environment.NewLine}";
-        configuration += RoslynNavigation.Configuration(request, governedHome);
-        File.WriteAllText(Path.Combine(governedHome, "config.toml"), configuration);
+        try
+        {
+            // Linked, not copied: a governed run should not put a second copy of the operator's
+            // credentials on disk for its duration.
+            File.CreateSymbolicLink(Path.Combine(governedHome, "auth.json"), credentials);
+            var configuration = request.Model is null
+                ? string.Empty
+                : $"model = {RoslynNavigation.Quote(request.Model)}{Environment.NewLine}";
+            var settings = RoslynNavigation.CreateSettingsFile(request, governedHome);
+            string? guardCommand = null;
+            if (settings is not null)
+            {
+                configuration += RoslynNavigation.Configuration(request.NavigationHostAssembly!, settings, governedHome);
+                guardCommand = RoslynNavigation.GuardCommand(request.NavigationHostAssembly!, settings);
+                File.WriteAllText(Path.Combine(governedHome, "hooks.json"),
+                    JsonSerializer.Serialize(new { hooks = RoslynNavigation.Hooks(guardCommand) }));
+                configuration += "\n[features]\nhooks = true\nplugins = false\n";
+                foreach (var root in ProjectRoots(request))
+                {
+                    configuration += $"\n[projects.{RoslynNavigation.Quote(root)}]\ntrust_level = \"untrusted\"\n";
+                }
+            }
 
-        return new ProviderLaunchScope(
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["CODEX_HOME"] = governedHome },
-            governedHome);
+            File.WriteAllText(Path.Combine(governedHome, "config.toml"), configuration);
+            if (guardCommand is not null)
+            {
+                await trustHook(request.ExecutablePath, governedHome, request.WorkingDirectory, guardCommand,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            return new ProviderLaunchScope(
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["CODEX_HOME"] = governedHome },
+                governedHome);
+        }
+        catch
+        {
+            Directory.Delete(governedHome, recursive: true);
+            throw;
+        }
     }
+
+    private static IEnumerable<string> ProjectRoots(AgentLaunchRequest request) =>
+        request.AdditionalDirectories.Prepend(request.WorkingDirectory).Concat(request.NavigationDirectories ?? [])
+            .Select(directory =>
+            {
+                for (var current = new DirectoryInfo(directory); current is not null; current = current.Parent)
+                {
+                    if (Directory.Exists(Path.Combine(current.FullName, ".git")) || File.Exists(Path.Combine(current.FullName, ".git")))
+                    {
+                        return Navigation.RoslynSolutionPaths.Canonicalize(current.FullName);
+                    }
+                }
+
+                return Navigation.RoslynSolutionPaths.Canonicalize(directory);
+            }).Distinct(StringComparer.Ordinal);
 
     protected override IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId)
     {

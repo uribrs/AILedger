@@ -19,7 +19,7 @@ public sealed class RoslynNavigationSessionTests
         Assert.False(IsError(await session.HandleAsync(Call("load_solution", "path", first), default)));
         Assert.False(IsError(await session.HandleAsync(Call("load_solution", "path", second), default)));
         Assert.False(IsError(await session.HandleAsync(Call("set_active_solution", "name", first), default)));
-        Assert.False(IsError(await session.HandleAsync(Call("find_callers", "symbolName", "Engine.Compute"), default)));
+        Assert.False(IsError(await session.HandleAsync(Call("find_callers", "symbol", "Engine.Compute"), default)));
         Assert.Equal(4, fixture.Forwarded.Count);
         Assert.EndsWith("Same" + extension,
             fixture.Forwarded[2]["params"]!["arguments"]!["name"]!.GetValue<string>(), StringComparison.Ordinal);
@@ -156,7 +156,8 @@ public sealed class RoslynNavigationSessionTests
         ["params"] = new JsonObject
         {
             ["name"] = tool,
-            ["arguments"] = field is null ? new JsonObject() : new JsonObject { [field] = value }
+            ["arguments"] = field is not null ? new JsonObject { [field] = value }
+                : tool == "search_symbols" ? new JsonObject { ["query"] = "Engine" } : new JsonObject()
         }
     };
 

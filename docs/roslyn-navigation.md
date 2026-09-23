@@ -1,54 +1,82 @@
-# Optional C# navigation
+# Guarded C# navigation
 
 Run `sh scripts/install-roslyn.sh` to install Roslyn CodeLens MCP **2.18.1** into
 `~/.ailedger/tools/roslyn/2.18.1`. The tool requires .NET 10. Run `sh scripts/install.sh`
 after building adapter changes so the installed AILedger uses them. Wait for active provider
 runs to finish before replacing the installed tool.
 
-Governed **Codex** launches add eleven navigation tools to their isolated configuration when
-the executable exists. A small AILedger stdio bridge starts Roslyn with no solution loaded.
-The agent identifies the target repository and language with a narrow CLI search, then calls
-`load_solution` with the absolute `.sln` or `.slnx` path for C# work. It can load multiple
-solutions and return to one using `set_active_solution` with the exact absolute path in
-its `name` argument. Confirm the active path, loaded projects and skipped projects with
-`list_solutions`. The launch working directory no longer chooses a solution.
+Governed **Codex and Claude** launches receive eleven navigation tools through an AILedger
+stdio bridge. Roslyn starts with no solution loaded. Discover solution filenames, then call
+`load_solution` with the absolute `.sln` or `.slnx` path for the target repository. Load multiple
+solutions and return to one using `set_active_solution` with its exact absolute path in
+`name`. Confirm the active solution and skipped projects with `list_solutions`. The launch
+working directory does not choose a solution. After edits or a checkout change, call
+`rebuild_solution`. `find_callers` takes `Type.Method`, not an overload signature.
 
-Task-wide research runs can launch from the ledger's repository and use explicit `--add-dir`
-grants for other repositories; no work item is needed just to select a C# solution. The bridge
-accepts solutions inside the launch working directory or its additional directory grants,
-excluding the authoritative ledger storage directory itself. It resolves directory and file
-symlinks before checking containment. Loading waits for completion; after any failed selection,
-semantic calls are blocked until a successful load or selection, preventing accidental queries
-against the preceding repository.
+## Scoped runs and permissions
 
-No workspace scan, indexing or download happens until a solution is selected. Standalone
-project files, missing installs and non-C# work retain CLI navigation. Claude currently retains
-its CLI navigation: this bridge is wired into the Codex provider, not interactive MCP settings.
+For a work item scoped below a repository root, the launcher supplies that root as separate
+navigation metadata. A worker in `integrations/axonius` can load its repository's solution
+without gaining a provider write grant to the whole repository. The working directory and
+`--add-dir` grants remain unchanged. Task-wide runs use the working directory and explicit
+additional-directory grants; they do not inherit unrelated parent repositories.
 
-`AILEDGER_ROSLYN_EXECUTABLE` can select an absolute executable path. Set it to an empty
-string to disable Roslyn. A value in the launch request's environment takes precedence over
-the operator process environment. An override is operator-trusted executable configuration;
-the default installation is pinned, while override versions are the operator's responsibility.
+The bridge canonicalizes paths and symlinks, excludes ledger storage, and rejects selections
+outside its navigation directories. A failed selection clears the active solution, preventing
+accidental queries against the preceding repository. Only loading/selection/listing, symbol
+search, definitions/references/callers, overloads, member source, test discovery and rebuild
+are exposed. Refactoring, code execution tools and analyzer trust are excluded, including
+direct calls to unlisted tools. These tools are preapproved; other approvals are unchanged.
 
-Only solution loading/selection/listing, symbol search/definitions/references/callers, overloads,
-member source, test discovery and workspace rebuild are exposed. Refactoring, code execution
-through tool actions, analyzer trust and the other upstream tools are not enabled. The bridge
-rejects direct calls to tools outside the allowlist as well as filtering tool discovery.
-The allowlisted tools are preapproved for noninteractive use; other tool approvals are unchanged.
-Existing sandbox and reviewer isolation controls remain in place. Roslyn loads the selected
-solution through MSBuild; use trusted repositories, just as for a local build. The directory
-check bounds solution selection; it is not a filesystem sandbox for transitive project/package
-reads or MSBuild imports. Per-launch bridge settings are trusted launch configuration.
+Roslyn evaluates MSBuild outside the provider sandbox. Navigation directories bound solution
+selection, **not** transitive project/package reads or MSBuild side effects. Use trusted
+repositories. This is not an enforced read-only filesystem capability. Existing provider
+sandbox and reviewer memory/narrative isolation settings remain in place.
 
-Agents receive concise guidance to prefer Roslyn for targeted C# questions, refresh after
-edits or checkout changes, and use CLI search for other languages or failed/suspect queries.
-Check for skipped projects; empty references do not prove absence. `find_callers` expects
-`Type.Method`, not an overload signature. Transitive test discovery is optional and can be
-expensive. A startup failure is non-fatal, with a 30-second timeout; CLI navigation remains
-available. Tool calls have a 60-second timeout; the bridge stops a stalled backend after
-55 seconds and terminates its child process when the connection closes.
+## Executable guardrails
 
-This does not change kernel stages, certify discovery completeness, configure interactive
-Codex sessions, or establish token savings. It allows semantic queries to replace repeated
-file searches. The allowlist uses Codex's supported
-[MCP configuration](https://developers.openai.com/codex/mcp).
+Both adapters install a `PreToolUse` command hook invoking `ailedger navigation guard` through
+the current host assembly. Covered C# content searches in native `Grep`, `rg`, `grep` and
+`git grep` are denied before execution. This includes broad searches over mixed repositories
+and content searches that only print matching filenames (`rg -l`, `grep -l`). Use Roslyn's
+semantic query tools for C# definitions, symbols, references and callers.
+
+File-name discovery (`rg --files`, `find ... -name`), targeted source reads, builds/tests/Git
+and explicit non-C# filters such as `rg -g '*.yaml' ...` remain available. Broad searches
+must narrow their file filters if they are intended only for non-C# content. The classifier
+conservatively treats unknown directory coverage as potentially C#.
+
+A failed authorized Roslyn load or query records a receipt through the bridge. One receipt
+permits **one simple CLI search within that solution directory for ten minutes**. Compound
+commands and ambiguous targets cannot consume it. Receipts are claimed atomically, cannot
+authorize another repository, and are revoked by another valid query/load attempt in the same
+solution directory. A successful call, empty result, invalid arguments, or rejected path does
+not earn a receipt. The bridge adds the recorded failure identifier to its error response.
+Missing/broken Roslyn startup records a fallback for the launch's source directories; restore
+the dependency before continuing semantic work. A self-declared failure does not unlock a search.
+
+`AILEDGER_ROSLYN_EXECUTABLE` overrides the executable with an absolute path; the launch request
+takes precedence over the parent environment. Empty/missing/relative overrides are unavailable
+dependencies, not switches that disable the guard. Hook/configuration errors deny the call
+or fail launch rather than intentionally downgrade to prose. Per-launch settings and receipts
+are temporary workflow state and are removed at run cleanup.
+
+Codex uses an isolated home and queries its app-server hook metadata before launch. AILedger
+trusts only the exact generated command/hash and rejects unexpected hooks. Repository hooks
+are excluded with untrusted project configuration; plugins are disabled. No global hook-trust
+bypass is used. Claude merges the hook into its explicit launch settings and retains its strict
+MCP allowlist. Both providers need compatible hook support. Validated versions are Codex CLI
+`0.155.0-alpha.9.2` and Claude Code `2.1.280`; unsupported Codex hook metadata fails preflight.
+
+Hooks are workflow guardrails, **not a tamperproof shell sandbox**. Arbitrary programs can hide
+searches; Codex does not invoke `PreToolUse` again for interactive `write_stdin`; provider-managed
+policy can affect hook execution. Agents must not bypass the guard through scripts or interactive
+sessions. A hook cannot establish discovery completeness or prove token savings. See the provider
+contracts: [Codex hooks](https://learn.chatgpt.com/docs/hooks) and
+[Claude hooks](https://code.claude.com/docs/en/hooks).
+
+Startup allows 30 seconds; tool calls allow 60 seconds. The bridge stops waiting on a stalled
+backend after 55 seconds and kills its child on connection close. No indexing or download occurs
+until a solution is selected. Standalone projects without a solution need a solution before
+semantic navigation. This change affects governed launches, not existing interactive sessions,
+and does not change kernel stages or reconfigure runs already in progress.

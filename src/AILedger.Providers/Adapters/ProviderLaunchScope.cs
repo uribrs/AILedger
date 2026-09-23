@@ -11,13 +11,16 @@ public sealed class ProviderLaunchScope : IDisposable
 
     private readonly string? _temporaryDirectory;
 
-    public ProviderLaunchScope(IReadOnlyDictionary<string, string> environment, string? temporaryDirectory)
+    public ProviderLaunchScope(IReadOnlyDictionary<string, string> environment, string? temporaryDirectory,
+        IReadOnlyList<string>? arguments = null)
     {
         Environment = environment;
         _temporaryDirectory = temporaryDirectory;
+        Arguments = arguments ?? [];
     }
 
     public IReadOnlyDictionary<string, string> Environment { get; }
+    public IReadOnlyList<string> Arguments { get; }
 
     public void Dispose()
     {

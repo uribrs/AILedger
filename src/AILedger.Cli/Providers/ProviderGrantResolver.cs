@@ -135,7 +135,9 @@ internal static class ProviderGrantResolver
             automaticDirectories.Concat(additionalDirectories)
                 .Append(ResolveExistingDirectory(ledgerRoot))
                 .Where(directory => !PathComparer.Equals(directory, workingDirectory))
-                .Distinct(PathComparer).OrderBy(directory => directory, PathComparer).ToArray());
+                .Distinct(PathComparer).OrderBy(directory => directory, PathComparer).ToArray(),
+            scopes.Select(scope => ProviderGrantCeiling(ProviderDirectoryForScope(scope)))
+                .Distinct(PathComparer).ToArray());
     }
 
     public static string ResolveExistingScope(string path)
@@ -265,4 +267,5 @@ internal static class ProviderGrantResolver
 
 internal sealed record ProviderGrants(
     string WorkingDirectory,
-    IReadOnlyList<string> AdditionalDirectories);
+    IReadOnlyList<string> AdditionalDirectories,
+    IReadOnlyList<string>? NavigationDirectories = null);

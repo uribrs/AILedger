@@ -25,6 +25,11 @@ try
         return await RoslynNavigationServer.RunAsync(configurationPath, cancellation.Token);
     }
 
+    if (args is ["navigation", "guard", var guardConfigurationPath])
+    {
+        return await RoslynSearchGuard.RunAsync(guardConfigurationPath, cancellation.Token);
+    }
+
     return await CliApplication.CreateDefault().RunAsync(args, cancellation.Token);
 }
 finally

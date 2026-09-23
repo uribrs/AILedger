@@ -35,7 +35,9 @@ public sealed record AgentLaunchRequest(
     IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null,
     AssuranceBinding? Assurance = null,
     // Local host for optional navigation MCP. Launch metadata only, never a ledger event.
-    string? NavigationHostAssembly = null);
+    string? NavigationHostAssembly = null,
+    // Repository roots for semantic navigation only. Never forwarded as provider write grants.
+    IReadOnlyList<string>? NavigationDirectories = null);
 
 public sealed record ProviderEvent(
     long Sequence,

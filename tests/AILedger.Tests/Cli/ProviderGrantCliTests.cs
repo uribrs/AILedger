@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AILedger.Cli;
+using AILedger.Cli.Providers;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -146,6 +147,48 @@ public sealed class ProviderGrantCliTests
         // not the scope narrowed back down to the project. The recorded scope stays the project,
         // which is what occupancy reads.
         Assert.Equal(Path.GetDirectoryName(Path.GetDirectoryName(scope)), request.WorkingDirectory);
+    }
+
+    [Fact]
+    public async Task ScopedLaunchDerivesNavigationRepositoryWithoutAddingRepositoryWriteGrant()
+    {
+        using var root = new TemporaryDirectory();
+        using var providerRoot = new TemporaryDirectory();
+        var repository = Directory.CreateDirectory(Path.Combine(providerRoot.Path, "solution")).FullName;
+        Directory.CreateDirectory(Path.Combine(repository, ".git"));
+        var project = Directory.CreateDirectory(Path.Combine(repository, "src", "App")).FullName;
+        File.WriteAllText(Path.Combine(repository, "App.slnx"), "<Solution />");
+        var capture = new CapturingAdapter();
+        var application = new CliApplication(
+            TextWriter.Null, TextWriter.Null, Service, _ => capture, new ContextAssembler());
+        string[] common = ["--root", root.Path, "--task", "T1", "--actor", "operator"];
+        await application.RunAsync(
+            ["task", "open", .. common, "--title", "Task", "--goal", "Goal"], CancellationToken.None);
+        await ContextBrief.BuildAsync(root.Path, "T1");
+        await CliStageFixture.ToReadyAsync(application, root.Path);
+        await application.RunAsync(
+            ["actor", "attach", .. common, "--target", "worker", "--role", "worker"], CancellationToken.None);
+        await application.RunAsync(
+            ["work", "add", .. common, "--id", "W1", "--title", "Scoped project", "--owner", "operator",
+             "--scope", project], CancellationToken.None);
+        await CliStageFixture.ToExecutionAsync(application, root.Path);
+
+        var exit = await application.RunAsync(
+            ["provider", "launch", .. common, "--subject", "worker", "--run", "R1", "--work", "W1",
+             "--provider", "codex", "--executable", "/usr/bin/true", "--working-directory", project,
+             "--cognitive-root", FindCognitiveRoot()], CancellationToken.None);
+
+        Assert.Equal(0, exit);
+        var request = Assert.Single(capture.Requests);
+        var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
+        var scope = Assert.Single(state!.WorkItems[new WorkItemId("W1")].ResourceScope);
+        var canonicalRepository = Path.GetDirectoryName(Path.GetDirectoryName(scope));
+        Assert.Equal(scope, request.WorkingDirectory);
+        Assert.Equal(canonicalRepository, Assert.Single(request.NavigationDirectories!));
+        Assert.Equal(ProviderGrantResolver.ResolveExistingScope(request.LedgerRoot),
+            Assert.Single(request.AdditionalDirectories));
+        Assert.DoesNotContain(canonicalRepository!, request.AdditionalDirectories);
+        Assert.Equal(typeof(CliApplication).Assembly.Location, request.NavigationHostAssembly);
     }
 
     // The ceiling on the test above. An ancestor is accepted up to the repository holding the scope

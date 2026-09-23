@@ -45,7 +45,7 @@ internal sealed class RoslynSolutionPaths
             : Contains(ledgerRoot, path);
     }
 
-    private static bool Contains(string directory, string path) => Contains(directory, path,
+    internal static bool Contains(string directory, string path) => Contains(directory, path,
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private static bool Contains(string directory, string path, StringComparison comparison) =>
@@ -53,7 +53,7 @@ internal sealed class RoslynSolutionPaths
         path.StartsWith(Path.EndsInDirectorySeparator(directory) ? directory : directory + Path.DirectorySeparatorChar,
             comparison);
 
-    private static string Canonicalize(string path, int links = 0)
+    internal static string Canonicalize(string path, int links = 0)
     {
         if (links > 40)
         {

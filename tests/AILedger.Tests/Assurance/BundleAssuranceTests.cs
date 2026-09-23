@@ -209,7 +209,8 @@ public sealed partial class BundleAssuranceTests
             .Enqueue(0, ["--strict-config --sandbox --cd --add-dir --output-schema --json"])
             .Enqueue(0, ["SESSION_ID --json"])
             .Enqueue(0, ["{\"type\":\"thread.started\",\"thread_id\":\"fresh-review\"}", "{\"type\":\"turn.completed\"}"]);
-        var result = await new CodexAgentAdapter(process).RunAsync(request with { Provider = "codex" }, CancellationToken.None);
+        var result = await new CodexAgentAdapter(process, (_, _, _, _, _) => Task.CompletedTask)
+            .RunAsync(request with { Provider = "codex" }, CancellationToken.None);
         Assert.Equal(AgentRunStatus.Completed, result.Status);
         var input = process.Invocations.Last().StandardInput;
         Assert.DoesNotContain("SENTINEL", input, StringComparison.Ordinal);
@@ -481,7 +482,8 @@ public sealed partial class BundleAssuranceTests
                 .Enqueue(0, ["--strict-config --sandbox --cd --add-dir --output-schema --json"])
                 .Enqueue(0, ["SESSION_ID --json"])
                 .Enqueue(0, ["{\"type\":\"thread.started\",\"thread_id\":\"filing-session\"}", "{\"type\":\"turn.completed\"}"]);
-            await new CodexAgentAdapter(process).RunAsync(request with { Provider = "codex" }, CancellationToken.None);
+            await new CodexAgentAdapter(process, (_, _, _, _, _) => Task.CompletedTask)
+                .RunAsync(request with { Provider = "codex" }, CancellationToken.None);
             var line = Assert.Single(process.Invocations.Last().StandardInput.Split('\n').Where(l => l.StartsWith("  " + request.LedgerCommandLine, StringComparison.Ordinal) && l.Contains(" artifact record ", StringComparison.Ordinal)));
             var command = line[(line.IndexOf("artifact record", StringComparison.Ordinal))..];
             command = command[..command.IndexOf(" < FILE", StringComparison.Ordinal)]

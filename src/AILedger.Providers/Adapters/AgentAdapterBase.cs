@@ -76,7 +76,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         var expectedSessionId = request.Mode == AgentLaunchMode.Resume || RequirePreassignedSessionMatch
             ? sessionId
             : null;
-        using var launchScope = OpenLaunchScope(request);
+        using var launchScope = await OpenLaunchScopeAsync(request, cancellationToken).ConfigureAwait(false);
+        arguments = arguments.Concat(launchScope.Arguments).ToArray();
         var environment = new Dictionary<string, string>(request.Environment, StringComparer.Ordinal);
         foreach (var variable in launchScope.Environment)
         {
@@ -238,6 +239,9 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
     /// </summary>
     protected virtual ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request) =>
         ProviderLaunchScope.None;
+
+    protected virtual Task<ProviderLaunchScope> OpenLaunchScopeAsync(AgentLaunchRequest request,
+        CancellationToken cancellationToken) => Task.FromResult(OpenLaunchScope(request));
 
     protected sealed record CapabilityProbe(IReadOnlyList<string> Arguments, IReadOnlyList<string> RequiredTokens);
 

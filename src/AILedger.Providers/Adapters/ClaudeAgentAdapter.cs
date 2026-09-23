@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AILedger.Core.Contracts;
 
 namespace AILedger.Providers.Adapters;
@@ -26,12 +27,44 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
             ["--print", "--output-format", "--session-id", "--resume", "--permission-prompts", "--settings", "--strict-mcp-config", "--disable-slash-commands"])
     ];
 
-    protected override ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request) =>
-        request.Assurance?.VerifierRunId is not null
-            // R4 (reviewer-narrative-isolation): suppress ambient instruction files only
-            // in this reviewer child; retain authentication, permissions and directory grants.
-            ? new ProviderLaunchScope(ReviewerMemoryControls, null)
-            : base.OpenLaunchScope(request);
+    protected override ProviderLaunchScope OpenLaunchScope(AgentLaunchRequest request)
+    {
+        var environment = request.Assurance?.VerifierRunId is not null
+            ? ReviewerMemoryControls : new Dictionary<string, string>();
+        var directory = Directory.CreateTempSubdirectory("ailedger-claude-navigation-").FullName;
+        try
+        {
+            var providerSettings = JsonNode.Parse(request.Assurance?.VerifierRunId is not null
+                ? ReviewerSettings() : SandboxSettings)!.AsObject();
+            var settings = RoslynNavigation.CreateSettingsFile(request, directory);
+            if (settings is null)
+            {
+                return new ProviderLaunchScope(environment, directory, ["--settings", providerSettings.ToJsonString()]);
+            }
+
+            providerSettings["hooks"] = JsonSerializer.SerializeToNode(
+                RoslynNavigation.Hooks(RoslynNavigation.GuardCommand(request.NavigationHostAssembly!, settings)));
+            providerSettings["disableAllHooks"] = false;
+
+            var configuration = Path.Combine(directory, "mcp.json");
+            File.WriteAllText(configuration, JsonSerializer.Serialize(new
+            {
+                mcpServers = new
+                {
+                    roslyn = new { type = "stdio", command = "dotnet",
+                        args = new[] { request.NavigationHostAssembly!, "navigation", "serve", settings } }
+                }
+            }));
+            return new ProviderLaunchScope(environment, directory,
+                ["--settings", providerSettings.ToJsonString(), "--mcp-config", configuration, "--allowedTools",
+                    string.Join(",", RoslynNavigation.Tools.Select(tool => $"mcp__roslyn__{tool}"))]);
+        }
+        catch
+        {
+            Directory.Delete(directory, recursive: true);
+            throw;
+        }
+    }
 
     protected override IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId)
     {
@@ -43,17 +76,14 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
         sessionId ??= Guid.NewGuid().ToString();
         var arguments = new List<string>
         {
-            "-p", GovernedExecutionBriefing.For(request, request.LedgerRoot),
+            "-p", GovernedExecutionBriefing.For(request, request.LedgerRoot) + Environment.NewLine + RoslynNavigation.Guidance,
             "--output-format", "stream-json",
             "--verbose",
             "--forward-subagent-text",
             "--permission-mode", "acceptEdits",
             "--permission-prompts", "none",
             "--strict-mcp-config",
-            "--disable-slash-commands",
-            "--settings", request.Assurance?.VerifierRunId is not null
-                ? ReviewerSettings()
-                : SandboxSettings
+            "--disable-slash-commands"
         };
 
         if (request.Mode == AgentLaunchMode.Resume)

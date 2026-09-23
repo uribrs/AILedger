@@ -5,7 +5,8 @@ namespace AILedger.Providers.Navigation;
 
 internal sealed class RoslynNavigationSession(
     RoslynSolutionPaths paths,
-    Func<JsonObject, CancellationToken, Task<JsonObject>> exchange)
+    Func<JsonObject, CancellationToken, Task<JsonObject>> exchange,
+    RoslynFallbackStore? fallback = null)
 {
     private readonly HashSet<string> loaded = new(RoslynSolutionPaths.Comparer);
     private string? active;
@@ -63,9 +64,17 @@ internal sealed class RoslynNavigationSession(
             return ToolError(request, "Tool is not available through this navigation connection.");
         }
 
+        string? scope = null;
         try
         {
             var selection = PrepareCall(request, name);
+            ValidateQuery(request, name);
+            scope = name == "list_solutions" ? null : Path.GetDirectoryName(selection ?? active!);
+            if (scope is not null)
+            {
+                fallback?.Revoke(scope);
+            }
+
             var response = await exchange(request, cancellationToken);
             if (selection is not null && Succeeded(response))
             {
@@ -73,11 +82,97 @@ internal sealed class RoslynNavigationSession(
                 active = selection;
             }
 
+            if (scope is not null && !Succeeded(response) && response["error"]?["code"]?.GetValue<int>() != -32602)
+            {
+                RecordFailure(response, scope, name);
+            }
+
             return response;
         }
         catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
         {
-            return ToolError(request, exception.Message);
+            var response = ToolError(request, exception.Message);
+            // Local path/argument refusals are not failures of an authorized Roslyn query.
+            if (scope is not null && exception is not ArgumentException)
+            {
+                RecordFailure(response, scope, name);
+            }
+
+            return response;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            var response = ToolError(request, "Roslyn query timed out.");
+            if (scope is not null)
+            {
+                RecordFailure(response, scope, name);
+            }
+
+            return response;
+        }
+    }
+
+    private void RecordFailure(JsonObject response, string scope, string operation)
+    {
+        var reason = response["result"]?["content"]?.ToJsonString() ?? response["error"]?.ToJsonString() ?? "Roslyn failed";
+        var id = fallback?.Record(scope, operation, reason);
+        if (id is not null && response["result"]?["content"] is JsonArray content)
+        {
+            content.Add(new JsonObject { ["type"] = "text",
+                ["text"] = $"Recorded Roslyn failure {id}: one CLI C# search within {scope} is permitted for 10 minutes. A successful retry revokes it." });
+        }
+    }
+
+    private static void ValidateQuery(JsonObject request, string name)
+    {
+        var field = name switch
+        {
+            "search_symbols" => "query",
+            "go_to_definition" or "find_references" or "find_callers" or "get_overloads" or "find_tests_for_symbol" => "symbol",
+            _ => null
+        };
+        var arguments = request["params"]?["arguments"] as JsonObject;
+        if (field is not null && (arguments?[field] is not JsonValue value ||
+            !value.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text)))
+        {
+            throw new ArgumentException($"'{field}' must be a nonempty string.");
+        }
+
+        if (name == "get_method_source" && (arguments?["symbols"] is not JsonArray symbols ||
+            symbols.Count == 0 || symbols.Any(symbol => symbol is not JsonValue item ||
+                !item.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text))))
+        {
+            throw new ArgumentException("'symbols' must contain nonempty symbol names.");
+        }
+
+        foreach (var key in new[] { "limit", "maxDepth" })
+        {
+            if (key == "maxDepth" && arguments?.ContainsKey(key) == true && arguments[key] is null)
+            {
+                throw new ArgumentException("'maxDepth' must be an integer.");
+            }
+
+            if (arguments?[key] is { } number && (number is not JsonValue numericValue ||
+                !numericValue.TryGetValue<int>(out _)))
+            {
+                throw new ArgumentException($"'{key}' must be an integer.");
+            }
+        }
+
+        if (arguments?.ContainsKey("transitive") == true && (arguments["transitive"] is not JsonValue booleanValue ||
+            !booleanValue.TryGetValue<bool>(out _)))
+        {
+            throw new ArgumentException("'transitive' must be a boolean.");
+        }
+
+        foreach (var key in new[] { "kinds", "include", "rootProjects" })
+        {
+            if (arguments?[key] is { } values && (values is not JsonArray strings ||
+                strings.Any(item => item is not null && (item is not JsonValue stringValue ||
+                    !stringValue.TryGetValue<string>(out _)))))
+            {
+                throw new ArgumentException($"'{key}' must be an array of strings.");
+            }
         }
     }
 
