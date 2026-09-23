@@ -33,7 +33,9 @@ public sealed record AgentLaunchRequest(
     IReadOnlyDictionary<string, string> Environment,
     TimeSpan Timeout,
     IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null,
-    AssuranceBinding? Assurance = null);
+    AssuranceBinding? Assurance = null,
+    // Local host for optional navigation MCP. Launch metadata only, never a ledger event.
+    string? NavigationHostAssembly = null);
 
 public sealed record ProviderEvent(
     long Sequence,

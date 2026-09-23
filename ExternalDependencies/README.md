@@ -41,8 +41,9 @@ Install with `sh scripts/install-roslyn.sh`. The pinned tool lives in
 is additional to the kernel's .NET 8 target. NuGet access is needed for installation,
 and the analyzed solution's package dependencies must be restored for reliable results.
 
-The Codex adapter supplies an explicit nine-tool navigation allowlist in its temporary
-configuration. It does not rely on an interactive MCP registration. Claude currently
+The Codex adapter supplies an explicit eleven-tool navigation allowlist in its temporary
+configuration. Its stdio bridge starts Roslyn empty and checks on-demand solution selections
+against the launch's directory grants. It does not rely on an interactive MCP registration. Claude currently
 retains CLI navigation; wiring Roslyn into that adapter remains unimplemented.
 
 Without Roslyn, for unsupported solution layouts, or for non-C# work: agents retain CLI

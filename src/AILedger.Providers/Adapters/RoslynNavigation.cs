@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text;
 using AILedger.Core.Contracts;
+using AILedger.Providers.Navigation;
 
 namespace AILedger.Providers.Adapters;
 
@@ -13,20 +14,24 @@ internal static class RoslynNavigation
     [
         "list_solutions", "search_symbols", "go_to_definition", "find_references",
         "find_callers", "get_overloads", "get_method_source", "find_tests_for_symbol",
-        "rebuild_solution"
+        "rebuild_solution", "load_solution", "set_active_solution"
     ];
 
     internal const string Guidance = """
-        Code navigation: for C# prefer the roslyn MCP tools when available; use CLI search and
-        targeted file reads for other languages or unavailable, empty, or suspect semantic results.
-        Check list_solutions for skipped projects before relying on results. After source edits or
-        checkout changes, rebuild_solution before another semantic query. Keep queries narrow and
-        limits small; use transitive test discovery only when needed. find_callers takes Type.Method,
-        not an overload signature; use get_overloads to inspect overloads. Empty results do not prove
-        no dependencies. Replace searches with these calls rather than routinely doing both.
+        Code navigation: identify the target repository and language with a narrow CLI search first.
+        For C#, locate its .sln/.slnx and call roslyn load_solution with its absolute path before
+        semantic queries. Roslyn starts empty; the launch directory does not select a solution.
+        When changing repositories, load_solution or set_active_solution with the exact solution
+        path, then confirm the active path and skipped projects with list_solutions. Loading is
+        restricted to this launch's granted directories; never substitute AILedger's own solution.
+        After edits or checkout changes, rebuild_solution before another semantic query. Keep
+        queries and limits small; use transitive test discovery only when needed. find_callers
+        takes Type.Method, not an overload signature. For other languages, missing solutions,
+        unavailable Roslyn, or empty/suspect results, use CLI search and targeted file reads.
+        Empty results do not prove no dependencies. Replace searches rather than doing both.
         """;
 
-    internal static string Configuration(AgentLaunchRequest request)
+    internal static string Configuration(AgentLaunchRequest request, string launchDirectory)
     {
         var executable = request.Environment.TryGetValue(ExecutableVariable, out var configured)
             ? configured
@@ -38,8 +43,16 @@ internal static class RoslynNavigation
             return string.Empty;
         }
 
-        var solution = FindSolution(request.WorkingDirectory);
-        return solution is null ? string.Empty : Configuration(executable, solution);
+        if (request.NavigationHostAssembly is not { } host || !Path.IsPathFullyQualified(host) || !File.Exists(host))
+        {
+            return string.Empty;
+        }
+
+        var configurationPath = Path.Combine(launchDirectory, "roslyn-navigation.json");
+        var settings = new RoslynNavigationSettings(executable,
+            request.AdditionalDirectories.Prepend(request.WorkingDirectory).ToArray(), request.LedgerRoot);
+        File.WriteAllText(configurationPath, JsonSerializer.Serialize(settings));
+        return Configuration(host, configurationPath, launchDirectory);
     }
 
     private static string DefaultExecutable => Path.Combine(
@@ -47,47 +60,14 @@ internal static class RoslynNavigation
         ".ailedger", "tools", "roslyn", Version,
         OperatingSystem.IsWindows() ? "roslyn-codelens-mcp.exe" : "roslyn-codelens-mcp");
 
-    internal static string? FindSolution(string workingDirectory)
-    {
-        try
-        {
-            for (var directory = new DirectoryInfo(workingDirectory); directory is not null; directory = directory.Parent)
-            {
-                var solutions = directory.EnumerateFiles()
-                    .Where(file => file.Extension.Equals(".sln", StringComparison.OrdinalIgnoreCase) ||
-                                   file.Extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
-                    .Take(2).ToArray();
-                if (solutions.Length > 0)
-                {
-                    return solutions.Length == 1 &&
-                           File.ReadAllText(solutions[0].FullName).Contains(".csproj", StringComparison.OrdinalIgnoreCase)
-                        ? solutions[0].FullName
-                        : null;
-                }
-
-                var git = Path.Combine(directory.FullName, ".git");
-                if (Directory.Exists(git) || File.Exists(git))
-                {
-                    break;
-                }
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // Optional navigation must not prevent a CLI-only launch.
-        }
-
-        return null;
-    }
-
-    internal static string Configuration(string executable, string solution) => $"""
+    internal static string Configuration(string host, string settingsPath, string workingDirectory) => $"""
 
         mcp_optional_startup_grace_ms = 0
 
         [mcp_servers.roslyn]
-        command = {Quote(executable)}
-        args = [{Quote(solution)}]
-        cwd = {Quote(Path.GetDirectoryName(solution)!)}
+        command = "dotnet"
+        args = [{Quote(host)}, "navigation", "serve", {Quote(settingsPath)}]
+        cwd = {Quote(workingDirectory)}
         enabled_tools = {JsonSerializer.Serialize(Tools)}
         default_tools_approval_mode = "approve"
         startup_timeout_sec = 30

@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using AILedger.Cli;
+using AILedger.Providers.Navigation;
 
 using var cancellation = new CancellationTokenSource();
 ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
@@ -19,6 +20,11 @@ using var termination = OperatingSystem.IsWindows()
 
 try
 {
+    if (args is ["navigation", "serve", var configurationPath])
+    {
+        return await RoslynNavigationServer.RunAsync(configurationPath, cancellation.Token);
+    }
+
     return await CliApplication.CreateDefault().RunAsync(args, cancellation.Token);
 }
 finally

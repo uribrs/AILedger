@@ -152,7 +152,8 @@ internal sealed class ProviderLauncher(
                 grants.AdditionalDirectories,
                 new Dictionary<string, string>(),
                 TimeSpan.FromSeconds(launchTimeoutSeconds.Value),
-                manifest.CoveredWorkItemIds, started.State.Runs[start.RunId].Assurance);
+                manifest.CoveredWorkItemIds, started.State.Runs[start.RunId].Assurance,
+                typeof(CliApplication).Assembly.Location);
             // Marked delivered only once the request is fully built, because building it is fallible
             // — the timeout argument is parsed on the line above and throws on a bad value.
             // Assigning earlier recorded a brief for a run the adapter never received, which is the

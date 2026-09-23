@@ -61,7 +61,7 @@ public sealed class CodexAgentAdapter(IProcessRunner processRunner) : AgentAdapt
         var configuration = request.Model is null
             ? string.Empty
             : $"model = {RoslynNavigation.Quote(request.Model)}{Environment.NewLine}";
-        configuration += RoslynNavigation.Configuration(request);
+        configuration += RoslynNavigation.Configuration(request, governedHome);
         File.WriteAllText(Path.Combine(governedHome, "config.toml"), configuration);
 
         return new ProviderLaunchScope(
