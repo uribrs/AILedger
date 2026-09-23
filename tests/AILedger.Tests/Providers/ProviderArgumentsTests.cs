@@ -6,6 +6,50 @@ namespace AILedger.Tests.Providers;
 
 public sealed class ProviderArgumentsTests
 {
+    [Theory]
+    [InlineData("codex")]
+    [InlineData("claude")]
+    public async Task ResearcherBriefRequiresFindingsWithoutInventingAnArtifactKind(string provider)
+    {
+        var runner = new ScriptedProcessRunner();
+        IAgentAdapter adapter;
+        if (provider == "codex")
+        {
+            runner.Enqueue(0, ["codex-cli 1.2.3"])
+                .Enqueue(0, ["--strict-config --sandbox --cd --add-dir --output-schema --json"])
+                .Enqueue(0, ["SESSION_ID --json"])
+                .Enqueue(0, ["{\"type\":\"thread.started\",\"thread_id\":\"session\"}",
+                    "{\"type\":\"turn.completed\"}"]);
+            adapter = new CodexAgentAdapter(runner);
+        }
+        else
+        {
+            runner.Enqueue(0, ["2.0.0 (Claude Code)"])
+                .Enqueue(0, ["--print --output-format --session-id --resume --permission-prompts --settings --strict-mcp-config --disable-slash-commands"])
+                .Enqueue(invocation => new ScriptedProcessResult(0,
+                    [$"{{\"type\":\"result\",\"session_id\":\"{ProviderProtocolTests.ValueAfter(invocation.Arguments, "--session-id")}\",\"result\":\"done\"}}"], []));
+            adapter = new ClaudeAgentAdapter(runner);
+        }
+
+        await adapter.RunAsync(ProviderProtocolTests.Request(provider, AgentLaunchMode.New, null) with
+        {
+            ActorId = new ActorId("researcher"),
+            WorkItemId = null
+        }, CancellationToken.None);
+        var invocation = runner.Invocations.Last();
+        var brief = provider == "codex" ? invocation.StandardInput : ProviderProtocolTests.ValueAfter(invocation.Arguments, "-p");
+
+        Assert.Contains("save research/<topic>.md as supporting output", brief, StringComparison.Ordinal);
+        Assert.Contains("claim add and evidence add with underlying source citations", brief, StringComparison.Ordinal);
+        Assert.Contains("There is no Research artifact kind", brief, StringComparison.Ordinal);
+        Assert.Contains("researcher completion does not require an artifact", brief, StringComparison.Ordinal);
+        Assert.DoesNotContain("file your research", brief, StringComparison.Ordinal);
+        Assert.DoesNotContain("If you file nothing, the operator cannot close your run", brief, StringComparison.Ordinal);
+        Assert.Contains("VerifierOutput", brief, StringComparison.Ordinal);
+        Assert.Contains("CodeReviewOutput", brief, StringComparison.Ordinal);
+        Assert.Contains("missing required artifacts block", brief, StringComparison.Ordinal);
+    }
+
     // R2 (line-bounded-inspection-reintroduced): both provider construction paths must receive the
     // same byte-bounded advice. Merely mentioning redirection or head/tail would leave one long
     // JSONL record able to cross the adapter's per-line protocol limit.
