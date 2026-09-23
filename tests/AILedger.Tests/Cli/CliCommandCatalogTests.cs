@@ -38,7 +38,7 @@ public sealed class CliCommandCatalogTests
                 "lesson mark", "lesson recheck", "preflight batch", "provider launch", "provider resume", "retrospective build",
                 "retrospective record", "run complete", "run start", "session complete", "session start",
                 "stage transition", "status", "task cleanup apply", "task cleanup plan", "task history",
-                "task open", "task status", "version", "who",
+                "task open", "task status", "verification run", "version", "who",
                 "work abandon", "work add", "work block", "work complete", "work unblock"
             },
             application.CommandCatalog.Names.OrderBy(name => name, StringComparer.Ordinal).ToArray());

@@ -1,5 +1,6 @@
 using System.Text;
 using AILedger.Core.Contracts;
+using AILedger.Providers.Verification;
 
 namespace AILedger.Providers.Adapters;
 
@@ -158,6 +159,7 @@ internal static class GovernedExecutionBriefing
             .AppendLine("confirms that separately.");
 
         AppendGovernedTestCommand(builder, request.WorkingDirectory);
+        AppendVerificationProfile(builder, request.WorkingDirectory);
         return builder.ToString();
     }
 
@@ -224,7 +226,49 @@ internal static class GovernedExecutionBriefing
             .AppendLine("Do not change source or expand scope. Stop and report any manifest stop condition or missing required input.")
             .AppendLine("Raise a governed escalation only for a business decision (options and recommendation) or true unknown (evidence of the failed attempt).");
         AppendGovernedTestCommand(builder, request.WorkingDirectory);
+        AppendVerificationProfile(builder, request.WorkingDirectory);
         return builder.ToString();
+    }
+
+    // Contract S10. Both providers reach this through For and ForAssurance, so they receive the same
+    // bytes. With no profile file nothing is appended, which keeps every existing briefing unchanged.
+    // A file that cannot be parsed is reported rather than thrown: a broken profile must not stop a
+    // run that never needed it, including the run dispatched to repair it. The launch preflight
+    // skips such a file too (S9); only `verification run` refuses it.
+    private static void AppendVerificationProfile(StringBuilder builder, string workingDirectory)
+    {
+        if (VerificationProfileFile.Discover(workingDirectory) is not { } path)
+        {
+            return;
+        }
+
+        builder.AppendLine()
+            .AppendLine("This working directory has a repository verification profile:")
+            .AppendLine($"  file  {path}");
+        try
+        {
+            foreach (var profile in VerificationProfileFile.Read(path).Profiles)
+            {
+                builder
+                    .AppendLine($"  profile {profile.Name}")
+                    .AppendLine($"    command          {profile.Command}")
+                    .AppendLine($"    requires         {(profile.Requires.Count == 0 ? "none" : string.Join(", ", profile.Requires))}")
+                    .AppendLine($"    launchPreflight  {(profile.LaunchPreflight ? "true" : "false")}");
+            }
+        }
+        catch (VerificationProfileException invalid)
+        {
+            builder.AppendLine($"  The profile file cannot be used: {invalid.Message}");
+        }
+
+        builder
+            .AppendLine("Container-backed profiles are run by the operator through `ailedger verification run`, not from this run.")
+            .AppendLine("Do not try to reach the Docker socket.")
+            .AppendLine("Results are evidence entries with source type `container-verification`, citing")
+            .AppendLine("`verification/<id>/result.json` and its SHA-256.")
+            .AppendLine("An agent that needs a result asks the operator in its final output.")
+            .AppendLine("A docker profile must label every container its tests create with")
+            .AppendLine("`ailedger.run=$AILEDGER_VERIFICATION_RUN`; unlabelled containers are not removed.");
     }
 
     private static void AppendGovernedTestCommand(StringBuilder builder, string workingDirectory)

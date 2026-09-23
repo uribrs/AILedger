@@ -21,6 +21,7 @@ using AILedger.Cli.Routing;
 using AILedger.Cli.Runs;
 using AILedger.Cli.Stages;
 using AILedger.Cli.Tasks;
+using AILedger.Cli.Verification;
 using AILedger.Cli.Versioning;
 using AILedger.Cli.WorkItems;
 using AILedger.Core.Application;
@@ -51,6 +52,11 @@ public sealed class CliApplication
     // the composing process's choice rather than an ambient path.
     public string HarnessTranscriptRoot { get; init; } =
         CoordinatorUsageReader.DefaultHarnessTranscriptRoot();
+
+    // What container verification reads from the machine: environment, engine transport, process
+    // spawner and clock. Settable for the reason HarnessTranscriptRoot is: a test replaces it rather
+    // than reaching the real Docker socket or running a real profile command.
+    internal VerificationHost VerificationHost { get; init; } = VerificationHost.Default;
 
     internal CliCommandCatalog CommandCatalog => _commands;
 
@@ -98,7 +104,8 @@ public sealed class CliApplication
             _executor, contextAssembler, artifactLoader, _json);
         var providerRunRecorder = new ProviderRunRecorder(_error, _json);
         _providerLauncher = new ProviderLauncher(
-            adapterFactory, _contextCommands, _executor, _json, new RefusalJournal(), providerRunRecorder);
+            adapterFactory, _contextCommands, _executor, _json, new RefusalJournal(), providerRunRecorder,
+            () => VerificationHost);
         _commands = CreateCommandCatalog();
     }
 
@@ -189,6 +196,11 @@ public sealed class CliApplication
             await _error.WriteLineAsync($"error: {exception.Message}").ConfigureAwait(false);
             return 3;
         }
+        catch (VerificationFailedException exception)
+        {
+            await _error.WriteLineAsync($"error: {exception.Message}").ConfigureAwait(false);
+            return 3;
+        }
         catch (Exception exception) when (exception is CliUsageException or GovernanceException or
                                           AgentAdapterException or ArgumentException or InvalidDataException or IOException)
         {
@@ -214,6 +226,7 @@ public sealed class CliApplication
             _executor, _contextCommands, _json);
         var closeout = new CloseoutCliCommands(_executor);
         var cleanup = new TaskCleanupCliCommands(_executor);
+        var verification = new VerificationCliCommands(_executor, _json, () => VerificationHost);
         return new CliCommandCatalog(new[] { TaskCliCommands.Open(_executor) }
             .Concat(taskInspection.Registrations())
             .Append(VersionCliCommands.Registration(_executor))
@@ -237,6 +250,7 @@ public sealed class CliApplication
             .Concat(workItems.Registrations())
             .Concat(runs.Registrations())
             .Append(preflight.Registration())
+            .Append(verification.Registration())
             .Concat(ProviderCliCommands.Registrations(_providerLauncher)));
     }
 

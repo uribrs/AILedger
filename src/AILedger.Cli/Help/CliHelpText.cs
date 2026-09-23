@@ -128,6 +128,25 @@ internal static class CliHelpText
                            command and reports whether the direction it recorded still holds. A
                            read: it writes no event, no projection and no store row, and only an
                            operator asking for it runs it.
+        verification run   --task ID --actor ID --id EVIDENCE-ID --checkout PATH --candidate SHA256
+                           [--profile NAME] [--confirm SHA256] [--timeout-seconds N]
+                           [--supports CLAIM] [--refutes CLAIM]
+                           Runs the command of the ailedger.verification.json profile at the
+                           repository root of --checkout, host-side, in that root; a profile file in
+                           any other directory is never used. --timeout-seconds is 1 to 86400.
+                           Without --confirm it prints the profile, its command, the environment it
+                           adds and the confirmation (SHA-256 of the command text), and runs nothing.
+                           With it, refused in this order before any directory or process exists:
+                           not an operator, not a git work tree, missing/invalid/ambiguous profile,
+                           confirmation mismatch, evidence id already used, Docker socket
+                           unreachable (docker profiles). Writes verification/EVIDENCE-ID/result.json
+                           with the git HEAD and a digest of the work tree's contents before and
+                           after the run, removes only containers labelled
+                           ailedger.run=TASK.EVIDENCE-ID, and records one evidence entry of source
+                           type container-verification citing the result file's SHA-256. A docker
+                           profile must label every container its tests create with
+                           ailedger.run=$AILEDGER_VERIFICATION_RUN; unlabelled containers are not
+                           removed. Exits 3 when the command ran and did not pass.
         constraint add     --task ID --actor ID --id ID --statement TEXT --source TEXT [--scope TEXT]
         constraint supersede --task ID --actor ID --id ID
         run start          --task ID --actor ID --run ID [--work ID] --provider NAME [--session ID]

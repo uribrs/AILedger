@@ -2,6 +2,7 @@ using System.Text.Json;
 using AILedger.Cli.ContextBriefing;
 using AILedger.Cli.Routing;
 using AILedger.Cli.Runs;
+using AILedger.Cli.Verification;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -18,7 +19,8 @@ internal sealed class ProviderLauncher(
     CliCommandExecutor executor,
     JsonSerializerOptions _json,
     RefusalJournal _refusalJournal,
-    ProviderRunRecorder _runRecorder)
+    ProviderRunRecorder _runRecorder,
+    Func<VerificationHost> _verificationHost)
 {
     public async Task LaunchAsync(
         IGovernedTaskService service,
@@ -80,6 +82,12 @@ internal sealed class ProviderLauncher(
                     OptionalId(input.Optional("with-stale-brief"), value => new EvidenceId(value)),
                     requestedWorkItem);
             }
+
+            // Contract S9. After the grants settle the working directory, and before the adapter,
+            // the version probe and run.start, so a declared Docker requirement that cannot be met
+            // costs nothing and is journalled below like every other launch refusal.
+            await VerificationLaunchPreflight.EnsureAsync(
+                grants.WorkingDirectory, _verificationHost(), cancellationToken).ConfigureAwait(false);
         }
         catch (GovernanceException refusal)
         {
