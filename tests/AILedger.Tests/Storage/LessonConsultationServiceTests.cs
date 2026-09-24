@@ -18,8 +18,12 @@ public sealed class LessonConsultationServiceTests
     // S1 through the service: a store lesson matching a consultation tag is served and imported; one
     // matching no tag, and one minted by the consulting task itself, are not. The imported lesson
     // survives a replay from the event log alone.
-    [Fact]
-    public async Task TheServiceServesStoreLessonsMatchingTheConsultationTags()
+    [Theory]
+    [InlineData("recon")]
+    [InlineData(" recon")]
+    [InlineData("recon ")]
+    [InlineData("\trecon\n")]
+    public async Task TheServiceServesStoreLessonsMatchingTheConsultationTags(string tag)
     {
         using var root = new TemporaryDirectory();
         using var lessonRoot = new TemporaryDirectory();
@@ -30,9 +34,10 @@ public sealed class LessonConsultationServiceTests
         var own = LessonConsultationTests.Lesson(Target.Value, "C3", null) with { Tags = ["recon"] };
         await new FileLessonStore(lessonRoot.Path).PublishAsync([matching, unrelated, own], CancellationToken.None);
 
-        var outcome = await service.ExecuteAsync(Target, Consult(["recon"]), CancellationToken.None);
+        var outcome = await service.ExecuteAsync(Target, Consult([tag]), CancellationToken.None);
 
         var consulted = Assert.IsType<LessonsConsulted>(Assert.Single(outcome.Events).Data);
+        Assert.Equal(["recon"], consulted.Tags);
         Assert.Equal([matching.Id], consulted.ServedLessonIds);
         Assert.Equal([matching.Id], consulted.NewLessons.Select(lesson => lesson.Id));
         File.Delete(Path.Combine(root.Path, Target.Value, "state.json"));
@@ -96,6 +101,54 @@ public sealed class LessonConsultationServiceTests
 
         Assert.Empty(Assert.IsType<LessonsConsulted>(Assert.Single(outcome.Events).Data).ServedLessonIds);
         Assert.Empty(outcome.State.Lessons);
+    }
+
+    [Theory]
+    [InlineData("actor")]
+    [InlineData("stage")]
+    [InlineData("run")]
+    [InlineData("inactive")]
+    [InlineData("purpose")]
+    [InlineData("question")]
+    [InlineData("empty-tag")]
+    [InlineData("duplicate-tag")]
+    [InlineData("claim")]
+    public async Task InvalidConsultationsAreRefusedBeforeAccessingTheLessonStore(string invalid)
+    {
+        using var root = new TemporaryDirectory();
+        using var lessonRoot = new TemporaryDirectory();
+        var service = Service(root.Path, lessonRoot.Path);
+        await OpenAtResearchWithRunAsync(service);
+        if (invalid == "inactive")
+        {
+            await service.ExecuteAsync(Target,
+                new CompleteRunCommand(Operator, null, "complete", Run, AgentRunStatus.Completed, "session"),
+                CancellationToken.None);
+        }
+        var command = invalid switch
+        {
+            "actor" => Consult(["recon"]) with { ActorId = new ActorId("unknown") },
+            "stage" => Consult(["recon"]) with { Purpose = LessonConsultationPurpose.Reconsideration },
+            "run" => Consult(["recon"]) with { RunId = new RunId("unknown") },
+            "purpose" => Consult(["recon"]) with { Purpose = (LessonConsultationPurpose)999 },
+            "question" => Consult(["recon"]) with { Question = " " },
+            "empty-tag" => Consult([" "]),
+            "duplicate-tag" => Consult(["recon", " recon "]),
+            "claim" => Consult(["recon"]) with { ClaimIds = [new ClaimId("unknown")] },
+            _ => Consult(["recon"])
+        };
+        var before = (await service.GetStateAsync(Target, CancellationToken.None))!.Version;
+        var storePath = Path.Combine(lessonRoot.Path, FileLessonStore.LessonsFileName);
+        const string unreadableStore = "{not json\n";
+        await File.WriteAllTextAsync(storePath, unreadableStore);
+
+        await Assert.ThrowsAsync<GovernanceException>(() =>
+            service.ExecuteAsync(Target, command, CancellationToken.None));
+
+        var after = (await service.GetStateAsync(Target, CancellationToken.None))!;
+        Assert.Equal(before, after.Version);
+        Assert.Empty(after.LessonConsultations);
+        Assert.Equal(unreadableStore, await File.ReadAllTextAsync(storePath));
     }
 
     private static async Task OpenAtResearchWithRunAsync(FileGovernedTaskService service)

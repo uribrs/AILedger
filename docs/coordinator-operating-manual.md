@@ -184,7 +184,7 @@ A no-provider run never satisfies an arm.
 |---|---|---|
 | Research | at least one Open claim. Forward entry only. | 24-27, 73-79 |
 | Design | one current InternalRecon, task-wide, with a completed real producer, hash still current; no Open external claim; for every claim the recon assesses as `external`, a research lesson consultation (A2) that names the claim, was made by a completed Researcher run, and was recorded after the latest entry into Research; at least one alternative or one accepted decision. Forward entry only. | 28-32, 84-119 (`EnsureDesign`, `EnsureResearchConsulted`); `Artifacts/Logic/InternalReconRules.cs:69-88` |
-| Scope | leaving Design: the whole Design arm again, then the reconsideration arm (A3): after a return from a stage after Design into Design or Research, a reconsideration lesson consultation recorded after that return by a completed lead run with real cognition. Always: a current PromptContract. | 33-41, 121-137 (`EnsureReconsiderationConsulted`); `Stages/Logic/StageStateProjector.cs:29-35` |
+| Scope | leaving Design: the whole Design arm again, then the reconsideration arm (A3): after a return from a stage after Design into Design or Research, a reconsideration lesson consultation recorded after that return by a completed lead run with real cognition. Always: a current PromptContract. | 33-41, 125-142 (`EnsureReconsiderationConsulted`); `Stages/Logic/StageStateProjector.cs:29-35` |
 | Ready | a current OrchestrationPlan; one role assignment other than Verifier or CodeReviewer; a Verifier assignment; a CodeReviewer assignment. Assignments, not runs. | 94-112, 203-204 |
 | Execution | at least one work item; current UserRequest, PromptContract and OrchestrationPlan. | 114-137 |
 | Verification | a completed **Worker** run (not Researcher, not a lead); a serial justification when two or more disjoint worked items had no overlapping working runs. | 139-152; `Stages/Logic/StageSerialExecutionRules.cs:9-34` |
@@ -205,7 +205,7 @@ Notes:
   `Design requires a research lesson consultation naming external claim '<claim>' by a completed Researcher run in the current research episode.`
   (`StagePrerequisiteRules.cs:114-116`) and
   `Scope after replanning requires a reconsideration lesson consultation by a completed lead run with real cognition, recorded after the latest return from a later stage into Design or Research.`
-  (`StagePrerequisiteRules.cs:133-135`, `EnsureReconsiderationConsulted`).
+  (`StagePrerequisiteRules.cs:138-140`, `EnsureReconsiderationConsulted`).
 - A3's episode opens on Scope→Design, Execution→Design and Execution→Research. Design→Research does
   not open one: in first-pass planning it requires nothing, and inside an open episode it keeps that
   episode open. One reconsideration consultation covers the whole episode. Execution→Scope never

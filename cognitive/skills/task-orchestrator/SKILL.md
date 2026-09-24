@@ -276,8 +276,9 @@ Research. A consultation from an earlier episode does not count.
 A Design-to-Research detour inside first-pass planning opens no episode: no strategy has passed
 Scope yet, so there is nothing to reconsider. The same detour inside an open replanning episode
 keeps that episode open, so one consultation covers the whole episode, detours included. A claim
-change it causes still needs a fresh recon revision with its own recon consultation, and new
-external claims still need a research consultation. Execution-to-Scope never passes Design, so no
+change it causes still needs a fresh recon revision with its own recon consultation. Every entry
+into Research, including a detour, requires every external claim in the current recon to be named
+again by a completed Researcher run's consultation in that research episode. Execution-to-Scope never passes Design, so no
 reconsideration consultation is required on that path.
 
 Before assigning implementation, show how each relevant recon finding changes a plan decision,

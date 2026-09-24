@@ -93,8 +93,11 @@ internal static class InternalReconRules
     // so matching the current hash is matching the document's.
     internal static void EnsureConsulted(GovernedTaskState state, RunId? producerRunId)
     {
+        if (producerRunId is not { } producer)
+            throw Invalid("requires a producer run before its recon lesson consultation can be checked.");
+
         var hash = InternalReconDocuments.ComputeClaimSetHash(state);
-        if (producerRunId is not { } producer || !state.LessonConsultations.Any(consultation =>
+        if (!state.LessonConsultations.Any(consultation =>
                 consultation.Purpose == LessonConsultationPurpose.Recon &&
                 consultation.RunId == producer &&
                 string.Equals(consultation.ClaimSetHash, hash, StringComparison.Ordinal)))

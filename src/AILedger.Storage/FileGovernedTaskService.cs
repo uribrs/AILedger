@@ -92,16 +92,6 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                     .ConfigureAwait(false)
             };
         }
-        else if (command is ConsultLessonsCommand consult)
-        {
-            // A mid-task consultation reads the store through the same selection as opening recall,
-            // keyed on the consultation's own tags. A store failure fails the command.
-            command = consult with
-            {
-                Candidates = await LoadArchivedLessonsAsync(taskId, consult.Tags, cancellationToken)
-                    .ConfigureAwait(false)
-            };
-        }
 
         var taskDirectory = _pathResolver.Resolve(taskId);
         _pathResolver.EnsureTaskDirectory(taskDirectory);
@@ -113,6 +103,11 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         CommandOutcome outcome;
         try
         {
+            if (command is ConsultLessonsCommand consult)
+            {
+                command = await PrepareConsultationAsync(taskId, currentState, consult, cancellationToken)
+                    .ConfigureAwait(false);
+            }
             outcome = _commandHandler.Handle(currentState, command, DateTimeOffset.UtcNow);
         }
         catch (GovernanceException exception)
@@ -174,6 +169,25 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         await TryPublishMintedLessonsAsync(outcome.Events).ConfigureAwait(false);
         await TryRepairDerivedStateAsync(taskDirectory, outcome.State).ConfigureAwait(false);
         return outcome;
+    }
+
+    private async Task<ConsultLessonsCommand> PrepareConsultationAsync(
+        TaskId taskId,
+        GovernedTaskState? state,
+        ConsultLessonsCommand command,
+        CancellationToken cancellationToken)
+    {
+        // Validate through Core before any store read or publication, under the task lock. Handle
+        // is pure: this candidate-free outcome is not persisted. Its canonical tags drive selection
+        // so retrieval and the eventual event cannot disagree, without duplicating Core's rules.
+        var validated = _commandHandler.Handle(state, command with { Candidates = [] }, DateTimeOffset.UtcNow);
+        var consultation = (LessonsConsulted)validated.Events.Single().Data;
+        return command with
+        {
+            Tags = consultation.Tags,
+            Candidates = await LoadArchivedLessonsAsync(taskId, consultation.Tags, cancellationToken)
+                .ConfigureAwait(false)
+        };
     }
 
     // The second and every later time one rule refuses one actor on one task, said in the refusal
