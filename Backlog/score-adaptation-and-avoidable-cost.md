@@ -33,8 +33,8 @@ Read the current versions before implementation; these observations describe the
   avoidability judgment on mis-scoping, distinguishing foreseeable error from reasonable revision.
   Its later instruction nevertheless defines effect by whether the work "landed first time" and
   treats corrected briefs as low-scoring. These instructions can pull a scorer in opposite directions.
-- [The original self-scoring intent](self-scoring.md) explicitly rewards justified changes of mind,
-  detected and corrected wrongness, and productive friction. The proposed revision should restore
+- [The maintained rubric](../docs/self-scoring-rubric.md) recognizes detected wrongness,
+  evidence-backed correction, and productive friction. The proposed revision should restore
   consistency with that intent rather than invent a new objective.
 - D8 already requires four cost classifications: productive, necessary but non-discriminating,
   avoidable, and ceremony candidate. Strengthen their application; do not create a competing taxonomy.
@@ -196,8 +196,7 @@ full corpus audit or repeated unbounded review cycles.
 
 ## Related work
 
-- [Original self-scoring intent](self-scoring.md)
-- [Initial scoring capability](score-the-governance.md)
+- [Initial scoring capability](Priorities.md#9--score-the-governance)
 - [Current self-scoring rubric](../docs/self-scoring-rubric.md)
 - [Coordinator operating manual](../docs/coordinator-operating-manual.md)
 - [Tool and environment inventory](../docs/tool-inventory.md)

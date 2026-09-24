@@ -64,7 +64,7 @@ the adapter, and how long it ran:
 
 the ten are operator filing runs. they exist only because filing a `PromptContract` or an
 `OrchestrationPlan` needs an active producer run, and an operator-held run has no provider session,
-so it can never be closed `completed` — `the-coordinators-run-cannot-close.md`. every one of them
+so it can never be closed `completed` — `Priorities.md (completed item 21)`. every one of them
 did its job. 56% of this ledger's cancellations are a workaround being recorded as a failure.
 
 the eight are real: agents that ran for between one and twenty minutes and were stopped. two of them
@@ -95,7 +95,7 @@ the duration is load-bearing in the second one. `manifestHash` is null for every
 that field existed, so `ledger-learning/RB5` at 51.9 minutes and
 `2026-09-07_1352-decompose-command-handler/RT1` at 83.1 minutes read as unbriefed and were not; they
 predate the field. absence of a brief means "died before briefing" only for runs recorded after it
-shipped, which is the same retroactivity limit `measure-before-scoring.md` hit.
+shipped, which is the same retroactivity limit `Priorities.md (completed item 7)` hit.
 
 what is *not* separable from the record: a host kill from an operator interrupt, and a run that
 filed no output from a run that failed at its work. both need something the launcher knows and does

@@ -638,12 +638,12 @@ decides them.
 
 ## relation to existing backlog work
 
-- `a-productive-task-starves-its-successor.md` demonstrates why ranking over the full lesson corpus
+- `Priorities.md (completed item 25)` demonstrates why ranking over the full lesson corpus
   matters; semantic retrieval should address relevance before the final context cap.
-- `did-the-lesson-matter.md` provides `fromLesson` links that become valuable authority and outcome
+- `Priorities.md (completed item 2)` provides `fromLesson` links that become valuable authority and outcome
   signals in the index.
-- `record-the-refusals.md` supplies the telemetry from which refusal chains can be projected.
-- `measure-before-scoring.md` supplies deterministic causal measurements and reinforces that the
+- `Priorities.md (completed item 5)` supplies the telemetry from which refusal chains can be projected.
+- `Priorities.md (completed item 7)` supplies deterministic causal measurements and reinforces that the
   index must not turn similarity into a governance score.
 - `archived-memory-conservation.md` concerns canonical archive storage. Semantic indexing does not
   make canonical compression or deletion safe and should not silently absorb that feature.
