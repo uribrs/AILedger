@@ -64,6 +64,8 @@ them. It reserves nothing and does not promise a later launch will pass.
 
 ### 3. Reading and tools
 
+- Consult the [tool and environment inventory](tool-inventory.md) before locating or installing a
+  needed capability; follow its discovery and update instructions for missing or stale entries (guidance).
 - C# symbol questions: Roslyn first. This is the only tooling rule the code enforces (enforced,
   `AILedger.Providers/Navigation/RoslynSearchGuard.cs:37-52`). See [Reading and tooling](#reading-and-tooling).
 - Known file, known lines: a targeted read. Not a whole-directory dump (guidance).

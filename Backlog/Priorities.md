@@ -2,11 +2,14 @@
 
 ## Counts
 
-- **59 total**
-- **37 open**
+- **60 total**
+- **38 open (including 1 explicitly deferred)**
 - **22 done**
 - **1 delivered but not yet archived (23 made or archived)**
-- **27 bugs, 19 features, 9 changes**
+- **27 bugs, 19 features, 10 changes**
+
+2026-09-24: added deferred change 60; counts above apply only that addition to the existing totals.
+Earlier item statuses and category-count discrepancies were not re-audited.
 
 Status as of 2026-09-22 for rows 56, 57, 58 and 59; all other rows as of 2026-09-15. `done` means the governed task reached stage `archive`; delivered work awaiting verification or closeout remains open. The 12 rows reconciled below were moved because their referenced tasks are archived; item numbers and task ids remain unchanged.
 Every status was traceable to the supplied facts; no row was left unconfirmed.
@@ -56,6 +59,12 @@ Retain completed backlog rows in this file, marked done, because their item numb
 | 24 | cancelled-means-four-different-things | not opened | open | bug | item 5 holds five `Cancelled` runs: four operator filing runs that succeeded, and one nine-minute verification the host killed for memory. `self-scoring` asks for failed and retried runs as a cost signal and would read five where the true number is one. |
 | 10 | single-agent-relaxation | `2026-09-07_2136-single-provider-mode` | open | change | |
 | 37 | what-a-run-actually-costs | measurement | **read for 7 and 9** | change | not work to do. the first five runs with cost fields, read: the **fixed brief is ~56%** of a run's cost, the agent's own output ~24%, everything it read with tools 22% — of which whole-file reads are 70% on a coding run and raw `events.jsonl` digging is 96% on an analysis run. the manifest measured 36,000 tokens, 92% artifacts, re-read every turn. summing the buckets overstates 7.2-8.7×, confirming C7. also carries the settled decision that the embedding index updates at run close, not per edit, and why. |
+
+## Deferred work
+
+| # | backlog entry | task id | status | kind | notes |
+|---|---------------|---------|--------|------|-------|
+| 60 | [score-adaptation-and-avoidable-cost](score-adaptation-and-avoidable-cost.md) | not opened | deferred until October 2026 | change | Clarify D4 planning/decision/adaptation judgments, D6 detection opportunities and D8 productive versus avoidable cost. Preserve the existing ten-row format and historical reports; version the rubric and calibrate on four to six contrasting tasks. No overall weighted score or measurement-class refactor. Deferred by the operator until the token budget replenishes. |
 
 ## Done
 
