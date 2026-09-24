@@ -100,6 +100,85 @@ internal static class LessonEventValidator
         EnsureRecallProvenance(lesson);
     }
 
+    // Integrity of the event only. Which lessons a run may be served, and the arms that require a
+    // consultation, are command-time selection and policy (PALT4); replay never re-derives them.
+    internal static void ValidateConsulted(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        LessonsConsulted consulted)
+    {
+        RequireAuthority(state, @event.ActorId, Capability.BuildContext);
+        RequireDefined(consulted.Purpose, nameof(consulted.Purpose));
+        RequireText(consulted.Question, nameof(consulted.Question));
+        if (consulted.Tags.Count == 0 || consulted.Tags.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new GovernanceException("A lesson consultation requires at least one nonblank tag.");
+        }
+        EnsureUnique(consulted.Tags, "Consultation tags", StringComparer.Ordinal);
+
+        EnsureUnique(consulted.ClaimIds, "Consultation claim IDs");
+        EnsureReferencesExist(state.Claims, consulted.ClaimIds, "claim");
+        if (consulted.Purpose == LessonConsultationPurpose.Research && consulted.ClaimIds.Count == 0)
+        {
+            throw new GovernanceException("A research lesson consultation must name at least one claim.");
+        }
+        if (!string.Equals(
+                consulted.ClaimSetHash, InternalReconDocuments.ComputeClaimSetHash(state), StringComparison.Ordinal))
+        {
+            throw new GovernanceException("A lesson consultation must carry the claim-set hash it was made against.");
+        }
+
+        var run = Get(state.Runs, consulted.RunId, "run");
+        if (run.ActorId != @event.ActorId || run.Status != AgentRunStatus.Active)
+        {
+            throw new GovernanceException("A lesson consultation must name an active run of the consulting actor.");
+        }
+
+        EnsureUnique(consulted.ServedLessonIds, "Served lesson IDs");
+        EnsureUnique(consulted.NewLessons.Select(lesson => lesson.Id).ToArray(), "Consulted lesson IDs");
+        var served = consulted.ServedLessonIds.ToHashSet();
+        foreach (var lesson in consulted.NewLessons)
+        {
+            ValidateConsultedLesson(state, lesson);
+            if (!served.Contains(lesson.Id))
+            {
+                throw new GovernanceException($"Consulted lesson '{lesson.Id}' must be among the served lessons.");
+            }
+        }
+
+        var added = consulted.NewLessons.Select(lesson => lesson.Id).ToHashSet();
+        foreach (var id in consulted.ServedLessonIds)
+        {
+            if (!added.Contains(id) && !state.Lessons.ContainsKey(id))
+            {
+                throw new GovernanceException($"Served lesson '{id}' is neither in the task nor newly consulted.");
+            }
+        }
+    }
+
+    // The recalled-lesson shape and provenance checks, for a lesson first delivered mid-task.
+    // Shared by command time and replay so the two cannot disagree about an admissible lesson.
+    internal static void ValidateConsultedLesson(GovernedTaskState state, Lesson lesson)
+    {
+        ValidateLessonShape(lesson);
+        var expectedId =
+            $"{lesson.SourceTaskId.Value}:{lesson.SourceKind.ToString().ToLowerInvariant()}:{lesson.SourceRecordId}";
+        if (lesson.Id.Value != expectedId)
+        {
+            throw new GovernanceException("A consulted lesson identifier must match its source record.");
+        }
+        if (lesson.SourceTaskId == state.TaskId)
+        {
+            throw new GovernanceException("A task cannot consult its own lesson.");
+        }
+        if (state.Lessons.ContainsKey(lesson.Id))
+        {
+            throw new GovernanceException($"Lesson '{lesson.Id}' is already present in the task.");
+        }
+
+        EnsureRecallProvenance(lesson);
+    }
+
     private static void EnsureMintedSourceMatches(GovernedTaskState state, Lesson lesson)
     {
         var sourceMatches = lesson.SourceKind switch

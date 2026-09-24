@@ -27,6 +27,17 @@ internal static class EntryActionStageRules
         AddWorkItemCommand => Rule("work add", TaskStage.Ready),
         StartRunCommand run => RunRule(state, run),
         MarkLessonBearingCommand => Rule("lesson mark", TaskStage.Learn),
+        ConsultLessonsCommand consult => ConsultRule(consult.Purpose),
+        _ => null
+    };
+
+    private static EntryRule? ConsultRule(LessonConsultationPurpose purpose) => purpose switch
+    {
+        LessonConsultationPurpose.Recon =>
+            Rule("lesson consult --purpose recon", TaskStage.Research, TaskStage.Design),
+        LessonConsultationPurpose.Research => Rule("lesson consult --purpose research", TaskStage.Research),
+        LessonConsultationPurpose.Reconsideration =>
+            Rule("lesson consult --purpose reconsideration", TaskStage.Design),
         _ => null
     };
 

@@ -143,6 +143,7 @@ public sealed class LedgerDocumentNormalizer
         ConstraintAdded item => ("constraint", item.Constraint?.Id.Value),
         LessonMinted item => ("lesson", item.Lesson?.Id.Value),
         LessonRecalled item => ("lesson", item.Lesson?.Id.Value),
+        LessonsConsulted item => ("lesson consultation", item.RunId.Value),
         LessonMarked item => ("lesson mark", item.Mark?.Id.Value),
         ArtifactRecorded item => ("artifact", item.Artifact?.ArtifactId.Value),
         ClaimResolved item => ("claim", item.ClaimId.Value),
@@ -168,6 +169,7 @@ public sealed class LedgerDocumentNormalizer
         {
             LessonMinted item => item.Lesson.Id == lesson.Id,
             LessonRecalled item => item.Lesson.Id == lesson.Id,
+            LessonsConsulted item => item.NewLessons.Any(consulted => consulted.Id == lesson.Id),
             _ => false
         });
         var superseded = task.Lessons.Values.Any(item => item.SupersedesLessonId == lesson.Id);

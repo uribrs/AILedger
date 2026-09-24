@@ -97,6 +97,7 @@ public sealed class CommandHandler : ICommandHandler, IKernelIdentitySource
             RecordArtifactCommand record => ArtifactRules.Record(state, record, now),
             RecordContextBuiltCommand record => ContextBuildRules.Record(state, record),
             MarkLessonBearingCommand mark => LessonMarkRules.MarkLessonBearing(state, mark, now),
+            ConsultLessonsCommand consult => LessonConsultationRules.Consult(state, consult),
             AddConstraintCommand add => ConstraintRules.Add(state, add, now),
             SupersedeConstraintCommand supersede => ConstraintRules.Supersede(state, supersede),
             CompleteWorkItemCommand complete => WorkItemLifecycleRules.Complete(state, complete),
@@ -193,6 +194,9 @@ public sealed class CommandHandler : ICommandHandler, IKernelIdentitySource
                 break;
             case RecordArtifactCommand record:
                 RequireDefined(record.Kind, nameof(record.Kind));
+                break;
+            case ConsultLessonsCommand consult:
+                RequireDefined(consult.Purpose, nameof(consult.Purpose));
                 break;
         }
     }

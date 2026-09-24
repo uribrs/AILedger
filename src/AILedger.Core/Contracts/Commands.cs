@@ -30,4 +30,5 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(RecordContextBuiltCommand), "context.build")]
 [JsonDerivedType(typeof(StartCoordinatorSessionCommand), "session.start")]
 [JsonDerivedType(typeof(CompleteCoordinatorSessionCommand), "session.complete")]
+[JsonDerivedType(typeof(ConsultLessonsCommand), "lesson.consult")]
 public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);

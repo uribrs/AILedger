@@ -28,12 +28,15 @@ internal static class StagePrerequisiteRules
             case TaskStage.Design:
                 // R2 (stale-claim-certification): backward entry opens the replanning workspace.
                 if (!isBackward)
-                    EnsureDesign(state, completedRoles);
+                    EnsureDesign(state);
                 break;
             case TaskStage.Scope:
                 // R1 (both-research-arms): recovery must satisfy full readiness before moving on.
                 if (state.Stage == TaskStage.Design)
-                    EnsureDesign(state, completedRoles);
+                {
+                    EnsureDesign(state);
+                    EnsureReconsiderationConsulted(state);
+                }
                 EnsureCurrentArtifact(currentArtifacts, target, GovernedArtifactKind.PromptContract);
                 break;
             case TaskStage.Ready:
@@ -78,16 +81,62 @@ internal static class StagePrerequisiteRules
         }
     }
 
-    private static void EnsureDesign(GovernedTaskState state, IReadOnlySet<RoleKind> completedRoles)
+    private static void EnsureDesign(GovernedTaskState state)
     {
         // R1 (both-research-arms): external research supplements current recon.
-        if (InternalReconRules.EnsureDesign(state))
-            EnsureCompletedRole(completedRoles, RoleKind.Researcher, "Design");
+        EnsureResearchConsulted(state, InternalReconRules.EnsureDesign(state));
         if (state.Alternatives.Count == 0 &&
             !state.Decisions.Values.Any(decision => decision.Status == DecisionStatus.Accepted))
         {
             throw new GovernanceException(
                 "Design requires at least one recorded alternative or accepted decision.");
+        }
+    }
+
+    // A2 (research-consultation-arm). Stricter than the completed-Researcher check it replaces: each
+    // external claim must be named by a research consultation from the current research episode,
+    // made by a Researcher run that completed with real cognition. An old consultation about other
+    // claims, or from before the latest entry into Research, does not count (K9, PALT10).
+    private static void EnsureResearchConsulted(GovernedTaskState state, IReadOnlyList<ClaimId> externalClaims)
+    {
+        var episodeStart = state.ResearchOpenedAtVersion ?? 0;
+        foreach (var claim in externalClaims)
+        {
+            var consulted = state.LessonConsultations.Any(consultation =>
+                consultation.Purpose == LessonConsultationPurpose.Research &&
+                consultation.Version > episodeStart &&
+                consultation.ClaimIds.Contains(claim) &&
+                state.Runs.TryGetValue(consultation.RunId, out var run) &&
+                WorkItemVerificationRules.DidWork(run) &&
+                run.SubjectRole == RoleKind.Researcher);
+            if (!consulted)
+            {
+                throw new GovernanceException(
+                    $"Design requires a research lesson consultation naming external claim '{claim}' " +
+                    "by a completed Researcher run in the current research episode.");
+            }
+        }
+    }
+
+    // A3 (reconsideration-consultation-arm). Only after a return from a stage after Design into
+    // Design or Research (PD9); one consultation after that return covers the rest of the episode.
+    // Like A2, it counts only from a run that completed with real cognition (PD10): a provider-none,
+    // failed, cancelled or still-active run has not reassessed the served lessons.
+    private static void EnsureReconsiderationConsulted(GovernedTaskState state)
+    {
+        if (state.ReconsiderationOpenedAtVersion is not { } opened)
+        {
+            return;
+        }
+        if (!state.LessonConsultations.Any(consultation =>
+                consultation.Purpose == LessonConsultationPurpose.Reconsideration &&
+                consultation.Version > opened &&
+                state.Runs.TryGetValue(consultation.RunId, out var run) &&
+                WorkItemVerificationRules.DidWork(run)))
+        {
+            throw new GovernanceException(
+                "Scope after replanning requires a reconsideration lesson consultation by a completed lead run " +
+                "with real cognition, recorded after the latest return from a later stage into Design or Research.");
         }
     }
 

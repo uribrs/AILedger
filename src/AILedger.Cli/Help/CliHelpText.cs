@@ -128,6 +128,19 @@ internal static class CliHelpText
                            command and reports whether the direction it recorded still holds. A
                            read: it writes no event, no projection and no store row, and only an
                            operator asking for it runs it.
+        lesson consult     --task ID --actor ID --run RUN --purpose recon|research|reconsideration
+                           --question TEXT --tag TAG [--tag TAG ...] [--claim CLAIM ...]
+                           Retrieves store lessons carrying any of the tags during an ongoing task
+                           and records one lesson.consulted event from the active run. Every served
+                           lesson joins the task and can be cited with --from-lesson. Recon and
+                           reconsideration come from a task-wide lead run; research from a researcher
+                           run and names at least one --claim. Reconsideration also re-serves every
+                           task lesson the run's role may see. Prints servedLessonIds, newLessonIds
+                           and the full lessons; an empty result is recorded and printed as empty
+                           lists. A recon consultation must match the claim set of the InternalRecon
+                           the same run files; a research one must name each external claim in the
+                           current research episode; a reconsideration one must follow the latest
+                           return from a later stage into Design or Research.
         verification run   --task ID --actor ID --id EVIDENCE-ID --checkout PATH --candidate SHA256
                            [--profile NAME] [--confirm SHA256] [--timeout-seconds N]
                            [--supports CLAIM] [--refutes CLAIM]

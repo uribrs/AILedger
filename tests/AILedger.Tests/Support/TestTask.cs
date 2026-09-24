@@ -276,11 +276,28 @@ internal sealed class TestTask
             Assessments = template.Assessments.Select(row => row with { Domain = "internal" }).ToArray(),
             Report = "Inspected local contracts for the staged test."
         });
+        // A1 (recon-consultation-arm): the producer run consults against the claim set it files on.
+        ConsultLessons(lead, run, LessonConsultationPurpose.Recon);
         Apply(ArtifactCommands.Record(this, lead, artifactId, GovernedArtifactKind.InternalRecon,
             body, producerRun: run));
         Apply(new CompleteRunCommand(OperatorId, null, NextCorrelation(), run,
             AgentRunStatus.Completed, $"session-{runId}"));
     }
+
+    // A mid-task lesson consultation through the production handler. A handler-driven test has no
+    // store, so the candidates are whatever the test hands in; the default tag matches nothing a
+    // fixture recalls, which keeps a staged consultation from serving lessons the test never asked for.
+    public CommandOutcome ConsultLessons(
+        ActorId actor,
+        RunId run,
+        LessonConsultationPurpose purpose,
+        IReadOnlyList<ClaimId>? claims = null,
+        IReadOnlyList<Lesson>? candidates = null,
+        string question = "What do earlier tasks say about this step?",
+        params string[] tags) =>
+        Apply(new ConsultLessonsCommand(
+            actor, null, NextCorrelation(), run, purpose, question,
+            tags.Length == 0 ? ["fixture-consultation"] : tags, claims ?? [], candidates));
 
     // A research pass holds no directory area, so its run names no work item. The Design arm reads
     // the role the run captured, which is what a task-wide run still records.
@@ -295,6 +312,12 @@ internal sealed class TestTask
         var run = new RunId(runId);
         Apply(new StartRunCommand(
             OperatorId, null, NextCorrelation(), run, workItemId, "codex", null, null, null, null, researcher));
+        // A2 (research-consultation-arm): the pass consults naming every claim it could be researching.
+        if (State.Claims.Count != 0)
+        {
+            ConsultLessons(researcher, run, LessonConsultationPurpose.Research,
+                State.Claims.Keys.ToArray());
+        }
         Apply(new CompleteRunCommand(
             OperatorId, null, NextCorrelation(), run, AgentRunStatus.Completed, $"session-{runId}"));
         return run;

@@ -57,8 +57,10 @@ public sealed class InternalReconDocumentTests
             "template" => JsonSerializer.Serialize(InternalReconDocuments.CreateTemplate(f.Task.State)),
             _ => body
         };
+        // Consulted first, so the refusal is the document's own and not A1 (recon-consultation-arm).
+        f.Consult();
         var version = f.Task.State.Version;
-        Assert.Throws<GovernanceException>(() => f.File(body));
+        Assert.Throws<GovernanceException>(() => f.File(body, consult: false));
         Assert.Equal(version, f.Task.State.Version);
         Assert.Empty(f.Task.State.Artifacts);
     }

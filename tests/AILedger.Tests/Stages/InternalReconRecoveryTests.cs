@@ -24,6 +24,8 @@ public sealed class InternalReconRecoveryTests
                 f.Task.OperatorId, null, f.Task.NextCorrelation(), TaskStage.Design, Reason: reason)));
         f.Task.Transition(TaskStage.Design);
         Assert.Throws<GovernanceException>(() => f.Task.Transition(TaskStage.Scope));
+        // A3 is satisfied first, so every refusal below is the recon producer's, not the replanning arm's.
+        f.Reconsider();
         f.Start("refresh");
         f.File(id: "fresh", supersedes: "recon");
         Assert.Throws<GovernanceException>(() => f.Task.Transition(TaskStage.Scope));
@@ -75,6 +77,8 @@ public sealed class InternalReconRecoveryTests
         f.File(f.Body("external"), "fresh", "external");
         f.Complete();
         f.Task.Transition(TaskStage.Design);
+        // The forward re-entry does not end the replanning the backward entry opened (A3).
+        f.Reconsider();
         f.Task.Transition(TaskStage.Scope);
         Assert.Equal(TaskStage.Scope, f.Task.State.Stage);
     }
@@ -136,6 +140,8 @@ public sealed class InternalReconRecoveryTests
         Assert.Throws<GovernanceException>(() => Apply(Move(TaskStage.Design)));
         var run = new RunId("empty-recon");
         Apply(new StartRunCommand(task.OperatorId, null, Next(), run, null, "codex", null));
+        Apply(new ConsultLessonsCommand(task.OperatorId, null, Next(), run,
+            LessonConsultationPurpose.Recon, "What do earlier recoveries say?", ["recovery"], []));
         var template = InternalReconDocuments.CreateTemplate(state!);
         var body = System.Text.Json.JsonSerializer.Serialize(template with { Report = "Empty claim set inspected." });
         Apply(AILedger.Tests.Support.ArtifactCommands.Record(task, task.OperatorId, "first-recon",
@@ -146,6 +152,10 @@ public sealed class InternalReconRecoveryTests
         Apply(Move(TaskStage.Design));
         Assert.Empty(state!.Claims);
         Apply(new StartRunCommand(task.OperatorId, null, Next(), new RunId("contract"), null, "codex", null));
+        // The backward entry at the start of the recovery opened a reconsideration (A3).
+        Apply(new ConsultLessonsCommand(task.OperatorId, null, Next(), new RunId("contract"),
+            LessonConsultationPurpose.Reconsideration, "Does the recovered strategy repeat a refuted one?",
+            ["recovery"], []));
         Apply(AILedger.Tests.Support.ArtifactCommands.Record(task, task.OperatorId, "contract",
             GovernedArtifactKind.PromptContract, producerRun: new RunId("contract")));
         Apply(new CompleteRunCommand(task.OperatorId, null, Next(), new RunId("contract"),

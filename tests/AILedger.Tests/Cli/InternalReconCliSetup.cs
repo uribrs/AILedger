@@ -26,6 +26,11 @@ internal static class InternalReconCliSetup
         });
         Assert.Equal(0, await application.RunAsync(
             ["run", "start", .. common, "--run", "R-recon", "--provider", "codex"], CancellationToken.None));
+        // A1 (recon-consultation-arm), through the CLI command the producer run would issue.
+        Assert.Equal(0, await application.RunAsync(
+            ["lesson", "consult", .. common, "--run", "R-recon", "--purpose", "recon",
+             "--question", "What do earlier tasks say about this recon?", "--tag", "recon-fixture"],
+            CancellationToken.None));
         using (new StandardInput(body))
             Assert.Equal(0, await application.RunAsync(
                 ["artifact", "record", .. common, "--id", "A-recon", "--kind", "InternalRecon",

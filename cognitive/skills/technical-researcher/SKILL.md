@@ -1,6 +1,6 @@
 ---
 name: technical-researcher
-version: 1.3.0
+version: 1.4.0
 description: Research external technical targets and produce decision-support recommendations grounded in official docs, official-adjacent artifacts, and community evidence. Use when investigation of a product, API, platform, tool, integration, library, SDK, service, or protocol is required for integration design, implementation planning, bug investigation, capability verification, migration analysis, or compatibility analysis. Typically invoked by `task-orchestrator` to resolve an OPEN external-behavior claim in the governed task.
 ---
 
@@ -40,6 +40,32 @@ After writing the research file:
 - Surface a stable rule that affects future execution to a lead or operator for `ailedger decision propose`; a researcher does not hand-edit the decision projection.
 
 If the triggering assumption cannot be resolved by the research (because the evidence is insufficient or contradictory), leave it OPEN, record the limitation in the research file, and surface this to the caller. Do not force a resolution.
+
+## Consult Lessons At The Start And Before Finishing
+
+In a governed task, the Design gate refuses every external claim that no Researcher run has named in
+a research lesson consultation since the latest entry into Research, and that run must have
+completed. Consult from your own run, while the task is in Research, at two points:
+
+1. At the start, naming the triggering claims:
+
+   ```bash
+   ailedger lesson consult --task TASK --actor ACTOR --run RUN --purpose research \
+     --question "<the research question>" --tag TAG [--tag TAG ...] --claim CLAIM [--claim CLAIM ...]
+   ```
+
+2. Before finishing, again for every claim this run added that recon may classify as external. A
+   claim not named in a consultation of the current episode blocks Design, and only a new
+   Researcher run can repair it.
+
+- At least one `--claim` is required. A consultation from an earlier research episode does not count.
+- Use the tags a lesson about this subject would carry: the target system and the task classification.
+- Every served lesson joins the task. Evaluate each against the question and the findings. A lesson
+  is prior evidence to re-establish, not a source; record an applicable one with
+  `ailedger claim add --from-lesson LESSON-ID` and cite the underlying source as usual. Say in the
+  research file why the others do not apply.
+- A result with no lessons (`"lessons": []`) is a valid consultation. Record it in the research file
+  as it is.
 
 ## Core Operating Rules
 

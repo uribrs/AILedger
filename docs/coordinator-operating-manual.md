@@ -183,8 +183,8 @@ A no-provider run never satisfies an arm.
 | target | refused unless | lines |
 |---|---|---|
 | Research | at least one Open claim. Forward entry only. | 24-27, 73-79 |
-| Design | one current InternalRecon, task-wide, with a completed real producer, hash still current; if any assessment is `external`, a completed Researcher run and no Open external claim; at least one alternative or one accepted decision. Forward entry only. | 28-32, 81-92; `Artifacts/Logic/InternalReconRules.cs:68-87` |
-| Scope | leaving Design: the whole Design arm again. Always: a current PromptContract. | 33-38 |
+| Design | one current InternalRecon, task-wide, with a completed real producer, hash still current; no Open external claim; for every claim the recon assesses as `external`, a research lesson consultation (A2) that names the claim, was made by a completed Researcher run, and was recorded after the latest entry into Research; at least one alternative or one accepted decision. Forward entry only. | 28-32, 84-119 (`EnsureDesign`, `EnsureResearchConsulted`); `Artifacts/Logic/InternalReconRules.cs:69-88` |
+| Scope | leaving Design: the whole Design arm again, then the reconsideration arm (A3): after a return from a stage after Design into Design or Research, a reconsideration lesson consultation recorded after that return by a completed lead run with real cognition. Always: a current PromptContract. | 33-41, 121-137 (`EnsureReconsiderationConsulted`); `Stages/Logic/StageStateProjector.cs:29-35` |
 | Ready | a current OrchestrationPlan; one role assignment other than Verifier or CodeReviewer; a Verifier assignment; a CodeReviewer assignment. Assignments, not runs. | 94-112, 203-204 |
 | Execution | at least one work item; current UserRequest, PromptContract and OrchestrationPlan. | 114-137 |
 | Verification | a completed **Worker** run (not Researcher, not a lead); a serial justification when two or more disjoint worked items had no overlapping working runs. | 139-152; `Stages/Logic/StageSerialExecutionRules.cs:9-34` |
@@ -197,6 +197,21 @@ Notes:
 
 - Backward entry into Research or Design skips their arms. That is the replanning door. Leaving
   Design for Scope runs the Design arm again, so a stale recon blocks you there, not on the way in.
+- A2 and A3 are satisfied by `lesson consult` (`--purpose research` from a Researcher run at
+  Research; `--purpose reconsideration` from a task-wide lead run at Design). For A3 the consulting
+  lead run must be completed, with real cognition, before Design→Scope is requested: a `--provider
+  none`, Failed, Cancelled or still Active run does not count, so its launcher completes it first.
+  A consultation that serves zero lessons still satisfies its arm. Refusals:
+  `Design requires a research lesson consultation naming external claim '<claim>' by a completed Researcher run in the current research episode.`
+  (`StagePrerequisiteRules.cs:114-116`) and
+  `Scope after replanning requires a reconsideration lesson consultation by a completed lead run with real cognition, recorded after the latest return from a later stage into Design or Research.`
+  (`StagePrerequisiteRules.cs:133-135`, `EnsureReconsiderationConsulted`).
+- A3's episode opens on Scope→Design, Execution→Design and Execution→Research. Design→Research does
+  not open one: in first-pass planning it requires nothing, and inside an open episode it keeps that
+  episode open. One reconsideration consultation covers the whole episode. Execution→Scope never
+  passes Design, so A3 does not apply on that path.
+- InternalRecon filing has its own consultation arm (A1); see
+  [InternalRecon freshness](#internalrecon-freshness). A1 is not a stage arm and no waiver lifts it.
 - Replay enforces only two of these: Execution needs a work item, and Archive needs no active run and
   no open challenge (enforced, `Stages/Logic/StageEventValidator.cs:84-100`). Every other arm is
   command-time only. A history is never refused later for an arm added after it was written.
@@ -281,9 +296,15 @@ The cycle:
 1. The claim set changes (claim added, resolved, superseded).
 2. `ailedger artifact recon-template --task T > recon.json` — the template carries the new hash.
 3. Fill every claim's `domain` with `internal` or `external`, and write the `report`.
-4. From an active task-wide lead run, at Research or Design:
+4. From the same run R that will file the recon, after the last claim change:
+   `ailedger lesson consult --task T --actor LEAD --run R --purpose recon --question TEXT --tag TAG`.
+   Filing is refused unless run R has a recon consultation whose claim-set hash equals the current
+   one (A1, command time only): `InternalRecon: requires a recon lesson consultation by producer run
+   '<run>' against the current claim set.` (`InternalReconRules.cs:90-103`, called from
+   `Artifacts/Logic/ArtifactRules.cs:64-67`). A claim change after the consultation needs a new one.
+5. From an active task-wide lead run, at Research or Design:
    `ailedger artifact record --task T --actor LEAD --run R --id IR2 --kind InternalRecon --title "Internal recon" --supersedes IR1 --body-stdin < recon.json`
-5. The launcher completes run R. Only then does the recon satisfy Design (`InternalReconRules.cs:80-81`).
+6. The launcher completes run R. Only then does the recon satisfy Design (`InternalReconRules.cs:81-82`).
 
 Design never falls back to an older recon revision (`InternalReconRules.cs:67-73`). Resolving a claim
 during Design therefore needs a superseding recon before Design→Scope. Plan for it (judgment:

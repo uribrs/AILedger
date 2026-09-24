@@ -61,6 +61,11 @@ internal static class ArtifactRules
 
         ArtifactDocumentRules.Validate(state, command.Kind, command.WorkItemId, command.Content);
 
+        if (command.Kind == GovernedArtifactKind.InternalRecon)
+        {
+            InternalReconRules.EnsureConsulted(state, command.ProducerRunId);
+        }
+
         return [new ArtifactRecorded(new GovernedArtifact(
             command.ArtifactId,
             command.Kind,

@@ -12,6 +12,29 @@ internal static class LessonStateProjector
     internal static GovernedTaskState Add(GovernedTaskState state, LessonRecalled recalled) =>
         Add(state, recalled.Lesson);
 
+    // New lessons join state.Lessons through the same Add as recall and minting, which is what makes
+    // them citable by --from-lesson without touching the citation rules (PC2).
+    internal static GovernedTaskState Consult(
+        GovernedTaskState state,
+        LedgerEvent @event,
+        LessonsConsulted consulted)
+    {
+        var next = consulted.NewLessons.Aggregate(state, Add);
+        var consultation = new LessonConsultation(
+            @event.EventId,
+            state.Version + 1,
+            @event.ActorId,
+            consulted.RunId,
+            consulted.Purpose,
+            consulted.Question,
+            consulted.Tags,
+            consulted.ClaimIds,
+            consulted.ClaimSetHash,
+            consulted.ServedLessonIds,
+            @event.RecordedAt);
+        return next with { LessonConsultations = [.. state.LessonConsultations, consultation] };
+    }
+
     internal static GovernedTaskState AddMark(GovernedTaskState state, LessonMarked marked) =>
         state with { LessonMarks = Set(state.LessonMarks, marked.Mark.Id, marked.Mark) };
 

@@ -72,6 +72,7 @@ public sealed class TaskReducer : ITaskReducer
                 ContextStateProjector.RecordPendingWaiver(Require(state), @event, waived),
             SessionStarted started => CoordinatorSessionStateProjector.Start(Require(state), started),
             SessionCompleted completed => CoordinatorSessionStateProjector.Complete(Require(state), completed),
+            LessonsConsulted consulted => LessonStateProjector.Consult(Require(state), @event, consulted),
             _ => throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.")
         };
 

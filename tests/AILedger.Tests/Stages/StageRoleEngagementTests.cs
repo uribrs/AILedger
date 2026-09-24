@@ -15,6 +15,9 @@ public sealed class StageRoleEngagementTests
         task.Assign(researcher, RoleKind.Researcher, Capability.BuildContext);
         task.Apply(new StartRunCommand(task.OperatorId, null, task.NextCorrelation(),
             new RunId("RN"), null, AgentRun.NoProvider, null, SubjectActorId: researcher));
+        // It consults as a research pass would, so only the missing cognition is left to refuse (A2).
+        task.ConsultLessons(researcher, new RunId("RN"), LessonConsultationPurpose.Research,
+            task.State.Claims.Keys.ToArray());
         task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(),
             new RunId("RN"), AgentRunStatus.Completed, null));
         f.Resolve();
@@ -24,6 +27,7 @@ public sealed class StageRoleEngagementTests
             new RequestStageTransitionCommand(
                 task.OperatorId, null, task.NextCorrelation(), TaskStage.Design)));
 
-        Assert.Contains("Design requires a completed Researcher run", error.Message, StringComparison.Ordinal);
+        Assert.Contains("by a completed Researcher run in the current research episode", error.Message,
+            StringComparison.Ordinal);
     }
 }

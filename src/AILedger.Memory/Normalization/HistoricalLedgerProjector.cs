@@ -119,6 +119,10 @@ internal static class HistoricalLedgerProjector
                 Require(state), overturned.DecisionId, DecisionStatus.Invalidated),
             LessonMinted minted => AddLesson(Require(state), minted.Lesson),
             LessonRecalled recalled => AddLesson(Require(state), recalled.Lesson),
+            // A mid-task consultation imports the lessons it served for the first time; lessons it
+            // re-served are already in the task. The arm must exist for the reason SessionStarted
+            // gives: without it this switch throws and the index stops rebuilding (PD3).
+            LessonsConsulted consulted => consulted.NewLessons.Aggregate(Require(state), AddLesson),
             LessonMarked marked => Require(state) with
             {
                 LessonMarks = Set(Require(state).LessonMarks, marked.Mark.Id, marked.Mark)

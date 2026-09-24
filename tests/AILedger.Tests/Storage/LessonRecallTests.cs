@@ -287,6 +287,9 @@ public sealed class LessonRecallTests
                 var recon = new RunId("R-recon");
                 await Run(service, source, new StartRunCommand(actor, null, correlation.Next(),
                     recon, null, "codex", null));
+                await Run(service, source, new ConsultLessonsCommand(actor, null, correlation.Next(),
+                    recon, LessonConsultationPurpose.Recon, "What do earlier tasks say about this recon?",
+                    ["recon-fixture"], []));
                 await Run(service, source, new RecordArtifactCommand(actor, null, correlation.Next(),
                     new ArtifactId("A-recon"), GovernedArtifactKind.InternalRecon, "Recon", body,
                     null, recon, null));

@@ -92,6 +92,16 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                     .ConfigureAwait(false)
             };
         }
+        else if (command is ConsultLessonsCommand consult)
+        {
+            // A mid-task consultation reads the store through the same selection as opening recall,
+            // keyed on the consultation's own tags. A store failure fails the command.
+            command = consult with
+            {
+                Candidates = await LoadArchivedLessonsAsync(taskId, consult.Tags, cancellationToken)
+                    .ConfigureAwait(false)
+            };
+        }
 
         var taskDirectory = _pathResolver.Resolve(taskId);
         _pathResolver.EnsureTaskDirectory(taskDirectory);

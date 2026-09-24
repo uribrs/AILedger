@@ -31,6 +31,9 @@ public sealed class InternalReconCliTests
         await Run("claim", "add", "--id", "C1", "--statement", "Unicode λ and mixed CASE");
         await Run("stage", "transition", "--stage", "Research");
         await Run("run", "start", "--run", "R1", "--provider", "codex");
+        // A1 (recon-consultation-arm): the producer run consults before it files.
+        await Run("lesson", "consult", "--run", "R1", "--purpose", "recon",
+            "--question", "What do earlier tasks say about this recon?", "--tag", "recon");
         output.GetStringBuilder().Clear();
         var stateBefore = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
         Assert.Equal(0, await cli.RunAsync(["artifact", "recon-template", "--root", root.Path, "--task", "T1"], CancellationToken.None));

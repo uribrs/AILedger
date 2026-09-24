@@ -49,6 +49,16 @@ public sealed record GovernedTaskState
     // inferred from a clock (D7, PALT3).
     public IReadOnlyDictionary<CoordinatorSessionId, CoordinatorSession> CoordinatorSessions { get; init; } =
         new Dictionary<CoordinatorSessionId, CoordinatorSession>();
+    // Mid-task lesson consultations, in the order recorded, and the two episode markers the
+    // consultation arms compare them with. Appended after CoordinatorSessions for the reason that
+    // was appended after ContextBriefWaivers: a property may be added at the end and never moved.
+    // The markers are derived from stage transitions, so replaying an old history sets them from
+    // its old transitions; only command-time arms read them.
+    public IReadOnlyList<LessonConsultation> LessonConsultations { get; init; } = [];
+    // Version of the latest StageTransitioned from a stage after Design into Design or Research; null when none.
+    public long? ReconsiderationOpenedAtVersion { get; init; }
+    // Version of the latest StageTransitioned whose Current is Research; null when none.
+    public long? ResearchOpenedAtVersion { get; init; }
     internal ActorId? PendingOpeningActor { get; init; }
     // Transient replay state tying a waiver event to the immediately caused stage transition.
     // Internal properties are not projected into state.json; a completed command always consumes it.

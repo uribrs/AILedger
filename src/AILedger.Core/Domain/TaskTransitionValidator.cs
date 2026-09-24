@@ -132,6 +132,9 @@ internal static class TaskTransitionValidator
             case SessionCompleted completed:
                 CoordinatorSessionEventValidator.ValidateCompleted(Require(state), @event, completed);
                 break;
+            case LessonsConsulted consulted:
+                LessonEventValidator.ValidateConsulted(Require(state), @event, consulted);
+                break;
             default:
                 throw new GovernanceException($"Unsupported event data '{@event.Data.GetType().Name}'.");
         }

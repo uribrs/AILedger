@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.8.9
+version: 1.9.0
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -101,6 +101,26 @@ Researcher cognition and authorized resolution, followed by fresh all-claim reco
 producer before strict forward Design admission. Resolved external assessments still missing
 Researcher cognition take the same route. Backward Research permits no-Open recovery; forward
 Discovery-to-Research still requires an Open claim. The orchestrator owns these judgments.
+
+Lesson consultation is enforced at three points. Route the owning role to it; do not consult or
+evaluate applicability yourself:
+
+- **Recon:** the recon producer runs `ailedger lesson consult --purpose recon` after its last claim
+  change and before filing each revision. The kernel refuses the InternalRecon otherwise.
+- **Research:** each Researcher run consults with `--purpose research`, naming its triggering claims
+  at the start and its new claims before finishing. Forward Design admission and Design-to-Scope
+  refuse an external claim not named by a completed Researcher's consultation since the latest
+  entry into Research. Repair it with a new Researcher run.
+- **Reconsideration:** after any return from a stage after Design into Design or Research
+  (Scope-to-Design, Execution-to-Design, Execution-to-Research), route the planning run to consult
+  with `--purpose reconsideration` on the proposed strategy while in Design, before requesting
+  Design-to-Scope. It re-serves the task's lessons visible to that role for reassessment, plus new
+  matches. The kernel refuses Design-to-Scope until a consultation is recorded after the latest
+  such return. A Design-to-Research detour in first-pass planning opens no episode; one inside an
+  open episode keeps it open.
+
+A refusal naming a consultation is a routing gap: dispatch the owning role. A consultation that
+served no lesson satisfies its point.
 
 Before forward Design-to-Scope, reconcile any claim changes from contract/plan authoring and route
 recon refresh as needed. That exit checks the full Design predicate again, including both arms

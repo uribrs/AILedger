@@ -35,9 +35,33 @@ internal sealed class InternalReconFixture
             null, provider, null, null, null, null, Lead));
     }
 
-    public void File(string? body = null, string id = "recon", string? supersedes = null) =>
+    // A1 (recon-consultation-arm): filing consults first, as the producer run, against the claim set
+    // the filing reads. Only when the run could consult: a test whose subject is some other filing
+    // refusal keeps that refusal as the one that speaks.
+    public void File(string? body = null, string id = "recon", string? supersedes = null, bool consult = true)
+    {
+        if (consult && Task.State.Runs.TryGetValue(Run, out var run) &&
+            run.Status == AgentRunStatus.Active && run.ActorId == Lead && run.WorkItemId is null &&
+            Task.State.Stage is TaskStage.Research or TaskStage.Design)
+        {
+            Consult();
+        }
         Task.Apply(ArtifactCommands.Record(Task, Lead, id, GovernedArtifactKind.InternalRecon,
             body ?? Body(), producerRun: Run, supersedes: supersedes));
+    }
+
+    public CommandOutcome Consult(LessonConsultationPurpose purpose = LessonConsultationPurpose.Recon) =>
+        Task.ConsultLessons(Lead, Run, purpose);
+
+    // A3 (reconsideration-consultation-arm): a task-wide lead run consults after a backward Design entry.
+    public void Reconsider(string id = "reconsider")
+    {
+        var previous = Run;
+        Start(id);
+        Consult(LessonConsultationPurpose.Reconsideration);
+        Complete();
+        Run = previous;
+    }
 
     public void Complete(AgentRunStatus status = AgentRunStatus.Completed) =>
         Task.Apply(new CompleteRunCommand(Task.OperatorId, null, Task.NextCorrelation(), Run, status, "recon-session"));

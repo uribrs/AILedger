@@ -23,6 +23,40 @@ internal sealed class LessonCliCommands(CliCommandExecutor executor)
             CliCommandOptions.Set("repo", "id", "confirm", "working-directory", "timeout-seconds"),
             isReadOnly: true,
             RecheckAsync);
+        yield return new CliCommandRegistration(
+            ["lesson consult"],
+            CliCommandOptions.Set(
+                "root", "task", "actor", "run", "purpose", "question", "tag", "claim", "correlation"),
+            isReadOnly: false,
+            ConsultAsync);
+    }
+
+    // The store candidates are injected by the service, so the command carries none. The output adds
+    // what was served to the standard mutation fields; an empty result prints empty lists, which is
+    // an honest outcome rather than an error.
+    private async Task ConsultAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)
+    {
+        var input = invocation.Input;
+        var outcome = await invocation.Service.ExecuteAsync(
+            CliInput.Task(input),
+            new ConsultLessonsCommand(
+                Actor(input), null, Correlation(input), new RunId(input.Required("run")),
+                EnumValue<LessonConsultationPurpose>(input, "purpose"), input.Required("question"),
+                input.Many("tag"), input.Many("claim").Select(value => new ClaimId(value)).ToArray()),
+            cancellationToken).ConfigureAwait(false);
+        var consulted = outcome.Events.Select(@event => @event.Data).OfType<LessonsConsulted>().Single();
+        await executor.WriteJsonAsync(new
+        {
+            outcome.State.TaskId,
+            outcome.State.Version,
+            outcome.State.Stage,
+            Events = outcome.Events.Select(@event => @event.EventId),
+            consulted.Purpose,
+            consulted.ClaimIds,
+            consulted.ServedLessonIds,
+            NewLessonIds = consulted.NewLessons.Select(lesson => lesson.Id),
+            Lessons = consulted.ServedLessonIds.Select(id => outcome.State.Lessons[id])
+        }).ConfigureAwait(false);
     }
 
     private Task MarkAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)

@@ -64,8 +64,9 @@ internal static class InternalReconRules
         }
     }
 
-    // R3 (producer-currentness): never fall back to an earlier successful revision.
-    internal static bool EnsureDesign(GovernedTaskState state)
+    // R3 (producer-currentness): never fall back to an earlier successful revision. Returns the
+    // claims the current recon assesses as external, which the research consultation arm binds to.
+    internal static IReadOnlyList<ClaimId> EnsureDesign(GovernedTaskState state)
     {
         var current = ArtifactApplicability.Current(state)
             .Where(artifact => artifact.Kind == GovernedArtifactKind.InternalRecon).ToArray();
@@ -83,7 +84,22 @@ internal static class InternalReconRules
         var external = document.Assessments.Where(row => row.Domain == "external").ToArray();
         if (external.Any(row => state.Claims[new ClaimId(row.ClaimId)].Status == ClaimStatus.Open))
             throw Invalid("Design cannot admit an open external claim.");
-        return external.Length != 0;
+        return external.Select(row => new ClaimId(row.ClaimId)).ToArray();
+    }
+
+    // A1 (recon-consultation-arm). Command time only: called from ArtifactRules.Record, never from
+    // the replay-shared authority or document paths (PC6), so historical recon still replays.
+    // Document validation has already bound the document's claimSetHash to the current claim set,
+    // so matching the current hash is matching the document's.
+    internal static void EnsureConsulted(GovernedTaskState state, RunId? producerRunId)
+    {
+        var hash = InternalReconDocuments.ComputeClaimSetHash(state);
+        if (producerRunId is not { } producer || !state.LessonConsultations.Any(consultation =>
+                consultation.Purpose == LessonConsultationPurpose.Recon &&
+                consultation.RunId == producer &&
+                string.Equals(consultation.ClaimSetHash, hash, StringComparison.Ordinal)))
+            throw Invalid(
+                $"requires a recon lesson consultation by producer run '{producerRunId}' against the current claim set.");
     }
 
     private static void ExactProperties(JsonElement element, params string[] names)

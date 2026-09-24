@@ -51,4 +51,5 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(ContextBriefWaived), "context.brief-waived")]
 [JsonDerivedType(typeof(SessionStarted), "session.started")]
 [JsonDerivedType(typeof(SessionCompleted), "session.completed")]
+[JsonDerivedType(typeof(LessonsConsulted), "lesson.consulted")]
 public abstract record LedgerEventData;

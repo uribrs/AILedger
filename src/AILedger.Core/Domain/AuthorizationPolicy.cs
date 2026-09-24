@@ -84,6 +84,8 @@ public sealed class AuthorizationPolicy
         // The same capability the assembler already demands before it will build a manifest, so
         // recording the brief can refuse nothing that producing it did not refuse first.
         RecordContextBuiltCommand => [Capability.BuildContext],
+        // Consulting is being briefed mid-task, so it needs what being briefed at launch needs.
+        ConsultLessonsCommand => [Capability.BuildContext],
         AddConstraintCommand or SupersedeConstraintCommand => [Capability.ManageConstraints],
         CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand
             or AbandonWorkItemCommand => [Capability.ManageWork],

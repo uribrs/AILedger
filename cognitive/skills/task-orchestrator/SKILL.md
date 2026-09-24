@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.7.11
+version: 1.8.0
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
@@ -163,9 +163,32 @@ The recon pass writes to `<taskPath>/research/internal-recon.md`:
 
 A narrow task may reuse already-read sources or explain why codebase mapping is inapplicable in its report; it still requires a governed InternalRecon artifact for Design admission. A loose Markdown report or completed Researcher run does not replace it.
 
+### Consult lessons before filing each recon revision
+
+The kernel refuses an InternalRecon unless its producer run recorded a recon lesson consultation
+against the same claim set the document binds. Consult from the producer run itself, in Research or
+Design, after the last claim change and immediately before generating the template:
+
+```bash
+ailedger lesson consult --task TASK --actor LEAD --run RECON-RUN --purpose recon \
+  --question "<the question this recon answers>" --tag TAG [--tag TAG ...] [--claim CLAIM ...]
+```
+
+- Use the tags a lesson about this ground would carry: the classes and subsystems the recon covers.
+  Selection is any-tag overlap, so a lesson tagged outside your tags is not served.
+- Every served lesson joins the task and can be cited in it. Evaluate each against the current
+  findings. Record an applicable one with `ailedger claim add --from-lesson LESSON-ID` (or
+  `--from-lesson` on a decision or alternative). Say in the report why the others do not apply.
+- `claim add --from-lesson` changes the claim digest like any claim change. Consult again after it,
+  then generate the template. A consultation by another run, or before the last claim change, does
+  not count.
+- A result with no lessons (`"lessons": []`) is a valid consultation and satisfies the check. State
+  it in the report as it is; do not invent applicability.
+
 ### File recon for forward Design admission
 
-After recording recon claims and evidence, generate the current structured template:
+After recording recon claims and evidence and consulting lessons as above, generate the current
+structured template:
 
 ```bash
 ailedger artifact recon-template --task TASK > <taskPath>/research/internal-recon.json
@@ -233,6 +256,29 @@ assessment is external, and an alternative or accepted decision. It also require
 PromptContract. Refresh recon after claim changes from contract/plan revision before leaving
 Design; revise the contract and plan as needed. Active or failed producers and older superseded
 recon cannot satisfy this exit. Backward entry never bypasses these forward requirements.
+
+After any return from a stage after Design into Design or Research, reconsider the strategy with
+lessons before Design-to-Scope. The returns that open this replanning episode are Scope-to-Design,
+Execution-to-Design and Execution-to-Research. The planning run consults in Design, from its own
+task-wide run:
+
+```bash
+ailedger lesson consult --task TASK --actor LEAD --run RUN --purpose reconsideration \
+  --question "<the proposed strategy>" --tag TAG [--tag TAG ...] [--claim CLAIM ...]
+```
+
+It re-serves every lesson already in the task that your role may see, plus store lessons matching
+the tags of the proposed strategy. Reassess each against the revised approach and record
+applicability with `--from-lesson`. The kernel refuses forward Design-to-Scope until a
+reconsideration consultation is recorded after the latest return from a later stage into Design or
+Research. A consultation from an earlier episode does not count.
+
+A Design-to-Research detour inside first-pass planning opens no episode: no strategy has passed
+Scope yet, so there is nothing to reconsider. The same detour inside an open replanning episode
+keeps that episode open, so one consultation covers the whole episode, detours included. A claim
+change it causes still needs a fresh recon revision with its own recon consultation, and new
+external claims still need a research consultation. Execution-to-Scope never passes Design, so no
+reconsideration consultation is required on that path.
 
 Before assigning implementation, show how each relevant recon finding changes a plan decision,
 implementation step, or verification obligation. Cite the finding where it is used; explain why any

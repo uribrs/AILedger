@@ -38,8 +38,18 @@ internal sealed class StagePlacingCommandHandler : ICommandHandler
         RecordArtifactCommand { Kind: GovernedArtifactKind.VerifierOutput } => TaskStage.Verification,
         RecordArtifactCommand { Kind: GovernedArtifactKind.CodeReviewOutput } => TaskStage.Review,
         StartRunCommand start => RunStage(state, start),
+        ConsultLessonsCommand consult => ConsultStage(state, consult.Purpose),
         _ => null
     };
+
+    private static TaskStage? ConsultStage(GovernedTaskState state, LessonConsultationPurpose purpose) =>
+        purpose switch
+        {
+            LessonConsultationPurpose.Recon when state.Stage is TaskStage.Research or TaskStage.Design => null,
+            LessonConsultationPurpose.Recon or LessonConsultationPurpose.Research => TaskStage.Research,
+            LessonConsultationPurpose.Reconsideration => TaskStage.Design,
+            _ => null
+        };
 
     private static TaskStage? RunStage(GovernedTaskState state, StartRunCommand command)
     {

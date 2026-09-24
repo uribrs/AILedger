@@ -16,10 +16,23 @@ internal static class StageStateProjector
         }
 
         StageTransitionPolicy.EnsureAllowed(transitioned.Previous, transitioned.Current);
+        // Episode markers for the lesson consultation arms. The reducer stamps Version after this
+        // returns, so the event's own version is state.Version + 1 here.
+        var version = state.Version + 1;
         return state with
         {
             Stage = transitioned.Current,
-            PendingStagePrerequisiteWaiver = null
+            PendingStagePrerequisiteWaiver = null,
+            ResearchOpenedAtVersion = transitioned.Current == TaskStage.Research
+                ? version
+                : state.ResearchOpenedAtVersion,
+            // PD9: a return from a stage after Design into Design or Research opens a reconsideration
+            // episode. Design->Research does not (Previous is not after Design), so a detour keeps the
+            // current value. Never cleared (PALT13).
+            ReconsiderationOpenedAtVersion = (transitioned.Current is TaskStage.Design or TaskStage.Research) &&
+                                             StageTransitionPolicy.IsBackward(transitioned.Previous, TaskStage.Design)
+                ? version
+                : state.ReconsiderationOpenedAtVersion
         };
     }
 
