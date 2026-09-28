@@ -1,16 +1,71 @@
-# Structured agent interface, then bounded episode experiments
+# Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Status: first delivery accepted; tasks 7–8 conditional. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 specified next. Kind: feature.**
 
-Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and tasks 1–6 are complete; provider adoption has real acceptance on both clients. The operator accepted the first delivery with documented limitations and no extension for now on 2026-09-28. Tasks 7–8 remain conditional and require separate authorization.
+Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
+clarified that the CLI is not the intended agent interface and that usable increments should be
+installed and evaluated on tasks he runs. Tasks 1–6 remain accepted. This revision defines the next
+work; it does not start implementation or install a new version.
 
 ## Purpose
 
-Make recording findings a reliable, small part of an agent's work. Agents should submit structured data without negotiating shell quoting, allocating ledger identifiers, repeating commands after uncertain outcomes, or spending separate reasoning turns on each record.
+Reduce unnecessary agent and client effort while preserving useful knowledge and substantive
+safeguards. Agents should record reasoning, submit results, inspect state and discover blockers
+through structured operations, without shell syntax negotiation, manual ID allocation, transcription
+handoffs or repeated commands that add no judgment.
 
-The larger objective is elapsed time and preservation of useful cognition through bounded episodes. This first delivery isolates the interface improvement: retain the current kernel's validation and event semantics while replacing the agent-facing write path. A later experiment can evaluate episodic execution against the same stable interface.
+There are two related objectives: finish the practical structured interface, and determine whether
+focused handoffs and bounded execution improve elapsed delivery and retained information. The first
+is an agreed direction; the second remains a hypothesis to test in usable increments.
 
-Develop directly, outside the kernel workflow, as requested for this effort. Exercising kernel validation in isolated tests is part of implementation; using the kernel to govern the development process is not. This entry does not change global instructions, installed skills, or other tasks.
+Develop directly, outside the kernel development workflow. Do not invoke ai-kernel, create governed
+development tasks or governance records, dispatch development agents, or change global instructions
+or skills. Authorization and validation inside the implementation remain enforced and are exercised
+in disposable fixtures. Follow the .NET skill and existing small-method/SRP conventions. Build
+outside the checkout. Do not merge, publish or migrate historical tasks as part of these increments.
+
+## How Uri tries each increment
+
+Uri is the client. The delivery loop is **build and verify → install the exact version → Uri runs an
+ordinary task → inspect the outcome together → choose the next improvement**. Installation is a
+useful checkpoint, not a separate programme at the end of the redesign.
+
+For each checkpoint:
+
+1. Finish the end-to-end slice, required checks and a scoped commit. Report capabilities delivered,
+   remaining gaps and the version to install. Preserve a known working version and compatibility facts.
+2. When the implementation request authorizes installation, install that verified commit and confirm
+   the installed version/build identity. Do not reinstall solely for documentation changes. The prior
+   findings installation is recorded as 2.0.163 from `cd3f2d9`; check current identity before any update.
+3. Give Uri a short description of the ordinary task that will exercise the change. The client task
+   is the work Uri wants done, not a required scripted benchmark or a list of ledger commands.
+4. Inspect its actual transcript, outputs and receipts. Identify useful refusals, avoidable friction,
+   altered or missing information, unnecessary handoffs, remaining CLI operations and manual intervention.
+   Attribute usage once per run; distinguish recording time, model/provider time and elapsed delivery.
+5. Record implementation/installation status separately from client observation and acceptance.
+   If Uri has not run the task yet, say so. Fix demonstrated failures within scope; let feedback shape
+   the next slice. Do not invent favourable observations to finish a checklist.
+
+A task-7 implementation prompt can authorize its exact installation in advance; it does not authorize
+billable agent trials, later increments or global instruction/skill changes. Ask about an additional
+model episode only if needed and not already authorized, with a concrete plan and cost/time boundary.
+No separate experiment is required merely to observe a task Uri has chosen to run.
+
+## What is settled, and what is still being tested
+
+- **Settled:** routine agent work should use coherent structured operations and host-owned bookkeeping.
+  Shell command construction is not the intended recording or task-interaction interface. The CLI
+  stays available for operator/debugging use; this is not a request for a new graphical client.
+- **Settled:** retain actual authorship, durable records, safe retries, evidence relationships,
+  explicit decision authority and independent assurance where needed. Recording and approval differ.
+- **To implement and try:** the remaining interaction paths, including the narrow recording-authority
+  changes needed to eliminate transcription-only handoffs. A tool must call application services,
+  not wrap arbitrary CLI strings.
+- **To test:** whether selected handoff packages and bounded execution improve Uri's task experience.
+  A disappointing episode experiment does not send ordinary recording back to the CLI.
+
+The coverage map in task 10 and results from each checkpoint keep the wider redesign visible.
+The findings tool is the first delivered operation, not a claim that the whole experience is fixed.
 
 ## Investigation and evidence
 
@@ -69,7 +124,7 @@ The first `record_findings` delivery uses structured JSON only. Add YAML support
 
 ## First delivery: record_findings
 
-The following illustrates the contract settled in [task 1](../docs/structured-findings-v1.md); it is not an already-supported API:
+The following illustrates the accepted v1 contract from [task 1](../docs/structured-findings-v1.md), implemented and validated in tasks 2–6:
 
 ```json
 {
@@ -116,7 +171,7 @@ The service assigns durable IDs and returns a compact receipt containing the loc
 
 The first delivery includes the recording contract, application operation, transaction/retry semantics, a local structured-tool endpoint, provider integration for Claude and Codex, measurement continuity, and a measured pilot.
 
-It does not include a YAML parser/configuration system, a new workflow engine, global ledger migration, automatic claim resolution, changing role capabilities, removing stages, changing assurance requirements, or exposing every CLI command as a tool. Alternative recording, decision acceptance, artifact submission, and claim resolution can become later tools with their own authority checks. The existing inability of some roles to record alternatives remains visible until deliberately addressed.
+Tasks 1–6 did not include the remaining interface operations, role-capability changes, YAML authoring or a different execution model. Tasks 7–14 below specify the follow-on increments and their limits. The accepted findings contract remains stable. No task introduces automatic claim validation, arbitrary command batching or retroactive changes to historical grants.
 
 Use fixture ledgers for development and failure testing, then disposable tasks for end-to-end trials. Do not use historical task records as test targets. Existing safety and governance checks must remain in the call path.
 
@@ -124,7 +179,7 @@ Use fixture ledgers for development and failure testing, then disposable tasks f
 
 Preserving measurement is a delivery requirement. Changing the recording interface or later retiring workflow machinery must not erase our ability to inspect cost, delays, refusals, rework, evidence quality, and interrupted work. Preserve the existing readers, historical data, scoring capability, and report entry points. Adapt their inputs where necessary; do not rebuild the measurement suite by default.
 
-The source inventory already identifies these assets; task 1 must check the remaining collectors and consumers before implementation:
+Tasks 1–6 inventoried and verified these assets. Subsequent increments must preserve them and extend capture at each changed boundary:
 
 | Existing asset | What must survive |
 |---|---|
@@ -142,20 +197,39 @@ Historical measurements must remain reproducible from frozen inputs. Missing dat
 
 ## Task boundaries and delivery order
 
-**Six tasks deliver the first usable interface. Two additional, conditional tasks evaluate the episodic design.** The investigation is already complete and is not counted. These are scoped work packages within backlog item 63, not newly created Codex tasks or a commitment to a full kernel replacement.
+**Fourteen planned tasks: six accepted, eight remaining increments.** This is a working delivery
+sequence, not a requirement to finish all fourteen before Uri benefits. Each increment includes its
+contract, implementation, relevant tests, provider wiring, guidance and measurement; those are not
+separate future tasks. Real-task feedback can narrow or reorder later increments.
 
-| Task | Concrete deliverable | Depends on | Explicit boundary |
-|---|---|---|---|
-| 1. Contract and measurement baseline — complete | Reviewed JSON contract, atomic/retry design, measurement inventory and frozen comparison fixtures | Existing investigation | Design and fixtures only; no production endpoint |
-| 2. Reliable application operation — complete | Atomic, authorized, retry-safe findings/evidence submission | 1 | Application/storage and tests; no MCP or provider changes |
-| 3. Structured tool endpoint — complete | Local MCP adapter with trusted identity binding and typed responses | 2 | Transport and tool diagnostics; no shell wrapper or broader authority |
-| 4. Provider adoption | Claude and Codex configured to use the tool with correct attribution and guidance | 3 | Provider integration; no new workflow or role policy |
-| 5. Measurement continuity — complete | Existing reports verified, new transport attempts measurable and joined to committed results | 2–4; capture requirements fixed in 1 | Adapt collectors/readers as needed; no scoring-rubric redesign or dashboard rebuild |
-| 6. Measured pilot and delivery decision — in progress | Prepared-findings trial, bounded live trial, reliability evidence and comparison report | 5 | Evaluate this interface; no claim of proven cognitive improvement |
-| 7. Bounded episode prototype — conditional | Minimal package/receipt path with explicit inputs and preserved measurement | Decision after 6 | One narrow experiment; no global migration |
-| 8. Paired evaluation — conditional | Comparable runs, information-loss checks, and go/no-go report | 7 | Evidence for the next design decision; no automatic retirement of the kernel |
+This revision supersedes the former numbering after task 6. Old task 7 (the episode prototype) is
+now divided across tasks 11–13; old task 8 (evaluation) is task 14, with feedback also collected after
+every earlier install. The intervening discussion's twelve-task proposal was not an implemented
+roadmap. Tasks 7–10 now prioritize the remaining everyday interface friction. Historical validation
+and handoffs retain their original numbering and checkpoint meaning.
 
-Each task owns its relevant verification. Task 5 verifies continuity end to end; tasks 2–4 must implement their capture points as they are built, so instrumentation is not left until after the pilot. Atomicity and durable retry handling belong in one task because an endpoint is not safely usable with only half that contract.
+| Task | Deliverable | Dependency / checkpoint |
+|---|---|---|
+| 1. Contract and measurement baseline — complete | Findings contract, durable retry design, frozen historical comparisons | Accepted first delivery |
+| 2. Reliable application operation — complete | Atomic authorized findings/evidence batches and recovery | Accepted first delivery |
+| 3. Structured tool endpoint — complete | MCP endpoint with trusted identity and typed results | Accepted first delivery |
+| 4. Provider adoption — complete | Working Codex and Claude tool paths and guidance | Accepted first delivery |
+| 5. Measurement continuity — complete | Existing measurements preserved and new attempts observable | Accepted first delivery |
+| 6. Pilot and delivery decision — complete | Prepared/live evidence and client acceptance | Accepted; do not repeat |
+| 7. Record alternatives directly — next | Small structured batches and narrowly scoped recording authority | Builds on 1–6; install-and-try checkpoint A |
+| 8. Submit artifacts coherently | Content, metadata, identity and version references in one operation | Reuses trusted tool/receipt path; checkpoint B |
+| 9. Record explicit claim dispositions | Authorized grouped judgments over cited evidence | Reuses existing evidence and decision rules; checkpoint C |
+| 10. Inspect readiness and retrieve task context | Structured blockers, relevant state and context; explicit map of remaining CLI dependencies | Uses 7–9 where available; checkpoint D |
+| 11. Prepare bounded handoffs | Versioned selected inputs, output contracts and preserved material dependencies | Reuses artifact identities from 8 and reads from 10; inspect on a real task |
+| 12. Execute bounded work and recover partial output | Installable host path, admission, bounded follow-ups, receipts and interruption discovery | Uses 10–11 and existing provider components; checkpoint E |
+| 13. Preserve assurance across handoffs | Candidate/dependency freshness, independent inspection and explicit acceptance | Builds on 11–12; checkpoint F before using the new path for an accepted code change |
+| 14. Evaluate the whole working experience | Real-task results, focused matched comparisons where needed, and a client decision on what to keep/change | Evidence from all checkpoints; no automatic architectural replacement |
+
+Tasks 7–10 do not depend on accepting the episode hypothesis. They improve the current experience.
+Tasks 11–13 progressively test that hypothesis without suspending the working interface. Artifact
+submission and readiness are implemented once and reused; they are not four additional duplicate
+endpoints at the end of the roadmap. Measurement is part of every task. Task 14 evaluates outcomes;
+it is not the first opportunity to use the work.
 
 ### 0. Architectural investigation — complete
 
@@ -253,7 +327,7 @@ and [retained measurements](../docs/structured-findings-v1/task-6-live-results.j
 is finished. **The operator accepted delivery on 2026-09-28 with the documented limitations and no
 further operation for now. Task 6 is complete.** See the appended acceptance in the live validation record.
 
-### Decision after task 6 — accepted, no extension now
+### Historical task-6 acceptance — 2026-09-28
 
 - [x] Review the pilot with the operator and choose the next slice or none: the operator accepted the interface as sufficient for now; no extension selected.
 - [x] Separate the endpoint's ergonomics from decisions about who may record versus who may approve; existing authority boundaries remain unchanged.
@@ -266,40 +340,193 @@ change, further billable run or task-7/8 work is authorized by this acceptance.
 
 **Exit:** a separately bounded follow-up with purpose and acceptance checks, or an explicit decision that the interface is sufficient for now.
 
-### 7. Build a bounded episode prototype — conditional
+The later client clarification supersedes the forward-looking “no extension now” checkpoint above.
+It preserves acceptance of tasks 1–6 while requesting the revised roadmap below. Old references to
+tasks 7–8 in historical delivery records describe the earlier numbering, not the current next step.
 
-- [ ] If warranted, run the report's bounded-package sidecar experiment over the same stable interface, with fresh sessions and a small deterministic dispatcher.
-- [ ] If hand-authored episode specifications or reusable profiles are useful, add YAML authoring that normalizes into the same typed model. Preserve source identity and normalized specifications, bind execution receipts to them, and validate requested permissions against trusted grants.
-- [ ] Preserve durable decisions, contradictions, dependency invalidation, independent assurance, and interrupted-run outputs.
-- [ ] Adapt the surviving measurement inputs for episode/host execution, preserving historical readers. Name any non-comparable metrics and define their replacements before trials.
+## Remaining increments — current scope
 
-**Exit:** a narrow executable prototype with inspectable packages, observable outcomes, and recovery checks. This task does not migrate existing tasks or establish that the architecture is better.
+The following are planned work packages, not started implementations. The current request respecifies
+the backlog. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+next implementation request. Later increments are refined using the preceding real-task results.
 
-### 8. Evaluate the episodic prototype — conditional
+### 7. Record alternatives directly — next
 
-- [ ] Compare elapsed delivery time and retained information under matched provider/tool conditions. Keep later historical findings withheld from the benchmark inputs.
-- [ ] Use the same instruments on both arms and check constraint retention, contradictions, candidate freshness, assurance, and interrupted work as well as speed and cost.
-- [ ] Decide from the evidence which workflow machinery to retire; do not treat a successful recording endpoint as approval for a kernel rewrite.
+**User effect:** the agent that investigated an approach can preserve why it rejected it, without
+shell transcription or launching a more privileged agent solely to file the reasoning.
 
-**Exit:** a go/no-go decision on the episodic architecture. This is a later decision point, not part of the initial interface's definition of done.
+- Define a bounded structured alternatives operation with local keys, server-assigned IDs, stable
+  retry identity, trusted actor/run attribution and compact receipts. Keep the accepted findings-v1
+  schema and results stable; use an additive operation rather than an unrestricted command batch.
+- Preserve statement and rejection rationale as data, with the current optional decision/lesson
+  links and their validation. Specify one coherent batch's atomicity and changed-key behavior.
+- Make the narrow `RecordAlternative` capability usable for researcher, worker, verifier and reviewer
+  roles that produce alternatives, retaining existing lead/operator support. Recording an actor's
+  rejected approach does not accept a decision, resolve a claim, grant scope or approve an artifact.
+  Document the exact role/capability change. Preserve existing recorded grants; do not silently
+  upgrade historical assignments. Exercise absent/revoked capability and cross-actor refusal.
+- Reuse existing application/storage and provider integration where appropriate. Update both command
+  admission and applicable replay handling without making previously legal history unreadable.
+- Wire Codex and Claude, narrow tool grants and repository recording guidance. Verify multiline and
+  quoted text, late-invalid references, exact fidelity, concurrent IDs, retry/restart and no rejected
+  prefix. Preserve observational attempts/refusals and count provider usage once.
 
-## First delivery acceptance
+**Checkpoint A:** after verification, prepare the exact installable commit and install it when the
+implementation request authorizes that step. Uri runs an ordinary task that considers alternatives.
+Inspect whether the actual author recorded them through the tool, whether a transcription handoff
+was avoided, and what friction remains. No successful live outcome is claimed before that observation.
 
-Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
+**Exit:** a verified, usable operation; installation identity and a real-task evaluation recorded
+separately. The trial can reveal follow-up work without hiding a failed or incomplete result.
+No other interface operation or episode runtime is implemented in this task.
 
-**First delivery accepted on 2026-09-28; tasks 1–6 are complete.** The operator accepted the
-[live review](../docs/structured-findings-v1/task-6-live-validation.md) and its limitations, choosing no
-extension for now. No further task-6 execution is needed. Tasks 7–8 remain conditional experiments
-and were not started or approved; any production replacement or migration needs its own scope.
+### 8. Submit artifacts coherently
+
+**User effect:** an agent submits a result without manually coordinating file writes, identifiers,
+metadata and registration through a sequence of commands.
+
+- Bound the first supported artifact types to the work Uri actually runs. Submit content or an
+  immutable content reference with metadata, scope and version/dependency links in one typed operation.
+- Verify content existence and identity, producer attribution and supersession; recover safely from
+  failure between content storage and registration. Return a receipt for exactly what was accepted.
+- Separate permission to record an authored output from permission to endorse it. Any needed
+  recording-capability change must be explicit and tested; keep current approval/assurance checks.
+- Reuse content identity and receipt primitives later for handoff packages. Avoid building a second
+  generic artifact system or changing every artifact kind merely to finish this increment.
+
+**Checkpoint B / exit:** install the verified slice, have Uri run a task that submits that artifact,
+and inspect content fidelity, registration/retry behavior and remaining clerical work. Record which
+artifact types are still outside the supported path.
+
+### 9. Record explicit claim dispositions
+
+**User effect:** an authorized agent can express several already-reasoned claim judgments without
+repeated command construction or a human repairing identifiers.
+
+- Provide a bounded structured operation for explicit validation/rejection with rationale and
+  evidence references. Specify partial-versus-atomic behavior for the chosen coherent unit.
+- Preserve resolution authority, support/refute direction, provenance and dependency consequences.
+  Supporting evidence never automatically validates a claim; a recorded judgment is not proof of truth.
+- Keep formal decision acceptance separate where its authority or semantics differ. Do not add all
+  decision commands merely because they could share transport; name any remaining gap.
+- Include safe retry behavior, actionable per-item diagnostics and existing measurement continuity.
+
+**Checkpoint C / exit:** install and inspect a real task with several dispositions, checking actual
+judgment quality as well as mechanical acceptance. No blanket automatic closure of old open claims.
+
+### 10. Inspect readiness and retrieve task context
+
+**User effect:** agents learn what they need and what blocks an action through structured reads,
+before spending a run discovering predictable prerequisites through refusals.
+
+- Return relevant task state, cited evidence/decisions, receipts and actionable blockers through
+  bounded structured reads. Reuse existing context selection; expose omissions and retrieval paths.
+- Provide non-mutating readiness checks over the proposed action, candidate, dependencies, grants,
+  context and available environment. Revalidate at execution: a readiness response is not a grant.
+- Maintain a coverage table for the task Uri runs: each routine interaction is an agent tool, a
+  deterministic host responsibility, or a named remaining gap. Include work preparation, dispatch,
+  completion and any retained stage administration; do not hide their CLI dependency behind a claim
+  that all agent interaction is now structured.
+- Move only justified deterministic bookkeeping to the host. Keep business choices and approvals
+  explicit. Do not expose arbitrary CLI execution as a tool or turn readiness into a second rules engine.
+
+**Checkpoint D / exit:** install, run a representative task, and account for every residual CLI
+interaction. Missing inputs and blockers are understandable without trial-and-error mutations.
+Uncovered operations get a concrete follow-up scope before being claimed delivered.
+
+### 11. Prepare bounded handoffs
+
+**User effect:** the next agent receives the information needed for its objective, including important
+corrections and uncertainty, rather than the accumulated task conversation.
+
+- Define EpisodeSpec and result/package contracts: objective, non-goals, input versions, expected
+  output, acceptance checks, grants, budgets, stop conditions and retrieval references.
+- Use task 8's versioned content and task 10's structured retrieval. Start with inspectable selection;
+  preserve decisive alternatives, constraints, contradictions, applicable lessons and corrections.
+- Prepare profiles for the narrow handoffs actually tried. Separate technical methods from old
+  workflow-filing instructions in repository-local trial guidance; do not change global skills.
+- Check omitted-material risks against frozen Axonius and Falcon/S3 slices, withholding later findings.
+  These are diagnostic fixtures; also inspect a handoff from Uri's current task.
+- Preserve links to additional sources and measure additional reads. Do not call shorter initial
+  text a success if the next agent loses a requirement or must reconstruct everything.
+
+**Checkpoint / exit:** Uri can inspect and try a focused handoff with its versioned inputs. Necessary
+knowledge survives the handoff checks. YAML is optional only if it improves actual authoring; no
+configuration subsystem is a prerequisite for the first trial.
+
+### 12. Execute bounded work and recover partial output
+
+**User effect:** a scoped request launches with ready inputs, and interrupted work leaves discoverable
+results rather than forcing Uri or the next agent to reconstruct what happened.
+
+- Compose a narrow execution path over separable provider/recording components. The current launcher
+  and findings backend depend on governed task state: resolve that coupling explicitly, preserve the
+  accepted agent contract where compatible, and do not invent waived task histories to simulate a new path.
+- Keep experimental records distinct and old histories readable. Reuse trusted bindings, durable
+  submission and package identity; do not duplicate task 8 or task 10 as separate services.
+- Check resources, grants, input freshness and budgets at admission. A small dispatcher executes only
+  already-authorized follow-ups; decisions about objectives or material risk still reach Uri.
+- Capture actual execution receipts, provider usage, tool attempts, submitted IDs and changed-file
+  inventory. On interruption, preserve partial results and distinguish failed, blocked and unknown.
+- Exercise retry, cancellation, absent telemetry and resume/reconciliation with disposable fixtures.
+
+**Checkpoint E / exit:** install an explicitly selectable path and let Uri run a bounded research or
+other limited task. Inspect the full experience, including an interruption probe. The existing path
+remains usable. Do not present this limited trial as full assurance for a code change.
+
+### 13. Preserve assurance across handoffs
+
+**User effect:** useful independent checks and dependency corrections survive the smaller execution
+model without requiring every task to traverse the same ceremonial route.
+
+- Bind implementation, review, verification and acceptance to immutable candidate and requirement
+  identities. Preserve inspection coverage, independence and actual test/environment receipts.
+- Keep contradictions and endorsements explicit. A changed relied-on input marks affected consumers
+  for reassessment; unrelated valid work remains usable. Retrieved prose cannot confer authority.
+- Prevent self-approval, stale assurance, unsupported passes and fabricated completion. Make
+  uninspected or untested areas visible. Use targeted synthesis where cross-area judgment is required.
+- Test these conditions and interrupted inspection before using the new path for an accepted code change.
+
+**Checkpoint F / exit:** install the verified assurance slice; Uri runs a bounded implementation task
+through it. Inspect actual findings, candidate freshness, repairs, preserved knowledge and human
+intervention. A clean schema or a completed process does not substitute for correct work.
+
+### 14. Evaluate the whole working experience and choose the next change
+
+**User effect:** Uri gets a concrete account of what improved, what still gets in the way, and what
+should stay, change or be removed from the installed experience.
+
+- Combine evidence from checkpoints A–F with failures and unfinished observations intact. Compare
+  elapsed delivery time, usage, interruptions, retained information, defects and human clerical effort.
+- Use small matched comparisons where a causal question remains: same source, provider/model, tools,
+  objective and checks; vary the context/execution choice being tested. Keep later findings withheld
+  and evaluate outputs independently. Extra model episodes need an explicit bounded spend request.
+- Preserve historical measurements and make missing or non-comparable fields explicit. Do not
+  rerun task 6 merely to generate another favourable recording number.
+- Recommend the next installed default or targeted change from evidence. No mandatory architecture
+  replacement, forced migration or task completion count serves as the success criterion.
+
+**Exit:** Uri decides what to use next from observed task outcomes. If a smaller interface improvement
+is enough, keep it. If bounded execution helps, retain it with its demonstrated limits. Identify
+remaining routine CLI dependencies and unresolved safeguards as work, not as implicit success.
+
+## First delivery acceptance and current next step
+
+Tasks 1–6 are accepted and complete. Their contracts, test results, installation and live observations
+remain recorded in the linked validation documents. The later clarification broadens the forward
+roadmap; it does not reopen or rewrite the accepted pilot.
+
+**Next: task 7 only, structured alternatives recording.** Use the
+[implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md). Deliver a concrete
+increment Uri can install and try. Evaluate that task before treating later scope as settled.
 
 ## Related work
 
-- Item 12: claim-resolution ergonomics. Share structured batching concepts, but explicit resolution and its authority remain separate from recording findings; supporting links alone are not a verdict.
-- Item 31: workers recording alternatives. RO3 motivates revisiting that policy later; this interface does not silently grant the missing capability.
-- Items 36 and 58: late writes and interrupted-run recovery. Small early batches and durable receipts address part of the problem; mapping all filesystem leftovers is a separate recovery capability.
-- Item 57: stable refusal identities. Use a structured error envelope now; do not require completing a repository-wide rule-ID migration before the first recording tool.
-- Item 59 and the investigation: context budgeting. Relevant to the later episodic experiment, not a prerequisite for the interface.
+- Item 12: claim-resolution ergonomics, addressed by task 9 only to the extent its own criteria are met.
+- Item 31: workers recording alternatives, directly relevant to task 7; record the capability decision.
+- Items 36 and 58: early persistence and interrupted-work discovery; task 12 owns the remaining host work.
+- Item 57: stable refusal identities; preserve current errors and observations without making a full rule-ID migration a prerequisite.
+- Item 59: context budgeting; relevant to tasks 11–12, with source retrieval and omission checks.
 
-Existing backlog items remain open unless their own acceptance criteria are actually delivered.
-This entry retains the accepted first delivery and the separately conditional experiment scope;
-historical backlog IDs are unchanged.
+Other backlog items remain open until their own acceptance criteria are delivered. This roadmap
+neither launches work nor authorizes new model spend by its existence. Historical item IDs remain stable.

@@ -1,5 +1,10 @@
 # What should survive AILedger 2.0?
 
+> **Roadmap update, 2026-09-28:** this investigation remains the original architectural evidence and
+> hypothesis. The [respecified backlog](../Backlog/structured-agent-interface.md) now prioritizes
+> installable structured-interface increments and feedback from Uri's real tasks. Its current task
+> numbers supersede the original 7–8 experiment shorthand below; the analysis is preserved unchanged.
+
 Architectural investigation, 2026-09-28. No kernel commands were invoked. No implementation changes were made.
 
 ## 1. Executive finding
