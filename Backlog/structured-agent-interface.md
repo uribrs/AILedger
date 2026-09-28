@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 implemented, client trial pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 implemented and installed, client trial pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -346,7 +346,7 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 
 ## Remaining increments — current scope
 
-Task 7 now has a verified implementation; installation and client observation are separate checkpoints.
+Task 7 now has a verified, installed implementation; client observation remains a separate checkpoint.
 Tasks 8–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
@@ -374,9 +374,11 @@ shell transcription or launching a more privileged agent solely to file the reas
 **Implementation checkpoint (2026-09-28):** typed `record_alternatives`, atomic receipts/retries,
 trusted Codex/Claude binding, narrow author defaults and separate measurement are implemented.
 Both full runners pass 1,995 main and 99 Memory tests; all frozen hashes and historical report/cost
-baselines match. See the [contract](../docs/structured-alternatives-v1.md) and
-[validation record](../docs/structured-alternatives-v1/task-7-validation.md). Exact-version installation
-is authorized and follows the scoped commit. Uri's ordinary-task trial remains pending; task 7 is
+baselines match. **2.0.168 from f966952 is installed**, with matching package identity and
+passing installed-executable checks; see the [installation receipt](../docs/structured-alternatives-v1/task-7-installation.md).
+See the [contract](../docs/structured-alternatives-v1.md) and
+[validation record](../docs/structured-alternatives-v1/task-7-validation.md). Implementation and installation are
+verified separately. Uri's ordinary-task trial remains pending; task 7 is
 not claimed accepted and tasks 8–14 have not started.
 
 **Checkpoint A:** after verification, prepare the exact installable commit and install it when the
@@ -524,9 +526,8 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoint: task 7 implementation verified; installation and client trial remain distinct.**
-The authorized next step is installing its exact verified commit, followed by an ordinary task Uri
-chooses to run. Inspect that outcome before declaring acceptance or selecting later scope. The
+**Current checkpoint: task 7 implementation verified and installed; client trial pending.**
+The next step is an ordinary task Uri chooses to run. Inspect that outcome before declaring acceptance or selecting later scope. The
 [implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md) and validation retain
 the bounded delivery requirements.
 

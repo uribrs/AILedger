@@ -1,0 +1,75 @@
+{
+  "previous_identity": "2.0.163  from cd3f2d9",
+  "installed_identity": "2.0.168  from f966952",
+  "source_commit": "f96695270fdbaff7f5d586fee67c4f0e7c10ca7f",
+  "package_sha256": "1f92c5becb3c87b798b6e24cf0e923b9d2c2000c597c359213ecccb7899d3d21",
+  "package": "/tmp/ailedger-task7-installation/packages/AILedger.Cli.2.0.168.nupkg",
+  "installed_package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.168/ailedger.cli/2.0.168/ailedger.cli.2.0.168.nupkg",
+  "rollback_package": "/tmp/ailedger-task7-installation/rollback/ailedger.cli.2.0.163.nupkg",
+  "candidate_fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-task7-installed-quf0zdzd",
+  "client_trial": "pending",
+  "billable_episode": false,
+  "candidate_check": {
+    "identity": "2.0.168  from f966952",
+    "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-task7-installed-quf0zdzd",
+    "result": "passed",
+    "checks": [
+      "advertised schemas",
+      "late-reference no prefix",
+      "author capability defaults",
+      "atomic commitment",
+      "restart replay identity",
+      "findings-v1 coexistence",
+      "separate measurement counts",
+      "explicit capability revocation"
+    ],
+    "client_trial": "not performed",
+    "billable_episode": false
+  },
+  "installed_check": {
+    "identity": "2.0.168  from f966952",
+    "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-task7-installed-il8xknj7",
+    "result": "passed",
+    "checks": [
+      "advertised schemas",
+      "late-reference no prefix",
+      "author capability defaults",
+      "atomic commitment",
+      "restart replay identity",
+      "findings-v1 coexistence",
+      "separate measurement counts",
+      "explicit capability revocation"
+    ],
+    "client_trial": "not performed",
+    "billable_episode": false
+  },
+  "implementation_status": "verified and committed",
+  "installation_status": "installed and verified",
+  "client_trial_status": "pending Uri ordinary task; not accepted",
+  "build": {
+    "commit": "f96695270fdbaff7f5d586fee67c4f0e7c10ca7f",
+    "version": "2.0.168",
+    "informational_version": "2.0.168+f966952.t1790621106",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/AILedger.Cli/AILedger.Cli.csproj",
+      "-c",
+      "Release",
+      "--artifacts-path",
+      "/tmp/ailedger-task7-installation/artifacts",
+      "-m:1",
+      "--nologo",
+      "-p:NuGetAudit=false",
+      "-p:UseSharedCompilation=false",
+      "-p:PackageOutputPath=/tmp/ailedger-task7-installation/packages",
+      "-p:Version=2.0.168",
+      "-p:InformationalVersion=2.0.168+f966952.t1790621106"
+    ]
+  },
+  "log_sha256": {
+    "pack.log": "d14c6470c768d0fc22b8e2e27f64a7923e440e63f5cc6edbf7416377ebea90a9",
+    "candidate-install.log": "838ee96dab015e31d8586e3facf1069e849aa4988072ef63fda4cb6d9530ee7d",
+    "global-install.log": "142b5e9971cae51416370fafcd8ca382d5b4723cdeb6b13b02c088eebdd98c0f"
+  }
+}

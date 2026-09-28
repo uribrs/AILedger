@@ -116,8 +116,8 @@ The initially installed identity was **2.0.163 from cd3f2d9**. Its preserved pac
 `/tmp/ailedger-task7-installation/rollback/ailedger.cli.2.0.163.nupkg`, SHA-256
 `450d7e9d44cff18c2e14ad3262aa049424becc9a471d72f480f9fc4b34ba02ca`.
 
-Installation is recorded in a separate follow-up receipt after the clean commit has
-been externally packed and the package checked. It does not count as client-trial
+Installation is recorded in the separate [installation receipt](task-7-installation.md):
+the clean commit was externally packed, checked and installed as 2.0.168 from f966952. It does not count as client-trial
 acceptance. Uri's ordinary-task trial and its actual text/provenance, friction and
 usage review remain pending. Tasks 8–14 remain unstarted.
 
