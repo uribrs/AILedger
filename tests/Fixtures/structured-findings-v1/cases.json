@@ -1,0 +1,26 @@
+[
+  {
+    "name": "graph-original",
+    "events": "inputs/graph.events.jsonl",
+    "refusals": null,
+    "expected": "expected/graph.json"
+  },
+  {
+    "name": "axonius-original",
+    "events": "inputs/axonius.events.jsonl",
+    "refusals": "inputs/axonius.refusals.jsonl",
+    "expected": "expected/axonius.json"
+  },
+  {
+    "name": "axonius-refusals-unavailable",
+    "events": "inputs/axonius.events.jsonl",
+    "refusals": null,
+    "expected": "expected/axonius-refusals-unavailable.json"
+  },
+  {
+    "name": "axonius-refusals-truncated",
+    "events": "inputs/axonius.events.jsonl",
+    "refusals": "inputs/axonius.refusals-truncated.jsonl",
+    "expected": "expected/axonius-refusals-truncated.json"
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "request_id": "research-0001",
+  "findings": [
+    {
+      "key": "f1",
+      "statement": "The failed run retained its checkpoint.",
+      "consequence_if_wrong": "A retry may repeat work."
+    }
+  ],
+  "evidence": [
+    {
+      "key": "e1",
+      "source_type": "test-run",
+      "citation": "fixture://checkpoint/failed-run",
+      "summary": "Checkpoint survived. Literal data: $HOME | `probe`\nSecond line.",
+      "supports": [
+        {
+          "finding": "f1"
+        }
+      ],
+      "refutes": []
+    }
+  ]
+}

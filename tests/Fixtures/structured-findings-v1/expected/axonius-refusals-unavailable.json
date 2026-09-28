@@ -1,0 +1,723 @@
+{
+  "retrospective": {
+    "task": "2026-09-23_2014-axonius-parser-fixes",
+    "stage": "archive",
+    "version": 97,
+    "wallClockHours": 1.27,
+    "agentMinutes": 16,
+    "events": {
+      "actor.role-assigned": 5,
+      "alternative.recorded": 1,
+      "artifact.recorded": 8,
+      "claim.added": 10,
+      "claim.resolved": 10,
+      "constraint.added": 9,
+      "context.built": 1,
+      "decision.proposed": 2,
+      "decision.resolved": 2,
+      "evidence.added": 11,
+      "lesson.marked": 1,
+      "lesson.minted": 1,
+      "lesson.recalled": 10,
+      "run.completed": 6,
+      "run.started": 6,
+      "session.completed": 1,
+      "session.started": 1,
+      "stage.transitioned": 9,
+      "task.opened": 1,
+      "work.added": 1,
+      "work.completed": 1
+    },
+    "runs": {
+      "total": 6,
+      "byStatus": {
+        "completed": 6
+      },
+      "bySubjectRole": {
+        "codeReviewer": 1,
+        "planningLead": 3,
+        "verifier": 1,
+        "worker": 1
+      },
+      "byProvider": {
+        "claude": 2,
+        "codex": 4
+      },
+      "byActor": {
+        "axonius-fix-build": 1,
+        "axonius-fix-plan": 3,
+        "axonius-fix-review": 1,
+        "axonius-fix-verify": 1
+      },
+      "briefDelivered": 6,
+      "costRecorded": 6,
+      "operatorFilingRuns": 0,
+      "diedBeforeBriefing": 0
+    },
+    "cost": {
+      "runsMeasured": 6,
+      "runsUnmeasured": 0,
+      "turns": {
+        "runsMeasured": 2,
+        "total": 69
+      },
+      "outputTokens": {
+        "runsMeasured": 6,
+        "total": 57332
+      },
+      "millisecondsToFirstLedgerWrite": {
+        "runsMeasured": 5,
+        "total": 496230
+      },
+      "tokensInUncached": {
+        "runsMeasured": 6,
+        "total": 337979
+      },
+      "tokensInCacheWrite": {
+        "runsMeasured": 6,
+        "total": 221402
+      },
+      "tokensInCacheRead": {
+        "runsMeasured": 6,
+        "total": 8832015
+      }
+    },
+    "epistemic": {
+      "claims": {
+        "open": 0,
+        "validated": 10,
+        "rejected": 0,
+        "superseded": 0
+      },
+      "openClaimsWithSupportingEvidence": 0,
+      "evidence": {
+        "total": 11,
+        "supportsOnly": 11,
+        "refutesOnly": 0,
+        "both": 0,
+        "neither": 0,
+        "bySourceType": {
+          "container-verification": 1,
+          "file-and-hash-check": 4,
+          "source-read": 4,
+          "test-run": 2
+        }
+      },
+      "decisions": {
+        "proposed": 0,
+        "accepted": 2,
+        "superseded": 0,
+        "invalidated": 0
+      },
+      "alternatives": 1,
+      "challenges": {
+        "open": 0,
+        "supported": 0,
+        "rejected": 0,
+        "withdrawn": 0
+      }
+    },
+    "causalChains": [],
+    "authorship": {
+      "axonius-fix-build": 3,
+      "axonius-fix-plan": 3,
+      "axonius-fix-review": 3,
+      "axonius-fix-verify": 7,
+      "operator": 81
+    },
+    "stages": {
+      "transitions": 9,
+      "waivers": 0,
+      "waiverReasons": [],
+      "waiversByOrigin": {}
+    },
+    "artifacts": {
+      "byKind": {
+        "closeoutSynthesis": 1,
+        "codeReviewOutput": 1,
+        "internalRecon": 1,
+        "orchestrationPlan": 1,
+        "promptContract": 1,
+        "userRequest": 1,
+        "verifierOutput": 1,
+        "workflowRetrospective": 1
+      },
+      "supersessions": 0
+    },
+    "escalations": [],
+    "lessons": {
+      "recalled": 10,
+      "cited": 0,
+      "minted": 1,
+      "marks": 1
+    },
+    "workItems": [
+      {
+        "id": "W1",
+        "status": "completed",
+        "scopeCount": 4,
+        "hasCompletedWorkingRun": true,
+        "verifierRanAfterLatestWork": true
+      }
+    ],
+    "notMeasured": [
+      "outcomeQuality",
+      "coordinatorCost",
+      "coordinatorLoop.reworkCausedByCoordinatorDecisions",
+      "coordinatorLoop.sessionWallClock",
+      "coordinatorLoop.timeWithNoAgentRunning",
+      "refusals"
+    ],
+    "coordinatorLoop": {
+      "coordinatorActors": [
+        "axonius-fix-plan",
+        "operator"
+      ],
+      "sessions": [
+        {
+          "session": "S1",
+          "actor": "operator",
+          "harness": "claude-code",
+          "harnessSessionId": "9e53934e-a48a-404b-acd5-59bcd5499058",
+          "startedAt": "2026-09-23T20:14:05.326436+00:00",
+          "endedAt": "2026-09-23T21:29:53.739198+00:00",
+          "wallClockHours": 1.26,
+          "idleHours": 0.99,
+          "idleShare": 0.785,
+          "childRuns": 6,
+          "childRunsStillOpen": 0,
+          "degradations": []
+        }
+      ],
+      "hasUnbracketedCoordinatorActivity": true,
+      "degradations": [
+        {
+          "measure": "sessionWallClock",
+          "reason": "Some coordinator activity on this task falls outside every recorded session, so the brackets below describe part of the work and not all of it. unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+        },
+        {
+          "measure": "timeWithNoAgentRunning",
+          "reason": "Idle time is measured inside the recorded brackets only. Coordinator activity outside them is unbracketed and contributes to neither the duration nor the idle span."
+        },
+        {
+          "measure": "sessionAttribution",
+          "reason": "Delays, ratios, avoidability and refusals are computed at task and actor level. Claims, decisions, work items and refusal rows carry no session id, so none of them can be partitioned between two sessions of the same actor without inventing the split."
+        },
+        {
+          "measure": "eventsPerDeliveredWorkItem",
+          "reason": "The ratio is an actor-and-task figure. Its numerator is deliberately not reported: a raw event count is never a measure on its own (D4)."
+        },
+        {
+          "measure": "coordinatorClaimReversed",
+          "reason": "The refuting record is added after the claim it names, because evidence cannot cite a claim that does not yet exist. So a reversal here reads as a reasonable revision unless the reversal also cited older evidence, and the exact form of this comparison is reopened findings, where the disposition follows the evidence rather than preceding it."
+        },
+        {
+          "measure": "misScopedWorkItems",
+          "reason": "An abandoned item and the wider item that replaced it are both in the record, but the abandon reason is free text and names no coordinator record, so the mis-scope is reported without an avoidability verdict. And only the pair is reported: an item released with no wider item after it is not counted here at all, because the wider successor is the evidence that the original scope was too narrow and a release has many other reasons."
+        }
+      ],
+      "delays": {
+        "toFindingDisposed": {
+          "measured": 3,
+          "unmatched": 3,
+          "minMinutes": 0.54,
+          "medianMinutes": 0.71,
+          "p95Minutes": 4.81,
+          "maxMinutes": 4.81
+        },
+        "toNextDispatch": {
+          "measured": 5,
+          "unmatched": 1,
+          "minMinutes": 0.58,
+          "medianMinutes": 0.66,
+          "p95Minutes": 51.22,
+          "maxMinutes": 51.22
+        },
+        "population": "One row per run.completed in this task\u0027s log. A finding belongs to a run when the event that added it carries the run\u0027s id or the run\u0027s own correlation id, which is the convention the launcher briefs an agent with. The figures here are the whole task; the partition in byActor holds the same rows keyed by the actor that closed each gap, and an unmatched row appears here only, because a gap nobody closed has no actor to attribute."
+      },
+      "ratios": {
+        "eventsPerDeliveredWorkItem": {
+          "ratio": 81,
+          "denominator": 1
+        },
+        "eventsPerFindingDisposed": {
+          "ratio": 8.1,
+          "denominator": 10
+        }
+      },
+      "reversedClaims": [],
+      "supersededDecisions": [],
+      "reopenedFindings": [],
+      "misScopedWorkItems": [],
+      "tokenCost": {
+        "absence": "noCoordinatorUsageSupplied: no harness transcript was named, so nothing was read. This is an absence of a measurement, not a measurement of zero."
+      },
+      "dispatches": {
+        "rework": {
+          "dispatches": 6,
+          "joined": 0,
+          "namingNothing": 6,
+          "rows": [],
+          "population": "Every dispatch a coordinating actor recorded on this task, whether by \u0027provider launch\u0027 or by \u0027run start\u0027. A dispatch is joined when it names a cause and that cause is an event in this log; naming nothing, and naming an id this log does not hold, are both counted as unjoined, because neither can be compared against anything.",
+          "absence": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing \u0027--cause\u0027 on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+        },
+        "failedDispatches": {
+          "launches": 6,
+          "judged": 6,
+          "rows": [],
+          "population": "The coordinating actors\u0027 provider launches on this task. A launch is judged when it carries the limit it was given, the provider\u0027s own terminal reason, or the launcher\u0027s observation of what ended it; one carrying none of the three was recorded before those inputs existed. Whether a dispatch failed is read from the provider\u0027s reason and never from run.status, because a run whose agent returned an adverse verdict is a run that did its job (C8). Whether the coordinator\u0027s own limit ended it is read from that recorded observation and never from elapsed time, because the interval this projection can see is wider than the provider\u0027s run (VC6). Refused launches are the same rows measure 9 reports under the provider-launch site and must not be added to it twice."
+        },
+        "wastedDispatches": {
+          "judged": 6,
+          "rows": [],
+          "unclassified": 0,
+          "population": "The coordinating actors\u0027 provider launches that carry the inputs this measure needs. A completed run is never counted here, whatever its agent concluded: a verifier that finds nothing did the work it was sent to do. A launch that failed with a brief delivered is counted under the unclassified figure and not as waste, because separating a wrong scope from an ordinary provider fault would mean grading the reason\u0027s prose. Refused launches are the same rows measure 9 reports under the provider-launch site."
+        }
+      },
+      "notMeasured": [
+        {
+          "measure": "reworkCausedByCoordinatorDecisions",
+          "reason": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing \u0027--cause\u0027 on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+        }
+      ],
+      "byActor": [
+        {
+          "actor": "operator",
+          "toFindingDisposed": {
+            "measured": 3,
+            "unmatched": 0,
+            "minMinutes": 0.54,
+            "medianMinutes": 0.71,
+            "p95Minutes": 4.81,
+            "maxMinutes": 4.81
+          },
+          "toNextDispatch": {
+            "measured": 5,
+            "unmatched": 0,
+            "minMinutes": 0.58,
+            "medianMinutes": 0.66,
+            "p95Minutes": 51.22,
+            "maxMinutes": 51.22
+          },
+          "reversedClaims": {
+            "avoidableErrors": [],
+            "reasonableRevisions": [],
+            "unattributable": [],
+            "priorEvidenceAvailable": []
+          },
+          "supersededDecisions": {
+            "avoidableErrors": [],
+            "reasonableRevisions": [],
+            "unattributable": [],
+            "priorEvidenceAvailable": []
+          },
+          "reopenedFindings": {
+            "avoidableErrors": [],
+            "reasonableRevisions": [],
+            "unattributable": [],
+            "priorEvidenceAvailable": []
+          }
+        }
+      ]
+    },
+    "briefWaivers": {
+      "total": 0,
+      "byOrigin": {}
+    },
+    "kernelIdentityPartitions": [
+      {
+        "identity": "2.0.151|b985593|2026-09-23T19:19:29.0000000\u002B00:00",
+        "build": {
+          "version": "2.0.151",
+          "sourceCommit": "b985593",
+          "buildTime": "2026-09-23T19:19:29+00:00"
+        },
+        "events": 81,
+        "eventsByType": {
+          "actor.role-assigned": 5,
+          "alternative.recorded": 1,
+          "artifact.recorded": 6,
+          "claim.added": 8,
+          "claim.resolved": 8,
+          "constraint.added": 8,
+          "context.built": 1,
+          "decision.proposed": 2,
+          "decision.resolved": 2,
+          "evidence.added": 9,
+          "lesson.recalled": 10,
+          "run.completed": 5,
+          "run.started": 5,
+          "session.started": 1,
+          "stage.transitioned": 7,
+          "task.opened": 1,
+          "work.added": 1,
+          "work.completed": 1
+        },
+        "refusals": 0,
+        "refusalsBySite": {},
+        "refusalsByCommand": {}
+      },
+      {
+        "identity": "2.0.152|ebab0bb|2026-09-23T21:23:50.0000000\u002B00:00",
+        "build": {
+          "version": "2.0.152",
+          "sourceCommit": "ebab0bb",
+          "buildTime": "2026-09-23T21:23:50+00:00"
+        },
+        "events": 16,
+        "eventsByType": {
+          "artifact.recorded": 2,
+          "claim.added": 2,
+          "claim.resolved": 2,
+          "constraint.added": 1,
+          "evidence.added": 2,
+          "lesson.marked": 1,
+          "lesson.minted": 1,
+          "run.completed": 1,
+          "run.started": 1,
+          "session.completed": 1,
+          "stage.transitioned": 2
+        },
+        "refusals": 0,
+        "refusalsBySite": {},
+        "refusalsByCommand": {}
+      }
+    ]
+  },
+  "assurance": {
+    "task": "2026-09-23_2014-axonius-parser-fixes",
+    "stage": "archive",
+    "version": 97,
+    "assuranceRevisions": [
+      {
+        "artifactId": "VOUT1",
+        "kind": "verifierOutput",
+        "title": "Verifier 1: Axonius parser candidate c8faa615 on W1",
+        "eventIndex": 65,
+        "recordedAt": "2026-09-23T20:31:03.540478+00:00",
+        "contentBytes": 9358,
+        "contentSha256": "243b3fb2cdcef7fca7b1339ae1063243ab525d6703406db12ac1d1e7df2ae01a",
+        "isCurrent": true,
+        "producer": {
+          "runId": "RV1",
+          "actorId": "axonius-fix-verify",
+          "subjectRole": "verifier",
+          "provider": "claude",
+          "model": "claude-opus-5-5[1m]",
+          "providerVersion": "2.1.281 (Claude Code)",
+          "status": "completed",
+          "truncatedLines": 0
+        },
+        "coveredWorkItemIds": [
+          "W1"
+        ],
+        "applicableWorkItemIds": [
+          "W1"
+        ],
+        "memberReplacements": []
+      },
+      {
+        "artifactId": "CRV1-W1",
+        "kind": "codeReviewOutput",
+        "title": "Code review 1: Axonius parser candidate (no blocker; 1 minor severity-mapping, 1 nit, 6 observations)",
+        "eventIndex": 73,
+        "recordedAt": "2026-09-23T20:35:02.82117+00:00",
+        "contentBytes": 7453,
+        "contentSha256": "ee80023c6c384f10bdba6f7a6271b0bb1c8f05e0ff2726cfda6240c7c2d4817d",
+        "isCurrent": true,
+        "producer": {
+          "runId": "RG1",
+          "actorId": "axonius-fix-review",
+          "subjectRole": "codeReviewer",
+          "provider": "claude",
+          "model": "claude-opus-5-5[1m]",
+          "providerVersion": "2.1.281 (Claude Code)",
+          "status": "completed",
+          "truncatedLines": 0
+        },
+        "coveredWorkItemIds": [
+          "W1"
+        ],
+        "applicableWorkItemIds": [
+          "W1"
+        ],
+        "memberReplacements": []
+      }
+    ],
+    "workItems": [
+      {
+        "workItemId": "W1",
+        "status": "completed",
+        "scopes": [
+          "/Users/user/Dev/_axonius-dev/cymulate-integration-parsers/libs/packages/parsers/yaml_engine/specs/axonius-assets-findings.yaml",
+          "/Users/user/Dev/_axonius-dev/cymulate-integration-parsers/libs/packages/parsers/axonius",
+          "/Users/user/Dev/_axonius-dev/cymulate-integration-parsers/test_files/axonius/assets_and_findings",
+          "/Users/user/Dev/_axonius-dev/cymulate-integration-parsers/tests/test_axonius_assets_findings.py"
+        ],
+        "dependsOnClaims": [
+          "C1",
+          "C2"
+        ],
+        "runs": [
+          {
+            "runId": "RW1",
+            "actorId": "axonius-fix-build",
+            "subjectRole": "worker",
+            "provider": "codex",
+            "status": "completed",
+            "startedAt": "2026-09-23T20:20:59.085015+00:00",
+            "endedAt": "2026-09-23T20:22:51.584917+00:00"
+          },
+          {
+            "runId": "RV1",
+            "actorId": "axonius-fix-verify",
+            "subjectRole": "verifier",
+            "provider": "claude",
+            "model": "claude-opus-5-5[1m]",
+            "status": "completed",
+            "startedAt": "2026-09-23T20:27:41.783729+00:00",
+            "endedAt": "2026-09-23T20:31:33.32412+00:00"
+          },
+          {
+            "runId": "RG1",
+            "actorId": "axonius-fix-review",
+            "subjectRole": "codeReviewer",
+            "provider": "claude",
+            "model": "claude-opus-5-5[1m]",
+            "status": "completed",
+            "startedAt": "2026-09-23T20:32:07.834477+00:00",
+            "endedAt": "2026-09-23T20:35:34.294576+00:00"
+          }
+        ]
+      }
+    ],
+    "records": {
+      "claims": [
+        {
+          "claimId": "BC1",
+          "status": "validated",
+          "statement": "RW1 confirmed the ten-file W1 candidate matches C1 and the prior W4 digest c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5; the K2 focused pytest run had 12 passes and one Spark fixture setup error because this governed environment has no Java runtime.",
+          "evidenceIds": [
+            "BE1",
+            "BE2"
+          ],
+          "recordedBy": "axonius-fix-build"
+        },
+        {
+          "claimId": "C1",
+          "status": "validated",
+          "statement": "The uncommitted Axonius parser files in the worktree are byte-identical to the candidate the prior task verified as W4 (VOUT9; asserted candidate c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5 in E30).",
+          "evidenceIds": [
+            "E1"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "C2",
+          "status": "validated",
+          "statement": "The only assurance W4\u0027s candidate lacks is an independent code review (CR7-W2 findings PGC22 and PVC12 were fixed and verified in VOUT9; PGC21 no longer exists after the dedup removal, C29 in the prior task).",
+          "evidenceIds": [
+            "E2"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "C3",
+          "status": "validated",
+          "statement": "The W1 candidate passes the full cymulate-integration-parsers suite with Spark, run host-side through ailedger verification run.",
+          "evidenceIds": [
+            "E3"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "C4",
+          "status": "validated",
+          "statement": "Commit 2be74e1 on origin/feat/ca-67590-axonius-parser holds exactly the verified and reviewed candidate c8faa615...",
+          "evidenceIds": [
+            "E4"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "C5",
+          "status": "validated",
+          "statement": "The code-reviewer manifest for a work item carries task narrative (claims and evidence stating that the candidate passed verification), although the code-reviewer skill requires isolated input without the contract, plan or verifier conclusions.",
+          "evidenceIds": [
+            "E5"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "GC1",
+          "status": "validated",
+          "statement": "The Axonius hook maps INFO, NONE, unknown and missing cve_severity to low, where BaseParser (null-\u003Einfo) and the armis and nessus siblings default to info; informational CVEs are raised one level, none are lost.",
+          "evidenceIds": [
+            "GE1"
+          ],
+          "recordedBy": "axonius-fix-review"
+        },
+        {
+          "claimId": "VC1",
+          "status": "validated",
+          "statement": "At RV1 the ten-file W1 candidate digest is c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5 (C1, BC1, prior E30), HEAD is c171783, and the operator host-side parser-suite run E3 passed on those exact bytes (365 passed, 13 skipped, worktree hash unchanged and equal to prior E30).",
+          "evidenceIds": [
+            "VE1"
+          ],
+          "recordedBy": "axonius-fix-verify"
+        },
+        {
+          "claimId": "VC2",
+          "status": "validated",
+          "statement": "The candidate emits every adapter CVE row with its own severity, status, plugin and seen times and performs no parser-side finding de-duplication (prior ALT4); the rich golden output carries non-null per-CVE first_seen/last_seen where supplied (prior C15).",
+          "evidenceIds": [
+            "VE2"
+          ],
+          "recordedBy": "axonius-fix-verify"
+        },
+        {
+          "claimId": "VC3",
+          "status": "validated",
+          "statement": "The K2 focused pytest command in RV1 gives 12 passed and 1 setup error: test_duplicate_cve_emits_each_adapter_row cannot start Spark because the governed sandbox has no Java runtime; this is environment, not a parser failure, and that test passed host-side in E3.",
+          "evidenceIds": [
+            "VE3"
+          ],
+          "recordedBy": "axonius-fix-verify"
+        }
+      ],
+      "evidence": [
+        {
+          "evidenceId": "BE1",
+          "sourceType": "file-and-hash-check",
+          "citation": "execution_notes.md: Scope and candidate identity (RW1); ten-file manifest and SHA-256 c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5",
+          "summary": "The sorted per-file SHA-256 manifest of the four K1 paths contains exactly ten files and hashes to the same digest as C1/E1 and prior W4 E30; the digest was unchanged after the focused test.",
+          "supports": [
+            "BC1"
+          ],
+          "refutes": [],
+          "recordedBy": "axonius-fix-build"
+        },
+        {
+          "evidenceId": "BE2",
+          "sourceType": "test-run",
+          "citation": "execution_notes.md: Focused test (RW1); /private/tmp/axonius-w1-focused.log SHA-256 d7f64b8f3c654a40d18f1af302ef45153acd9805bc69a01edee2e7cb69a28e68; tests/conftest.py:125",
+          "summary": "K2 focused pytest collected 13 tests: 12 passed and test_duplicate_cve_emits_each_adapter_row errored at Spark fixture setup because the Java runtime was unavailable. No parser assertion failed in the completed tests.",
+          "supports": [
+            "BC1"
+          ],
+          "refutes": [],
+          "recordedBy": "axonius-fix-build"
+        },
+        {
+          "evidenceId": "E1",
+          "sourceType": "file-and-hash-check",
+          "citation": "operator session 2026-09-23T20:20Z: find the four Axonius parser paths in /Users/user/Dev/_axonius-dev/cymulate-integration-parsers -type f (no __pycache__) | sort | shasum -a 256 each | shasum -a 256; prior task 2026-09-23_1034-axonius-yaml-bundle verification/E30/result.json assertedCandidateId",
+          "summary": "The digest is c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5, identical to the candidate E30 ran; git status shows only the ten candidate files and the untracked ailedger.verification.json.",
+          "supports": [
+            "C1"
+          ],
+          "refutes": [],
+          "recordedBy": "operator"
+        },
+        {
+          "evidenceId": "E2",
+          "sourceType": "source-read",
+          "citation": "prior task 2026-09-23_1034-axonius-yaml-bundle: review/verifier-9.md (VOUT9, pass on D11), review/code-reviewer-7.md (CR7-W2), claims C29 and C30, decision D12, closeout_synthesis.md findings F8, F10, F11, F15",
+          "summary": "VOUT9 verified the W4 changes (dedup removed, _first_data fallback, BOM strip) with E30 and E31; CR7-W2 was the last code review and preceded W4; D12 cancelled W4 before its review.",
+          "supports": [
+            "C2"
+          ],
+          "refutes": [],
+          "recordedBy": "operator"
+        },
+        {
+          "evidenceId": "E3",
+          "sourceType": "container-verification",
+          "citation": "verification/E3/result.json sha256:bc0c12bfa71cfb4aa899cef62bfbe425fe6b6f7b3871de892b9101a91f4e4774",
+          "summary": "passed; exit 0; profile parser-suite; asserted candidate c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5; git c17178329284c254947b3b811e10c4d45ff78684; worktree a385cfc36516 unchanged; 0 result files; removed 0 containers",
+          "supports": [
+            "C3"
+          ],
+          "refutes": [],
+          "recordedBy": "operator"
+        },
+        {
+          "evidenceId": "E4",
+          "sourceType": "file-and-hash-check",
+          "citation": "git archive 2be74e1 of the four K1 paths in cymulate-integration-parsers; same digest recipe as E1; git push -u origin feat/ca-67590-axonius-parser, 2026-09-24",
+          "summary": "Operator: \u0027commit and push\u0027. The committed ten files hash to c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5, the candidate of E1, E3, VOUT1 and CRV1-W1; ailedger.verification.json is not committed; the branch is pushed.",
+          "supports": [
+            "C4"
+          ],
+          "refutes": [],
+          "recordedBy": "operator"
+        },
+        {
+          "evidenceId": "E5",
+          "sourceType": "source-read",
+          "citation": "task 2026-09-23_2014-axonius-parser-fixes review/code-reviewer-1.md (CRV1-W1, RG1) Coverage context caveat; closeout_synthesis.md F11",
+          "summary": "RG1 reports that its manifest included prior verification claims despite the isolated-review input rule; it did not open the contract, plan or verifier report.",
+          "supports": [
+            "C5"
+          ],
+          "refutes": [],
+          "recordedBy": "operator"
+        },
+        {
+          "evidenceId": "GE1",
+          "sourceType": "source-read",
+          "citation": "libs/packages/parsers/axonius/axonius_yaml_hook.py:16-19,157; libs/packages/parsers/common/base_parser.py:276; specs/armis-assets-findings.yaml:118; specs/nessus-professional.yaml:77; specs/axonius-assets-findings.yaml:22-24",
+          "summary": "_SEVERITY maps INFO/MODERATE to low and .get(...,\u0027low\u0027) defaults every other value, including a missing key; base_parser coalesces null severity to info; armis default: info; the axonius spec comment documents the mapping as accepted.",
+          "supports": [
+            "GC1"
+          ],
+          "refutes": [],
+          "recordedBy": "axonius-fix-review"
+        },
+        {
+          "evidenceId": "VE1",
+          "sourceType": "file-and-hash-check",
+          "citation": "RV1 2026-09-23 digest recompute over the four K1 paths (find -type f without __pycache__, C-locale sort, shasum -a 256 each, then shasum -a 256), git status --short, git rev-parse HEAD; verification/E3/result.json sha256 bc0c12bfa71cfb4aa899cef62bfbe425fe6b6f7b3871de892b9101a91f4e4774 and verification/E3/stdout.log; prior task 2026-09-23_1034-axonius-yaml-bundle verification/E30/result.json",
+          "summary": "Digest c8faa615669a95fb3e538378673781ccef41b9fede1ac67bfed349dab64f5ed5. Only the ten candidate files and ailedger.verification.json are untracked; HEAD c17178329284. E3 status passed, exit 0, asserted candidate c8faa615, worktree hash a385cfc3 before and after, the same value E30 recorded. E3 stdout reads 365 passed, 13 skipped; stderr is empty. The Axonius spec has no run false opt-out and the focused test file has no skip marker, so the Spark duplicate-CVE test and both Axonius golden snapshot cases ran inside E3.",
+          "supports": [
+            "VC1"
+          ],
+          "refutes": [],
+          "recordedBy": "axonius-fix-verify"
+        },
+        {
+          "evidenceId": "VE2",
+          "sourceType": "source-read",
+          "citation": "libs/packages/parsers/axonius/axonius_yaml_hook.py:147-167 and 219-223; tests/test_axonius_assets_findings.py:196-216; test_files/axonius/assets_and_findings/findings_rich.expected_findings.json; EA parsed-data.repository.ts:524-569",
+          "summary": "The hook loops over every adapter and appends one finding per software_cves entry, with no keyed set or winner selection; the findings lane is a plain explode. The rich golden output has 16 rows, four for cve-2024-10002 (static_analysis_nvd high 2026-01-05 to 2026-02-03, tenable_security_center low 2025-12-20 to 2026-03-03, each twice for the two duplicate device lines) and non-null first_seen and last_seen for cve-2024-10004 and cve-2024-10002. EA merges same asset and CVE rows with DISTINCT ON (asset_id, cve_id) at line 569.",
+          "supports": [
+            "VC2"
+          ],
+          "refutes": [],
+          "recordedBy": "axonius-fix-verify"
+        },
+        {
+          "evidenceId": "VE3",
+          "sourceType": "test-run",
+          "citation": "RV1 2026-09-23 K2 command from the worktree root: pytest tests/test_axonius_assets_findings.py -p no:cacheprovider; log /tmp/claude-501/rv1-focused.log sha256 cf3fa0ec939ea18190a1dcf078425b7f7a8b3d3b04cd777f6e635de34200e684",
+          "summary": "Exit 1. 12 passed, 1 error in 0.95s. The error is at setup of test_duplicate_cve_emits_each_adapter_row; the log says Unable to locate a Java Runtime. Same result as BE2 in RW1. The test body passed host-side inside E3.",
+          "supports": [
+            "VC3"
+          ],
+          "refutes": [],
+          "recordedBy": "axonius-fix-verify"
+        }
+      ],
+      "challenges": []
+    },
+    "completeness": {
+      "assuranceRevisions": 2,
+      "currentAssuranceRevisions": 2,
+      "revisionsFromUnfinishedRuns": 0,
+      "revisionsWithoutProducerRun": 0,
+      "revisionsWithoutCandidateBinding": 2,
+      "currentCloseoutSyntheses": 1,
+      "currentWorkflowRetrospectives": 1
+    }
+  }
+}

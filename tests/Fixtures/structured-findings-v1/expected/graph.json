@@ -1,0 +1,536 @@
+{
+  "retrospective": {
+    "task": "2026-09-23_0752-harness-graph-evaluation",
+    "stage": "research",
+    "version": 47,
+    "wallClockHours": 0.1,
+    "agentMinutes": 4,
+    "events": {
+      "actor.role-assigned": 3,
+      "alternative.recorded": 1,
+      "claim.added": 8,
+      "claim.resolved": 8,
+      "constraint.added": 3,
+      "context.built": 1,
+      "evidence.added": 10,
+      "lesson.recalled": 1,
+      "run.completed": 5,
+      "run.started": 5,
+      "stage.transitioned": 1,
+      "task.opened": 1
+    },
+    "runs": {
+      "total": 5,
+      "byStatus": {
+        "completed": 2,
+        "failed": 3
+      },
+      "bySubjectRole": {
+        "planningLead": 3,
+        "researcher": 2
+      },
+      "byProvider": {
+        "codex": 5
+      },
+      "byActor": {
+        "graph-recon": 3,
+        "graph-research": 2
+      },
+      "briefDelivered": 5,
+      "costRecorded": 2,
+      "operatorFilingRuns": 0,
+      "diedBeforeBriefing": 0
+    },
+    "cost": {
+      "runsMeasured": 2,
+      "runsUnmeasured": 3,
+      "turns": {
+        "runsMeasured": 0
+      },
+      "outputTokens": {
+        "runsMeasured": 2,
+        "total": 6035
+      },
+      "millisecondsToFirstLedgerWrite": {
+        "runsMeasured": 2,
+        "total": 131866
+      },
+      "tokensInUncached": {
+        "runsMeasured": 2,
+        "total": 146206
+      },
+      "tokensInCacheWrite": {
+        "runsMeasured": 2,
+        "total": 0
+      },
+      "tokensInCacheRead": {
+        "runsMeasured": 2,
+        "total": 1203584
+      }
+    },
+    "epistemic": {
+      "claims": {
+        "open": 0,
+        "validated": 8,
+        "rejected": 0,
+        "superseded": 0
+      },
+      "openClaimsWithSupportingEvidence": 0,
+      "evidence": {
+        "total": 10,
+        "supportsOnly": 9,
+        "refutesOnly": 0,
+        "both": 0,
+        "neither": 1,
+        "bySourceType": {
+          "official-docs": 6,
+          "research-synthesis": 1,
+          "source-read": 3
+        }
+      },
+      "decisions": {
+        "proposed": 0,
+        "accepted": 0,
+        "superseded": 0,
+        "invalidated": 0
+      },
+      "alternatives": 1,
+      "challenges": {
+        "open": 0,
+        "supported": 0,
+        "rejected": 0,
+        "withdrawn": 0
+      }
+    },
+    "causalChains": [],
+    "authorship": {
+      "graph-recon": 4,
+      "graph-research": 14,
+      "operator": 29
+    },
+    "stages": {
+      "transitions": 1,
+      "waivers": 0,
+      "waiverReasons": [],
+      "waiversByOrigin": {}
+    },
+    "artifacts": {
+      "byKind": {},
+      "supersessions": 0
+    },
+    "escalations": [],
+    "lessons": {
+      "recalled": 1,
+      "cited": 0,
+      "minted": 0,
+      "marks": 0
+    },
+    "workItems": [],
+    "notMeasured": [
+      "outcomeQuality",
+      "coordinatorCost",
+      "coordinatorLoop.reworkCausedByCoordinatorDecisions",
+      "coordinatorLoop.sessionWallClock",
+      "coordinatorLoop.timeWithNoAgentRunning",
+      "refusals"
+    ],
+    "coordinatorLoop": {
+      "coordinatorActors": [
+        "graph-recon",
+        "operator"
+      ],
+      "sessions": [],
+      "hasUnbracketedCoordinatorActivity": true,
+      "degradations": [
+        {
+          "measure": "sessionWallClock",
+          "reason": "unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+        },
+        {
+          "measure": "timeWithNoAgentRunning",
+          "reason": "unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+        },
+        {
+          "measure": "sessionAttribution",
+          "reason": "Delays, ratios, avoidability and refusals are computed at task and actor level. Claims, decisions, work items and refusal rows carry no session id, so none of them can be partitioned between two sessions of the same actor without inventing the split."
+        },
+        {
+          "measure": "eventsPerDeliveredWorkItem",
+          "reason": "The ratio is an actor-and-task figure. Its numerator is deliberately not reported: a raw event count is never a measure on its own (D4)."
+        },
+        {
+          "measure": "coordinatorClaimReversed",
+          "reason": "The refuting record is added after the claim it names, because evidence cannot cite a claim that does not yet exist. So a reversal here reads as a reasonable revision unless the reversal also cited older evidence, and the exact form of this comparison is reopened findings, where the disposition follows the evidence rather than preceding it."
+        },
+        {
+          "measure": "misScopedWorkItems",
+          "reason": "An abandoned item and the wider item that replaced it are both in the record, but the abandon reason is free text and names no coordinator record, so the mis-scope is reported without an avoidability verdict. And only the pair is reported: an item released with no wider item after it is not counted here at all, because the wider successor is the evidence that the original scope was too narrow and a release has many other reasons."
+        }
+      ],
+      "delays": {
+        "toFindingDisposed": {
+          "measured": 1,
+          "unmatched": 4,
+          "minMinutes": 0.48,
+          "medianMinutes": 0.48,
+          "p95Minutes": 0.48,
+          "maxMinutes": 0.48
+        },
+        "toNextDispatch": {
+          "measured": 3,
+          "unmatched": 2,
+          "minMinutes": 0.87,
+          "medianMinutes": 1.2,
+          "p95Minutes": 1.2,
+          "maxMinutes": 1.2
+        },
+        "population": "One row per run.completed in this task\u0027s log. A finding belongs to a run when the event that added it carries the run\u0027s id or the run\u0027s own correlation id, which is the convention the launcher briefs an agent with. The figures here are the whole task; the partition in byActor holds the same rows keyed by the actor that closed each gap, and an unmatched row appears here only, because a gap nobody closed has no actor to attribute."
+      },
+      "ratios": {
+        "eventsPerDeliveredWorkItem": {
+          "denominator": 0,
+          "absence": "noWorkItemDeliveredYet"
+        },
+        "eventsPerFindingDisposed": {
+          "ratio": 4.14,
+          "denominator": 7
+        }
+      },
+      "reversedClaims": [],
+      "supersededDecisions": [],
+      "reopenedFindings": [],
+      "misScopedWorkItems": [],
+      "tokenCost": {
+        "absence": "noCoordinatorUsageSupplied: no harness transcript was named, so nothing was read. This is an absence of a measurement, not a measurement of zero."
+      },
+      "dispatches": {
+        "rework": {
+          "dispatches": 5,
+          "joined": 0,
+          "namingNothing": 5,
+          "rows": [],
+          "population": "Every dispatch a coordinating actor recorded on this task, whether by \u0027provider launch\u0027 or by \u0027run start\u0027. A dispatch is joined when it names a cause and that cause is an event in this log; naming nothing, and naming an id this log does not hold, are both counted as unjoined, because neither can be compared against anything.",
+          "absence": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing \u0027--cause\u0027 on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+        },
+        "failedDispatches": {
+          "launches": 5,
+          "judged": 5,
+          "rows": [
+            {
+              "run": "I1",
+              "limitSeconds": 900,
+              "elapsedSeconds": 3.124557,
+              "reason": "Broken pipe",
+              "attribution": "whatEndedThisDispatchWasNotRecorded",
+              "basis": "Nobody observed which condition ended this run: it was recorded before the launcher carried that observation, was started by hand rather than by a launch, or its launch died before the adapter returned. The row is left unjudged. Its elapsed time is not consulted, because the interval here is run.started to run.completed \u2014 wider than the provider\u0027s own run \u2014 so a run that failed on its own terms just short of its limit crosses that limit on this clock (VC6)."
+            },
+            {
+              "run": "I3",
+              "limitSeconds": 600,
+              "elapsedSeconds": 1.201085,
+              "reason": "Provider exited with code 1.",
+              "attribution": "endedInsideTheLimitTheCoordinatorSet",
+              "basis": "The launcher watched this run end some way other than at its deadline, and recorded that. So it failed on its own terms and the limit the coordinator set is not what ended it \u2014 whatever the elapsed figure beside it looks like against the limit, since that interval is wider than the provider\u0027s own run."
+            },
+            {
+              "run": "R1",
+              "limitSeconds": 900,
+              "elapsedSeconds": 3.130702,
+              "reason": "Broken pipe",
+              "attribution": "whatEndedThisDispatchWasNotRecorded",
+              "basis": "Nobody observed which condition ended this run: it was recorded before the launcher carried that observation, was started by hand rather than by a launch, or its launch died before the adapter returned. The row is left unjudged. Its elapsed time is not consulted, because the interval here is run.started to run.completed \u2014 wider than the provider\u0027s own run \u2014 so a run that failed on its own terms just short of its limit crosses that limit on this clock (VC6)."
+            }
+          ],
+          "population": "The coordinating actors\u0027 provider launches on this task. A launch is judged when it carries the limit it was given, the provider\u0027s own terminal reason, or the launcher\u0027s observation of what ended it; one carrying none of the three was recorded before those inputs existed. Whether a dispatch failed is read from the provider\u0027s reason and never from run.status, because a run whose agent returned an adverse verdict is a run that did its job (C8). Whether the coordinator\u0027s own limit ended it is read from that recorded observation and never from elapsed time, because the interval this projection can see is wider than the provider\u0027s run (VC6). Refused launches are the same rows measure 9 reports under the provider-launch site and must not be added to it twice."
+        },
+        "wastedDispatches": {
+          "judged": 5,
+          "rows": [],
+          "unclassified": 3,
+          "population": "The coordinating actors\u0027 provider launches that carry the inputs this measure needs. A completed run is never counted here, whatever its agent concluded: a verifier that finds nothing did the work it was sent to do. A launch that failed with a brief delivered is counted under the unclassified figure and not as waste, because separating a wrong scope from an ordinary provider fault would mean grading the reason\u0027s prose. Refused launches are the same rows measure 9 reports under the provider-launch site."
+        }
+      },
+      "notMeasured": [
+        {
+          "measure": "reworkCausedByCoordinatorDecisions",
+          "reason": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing \u0027--cause\u0027 on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+        }
+      ],
+      "byActor": [
+        {
+          "actor": "operator",
+          "toFindingDisposed": {
+            "measured": 1,
+            "unmatched": 0,
+            "minMinutes": 0.48,
+            "medianMinutes": 0.48,
+            "p95Minutes": 0.48,
+            "maxMinutes": 0.48
+          },
+          "toNextDispatch": {
+            "measured": 3,
+            "unmatched": 0,
+            "minMinutes": 0.87,
+            "medianMinutes": 1.2,
+            "p95Minutes": 1.2,
+            "maxMinutes": 1.2
+          },
+          "reversedClaims": {
+            "avoidableErrors": [],
+            "reasonableRevisions": [],
+            "unattributable": [],
+            "priorEvidenceAvailable": []
+          },
+          "supersededDecisions": {
+            "avoidableErrors": [],
+            "reasonableRevisions": [],
+            "unattributable": [],
+            "priorEvidenceAvailable": []
+          },
+          "reopenedFindings": {
+            "avoidableErrors": [],
+            "reasonableRevisions": [],
+            "unattributable": [],
+            "priorEvidenceAvailable": []
+          }
+        }
+      ]
+    },
+    "briefWaivers": {
+      "total": 0,
+      "byOrigin": {}
+    },
+    "kernelIdentityPartitions": [
+      {
+        "identity": "2.0.145|460824e|2026-09-22T20:28:41.0000000\u002B00:00",
+        "build": {
+          "version": "2.0.145",
+          "sourceCommit": "460824e",
+          "buildTime": "2026-09-22T20:28:41+00:00"
+        },
+        "events": 47,
+        "eventsByType": {
+          "actor.role-assigned": 3,
+          "alternative.recorded": 1,
+          "claim.added": 8,
+          "claim.resolved": 8,
+          "constraint.added": 3,
+          "context.built": 1,
+          "evidence.added": 10,
+          "lesson.recalled": 1,
+          "run.completed": 5,
+          "run.started": 5,
+          "stage.transitioned": 1,
+          "task.opened": 1
+        },
+        "refusals": 0,
+        "refusalsBySite": {},
+        "refusalsByCommand": {}
+      }
+    ]
+  },
+  "assurance": {
+    "task": "2026-09-23_0752-harness-graph-evaluation",
+    "stage": "research",
+    "version": 47,
+    "assuranceRevisions": [],
+    "workItems": [],
+    "records": {
+      "claims": [
+        {
+          "claimId": "C1",
+          "status": "validated",
+          "statement": "Jev and the code-graph Graphify project may offer useful classification and retrieval capabilities for AILedger; their capabilities, costs and limits need primary-source verification.",
+          "evidenceIds": [
+            "XE7"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "C2",
+          "status": "validated",
+          "statement": "AILedger may have suitable advisory integration points for retrieval and routing while retaining deterministic governance authority.",
+          "evidenceIds": [
+            "IE1",
+            "IE2"
+          ],
+          "recordedBy": "operator"
+        },
+        {
+          "claimId": "XC1",
+          "status": "validated",
+          "statement": "Jev provides typed classification rather than a replacement coding-agent model.",
+          "evidenceIds": [
+            "XE1"
+          ],
+          "recordedBy": "graph-research"
+        },
+        {
+          "claimId": "XC2",
+          "status": "validated",
+          "statement": "Jev 1.13.0 documents $0.042 per million input tokens, free output, 64k total context and 32k state plus longest question.",
+          "evidenceIds": [
+            "XE2"
+          ],
+          "recordedBy": "graph-research"
+        },
+        {
+          "claimId": "XC3",
+          "status": "validated",
+          "statement": "LangChain offers experimental Jev routing and tool-risk middleware, not a demonstrated AILedger integration.",
+          "evidenceIds": [
+            "XE3"
+          ],
+          "recordedBy": "graph-research"
+        },
+        {
+          "claimId": "XC4",
+          "status": "validated",
+          "statement": "Graphify-Labs/graphify is a plausible code-graph candidate with documented C# file support and local code-only AST extraction.",
+          "evidenceIds": [
+            "XE4"
+          ],
+          "recordedBy": "graph-research"
+        },
+        {
+          "claimId": "XC5",
+          "status": "validated",
+          "statement": "Graphify freshness requires explicit management; documentation warns about background lag and deleted-node retention.",
+          "evidenceIds": [
+            "XE5"
+          ],
+          "recordedBy": "graph-research"
+        },
+        {
+          "claimId": "XC6",
+          "status": "validated",
+          "statement": "Graphify published benchmarks do not establish AILedger C# planning or cost gains.",
+          "evidenceIds": [
+            "XE6"
+          ],
+          "recordedBy": "graph-research"
+        }
+      ],
+      "evidence": [
+        {
+          "evidenceId": "IE1",
+          "sourceType": "source-read",
+          "citation": "src/AILedger.Core/ContextBriefing/Logic/ContextAssembler.cs:75-98; src/AILedger.Cli/Providers/ProviderLauncher.cs:30-100; src/AILedger.Memory/Retrieval/HybridMemorySearcher.cs:38-76",
+          "summary": "Context selection enforces membership and role filtering; launcher accepts an explicit provider and checks authority before resolving its adapter; memory search offers lexical and optional semantic retrieval. These are concrete boundaries for advisory suggestions while retaining kernel admission.",
+          "supports": [
+            "C2"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-recon"
+        },
+        {
+          "evidenceId": "IE2",
+          "sourceType": "source-read",
+          "citation": "src/AILedger.Core/Stages/Logic/StageTransitionRules.cs:16-20; src/AILedger.Core/Stages/Logic/StageEventValidator.cs:84-99; src/AILedger.Memory/Evaluation/MemoryEvaluator.cs:138-166; docs/stage-engagement-design.md:56-67",
+          "summary": "Command admission evaluates evolving stage prerequisites; replay deliberately retains historical structural gates. Existing retrieval evaluation measures recall, MRR, citations, superseded results and latency. Advisory evaluation can preserve these boundaries and compare against an existing baseline.",
+          "supports": [
+            "C2"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-recon"
+        },
+        {
+          "evidenceId": "XE1",
+          "sourceType": "official-docs",
+          "citation": "https://docs.typesafe.ai/introduction/coding-agents",
+          "summary": "Official docs explicitly exclude code generation, conversation and drop-in coding-agent replacement; use separate decision calls.",
+          "supports": [
+            "XC1"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE2",
+          "sourceType": "official-docs",
+          "citation": "https://docs.typesafe.ai/models",
+          "summary": "Current model table and context explanation give these prices and limits; aliases move and version IDs can be pinned.",
+          "supports": [
+            "XC2"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE3",
+          "sourceType": "official-docs",
+          "citation": "https://docs.langchain.com/oss/python/integrations/providers/typesafe",
+          "summary": "TypeSafeClassifier is a Runnable; routing chooses from the latest human message for the run; risk checks cover listed tools. Experimental APIs may change.",
+          "supports": [
+            "XC3"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE4",
+          "sourceType": "official-docs",
+          "citation": "https://github.com/Graphify-Labs/graphify/blob/v8/README.md",
+          "summary": "README identifies graphifyy package, lists .cs and .NET project files, and separates local AST code extraction from model-dependent document/media extraction. C# semantic accuracy is not established.",
+          "supports": [
+            "XC4"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE5",
+          "sourceType": "official-docs",
+          "citation": "https://github.com/Graphify-Labs/graphify/blob/v8/README.md",
+          "summary": "README requires update after pull/merge; hooks rebuild asynchronously; shrinking graphs may need force. This is documentation, not a reproduced defect.",
+          "supports": [
+            "XC5"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE6",
+          "sourceType": "official-docs",
+          "citation": "https://github.com/Graphify-Labs/graphify/blob/v8/BENCHMARKS.md",
+          "summary": "Maintainer benchmark dated 2026-07-05 uses ERPNext Python, six code questions, 70.8 to 82.0 percent key-fact coverage and about 140K tokens/query. Memory results use other corpora; no AILedger measurement.",
+          "supports": [
+            "XC6"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE7",
+          "sourceType": "research-synthesis",
+          "citation": "https://docs.typesafe.ai/models ; https://github.com/Graphify-Labs/graphify/blob/v8/BENCHMARKS.md",
+          "summary": "Supports C1 at candidate-capability level: documented typed classification and code graph retrieval warrant bounded evaluation. Does not validate local savings, C# correctness or integration feasibility.",
+          "supports": [
+            "C1"
+          ],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        },
+        {
+          "evidenceId": "XE8",
+          "sourceType": "source-read",
+          "citation": "src/AILedger.Core/Artifacts/Contracts/Models/GovernedArtifactKind.cs:3; src/AILedger.Core/Artifacts/Logic/ArtifactAuthorityRules.cs:76",
+          "summary": "R2 research document saved at research/jev-graphify.md; XC1-XC6 and XE1-XE7 recorded. Filing unavailable: artifact enum has no research kind; researcher manifest lacks RecordArtifact and workflow artifact authority excludes researcher. No alternate identity/kind used. Operator must reconcile launcher requirement with supported capability. No installs, API experiments, product edits or tests performed.",
+          "supports": [],
+          "refutes": [],
+          "recordedBy": "graph-research"
+        }
+      ],
+      "challenges": []
+    },
+    "completeness": {
+      "assuranceRevisions": 0,
+      "currentAssuranceRevisions": 0,
+      "revisionsFromUnfinishedRuns": 0,
+      "revisionsWithoutProducerRun": 0,
+      "revisionsWithoutCandidateBinding": 0,
+      "currentCloseoutSyntheses": 0,
+      "currentWorkflowRetrospectives": 0
+    }
+  }
+}

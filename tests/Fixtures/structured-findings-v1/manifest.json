@@ -1,0 +1,18 @@
+{
+  "baselineSourceCommit": "b72437ad3a91a8dea0503d0010582ea676533566",
+  "capturedDate": "2026-09-28",
+  "origin": "Read-only copies from /Users/user/Dev/Uri/localprojects/AILedger/.ailedger/tasks; see README.md for identities and variants.",
+  "sha256": {
+    "cases.json": "2dd8990588bc06a831d92a62717fd1c62f417143cf48ffd14e3e27123b605def",
+    "expected/axonius-refusals-truncated.json": "83cf414e2162a5229bc314508aeb9c3cb36e925566b76e5cc01cf792669e343e",
+    "expected/axonius-refusals-unavailable.json": "99399ab4bc4912f13c11a661518db7039a227727bd9602f54debb1cd3490b489",
+    "expected/axonius.json": "5dc9cb4ef1bb95731a3f2884afbc94069fab68205ad1c92c66eb4a7e634505e2",
+    "expected/graph.json": "0ba26dff0937416a59cc62dd32b23d91107d7ebec5f05f84dd48c5b290f0250e",
+    "expected/provider-costs.json": "4e7e1ccdef788e17dec4f70fad4cbe9d1dc9409305505af7f9444cf820ede2f5",
+    "inputs/axonius.events.jsonl": "8d7ed14a44d6012d96c01762b9161f974f8b14342e1430d085df25e1288da575",
+    "inputs/axonius.refusals-truncated.jsonl": "f71c0e38629e7f4e90118081112770d738059e339f504f309ec3401c775d2b00",
+    "inputs/axonius.refusals.jsonl": "e6a1c0d88815287e248d17d0baa7a71ba91b9c640b5936aeae5596d9965ba855",
+    "inputs/graph.events.jsonl": "ebb97072d67ba67f52304a08505dc5a6ddc289f086f453d5af6dd656e04edc7a",
+    "provider-samples.json": "b854400493547d748f732013654f7c0b64337389b4cafec2d15c50e732b4dda6"
+  }
+}

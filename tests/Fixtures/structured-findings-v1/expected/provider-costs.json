@@ -1,0 +1,29 @@
+[
+  {
+    "name": "claude-existing-test-sample",
+    "cost": {
+      "turns": 125,
+      "outputTokens": 33110,
+      "tokensInUncached": 2,
+      "tokensInCacheWrite": 41368,
+      "tokensInCacheRead": 16285
+    }
+  },
+  {
+    "name": "codex-existing-test-sample",
+    "cost": {
+      "outputTokens": 28399,
+      "tokensInUncached": 156775,
+      "tokensInCacheWrite": 151552,
+      "tokensInCacheRead": 8639744
+    }
+  },
+  {
+    "name": "no-terminal-usage",
+    "cost": {}
+  },
+  {
+    "name": "malformed-terminal",
+    "cost": {}
+  }
+]
