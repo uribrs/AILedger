@@ -153,3 +153,11 @@ The technical pilot is finished. Recommend accepting the interface as-is with do
 choosing no further operation now. **Operator delivery acceptance remains pending, so task 6 is not
 closed.** The successful live checks do not erase the extra task-projection reads, provider warnings
 or first launch failure. No further billable episode or task-7/8 work is authorized by this result.
+
+
+## Delivery accepted — 2026-09-28
+
+The operator accepted the current interface with the documented live-review limitations and no
+extension for now. **Task 6 is complete.** See the [operator acceptance](task-6-live-validation.md#operator-acceptance--2026-09-28).
+The earlier checkpoints and actual results are preserved. Tasks 7–8 remain conditional and
+unauthorized; no additional execution or implementation was performed for closeout.

@@ -1,8 +1,8 @@
 # Structured agent interface, then bounded episode experiments
 
-**Priority: 1. Backlog ID: 63. Status: open. Kind: feature.**
+**Backlog ID: 63. Status: first delivery accepted; tasks 7–8 conditional. Kind: feature.**
 
-Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and tasks 1–5 are complete; provider adoption has real acceptance on both clients. Work through the remaining tasks separately, with a concrete result and verification at each task.
+Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and tasks 1–6 are complete; provider adoption has real acceptance on both clients. The operator accepted the first delivery with documented limitations and no extension for now on 2026-09-28. Tasks 7–8 remain conditional and require separate authorization.
 
 ## Purpose
 
@@ -227,7 +227,7 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Delivered:** opt-in `retrospective build --findings` measurement over storage-validated canonical receipts, distinct transport/application attempts, explicit gaps and per-run completion/session joins. Lost-response recovery and journal failures retain one canonical commit without duplicated cost. Both existing live provider episodes passed read-only comparison; no new model episode ran. All 28 new measurement cases pass; the final repository-aware suite passed 1,895 main and 99 Memory tests. All 11 frozen hashes and historical report/cost baselines are unchanged. Standard `dotnet test` retains task 4's existing failure set. See the [measurement contract](../docs/structured-findings-v1/task-5-measurement.md), [compatibility/validation record](../docs/structured-findings-v1/task-5-validation.md), and [task-6 handoff](../docs/handoffs/structured-findings-task-6.md). Task 6 and conditional tasks 7–8 remain unimplemented.
 
-### 6. Measure the interface on prepared findings and a bounded task — delivery decision pending
+### 6. Measure the interface on prepared findings and a bounded task — complete
 
 - [x] Submit the historical RN1 findings as a prepared, read-only-derived dataset into a disposable ledger; preserve the original history.
 - [x] Measure recording elapsed time, tool interactions, retries, errors, payload fidelity, and duplicate/partial outcomes.
@@ -250,19 +250,19 @@ and identical replay. Transcript/source review supports both recorded observatio
 reads, configuration warnings and the initial pre-provider socket failure are retained as limitations.
 See [actual live validation and delivery recommendation](../docs/structured-findings-v1/task-6-live-validation.md)
 and [retained measurements](../docs/structured-findings-v1/task-6-live-results.json). Technical evaluation
-is finished; recommend accepting the current interface with no further operation now. **Task 6 is not
-closed: operator delivery acceptance remains pending.**
+is finished. **The operator accepted delivery on 2026-09-28 with the documented limitations and no
+further operation for now. Task 6 is complete.** See the appended acceptance in the live validation record.
 
-### Decision after task 6 — operator acceptance pending
+### Decision after task 6 — accepted, no extension now
 
-- [ ] Review the pilot with the operator and choose the next small slice: alternatives, artifact submission, explicit claim dispositions, or readiness inspection.
-- [ ] Separate the endpoint's ergonomics from decisions about who may record versus who may approve.
-- [ ] Keep those extensions individually scoped; do not turn the first tool into an unrestricted command batch API.
+- [x] Review the pilot with the operator and choose the next slice or none: the operator accepted the interface as sufficient for now; no extension selected.
+- [x] Separate the endpoint's ergonomics from decisions about who may record versus who may approve; existing authority boundaries remain unchanged.
+- [x] Keep any future extensions individually scoped; no unrestricted command batch API is authorized.
 
-**Proposed decision (not yet approved):** accept the current interface with the live review's documented
-limits and choose no extension now. Recording remains separate from claim approval; no broader batch
-API or authority change is proposed. The operator may instead hold acceptance for a separately
-authorized stricter scope-compliance trial. No further billable run is authorized.
+**Accepted decision (2026-09-28):** the operator replied “accepted / proceed” to the delivery
+recommendation. Accept the current interface with the live review's documented limits and choose no
+extension now. Recording remains separate from claim approval. No broader batch API, authority
+change, further billable run or task-7/8 work is authorized by this acceptance.
 
 **Exit:** a separately bounded follow-up with purpose and acceptance checks, or an explicit decision that the interface is sufficient for now.
 
@@ -287,11 +287,10 @@ authorized stricter scope-compliance trial. No further billable run is authorize
 
 Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
 
-The next step is **the operator delivery decision for task 6 only**, using the
-[live review](../docs/structured-findings-v1/task-6-live-validation.md). The technical pilot is complete
-with documented limitations; do not repeat it or infer acceptance from its execution authorization.
-Complete and review each task's result before moving to the next. Tasks 7–8 remain conditional
-experiments; any production replacement or migration needs its own scope after their results.
+**First delivery accepted on 2026-09-28; tasks 1–6 are complete.** The operator accepted the
+[live review](../docs/structured-findings-v1/task-6-live-validation.md) and its limitations, choosing no
+extension for now. No further task-6 execution is needed. Tasks 7–8 remain conditional experiments
+and were not started or approved; any production replacement or migration needs its own scope.
 
 ## Related work
 
@@ -301,4 +300,6 @@ experiments; any production replacement or migration needs its own scope after t
 - Item 57: stable refusal identities. Use a structured error envelope now; do not require completing a repository-wide rule-ID migration before the first recording tool.
 - Item 59 and the investigation: context budgeting. Relevant to the later episodic experiment, not a prerequisite for the interface.
 
-Existing backlog items remain open unless their own acceptance criteria are actually delivered. This item takes first place in priority order without renumbering historical backlog IDs.
+Existing backlog items remain open unless their own acceptance criteria are actually delivered.
+This entry retains the accepted first delivery and the separately conditional experiment scope;
+historical backlog IDs are unchanged.

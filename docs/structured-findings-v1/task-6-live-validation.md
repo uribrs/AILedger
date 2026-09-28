@@ -1,3 +1,7 @@
+> **Accepted 2026-09-28:** the operator accepted this delivery with its documented limitations
+> and no extension for now. Task 6 is complete. The evaluation and pending-decision checkpoint
+> below are preserved; the subsequent acceptance is appended at the end.
+
 # Task 6 live pilot — results and proposed delivery decision
 
 Date: 2026-09-28. Checkpoint: `acc8f26`; tested CLI and source snapshots: `cd3f2d9`.
@@ -134,3 +138,22 @@ The operator decision remains **pending**. Accepting this recommendation can clo
 starting a new operation. Alternatives recording, artifact submission, claim disposition and readiness
 inspection remain individually scoped future choices described in the prepared report. Tasks 7–8,
 episodic architecture changes and migration require their own decisions.
+
+
+## Operator acceptance — 2026-09-28
+
+After reviewing the recommendation and the explanation of the exercise's purpose, the operator
+replied “accepted” and “proceed”. This accepts the current structured findings interface as the
+first delivery, including the limitations above, and selects no extension for now. **Task 6 and the
+first delivery (tasks 1–6) are complete.**
+
+Acceptance does not change the observations: source-only compliance was imperfect, provider
+warnings and the initial pre-provider failure remain recorded, and no causal workflow-speed or
+cognition claim is established. The retained JSON is the original evaluation snapshot; its pending
+status describes the checkpoint before this decision, not the current delivery status.
+
+This closeout updates documentation and backlog status only. Earlier measurements, transcript,
+canonical evidence and validation records remain unchanged. Document links and Git whitespace
+were checked; no implementation changed and no test suite or billable episode was rerun.
+No new operation, task-7/8 work, installation, merge, publication or migration follows from this
+acceptance. Any such work needs a separately defined request.

@@ -1,3 +1,8 @@
+> **Closed 2026-09-28:** the operator accepted the first delivery with its documented limitations
+> and no extension for now. Task 6 is complete; no continuation or rerun is needed. See
+> [operator acceptance](../structured-findings-v1/task-6-live-validation.md#operator-acceptance--2026-09-28).
+> Tasks 7–8 remain conditional and unauthorized. Earlier checkpoints below are historical.
+
 > **Latest checkpoint (2026-09-28):** the single live episode was subsequently authorized and
 > completed. Read [live validation and proposed delivery decision](../structured-findings-v1/task-6-live-validation.md)
 > and [retained results](../structured-findings-v1/task-6-live-results.json). Technical evaluation is

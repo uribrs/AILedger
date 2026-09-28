@@ -97,3 +97,11 @@ retained source/CLI/goal hashes, JSON/provenance checks, local links and Git whi
 The prior full-suite results are retained without rerunning unchanged implementation. The completed
 pilot supports the proposed first delivery, but **the operator delivery decision is still pending**.
 The episode authorization does not authorize delivery acceptance, additional operations or task 7.
+
+
+## Delivery accepted — 2026-09-28
+
+The operator accepted the current interface with the documented live-review limitations and no
+extension for now. **Task 6 is complete.** See the [operator acceptance](task-6-live-validation.md#operator-acceptance--2026-09-28).
+The earlier checkpoints and actual results are preserved. Tasks 7–8 remain conditional and
+unauthorized; no additional execution or implementation was performed for closeout.
