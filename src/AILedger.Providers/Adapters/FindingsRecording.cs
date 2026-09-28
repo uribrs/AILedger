@@ -7,6 +7,7 @@ internal static class FindingsRecording
     internal const string ClaudeTool = "mcp__ailedger__record_findings";
     internal const string ClaudeAlternativesTool = "mcp__ailedger__record_alternatives";
 
+    internal const string ClaudeClaimDispositionsTool = "mcp__ailedger__record_claim_dispositions";
     internal const string ClaudeArtifactTool = "mcp__ailedger__submit_artifact";
 
     // CLI overrides have precedence over writable user/project files. There is no host binding
@@ -17,8 +18,8 @@ internal static class FindingsRecording
         var args = string.Join(", ", endpoint.Arguments.Select(RoslynNavigation.Quote));
         arguments.Add("--config");
         arguments.Add("mcp_servers.ailedger={command=" + RoslynNavigation.Quote(endpoint.Command) +
-            ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\"],required=true," +
-            "default_tools_approval_mode=\"prompt\",tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"}}}");
+            ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\",\"record_claim_dispositions\"],required=true," +
+            "default_tools_approval_mode=\"prompt\",tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"},record_claim_dispositions={approval_mode=\"approve\"}}}");
     }
 
     internal static object ClaudeServer(ProviderFindingsEndpoint endpoint) =>
@@ -60,6 +61,21 @@ internal static class FindingsRecording
             Submit while your matching verifier/reviewer run is active; existing document prerequisites still apply.
             This supersedes file-write/artifact-record instructions for these two kinds only. Preserve the original
             key/body for retries, including after a lost response. Submission never approves work or closes your run.
+            Record already-reasoned explicit claim judgments with record_claim_dispositions:
+            {"schema_version":1,"request_id":"judgments-1","dispositions":[{"key":"j1","claim":{"claim_id":"C1"},"expected_status":"open","status":"validated","rationale":"Why the cited evidence warrants this judgment","evidence":[{"evidence_id":"E1"}]}]}
+            Use existing claim/evidence IDs from receipts or task context. status is validated or rejected;
+            expected_status is open or validated. Each claim appears once; 1–32 items commit atomically,
+            including rejection's decision/work invalidations. All evidence must support validation or
+            refute rejection. Record evidence first with record_findings; evidence never validates a claim.
+            This requires existing ResolveClaim capability (normally operator/planning lead); the tool
+            grant and payload cannot grant it. Do not impersonate another actor or seek transcription-only
+            approval. Your rationale is a durable judgment, not proof that the judgment is correct.
+            Keep body/key/binding for uncertain retries. state_conflict requires re-reading and reconsidering;
+            kernel_refused preserves the original rule and dispositions[index] points to the failing item.
+            No prefix is accepted on refusal. Receipt entries show each accepted status change, rationale,
+            evidence, event and dependency consequence; a replay describes the original commit, not current state.
+            Formal decision proposal/acceptance, claim supersession, task/context reads and lifecycle
+            operations remain CLI work with their own authority. No automatic closure or retrospective approval.
             Other kinds, external content references, artifact export and workflow operations still use the CLI below;
             operator recording CLI support remains available outside this supplied path.
             """;

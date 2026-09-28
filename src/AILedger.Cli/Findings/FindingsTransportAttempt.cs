@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using AILedger.Core.Findings;
 using AILedger.Core.Alternatives;
+using AILedger.Core.ClaimDispositions;
 using AILedger.Core.Artifacts;
 
 namespace AILedger.Cli.Findings;
@@ -20,11 +21,13 @@ internal sealed class FindingsTransportAttempt
     internal FindingsResult? Result { get; set; }
     internal bool IsArtifactSubmission { get; set; }
     internal ArtifactSubmissionResult? ArtifactSubmissionResult { get; set; }
+    internal bool IsClaimDispositions { get; set; }
+    internal ClaimDispositionsResult? ClaimDispositionsResult { get; set; }
     internal bool IsAlternatives { get; set; }
     internal AlternativesResult? AlternativesResult { get; set; }
-    private FindingsError? Error => Result?.Error ?? AlternativesResult?.Error ?? ArtifactSubmissionResult?.Error;
+    private FindingsError? Error => Result?.Error ?? AlternativesResult?.Error ?? ArtifactSubmissionResult?.Error ?? ClaimDispositionsResult?.Error;
     private AILedger.Core.Contracts.IRecordingReceiptIdentity? Receipt =>
-        (AILedger.Core.Contracts.IRecordingReceiptIdentity?)Result?.Receipt ?? (AILedger.Core.Contracts.IRecordingReceiptIdentity?)AlternativesResult?.Receipt ?? ArtifactSubmissionResult?.Receipt;
+        (AILedger.Core.Contracts.IRecordingReceiptIdentity?)Result?.Receipt ?? (AILedger.Core.Contracts.IRecordingReceiptIdentity?)AlternativesResult?.Receipt ?? (AILedger.Core.Contracts.IRecordingReceiptIdentity?)ArtifactSubmissionResult?.Receipt ?? ClaimDispositionsResult?.Receipt;
     internal string? Failure { get; set; }
     internal string Delivery { get; set; } = "not_sent";
 
@@ -39,11 +42,11 @@ internal sealed class FindingsTransportAttempt
         started_at = StartedAt, ended_at = DateTimeOffset.UtcNow,
         duration_ms = MessageKind == "connection" ? (double?)null : Stopwatch.GetElapsedTime(_started).TotalMilliseconds,
         application_entered = ApplicationEntered, application_ms = ApplicationMs,
-        application_collection_status = ApplicationEntered ? (Result?.CollectionStatus ?? AlternativesResult?.CollectionStatus ?? ArtifactSubmissionResult?.CollectionStatus) : null,
-        outcome = (Result?.Status ?? AlternativesResult?.Status ?? ArtifactSubmissionResult?.Status), code = Error?.Code, boundary = Error?.Boundary,
+        application_collection_status = ApplicationEntered ? (Result?.CollectionStatus ?? AlternativesResult?.CollectionStatus ?? ArtifactSubmissionResult?.CollectionStatus ?? ClaimDispositionsResult?.CollectionStatus) : null,
+        outcome = (Result?.Status ?? AlternativesResult?.Status ?? ArtifactSubmissionResult?.Status ?? ClaimDispositionsResult?.Status), code = Error?.Code, boundary = Error?.Boundary,
         commit_state = Error?.CommitState ?? (Receipt is null ? "unknown" : "committed"),
         transaction_id = Receipt?.TransactionId, event_ids = Receipt?.EventIds,
-        replayed = Result?.Replayed ?? AlternativesResult?.Replayed ?? ArtifactSubmissionResult?.Replayed,
+        replayed = Result?.Replayed ?? AlternativesResult?.Replayed ?? ArtifactSubmissionResult?.Replayed ?? ClaimDispositionsResult?.Replayed,
         transport_failure = Failure, response_delivery = Delivery, collection_status = "collected"
     };
 }
@@ -62,7 +65,7 @@ internal sealed class FindingsTransportJournal(FindingsHostConfiguration host, T
             await _gate.WaitAsync(timeout.Token).ConfigureAwait(false);
             acquired = true;
             Directory.CreateDirectory(host.DiagnosticsDirectory);
-            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
+            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
             var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(attempt.Row(host, SessionId)) + "\n");
             await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read,
                 4096, FileOptions.Asynchronous);

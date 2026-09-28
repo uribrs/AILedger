@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–8 implemented and installed, client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–8 installed and task 9 implemented; client trials pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -218,7 +218,7 @@ and handoffs retain their original numbering and checkpoint meaning.
 | 6. Pilot and delivery decision — complete | Prepared/live evidence and client acceptance | Accepted; do not repeat |
 | 7. Record alternatives directly — next | Small structured batches and narrowly scoped recording authority | Builds on 1–6; install-and-try checkpoint A |
 | 8. Submit artifacts coherently — implemented | Content, metadata, identity and version references in one operation | Reuses trusted tool/receipt path; checkpoint B |
-| 9. Record explicit claim dispositions | Authorized grouped judgments over cited evidence | Reuses existing evidence and decision rules; checkpoint C |
+| 9. Record explicit claim dispositions — implemented | Authorized grouped judgments over cited evidence | Reuses existing evidence and decision rules; checkpoint C |
 | 10. Inspect readiness and retrieve task context | Structured blockers, relevant state and context; explicit map of remaining CLI dependencies | Uses 7–9 where available; checkpoint D |
 | 11. Prepare bounded handoffs | Versioned selected inputs, output contracts and preserved material dependencies | Reuses artifact identities from 8 and reads from 10; inspect on a real task |
 | 12. Execute bounded work and recover partial output | Installable host path, admission, bounded follow-ups, receipts and interruption discovery | Uses 10–11 and existing provider components; checkpoint E |
@@ -533,7 +533,11 @@ CodeReviewOutput only, as described in the [contract](../docs/structured-artifac
 [installation receipt](../docs/structured-artifacts-v1/task-8-installation.md) retains the exact identity.
 The next checkpoint is Uri's ordinary task and inspection of the actual result.
 The task-7 [implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md) and
-validation remain intact. Tasks 9–14 are unstarted.
+validation remain intact. Task 9 now implements atomic explicit claim dispositions; its
+[contract](../docs/structured-claim-dispositions-v1.md) and
+[validation](../docs/structured-claim-dispositions-v1/task-9-validation.md) define the supported scope.
+Uri authorized proceeding and installing task 9 before the earlier client trials. Task 9 installation
+is a separate checkpoint; no task-9 client observation or acceptance is claimed. Tasks 10–14 remain unstarted.
 
 ## Related work
 

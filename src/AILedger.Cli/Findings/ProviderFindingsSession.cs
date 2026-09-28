@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using AILedger.Core.Contracts;
 using AILedger.Core.Findings;
 using AILedger.Core.Alternatives;
+using AILedger.Core.ClaimDispositions;
 using AILedger.Core.Artifacts;
 
 namespace AILedger.Cli.Findings;
@@ -35,11 +36,11 @@ internal sealed class ProviderFindingsSession : IAsyncDisposable
     internal static ProviderFindingsSession Start(IGovernedTaskService service, string ledgerRoot,
         TaskId task, ActorId subject, RunId run, EventId? cause, string provider)
     {
-        if (service is not IFindingsRecorder recorder || service is not IAlternativesRecorder || service is not IArtifactSubmitter)
-            throw new InvalidOperationException("Provider recording requires IFindingsRecorder, IAlternativesRecorder and IArtifactSubmitter services.");
+        if (service is not IFindingsRecorder recorder || service is not IAlternativesRecorder || service is not IArtifactSubmitter || service is not IClaimDispositionsRecorder)
+            throw new InvalidOperationException("Provider recording requires IFindingsRecorder, IAlternativesRecorder, IArtifactSubmitter and IClaimDispositionsRecorder services.");
         var configuration = new FindingsHostConfiguration(ledgerRoot, task.Value, subject.Value, run.Value,
             Path.Combine(ledgerRoot, task.Value, "telemetry"), RunId: run.Value, CausationId: cause?.Value,
-            AllowRecordFindings: true, Provider: provider, AllowRecordAlternatives: true, AllowSubmitArtifact: true);
+            AllowRecordFindings: true, Provider: provider, AllowRecordAlternatives: true, AllowSubmitArtifact: true, AllowRecordClaimDispositions: true);
         // Neither a requested/preassigned session ID nor a future stream observation is a current
         // observation. Keep session null for this immutable connection; join via the actual run.
         var runtime = Path.GetDirectoryName(typeof(object).Assembly.Location)!;

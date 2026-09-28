@@ -7,6 +7,8 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Core.Findings;
 using AILedger.Core.Alternatives;
+using AILedger.Core.ClaimDispositions;
+using AILedger.Storage.ClaimDispositions;
 using AILedger.Core.Artifacts;
 using AILedger.Storage.Artifacts;
 using AILedger.Storage.Alternatives;
@@ -14,7 +16,7 @@ using AILedger.Storage.Findings;
 
 namespace AILedger.Storage;
 
-public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFindingsRecorder, IAlternativesRecorder, IArtifactSubmitter
+public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFindingsRecorder, IAlternativesRecorder, IArtifactSubmitter, IClaimDispositionsRecorder
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
@@ -585,7 +587,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         List<FindingsReceipt>? receipts = null,
         bool enforceLimits = true,
         List<AlternativesReceipt>? alternativeReceipts = null,
-        List<ArtifactSubmissionReceipt>? artifactReceipts = null)
+        List<ArtifactSubmissionReceipt>? artifactReceipts = null,
+        List<ClaimDispositionsReceipt>? dispositionReceipts = null)
     {
         if (enforceLimits) EnsureEventLogSize(eventsPath);
         await using var file = new FileStream(
@@ -606,6 +609,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         JsonElement? pendingReceipt = null;
         JsonElement? pendingAlternativesReceipt = null;
         JsonElement? pendingArtifactReceipt = null;
+        JsonElement? pendingDispositionsReceipt = null;
+        var dispositionKeys = new HashSet<(string Actor, string Request)>();
         var artifactKeys = new HashSet<(string Actor, string Request)>();
         var alternativeKeys = new HashSet<(string Actor, string Request)>();
         var receiptKeys = new HashSet<(string Actor, string Request)>();
@@ -637,10 +642,11 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             JsonElement? receiptMetadata;
             JsonElement? alternativesMetadata;
             JsonElement? artifactMetadata;
+            JsonElement? dispositionsMetadata;
             try
             {
                 commandPosition = ReadCommandEventPosition(line);
-                (receiptMetadata, alternativesMetadata, artifactMetadata) = RecordingReceiptMetadata.Read(line);
+                (receiptMetadata, alternativesMetadata, artifactMetadata, dispositionsMetadata) = RecordingReceiptMetadata.Read(line);
                 @event = JsonSerializer.Deserialize<LedgerEvent>(line, _eventJson);
             }
             catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
@@ -652,6 +658,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             var parsedEvent = @event ?? throw new InvalidDataException(
                 $"Null event at line {lineNumber} in '{eventsPath}'.");
 
+            if (dispositionsMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null || alternativesMetadata is not null || artifactMetadata is not null))
+                throw new InvalidDataException("Disposition receipt must exclusively occupy index zero of a marked group.");
             if (artifactMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null || alternativesMetadata is not null))
                 throw new InvalidDataException("Artifact receipt must exclusively occupy index zero of a marked group.");
             if (alternativesMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null))
@@ -691,6 +699,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 pendingReceipt = receiptMetadata;
                 pendingAlternativesReceipt = alternativesMetadata;
                 pendingArtifactReceipt = artifactMetadata;
+                pendingDispositionsReceipt = dispositionsMetadata;
             }
             else if (pendingCommand is null ||
                      position.Count != pendingCommandEventCount ||
@@ -730,6 +739,14 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 artifactReceipts?.Add(receipt);
             }
 
+            if (pendingDispositionsReceipt is { } dispositions)
+            {
+                var receipt = ClaimDispositionsReceiptEnvelope.Validate(dispositions, pendingCommand, lineNumber);
+                if (!dispositionKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed claim dispositions receipt key.");
+                dispositionReceipts?.Add(receipt);
+            }
+
             foreach (var committedEvent in pendingCommand)
             {
                 yield return committedEvent;
@@ -740,6 +757,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             pendingReceipt = null;
             pendingAlternativesReceipt = null;
             pendingArtifactReceipt = null;
+            pendingDispositionsReceipt = null;
         }
 
         // R1 (atomicity-must-survive): a marked multi-event command is visible only after every
@@ -754,16 +772,17 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         FindingsReceipt? receipt = null,
         Action? appendStarting = null,
         AlternativesReceipt? alternativesReceipt = null,
-        ArtifactSubmissionReceipt? artifactReceipt = null)
+        ArtifactSubmissionReceipt? artifactReceipt = null,
+        ClaimDispositionsReceipt? dispositionsReceipt = null)
     {
         if (events.Count == 0)
         {
             return;
         }
 
-        if ((receipt is not null ? 1 : 0) + (alternativesReceipt is not null ? 1 : 0) + (artifactReceipt is not null ? 1 : 0) > 1)
+        if ((receipt is not null ? 1 : 0) + (alternativesReceipt is not null ? 1 : 0) + (artifactReceipt is not null ? 1 : 0) + (dispositionsReceipt is not null ? 1 : 0) > 1)
             throw new InvalidOperationException("One operation receipt per group is required.");
-        var hasReceipt = receipt is not null || alternativesReceipt is not null || artifactReceipt is not null;
+        var hasReceipt = receipt is not null || alternativesReceipt is not null || artifactReceipt is not null || dispositionsReceipt is not null;
         var payload = new StringBuilder();
         for (var index = 0; index < events.Count; index++)
         {
@@ -788,6 +807,9 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                     : string.Empty)
                 .Append(index == 0 && artifactReceipt is not null
                     ? ",\"" + ArtifactSubmissionReceiptEnvelope.PropertyName + "\":" + ArtifactSubmissionReceiptEnvelope.Serialize(artifactReceipt)
+                    : string.Empty)
+                .Append(index == 0 && dispositionsReceipt is not null
+                    ? ",\"" + ClaimDispositionsReceiptEnvelope.PropertyName + "\":" + ClaimDispositionsReceiptEnvelope.Serialize(dispositionsReceipt)
                     : string.Empty)
                 .Append("}\n");
         }

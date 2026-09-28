@@ -1,0 +1,98 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+          },
+          "claim": {
+            "type": "object",
+            "properties": {
+              "claim_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "claim_id"
+            ],
+            "additionalProperties": false
+          },
+          "expected_status": {
+            "enum": [
+              "open",
+              "validated"
+            ]
+          },
+          "status": {
+            "enum": [
+              "validated",
+              "rejected"
+            ]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "evidence_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "evidence_id"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 32
+          }
+        },
+        "required": [
+          "key",
+          "claim",
+          "expected_status",
+          "status",
+          "rationale",
+          "evidence"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 32
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "dispositions"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AILedger record_claim_dispositions v1 request",
+  "$comment": "Exact IDs, unique keys/claims/evidence, valid Unicode, nonblank rationale, 256 KiB body bound and existing domain rules also apply."
+}

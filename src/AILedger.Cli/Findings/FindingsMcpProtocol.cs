@@ -22,10 +22,11 @@ internal static class FindingsMcpProtocol
             serverInfo = new { name = "ailedger-findings", version = "1.0.0" } };
     }
 
-    internal static object Tools(bool alternatives = false, bool artifacts = false)
+    internal static object Tools(bool alternatives = false, bool artifacts = false, bool dispositions = false)
     {
         var tools = new List<object> { FindingsTool() };
         if (alternatives) tools.Add(AlternativesTool());
+        if (dispositions) tools.Add(DispositionsTool());
         if (artifacts) tools.Add(ArtifactTool());
         return new { tools };
     }
@@ -49,6 +50,14 @@ internal static class FindingsMcpProtocol
         annotations = new { readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = false }
     };
 
+    private static object DispositionsTool() => new
+    {
+        name = "record_claim_dispositions", title = "Record explicit claim dispositions",
+        description = "Atomically record 1–32 explicit claim validations/rejections with rationale and existing evidence. Requires ResolveClaim authority; never proves judgment correctness. Preserve body/key for retries.",
+        inputSchema = Schema("ClaimDispositions.RequestSchema"), outputSchema = Schema("ClaimDispositions.ResponseSchema"),
+        annotations = new { readOnlyHint = false, destructiveHint = true, idempotentHint = true, openWorldHint = false }
+    };
+
     private static object AlternativesTool() => new
     {
         name = "record_alternatives", title = "Record rejected alternatives",
@@ -60,7 +69,7 @@ internal static class FindingsMcpProtocol
 
     private static JsonElement Schema(string name)
     {
-        using var stream = typeof(FindingsMcpProtocol).Assembly.GetManifestResourceStream((name.StartsWith("Alternatives.", StringComparison.Ordinal) || name.StartsWith("Artifacts.", StringComparison.Ordinal)) ? name : "Findings." + name)
+        using var stream = typeof(FindingsMcpProtocol).Assembly.GetManifestResourceStream((name.StartsWith("Alternatives.", StringComparison.Ordinal) || name.StartsWith("Artifacts.", StringComparison.Ordinal) || name.StartsWith("ClaimDispositions.", StringComparison.Ordinal)) ? name : "Findings." + name)
             ?? throw new InvalidOperationException("Missing embedded findings schema.");
         using var document = JsonDocument.Parse(stream);
         var schema = JsonNode.Parse(document.RootElement.GetRawText())!.AsObject();

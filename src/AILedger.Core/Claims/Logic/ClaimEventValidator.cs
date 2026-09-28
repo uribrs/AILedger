@@ -33,6 +33,8 @@ internal static class ClaimEventValidator
         ClaimResolved resolved)
     {
         RequireAuthority(state, @event.ActorId, Capability.ResolveClaim);
+        // Old events have no rationale; only a present new field is constrained.
+        if (resolved.Rationale is not null) RequireText(resolved.Rationale, nameof(resolved.Rationale));
         RequireDefined(resolved.Status, nameof(resolved.Status));
         var claim = Get(state.Claims, resolved.ClaimId, "claim");
         EnsureClaimResolution(claim, resolved.Status);

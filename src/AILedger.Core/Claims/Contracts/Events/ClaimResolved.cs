@@ -5,4 +5,6 @@ public sealed record ClaimResolved(
     ClaimStatus Status,
     IReadOnlyList<EvidenceId> EvidenceIds,
     ClaimId? SupersededByClaimId = null,
-    SupersessionOutcome? Outcome = null) : LedgerEventData;
+    SupersessionOutcome? Outcome = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? Rationale = null) : LedgerEventData;
