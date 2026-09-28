@@ -34,4 +34,6 @@
     <ProjectReference Include="..\..\src\AILedger.Cli\AILedger.Cli.csproj" />
   </ItemGroup>
 
+  <Import Project="../Support/RepositoryLayout.props" />
+
 </Project>

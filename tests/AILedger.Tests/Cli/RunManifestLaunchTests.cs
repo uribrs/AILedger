@@ -119,20 +119,7 @@ public sealed class RunManifestLaunchTests
     }
 
     private static string FindCognitiveRoot()
-    {
-        for (var directory = new DirectoryInfo(Environment.CurrentDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            var candidate = Path.Combine(directory.FullName, "cognitive");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-            {
-                return candidate;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Test could not locate the cognitive root.");
-    }
+        => ContextBrief.CognitiveRoot();
 
     // RV1's finding, as its own production-path test. The manifest is built, then the launch
     // request is constructed — and constructing it parses --timeout-seconds, which throws on a bad

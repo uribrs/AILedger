@@ -3,6 +3,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Storage;
+using AILedger.TestSupport;
 
 namespace AILedger.Tests.Support;
 
@@ -94,19 +95,13 @@ internal static class ContextBrief
 
     public static string CognitiveRoot()
     {
-        foreach (var start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+        var candidate = Path.Combine(RepositoryLayout.Root, "cognitive");
+        if (!File.Exists(Path.Combine(candidate, "manifest.json")))
         {
-            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)
-            {
-                var candidate = Path.Combine(directory.FullName, "cognitive");
-                if (File.Exists(Path.Combine(candidate, "manifest.json")))
-                {
-                    return candidate;
-                }
-            }
+            throw new DirectoryNotFoundException($"Test cognitive manifest is missing from '{candidate}'.");
         }
 
-        throw new DirectoryNotFoundException("Test could not locate the cognitive root.");
+        return candidate;
     }
 
     // No lesson store: briefing reads the task and appends one event, and a shared store would let

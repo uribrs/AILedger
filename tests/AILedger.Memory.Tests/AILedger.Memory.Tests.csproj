@@ -27,4 +27,6 @@
     <None Update="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <Import Project="../Support/RepositoryLayout.props" />
+
 </Project>

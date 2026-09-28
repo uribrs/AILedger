@@ -4,7 +4,7 @@
 
 Work directly in `/Users/user/.codex/worktrees/structured-findings-contract/AILedger`, branch
 `codex/structured-findings-contract`. Inspect `git status` first and preserve subsequent changes.
-Task 4 is `a9e8fa8`; find task 5's scoped measurement-continuity commit with `git log`. Do not install
+Task 4 is `a9e8fa8`; task 5 is `5d22e6b`. Use the subsequent repository-discovery fix on this branch. Do not install
 the global tool, copy into the original checkout, merge or publish. Build outside the checkout.
 
 The user explicitly turned the kernel development workflow **OFF** for this redesign. Do not invoke
@@ -20,7 +20,9 @@ adapter fixture and from rereading an old live episode.
 
 ## Reading order
 
-1. [Task-5 validation](../structured-findings-v1/task-5-validation.md), then
+1. [Repository-discovery validation](../structured-findings-v1/repository-discovery-validation.md)
+   for current test instructions/results, then the preserved
+   [task-5 validation](../structured-findings-v1/task-5-validation.md) and
    [measurement contract and usage](../structured-findings-v1/task-5-measurement.md).
 2. [Backlog 63](../../Backlog/structured-agent-interface.md), specifically task 6 and its delivery
    decision, then the [survival investigation](../ailedger-episodic-survival-investigation.md) for
@@ -108,12 +110,24 @@ in this assignment.
 
 ## Verification and completion
 
-Use the commands and final counts in task-5 validation. Run standard `dotnet test`, the existing
-repository-aware full runner, the hash checker and read-only frozen report probe for code changes.
-The standard external-artifact test host has known repository-discovery failures; report those as
-failures. The independent-clock R8 test remains timing-sensitive and unchanged. The repository-aware
-runner is a build/xUnit wrapper, not a kernel development workflow. Existing tests need local sockets
-and application-data access; do not weaken assertions to fit sandbox restrictions.
+Use the commands in [repository-discovery validation](../structured-findings-v1/repository-discovery-validation.md).
+Standard `dotnet test` with an external `--artifacts-path` now passes **1,901 main and 99 Memory tests**,
+as does the existing repository-aware full runner, with no failures or skips. All 242 historical main
+failures and both Memory source-boundary failures are resolved. The old task-5 failed invocation is
+historical evidence and must not be rewritten. Run both full suites, the 11-hash checker and the
+read-only frozen report probe for code changes; never recapture expected outputs to make them pass.
+
+The test assemblies embed their build checkout location via MSBuild; no manual environment setup
+or runner workaround is needed. Keep that source checkout available and rebuild if it moves. These
+source-inspection tests require a Git checkout, not detached binaries or a source archive without
+`.git`. The main test process sets its existing `AILEDGER_COGNITIVE_ROOT` setting once to the build
+checkout's cognitive layer. Explicit `--cognitive-root` fixture arguments still take precedence.
+Production discovery and the process working directory are unchanged.
+
+The independent-clock R8 test passed but remains timing-sensitive and unchanged. The repository-aware
+runner is a build/xUnit wrapper, not a kernel development workflow. Existing tests still need Git,
+local sockets and disposable application-data access; keep unrelated failures visible and do not
+weaken assertions or skip tests to fit sandbox restrictions.
 
 Commit only task 6's scoped changes, update its backlog status based on actual acceptance, document
 limits honestly, and leave a clear delivery decision. No merge/publish/global installation.
