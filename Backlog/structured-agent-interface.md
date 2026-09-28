@@ -2,7 +2,7 @@
 
 **Priority: 1. Backlog ID: 63. Status: open. Kind: feature.**
 
-Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and tasks 1–4 are complete; provider adoption has real acceptance on both clients. Work through the remaining tasks separately, with a concrete result and verification at each task.
+Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and tasks 1–5 are complete; provider adoption has real acceptance on both clients. Work through the remaining tasks separately, with a concrete result and verification at each task.
 
 ## Purpose
 
@@ -150,7 +150,7 @@ Historical measurements must remain reproducible from frozen inputs. Missing dat
 | 2. Reliable application operation — complete | Atomic, authorized, retry-safe findings/evidence submission | 1 | Application/storage and tests; no MCP or provider changes |
 | 3. Structured tool endpoint — complete | Local MCP adapter with trusted identity binding and typed responses | 2 | Transport and tool diagnostics; no shell wrapper or broader authority |
 | 4. Provider adoption | Claude and Codex configured to use the tool with correct attribution and guidance | 3 | Provider integration; no new workflow or role policy |
-| 5. Measurement continuity | Existing reports verified, new transport attempts measurable and joined to committed results | 2–4; capture requirements fixed in 1 | Adapt collectors/readers as needed; no scoring-rubric redesign or dashboard rebuild |
+| 5. Measurement continuity — complete | Existing reports verified, new transport attempts measurable and joined to committed results | 2–4; capture requirements fixed in 1 | Adapt collectors/readers as needed; no scoring-rubric redesign or dashboard rebuild |
 | 6. Measured pilot and delivery decision | Prepared-findings trial, bounded live trial, reliability evidence and comparison report | 5 | Evaluate this interface; no claim of proven cognitive improvement |
 | 7. Bounded episode prototype — conditional | Minimal package/receipt path with explicit inputs and preserved measurement | Decision after 6 | One narrow experiment; no global migration |
 | 8. Paired evaluation — conditional | Comparable runs, information-loss checks, and go/no-go report | 7 | Evidence for the next design decision; no automatic retirement of the kernel |
@@ -215,15 +215,17 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Delivered:** host-owned in-memory findings binding, capability-protected local stdio relay, inline Claude/Codex registration with the exact tool grant, navigation-independent availability and conditional recording guidance. Both real clients completed a disposable commit/retry/capability-revocation sequence with one canonical batch and one usage record. Session observations remain honestly absent from immutable transport bindings and available on the completed run. See [task-4 validation](../docs/structured-findings-v1/task-4-validation.md), [host/trust contract](../docs/structured-findings-v1/task-4-provider-adoption.md), [reproducible live probe](../tools/FindingsProviderProbe/README.md), and [task-5 handoff](../docs/handoffs/structured-findings-task-5.md). Exact negotiated protocol versions are unobserved; the real tool paths succeeded. Existing standard-test and storage compatibility limits remain documented.
 
-### 5. Preserve and connect the measurement tools
+### 5. Preserve and connect the measurement tools — complete
 
-- [ ] Run the existing readers over task 1's frozen inputs and compare the historical outputs. Explain intentional additive fields; preserve existing metric definitions and values.
-- [ ] Verify that service and tool attempts, retries, refusals, timing, run/session attribution, and committed event IDs reach the intended collectors and reports on both provider paths.
-- [ ] Ensure one committed batch with a lost response and a successful retry is visible as multiple attempts and one commit, with no duplicated findings or attributed provider cost.
-- [ ] Cover absent/truncated telemetry and collector failure. Canonical recording and refusal responses must retain their established behavior when best-effort telemetry is unavailable; reports must expose detectable collection gaps.
-- [ ] Preserve retrospective, assurance-evidence, and scoring consumers. Document unsupported measurements instead of silently dropping them or reporting zero.
+- [x] Run the existing readers over task 1's frozen inputs and compare the historical outputs. Explain intentional additive fields; preserve existing metric definitions and values.
+- [x] Verify that service and tool attempts, retries, refusals, timing, run/session attribution, and committed event IDs reach the intended collectors and reports on both provider paths.
+- [x] Ensure one committed batch with a lost response and a successful retry is visible as multiple attempts and one commit, with no duplicated findings or attributed provider cost.
+- [x] Cover absent/truncated telemetry and collector failure. Canonical recording and refusal responses must retain their established behavior when best-effort telemetry is unavailable; reports must expose detectable collection gaps.
+- [x] Preserve retrospective, assurance-evidence, and scoring consumers. Document unsupported measurements instead of silently dropping them or reporting zero.
 
 **Exit:** a compatibility report and meaningful regression checks showing historical comparability and visibility of the new path. No existing measurement capability is silently retired.
+
+**Delivered:** opt-in `retrospective build --findings` measurement over storage-validated canonical receipts, distinct transport/application attempts, explicit gaps and per-run completion/session joins. Lost-response recovery and journal failures retain one canonical commit without duplicated cost. Both existing live provider episodes passed read-only comparison; no new model episode ran. All 28 new measurement cases pass; the final repository-aware suite passed 1,895 main and 99 Memory tests. All 11 frozen hashes and historical report/cost baselines are unchanged. Standard `dotnet test` retains task 4's existing failure set. See the [measurement contract](../docs/structured-findings-v1/task-5-measurement.md), [compatibility/validation record](../docs/structured-findings-v1/task-5-validation.md), and [task-6 handoff](../docs/handoffs/structured-findings-task-6.md). Task 6 and conditional tasks 7–8 remain unimplemented.
 
 ### 6. Measure the interface on prepared findings and a bounded task
 

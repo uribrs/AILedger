@@ -47,6 +47,14 @@ public sealed class ProviderFindingsLaunchTests
         var history = new List<LedgerEvent>();
         await foreach (var row in f.Service().GetHistoryAsync(f.TaskId, default)) history.Add(row);
         Assert.Single(history.Where(row => row.Data is RunCompleted));
+        var measurement = await f.Service().ReadFindingsMeasurementAsync(state, history, null, default);
+        Assert.Equal(2, measurement.ObservedToolAttempts);
+        Assert.Equal(2, measurement.ObservedApplicationAttempts);
+        Assert.Equal(1, measurement.CommittedTransactions);
+        Assert.Equal(2, measurement.GranularEvents);
+        Assert.Empty(measurement.CoverageGaps);
+        Assert.All(measurement.Attempts, row => Assert.Equal("actual-observed-session", row.JoinedProviderSessionId));
+        Assert.Equal(run.ManifestHash, Assert.Single(measurement.Runs).Completion!.ManifestHash);
         Assert.All(history.Where(row => row.Data is ClaimAdded or EvidenceAdded), row =>
         {
             Assert.Equal(researcher, row.ActorId);

@@ -17,7 +17,7 @@ internal sealed class RetrospectiveCliCommands(
         yield return new CliCommandRegistration(
             ["retrospective build"],
             CliCommandOptions.Set(
-                "root", "task", "actor", "coordinator-session", "coordinator-transcript"),
+                "root", "task", "actor", "coordinator-session", "coordinator-transcript", "findings", "findings-telemetry"),
             isReadOnly: true,
             BuildAsync);
         yield return new CliCommandRegistration(
@@ -42,8 +42,15 @@ internal sealed class RetrospectiveCliCommands(
         var coordinatorUsage = await CoordinatorUsageReader.ReadAsync(
             state, input.Optional("coordinator-session"), input.Optional("coordinator-transcript"),
             harnessTranscriptRoot(), cancellationToken).ConfigureAwait(false);
-        await executor.WriteJsonAsync(TaskRetrospective.Build(state, history, refusals, coordinatorUsage))
-            .ConfigureAwait(false);
+        var report = TaskRetrospective.Build(state, history, refusals, coordinatorUsage);
+        if (input.Flag("findings") || input.Optional("findings-telemetry") is not null)
+        {
+            if (invocation.Service is not FileGovernedTaskService files)
+                throw new CliUsageException("Findings measurement requires the file-backed canonical receipt reader.");
+            report = report with { Findings = await files.ReadFindingsMeasurementAsync(state, history,
+                input.Optional("findings-telemetry"), cancellationToken).ConfigureAwait(false) };
+        }
+        await executor.WriteJsonAsync(report).ConfigureAwait(false);
     }
 
     private async Task RecordAsync(CliCommandInvocation invocation, CancellationToken cancellationToken)
