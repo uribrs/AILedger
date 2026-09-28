@@ -1,5 +1,9 @@
 # Handoff: task 6 only — measured pilot and delivery decision
 
+Current checkpoint: the prepared-data pilot has passed. Continue from
+[task-6 continuation](structured-findings-task-6-continuation.md) for the pending live trial and
+operator delivery decision. See [pilot results](../structured-findings-v1/task-6-pilot.md).
+
 ## Start here
 
 Work directly in `/Users/user/.codex/worktrees/structured-findings-contract/AILedger`, branch

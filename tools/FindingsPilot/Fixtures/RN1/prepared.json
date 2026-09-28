@@ -1,0 +1,348 @@
+{
+  "schema_version": 1,
+  "request_id": "rn1-prepared",
+  "findings": [
+    {
+      "key": "NC1",
+      "statement": "The native FalconCollector has exactly two collection flows, CollectAssets and CollectFindings; it has no alert, event, incident or detection flow.",
+      "consequence_if_wrong": "A YAML flow with no native counterpart would be compared against nothing."
+    },
+    {
+      "key": "NC2",
+      "statement": "The native collector does not derive a base URL per cloud region: apiEndpoint comes from configuration (https:// prepended if missing), and the OAuth2 client-credentials token endpoint is {apiEndpoint}/oauth2/token handled by the Http.Package session.",
+      "consequence_if_wrong": "Region handling would be assumed native-side when it is actually caller-supplied."
+    },
+    {
+      "key": "NC3",
+      "statement": "When no baseDate is supplied, both native flows still filter on a 365-day lookback: Discover gets last_seen_timestamp:>='now-365d' and Spotlight gets updated_timestamp:>='now-365d'.",
+      "consequence_if_wrong": "A YAML collector without that gate returns older hosts and findings, so the payloads differ by design, not by data."
+    },
+    {
+      "key": "NC4",
+      "statement": "Native assets call GET /discover/combined/hosts/v1?limit=1000&sort=last_seen_timestamp.asc&facet=risk_factors&facet=third_party&facet=system_insights plus &filter= and &after=, paginated by the meta.pagination.after cursor until after is empty.",
+      "consequence_if_wrong": "Endpoint, facet or sort differences between the two collectors would go unseen."
+    },
+    {
+      "key": "NC5",
+      "statement": "With an explicit baseDate the native assets flow splits the window into newest-first calendar-month segments, each queried with last_seen_timestamp:>=start+last_seen_timestamp:<end; the findings flow never segments.",
+      "consequence_if_wrong": "Query boundaries and record order differ from any unsegmented YAML scroll."
+    },
+    {
+      "key": "NC6",
+      "statement": "The native assets payload is one NDJSON object per Discover page, key {storageUrl key prefix}/assets_{page:D6}.json, one line per Discover resource: the vendor host object verbatim plus an added device_policies property; UTF-8 without BOM, content type application/x-ndjson, no wrapper and no collector metadata inside the object.",
+      "consequence_if_wrong": "The parser input shape for assets would be assumed rather than known."
+    },
+    {
+      "key": "NC7",
+      "statement": "The native findings flow is two-phase: Phase 1 spools the Discover inventory into {storageUrl}/_staging/gen_<ticks>/hosts_NNNNNN.json and writes manifest.json; Phase 2 walks that frozen list in aid batches and runs one Spotlight scroll per batch.",
+      "consequence_if_wrong": "The YAML collector's single-pass shape would be compared to the wrong native structure."
+    },
+    {
+      "key": "NC8",
+      "statement": "In the findings flow, Discover hosts are keyed by a record key (aid, else device_id, else a 32-hex suffix of the combined id, else the combined id verbatim), deduplicated run-wide by that key, and hosts with none of these are dropped; the assets flow applies none of this and emits every resource.",
+      "consequence_if_wrong": "Host counts and host identity differ between assets and findings output, and against YAML."
+    },
+    {
+      "key": "NC9",
+      "statement": "Native Spotlight calls are GET /spotlight/combined/vulnerabilities/v1?limit=2500&facet=cve&facet=remediation&facet=evaluation_logic&sort=updated_timestamp.asc&filter=suppression_info.is_suppressed:!'true'+status:['open','reopen','closed']+aid:['a1',...]+updated_timestamp:>='floor', one cursor scroll per aid batch of 8 hosts (default), with only vendor-stated sensor AIDs in the filter; a batch with no sensor AID makes no request.",
+      "consequence_if_wrong": "Filter, facet, status set or batch size mismatches would change which findings reach the parser."
+    },
+    {
+      "key": "NC10",
+      "statement": "Each native findings NDJSON line is {aid, chunk, isLastChunk, findingsInChunk, host, findings[]}: host is the Discover record plus device_policies, each finding is the Spotlight record with apps, suppression_info and host_info removed and remediation.entities sorted; at most 2000 findings per line; a host with zero findings still emits one line; findings are deduplicated by id and findings whose aid is not in the batch are dropped.",
+      "consequence_if_wrong": "The core per-record contract the parser reads for findings would be unknown."
+    },
+    {
+      "key": "NC11",
+      "statement": "Native findings publish one object per aid batch, named findings_{CurrentPage:D6}.json from the host page counter, in frozen-key-list order (staged page, then batch); BatchScopedStorage defaults to false, so objects land flat under the run's storageUrl.",
+      "consequence_if_wrong": "Object count, naming and ordering differences would be missed."
+    },
+    {
+      "key": "NC12",
+      "statement": "Native hosts in both flows carry a collector-built device_policies envelope {schema_version:1, collection_status, prevention:{assignment, definition_status, definition}|null}, built from POST /devices/entities/devices/v2 (body {\"ids\":[...]}, one call per Discover or staged page, bisected on unattributed refusals) and GET /policy/entities/prevention/v1?ids=..(100 per call); only findings also calls GET /policy/combined/prevention/v1?limit=5000&offset=0.",
+      "consequence_if_wrong": "The policy join is a native-only enrichment the YAML side must reproduce or the host objects differ."
+    },
+    {
+      "key": "NC13",
+      "statement": "EnablePreventionPolicyEnrichment defaults to false in the committed dev source; the uncommitted working-tree change sets it to true; when false no policy endpoint is called and every host still gets device_policies {schema_version:1, collection_status:'disabled', prevention:null}.",
+      "consequence_if_wrong": "The native payload differs depending on which build runs; comparing against the wrong one misattributes a divergence."
+    },
+    {
+      "key": "NC14",
+      "statement": "Native response unwrapping reads only resources[], meta.pagination.after and meta.pagination.total from Discover, Spotlight and prevention responses; an errors[] array on a 2xx response is ignored. Only the device-entities client reads errors[].id.",
+      "consequence_if_wrong": "Vendor partial errors reported in errors[] silently change the native payload."
+    },
+    {
+      "key": "NC15",
+      "statement": "Native HTTP resilience: session retry of 3 attempts, exponential with jitter from 2s, server-suggested delays up to 60s slept in-process and longer ones externalized; token bucket 35/50/queue 60; circuit breaker 3 failures, 300s; 5 min timeout; a 404 on an after= URL becomes a cursor-expired condition that re-anchors from the watermark; 401 and 5xx become host-scheduled recoveries.",
+      "consequence_if_wrong": "Throughput and failure recovery differences between the collectors would be missed."
+    },
+    {
+      "key": "NC16",
+      "statement": "In the native assets flow a Discover page whose rows are all filtered out (month-segment window or watermark boundary dedupe) ends that segment's scroll even when an after token is still present, and a failed policy assignment lookup (401/403/429/5xx) throws before publish, so that page writes no object.",
+      "consequence_if_wrong": "Silent truncation or missing assets objects would be attributed to the vendor instead of to native control flow."
+    },
+    {
+      "key": "NC17",
+      "statement": "In native findings a batch is published whole or not at all: a failed or interrupted Spotlight scroll discards the batch's partial accumulators, publishes nothing for it, and the resume replays from the checkpoint's (staged page, batch index) under the same object name.",
+      "consequence_if_wrong": "Partial findings objects would be assumed possible natively when they are not."
+    },
+    {
+      "key": "NC18",
+      "statement": "Native findings Phase 1 follows empty Discover pages that still carry an after token for up to 5 in a row; past that it stops, records the freeze as degraded, and Phase 2 still publishes the truncated inventory.",
+      "consequence_if_wrong": "A truncated native host set would be read as a vendor difference."
+    },
+    {
+      "key": "NC19",
+      "statement": "Native FQL arrives from the RUN payload action.filter or metadata filter/fql, is validated by FQLParser, and is prepended to the Discover filter in both flows; it is never applied to the Spotlight query.",
+      "consequence_if_wrong": "A YAML collector that applies FQL to vulnerabilities would scope findings differently."
+    },
+    {
+      "key": "NC20",
+      "statement": "Native dry-run issues a single request with limit=1 (assets: Discover; findings: Discover probe) and publishes nothing.",
+      "consequence_if_wrong": "Dry-run output would be compared as if it were a collection."
+    }
+  ],
+  "evidence": [
+    {
+      "key": "NE1",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconIdentification.cs:20; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/FalconCollector.cs:45",
+      "summary": "SupportedTopics lists only AssetsFlow and FindingsFlow; the class implements IAssetsAdapter and IFindingsAdapter only.",
+      "supports": [
+        {
+          "finding": "NC1"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE2",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfigurationBuilder.cs:128-129,354-359,411-421; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:38",
+      "summary": "baseUrl read from ApiEndpoint/apiEndpoint/baseUrl/Host/Url keys; NormalizeBaseAddress adds https://; SessionSpec Auth = OAuth2(ClientId, ClientSecret, TokenEndpoint=ApiEndpoint+/oauth2/token).",
+      "supports": [
+        {
+          "finding": "NC2"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE3",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:25,52; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Job/AdapterTimeDefaults.cs:17-24; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:101; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/SharedFlows/FalconHostFilters.cs:14-36; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:131; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:118-123,253",
+      "summary": "ResolveBaseDateUtcOrDefault returns now-365d for MinValue; the normalized date feeds the last_seen gate filter and the Spotlight updated_timestamp floor.",
+      "supports": [
+        {
+          "finding": "NC3"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE4",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:10-23; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:112,332,438-445; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:77; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfigurationBuilder.cs:160-164",
+      "summary": "BuildAssetsUrl pins limit, sort and three facets; the runner appends after=; AssetsApiPageSize defaults to 1000, clamped 1..1000.",
+      "supports": [
+        {
+          "finding": "NC4"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE5",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:34; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:104-121; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/DateSegments/FalconMonthSegmentBuilder.cs:8-46; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/SharedFlows/FalconHostFilters.cs:38-52; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:782-783",
+      "summary": "UseMonthSegments = request.BaseDateUtc != MinValue; BuildNewestFirst walks month boundaries backwards; findings spool uses only the gate filter.",
+      "supports": [
+        {
+          "finding": "NC5"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE6",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:105; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315-324,479-490; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/NdjsonBatchEmitter.cs:147-156,243-257; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/AdapterOutputDefaults.cs:16-31; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/Ndjson/NdjsonUtf8BatchSession.cs:299-307,420-430,527-560; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/Ndjson/Utf8ResultsStreamWriter.cs:23-24; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/AdapterGlobalDefaults.cs:16-20,44",
+      "summary": "Rows are re-parsed verbatim, enriched in place, serialized with ToJsonString, published via PublishAssetsUtf8PageAsync; target is assets_NNNNNN.json prefixed with Metadata[storageUrl]; each record is followed by a newline.",
+      "supports": [
+        {
+          "finding": "NC6"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE7",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:210-213,298-305; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:144-389; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconStagingPaths.cs:30,33,36,82,159-160,195-197; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:207-266",
+      "summary": "ResolveFrozenKeyListAsync spools then Phase 2 enumerates FalconFrozenKeyList into the pump; staging keys are _staging/gen_<hex ticks>/hosts_%06d.json plus manifest.json.",
+      "supports": [
+        {
+          "finding": "NC7"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE8",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Hosts/AidExtractor.cs:74-118,141-177; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconDiscoverHostScroller.cs:92-100; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:255-258,435-467; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:52-106",
+      "summary": "ExtractRecordKey precedence; keyless hosts counted and skipped; SpoolKeyClaims.TryClaim collapses repeats and refuses colliding keys; the assets parser keeps every row.",
+      "supports": [
+        {
+          "finding": "NC8"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE9",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:33-42; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:109-134,228-231,253; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:82,128,134,286-287; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchPump.cs:617-638",
+      "summary": "Base URL with three facets (evaluation_logic dropped when skipEvaluationLogicFacet); baseFilter literal; FindingsApiPageSize 2500; AidBatchSize 8; BuildBatchPlan indexes only ResolveSensorAid hosts.",
+      "supports": [
+        {
+          "finding": "NC9"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE10",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconCorrelatedRecord.cs:21,28-42,50-74,76-98; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:187-212,243-249; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:147; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:251",
+      "summary": "Build() writes the six properties; ShapeFinding strips three fields and sorts entities; chunk flush at cap; batch-end flush walks every host; orphan and seen-id skips.",
+      "supports": [
+        {
+          "finding": "NC10"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE11",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:322-340; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:166; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:207-266; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/NdjsonBatchEmitter.cs:243-257",
+      "summary": "outputPage = progressContext.CurrentPage; PublishFindingsUtf8PageAsync; BatchScopedStorage false; enumeration walks page keys then Chunk(AidBatchSize).",
+      "supports": [
+        {
+          "finding": "NC11"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE12",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePoliciesEnvelope.cs:86-105,233-238; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:49,55-69,94-105; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:170-224,237-240,632-649; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconPreventionPolicyClient.cs:24,41,86-135; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:595-598,640-654; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315",
+      "summary": "Envelope builder; device POST body writer; definition chunk 100; sweep caller is only RunPolicyStageAsync (Roslyn find_callers).",
+      "supports": [
+        {
+          "finding": "NC12"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE13",
+      "source_type": "source-read",
+      "citation": "git diff (working tree vs HEAD) cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:179; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconPolicyEnricher.cs:95-98; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:86-96; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePoliciesEnvelope.cs:55",
+      "summary": "Diff shows '= false' -> '= true'; disabled path attaches Disabled() envelope.",
+      "supports": [
+        {
+          "finding": "NC13"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE14",
+      "source_type": "source-read",
+      "citation": "IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Kernel/Json/TopLevelJsonArrayStreamReader.cs:264-306,368-391; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:553-558,757-779",
+      "summary": "The stream reader handles only the target array and meta; other top-level properties stream through; the device client parses resources and errors in one pass.",
+      "supports": [
+        {
+          "finding": "NC14"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE15",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:41-62; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Conversation/SessionRetryDefaults.cs:13-54; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/SharedFlows/FalconHttpFailureClassifier.cs:30-41; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Resilience/FalconResilienceStrategyFactory.cs:63-120",
+      "summary": "Typed defaults; CreateTransient values; cursor-expiry classification; RecoverAndRetry / RequestDeferredRecovery branches.",
+      "supports": [
+        {
+          "finding": "NC15"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE16",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315,334-380; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:63-84; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:287-291; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconPolicyEnricher.cs:111,124-126",
+      "summary": "RecordCount==0 branch returns true (segment done) without checking AfterToken; EnrichAsync precedes PublishAssetsUtf8PageAsync; MustPropagate statuses throw.",
+      "supports": [
+        {
+          "finding": "NC16"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE17",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:355-367,381-413,456-474; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsCheckpointWriter.cs:56-93; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchPump.cs:442-475",
+      "summary": "Publish and checkpoint in one step; OperationCanceled and transport failures rethrow after recording; pump materialises a batch before handing it over.",
+      "supports": [
+        {
+          "finding": "NC17"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE18",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:115,271-307,366-376",
+      "summary": "MaxConsecutiveEmptyLivePages = 5; scrollTruncated recorded in SpooledFreeze; the code comment states no caller gates on Freeze.State.",
+      "supports": [
+        {
+          "finding": "NC18"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE19",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Triggers/FalconPlatformEventRequestParser.cs:22-25,77-81; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:24,51; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:166,782-783; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:112-115",
+      "summary": "Filter extraction; FQLParser().Parse; ParsedFqlFilter only enters BuildLastSeenTimestampGateFilter; Spotlight baseFilter has no user term.",
+      "supports": [
+        {
+          "finding": "NC19"
+        }
+      ],
+      "refutes": []
+    },
+    {
+      "key": "NE20",
+      "source_type": "source-read",
+      "citation": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:46,77-81; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:156-164; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:126-156",
+      "summary": "limit forced to 1; DryRunValidated returns 0; findings returns after FetchPageAsync.",
+      "supports": [
+        {
+          "finding": "NC20"
+        }
+      ],
+      "refutes": []
+    }
+  ]
+}

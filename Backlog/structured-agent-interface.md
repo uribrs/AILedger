@@ -151,7 +151,7 @@ Historical measurements must remain reproducible from frozen inputs. Missing dat
 | 3. Structured tool endpoint — complete | Local MCP adapter with trusted identity binding and typed responses | 2 | Transport and tool diagnostics; no shell wrapper or broader authority |
 | 4. Provider adoption | Claude and Codex configured to use the tool with correct attribution and guidance | 3 | Provider integration; no new workflow or role policy |
 | 5. Measurement continuity — complete | Existing reports verified, new transport attempts measurable and joined to committed results | 2–4; capture requirements fixed in 1 | Adapt collectors/readers as needed; no scoring-rubric redesign or dashboard rebuild |
-| 6. Measured pilot and delivery decision | Prepared-findings trial, bounded live trial, reliability evidence and comparison report | 5 | Evaluate this interface; no claim of proven cognitive improvement |
+| 6. Measured pilot and delivery decision — in progress | Prepared-findings trial, bounded live trial, reliability evidence and comparison report | 5 | Evaluate this interface; no claim of proven cognitive improvement |
 | 7. Bounded episode prototype — conditional | Minimal package/receipt path with explicit inputs and preserved measurement | Decision after 6 | One narrow experiment; no global migration |
 | 8. Paired evaluation — conditional | Comparable runs, information-loss checks, and go/no-go report | 7 | Evidence for the next design decision; no automatic retirement of the kernel |
 
@@ -227,17 +227,24 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Delivered:** opt-in `retrospective build --findings` measurement over storage-validated canonical receipts, distinct transport/application attempts, explicit gaps and per-run completion/session joins. Lost-response recovery and journal failures retain one canonical commit without duplicated cost. Both existing live provider episodes passed read-only comparison; no new model episode ran. All 28 new measurement cases pass; the final repository-aware suite passed 1,895 main and 99 Memory tests. All 11 frozen hashes and historical report/cost baselines are unchanged. Standard `dotnet test` retains task 4's existing failure set. See the [measurement contract](../docs/structured-findings-v1/task-5-measurement.md), [compatibility/validation record](../docs/structured-findings-v1/task-5-validation.md), and [task-6 handoff](../docs/handoffs/structured-findings-task-6.md). Task 6 and conditional tasks 7–8 remain unimplemented.
 
-### 6. Measure the interface on prepared findings and a bounded task
+### 6. Measure the interface on prepared findings and a bounded task — in progress
 
-- [ ] Submit the historical RN1 findings as a prepared, read-only-derived dataset into a disposable ledger; preserve the original history.
-- [ ] Measure recording elapsed time, tool interactions, retries, errors, payload fidelity, and duplicate/partial outcomes.
+- [x] Submit the historical RN1 findings as a prepared, read-only-derived dataset into a disposable ledger; preserve the original history.
+- [x] Measure recording elapsed time, tool interactions, retries, errors, payload fidelity, and duplicate/partial outcomes.
 - [ ] Exercise early small submissions and failure recovery in a narrow real task using the new interface.
-- [ ] Compare with the documented shell baseline while distinguishing a controlled measurement from an observational historical comparison.
-- [ ] Use the preserved measurement tools to distinguish useful guardrails from interface friction. Report sampled recovery delays, lost or altered content, and unnecessary repeated interactions alongside retained authorization checks.
-- [ ] Identify further operations that form coherent batches and those separated by an actual reasoning, authority, or dependency boundary. Do not equate events, tool calls, model turns, or useful progress.
-- [ ] Run the appropriate tests, including dotnet test for implementation changes, and record any unresolved limits.
+- [x] Compare with the documented shell baseline while distinguishing a controlled measurement from an observational historical comparison.
+- [x] Use the preserved measurement tools to distinguish useful guardrails from interface friction. Report sampled recovery delays, lost or altered content, and unnecessary repeated interactions alongside retained authorization checks.
+- [x] Identify further operations that form coherent batches and those separated by an actual reasoning, authority, or dependency boundary. Do not equate events, tool calls, model turns, or useful progress.
+- [x] Run the appropriate tests, including dotnet test for implementation changes, and record any unresolved limits.
 
 **Exit:** a usable first delivery with evidence of reliable recording and measured friction. Report whether elapsed time improved; do not claim a whole-workflow or cognitive improvement from this test alone.
+
+**Checkpoint:** the read-only-derived prepared RN1 pilot passed 21 local-MCP trials, including
+six failure/recovery scenarios; both full runners passed 1,901 main and 99 Memory tests. The bounded
+live trial is prepared but awaits explicit provider-spend authorization, and the operator delivery
+decision is pending. Task 6 is not complete. See the [pilot report](../docs/structured-findings-v1/task-6-pilot.md),
+[validation checkpoint](../docs/structured-findings-v1/task-6-validation.md), and
+[continuation handoff](../docs/handoffs/structured-findings-task-6-continuation.md).
 
 ### Decision after task 6 — choose the next slice
 
@@ -268,7 +275,7 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
 
-The next piece of work is **task 5 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-5.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
+The next piece of work is **finishing task 6 only**, using the [continuation handoff](../docs/handoffs/structured-findings-task-6-continuation.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
 
 ## Related work
 
