@@ -1,3 +1,10 @@
+> **Latest checkpoint (2026-09-28):** the single live episode was subsequently authorized and
+> completed. Read [live validation and proposed delivery decision](../structured-findings-v1/task-6-live-validation.md)
+> and [retained results](../structured-findings-v1/task-6-live-results.json). Technical evaluation is
+> finished with documented limitations; operator delivery acceptance is pending. Do not execute
+> the old command below again or infer task-7 approval. The earlier handoff is preserved below as
+> history; its no-authorization/no-execution state is superseded by this update.
+
 # Continue task 6 — live trial and delivery decision pending
 
 Work in `/Users/user/.codex/worktrees/structured-findings-contract/AILedger`, branch

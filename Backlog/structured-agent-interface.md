@@ -227,11 +227,11 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Delivered:** opt-in `retrospective build --findings` measurement over storage-validated canonical receipts, distinct transport/application attempts, explicit gaps and per-run completion/session joins. Lost-response recovery and journal failures retain one canonical commit without duplicated cost. Both existing live provider episodes passed read-only comparison; no new model episode ran. All 28 new measurement cases pass; the final repository-aware suite passed 1,895 main and 99 Memory tests. All 11 frozen hashes and historical report/cost baselines are unchanged. Standard `dotnet test` retains task 4's existing failure set. See the [measurement contract](../docs/structured-findings-v1/task-5-measurement.md), [compatibility/validation record](../docs/structured-findings-v1/task-5-validation.md), and [task-6 handoff](../docs/handoffs/structured-findings-task-6.md). Task 6 and conditional tasks 7–8 remain unimplemented.
 
-### 6. Measure the interface on prepared findings and a bounded task — in progress
+### 6. Measure the interface on prepared findings and a bounded task — delivery decision pending
 
 - [x] Submit the historical RN1 findings as a prepared, read-only-derived dataset into a disposable ledger; preserve the original history.
 - [x] Measure recording elapsed time, tool interactions, retries, errors, payload fidelity, and duplicate/partial outcomes.
-- [ ] Exercise early small submissions and failure recovery in a narrow real task using the new interface.
+- [x] Exercise early small submissions and failure recovery in a narrow real task using the new interface. Live reference-error correction passed; live replay was deliberate, while injected lost-response recovery remains the prepared-data result.
 - [x] Compare with the documented shell baseline while distinguishing a controlled measurement from an observational historical comparison.
 - [x] Use the preserved measurement tools to distinguish useful guardrails from interface friction. Report sampled recovery delays, lost or altered content, and unnecessary repeated interactions alongside retained authorization checks.
 - [x] Identify further operations that form coherent batches and those separated by an actual reasoning, authority, or dependency boundary. Do not equate events, tool calls, model turns, or useful progress.
@@ -239,18 +239,30 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Exit:** a usable first delivery with evidence of reliable recording and measured friction. Report whether elapsed time improved; do not claim a whole-workflow or cognitive improvement from this test alone.
 
-**Checkpoint:** the read-only-derived prepared RN1 pilot passed 21 local-MCP trials, including
-six failure/recovery scenarios; both full runners passed 1,901 main and 99 Memory tests. The bounded
-live trial is prepared but awaits explicit provider-spend authorization, and the operator delivery
-decision is pending. Task 6 is not complete. See the [pilot report](../docs/structured-findings-v1/task-6-pilot.md),
-[validation checkpoint](../docs/structured-findings-v1/task-6-validation.md), and
-[continuation handoff](../docs/handoffs/structured-findings-task-6-continuation.md).
+**Prepared checkpoint:** the read-only-derived RN1 pilot passed 21 local-MCP trials, including
+six failure/recovery scenarios; both full runners passed 1,901 main and 99 Memory tests. This record
+remains in the [pilot report](../docs/structured-findings-v1/task-6-pilot.md) and
+[validation checkpoint](../docs/structured-findings-v1/task-6-validation.md).
 
-### Decision after task 6 — choose the next slice
+**Live evaluation:** the subsequently authorized single Codex episode passed four tool/application
+attempts, two commits and four events, with early persistence, expected reference refusal, correction
+and identical replay. Transcript/source review supports both recorded observations; extra task-projection
+reads, configuration warnings and the initial pre-provider socket failure are retained as limitations.
+See [actual live validation and delivery recommendation](../docs/structured-findings-v1/task-6-live-validation.md)
+and [retained measurements](../docs/structured-findings-v1/task-6-live-results.json). Technical evaluation
+is finished; recommend accepting the current interface with no further operation now. **Task 6 is not
+closed: operator delivery acceptance remains pending.**
+
+### Decision after task 6 — operator acceptance pending
 
 - [ ] Review the pilot with the operator and choose the next small slice: alternatives, artifact submission, explicit claim dispositions, or readiness inspection.
 - [ ] Separate the endpoint's ergonomics from decisions about who may record versus who may approve.
 - [ ] Keep those extensions individually scoped; do not turn the first tool into an unrestricted command batch API.
+
+**Proposed decision (not yet approved):** accept the current interface with the live review's documented
+limits and choose no extension now. Recording remains separate from claim approval; no broader batch
+API or authority change is proposed. The operator may instead hold acceptance for a separately
+authorized stricter scope-compliance trial. No further billable run is authorized.
 
 **Exit:** a separately bounded follow-up with purpose and acceptance checks, or an explicit decision that the interface is sufficient for now.
 
@@ -275,7 +287,11 @@ decision is pending. Task 6 is not complete. See the [pilot report](../docs/stru
 
 Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
 
-The next piece of work is **finishing task 6 only**, using the [continuation handoff](../docs/handoffs/structured-findings-task-6-continuation.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
+The next step is **the operator delivery decision for task 6 only**, using the
+[live review](../docs/structured-findings-v1/task-6-live-validation.md). The technical pilot is complete
+with documented limitations; do not repeat it or infer acceptance from its execution authorization.
+Complete and review each task's result before moving to the next. Tasks 7–8 remain conditional
+experiments; any production replacement or migration needs its own scope after their results.
 
 ## Related work
 

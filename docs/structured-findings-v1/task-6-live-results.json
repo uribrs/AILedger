@@ -1,0 +1,2235 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-28",
+  "authorization": "User approved the single proposed 240-second Codex episode with \"just proceed\". No delivery decision or task-7 authorization inferred.",
+  "status": "Live technical evaluation complete with documented scope/semantic limitations; operator delivery decision pending.",
+  "provenance": {
+    "successful_fixture": "/tmp/ailedger-task6-live-authorized",
+    "pre_provider_failure_fixture": "/tmp/ailedger-task6-live-prepared",
+    "original_successful_file_sha256": {
+      "trial-plan.json": "763691c0b2b877add129442257937c8d4db0371be39a182f006673f81074727e",
+      "goal.txt": "14a4409fa39c9e025486f6c54d305e024b053fcb3955176930d04ef3486d38eb",
+      "launch.out": "02894677eac5e6b5c718b9f328e9c96d41d7ff336a531393b6fc7458180c7a4f",
+      "launch.err": "4e64cd303046a27fc905c68e6602a198b761c7fd872f73c4aadb5065e549cf6f",
+      "acceptance.json": "96585a567d8cca69601cdb2e7ae949a79dcdb8e8437e344bd718c333ab3554d4",
+      "retrospective.out": "ba235ea8927d7f7337681a86435bbd4c1a4d7fb47561d39a23c5592dc0a54956",
+      "retrospective-default.out": "f33fa3565310b81ad8bef60bbc62d2f9a7a9e43c99ea4ecbc9cf0c69c8fb9fc7",
+      "ledger/live/events.jsonl": "104d1d91036ed527b33765c90f469e09c8bc5f9d6d5470a48700c1e1dacae887",
+      "ledger/live/refusals.jsonl": "7c019fa35763cfeb792afd29b363e358a1b1af83b545da8fc9582fb69eec8b59",
+      "ledger/live/findings-attempts.jsonl": "9a4bebc19b1264dc8b8385e9cc8ba1673d2dacf0f4bd94741d6e7e501ea3788a",
+      "ledger/live/runs/R1.json": "982e1ad4f7a19c8998ea83ec4e2fc310d7431b4db666d7e44f3bb4950b1b2c99",
+      "ledger/live/telemetry/findings-transport-2db68141b5b74334bd473e5da8813a49.jsonl": "451ec378fbe83643dd4803e9e8a5a468541f5268c3e3f69c234d82a842046b96",
+      "work/sources/ContextBrief.cs": "23a5c92c4fc377d7f3d42de82380960fe0d1bbe0629731a7bb859be50dcec502",
+      "work/sources/TestEnvironment.cs": "4dc50622d1a396420c947c7a9b1b5c646a17ace0e9372794f80ebca567465400",
+      "work/sources/RepositoryLayout.props": "4e8fe32ff25c6a262d247108cbc54819a9c3b28d3d22873bb96f7edb3067ea47",
+      "work/sources/CognitiveArtifactLoader.cs": "394ef9fa945b665103aa70c706312f2a9880e6bba14f23a8a065854c11739002",
+      "work/sources/RepositoryLayout.cs": "73380873a4016f6894f765789aeeefe8b1eb5b26ccc38217712c9885cd84f049",
+      "work/sources/CodexAgentAdapter.cs": "49eb6a9a3b475f2b293c07284df953241a504df1152cdec5b2aa383d06c8bfde"
+    },
+    "original_failure_file_sha256": {
+      "trial-plan.json": "1e1735f8da4790768943a9a2a6ea8a70851555df33b5570e4b551b4bd532eeed",
+      "goal.txt": "14a4409fa39c9e025486f6c54d305e024b053fcb3955176930d04ef3486d38eb",
+      "launch.err": "fd26ea9abd7c06e28897e57d9261e621f9bf7dbd1576d03218c2baacaa99f16e",
+      "retrospective.out": "22d030154363e97633ede4bc18e2433a8d972662ea661953f8bd262ed3ebb314",
+      "ledger/live/events.jsonl": "cff106ef71024769d6420ac6fbe3541d42bcd0c8d74a6edc1554eff632a8e27c"
+    },
+    "provider_retention": "Original provider sidecar retained unchanged except effectiveArguments omitted because it contains a transient relay capability. Original sidecar hash above. Full 23 provider events, including command outputs and warnings, preserved."
+  },
+  "plan": {
+    "provider": "codex",
+    "cli": "/private/tmp/ailedger-task6-build/bin/AILedger.Cli/debug/AILedger.Cli.dll",
+    "cli_sha256": "c24636f11d5fd6e645a36e1d30f0d1486646f5664fc74728d3345e9aa36effa4",
+    "source_commit": "acc8f263150bb8069b8c8ad8514419aa5a6ea574",
+    "source_sha256": {
+      "tests/Support/RepositoryLayout.cs": "73380873a4016f6894f765789aeeefe8b1eb5b26ccc38217712c9885cd84f049",
+      "tests/Support/RepositoryLayout.props": "4e8fe32ff25c6a262d247108cbc54819a9c3b28d3d22873bb96f7edb3067ea47",
+      "tests/AILedger.Tests/Support/TestEnvironment.cs": "4dc50622d1a396420c947c7a9b1b5c646a17ace0e9372794f80ebca567465400",
+      "tests/AILedger.Tests/Support/ContextBrief.cs": "23a5c92c4fc377d7f3d42de82380960fe0d1bbe0629731a7bb859be50dcec502",
+      "src/AILedger.Cli/CognitiveArtifactLoader.cs": "394ef9fa945b665103aa70c706312f2a9880e6bba14f23a8a065854c11739002",
+      "src/AILedger.Providers/Adapters/CodexAgentAdapter.cs": "49eb6a9a3b475f2b293c07284df953241a504df1152cdec5b2aa383d06c8bfde"
+    },
+    "goal_sha256": "14a4409fa39c9e025486f6c54d305e024b053fcb3955176930d04ef3486d38eb",
+    "timeout_seconds": 240,
+    "status": "prepared-not-executed",
+    "billable_runs_authorized_by_preparation": 0
+  },
+  "pre_provider_failure": {
+    "plan": {
+      "provider": "codex",
+      "cli": "/private/tmp/ailedger-task6-build/bin/AILedger.Cli/debug/AILedger.Cli.dll",
+      "cli_sha256": "c24636f11d5fd6e645a36e1d30f0d1486646f5664fc74728d3345e9aa36effa4",
+      "source_commit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+      "source_sha256": {
+        "tests/Support/RepositoryLayout.cs": "73380873a4016f6894f765789aeeefe8b1eb5b26ccc38217712c9885cd84f049",
+        "tests/Support/RepositoryLayout.props": "4e8fe32ff25c6a262d247108cbc54819a9c3b28d3d22873bb96f7edb3067ea47",
+        "tests/AILedger.Tests/Support/TestEnvironment.cs": "4dc50622d1a396420c947c7a9b1b5c646a17ace0e9372794f80ebca567465400",
+        "tests/AILedger.Tests/Support/ContextBrief.cs": "23a5c92c4fc377d7f3d42de82380960fe0d1bbe0629731a7bb859be50dcec502",
+        "src/AILedger.Cli/CognitiveArtifactLoader.cs": "394ef9fa945b665103aa70c706312f2a9880e6bba14f23a8a065854c11739002",
+        "src/AILedger.Providers/Adapters/CodexAgentAdapter.cs": "49eb6a9a3b475f2b293c07284df953241a504df1152cdec5b2aa383d06c8bfde"
+      },
+      "goal_sha256": "14a4409fa39c9e025486f6c54d305e024b053fcb3955176930d04ef3486d38eb",
+      "timeout_seconds": 240,
+      "status": "prepared-not-executed",
+      "billable_runs_authorized_by_preparation": 0
+    },
+    "launch_stderr": "Unhandled exception. System.Net.Sockets.SocketException (13): Permission denied\n   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)\n   at System.Net.Sockets.Socket.Bind(EndPoint localEP)\n   at System.Net.Sockets.TcpListener.Start(Int32 backlog)\n   at AILedger.Cli.Findings.ProviderFindingsSession..ctor(FindingsHostConfiguration configuration, IFindingsRecorder recorder, String command, IReadOnlyList`1 commandPrefix, Func`2 readConfiguration) in /Users/user/.codex/worktrees/structured-findings-contract/AILedger/src/AILedger.Cli/Findings/ProviderFindingsSession.cs:line 26\n   at AILedger.Cli.Findings.ProviderFindingsSession.Start(IGovernedTaskService service, String ledgerRoot, TaskId task, ActorId subject, RunId run, Nullable`1 cause, String provider) in /Users/user/.codex/worktrees/structured-findings-contract/AILedger/src/AILedger.Cli/Findings/ProviderFindingsSession.cs:line 46\n   at AILedger.Cli.Providers.ProviderLauncher.LaunchAsync(IGovernedTaskService service, CommandLine input, AgentLaunchMode mode, String ledgerRoot, CancellationToken cancellationToken) in /Users/user/.codex/worktrees/structured-findings-contract/AILedger/src/AILedger.Cli/Providers/ProviderLauncher.cs:line 155\n   at AILedger.Cli.Providers.ProviderLauncher.LaunchAsync(IGovernedTaskService service, CommandLine input, AgentLaunchMode mode, String ledgerRoot, CancellationToken cancellationToken) in /Users/user/.codex/worktrees/structured-findings-contract/AILedger/src/AILedger.Cli/Providers/ProviderLauncher.cs:line 249\n   at AILedger.Cli.CliApplication.RunAsync(IReadOnlyList`1 arguments, CancellationToken cancellationToken) in /Users/user/.codex/worktrees/structured-findings-contract/AILedger/src/AILedger.Cli/CliApplication.cs:line 181\n   at Program.<Main>$(String[] args) in /Users/user/.codex/worktrees/structured-findings-contract/AILedger/src/AILedger.Cli/Program.cs:line 43\n   at Program.<Main>(String[] args)\n",
+    "canonical_events": [
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000001",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:32.007709+00:00",
+        "correlationId": "95c41cb5f2ab4e3ba5ff5febcc258610",
+        "data": {
+          "eventType": "task.opened",
+          "title": "Disposable task 6 bounded source trial",
+          "goal": "This is an explicitly authorized, bounded task-6 live trial in a disposable ledger.\nInspect only the supplied read-only source snapshots under sources/. Determine how the tests locate\ntheir source checkout when build artifacts are external, and identify one material remaining limitation.\nDo not modify source or implement changes. Use the supplied record_findings MCP tool for all findings.\nDo not dispatch agents, invoke CLI writes, install anything, change grants, or bypass expected refusals.\n\nFirst inspect RepositoryLayout.cs and RepositoryLayout.props. BEFORE inspecting the remaining files,\nrecord one source-backed observation as request_id task6-early with one finding key first and one\nevidence key first-evidence supporting {\"finding\":\"first\"}. Preserve concrete file/line citations.\nThen inspect the remaining four files and prepare one distinct source-backed observation about the\ncognitive-root setting or another material limitation. Use request_id task6-later, finding key later,\nand evidence key later-evidence. For the FIRST attempt of this second batch ONLY, deliberately use\nsupports:[{\"claim_id\":\"task6-deliberately-missing\"}]. Expect kernel_refused and no canonical prefix.\nThis tests the guardrail; do not bypass it. Correct only that reference to {\"finding\":\"later\"} and\nresubmit task6-later. After the corrected call succeeds, retry that EXACT corrected body and key once;\nexpect the same transaction/IDs and replayed:true. This is an intentional replay, not a simulated lost response.\n\nStop after these four tool attempts. In your final answer report both observations, citations,\ntransaction IDs, expected refusal, replay result, and remaining uncertainty. Use small early batches;\nkeep observations distinct from inference. No further investigation or repairs are authorized."
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 0,
+        "_ailedgerCommandEventCount": 2
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000002",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:32.007709+00:00",
+        "causationId": "live:0000000001",
+        "correlationId": "95c41cb5f2ab4e3ba5ff5febcc258610",
+        "data": {
+          "eventType": "actor.role-assigned",
+          "assignment": {
+            "actorId": "operator",
+            "role": "operator",
+            "capabilities": [
+              "manageRoles",
+              "manageScope",
+              "addClaim",
+              "resolveClaim",
+              "addEvidence",
+              "proposeDecision",
+              "resolveDecision",
+              "raiseChallenge",
+              "disposeChallenge",
+              "manageWork",
+              "manageRuns",
+              "requestTransition",
+              "buildContext",
+              "raiseEscalation",
+              "resolveEscalation",
+              "recordAlternative",
+              "manageConstraints",
+              "recordArtifact"
+            ],
+            "assignedBy": {
+              "actorId": "operator",
+              "recordedAt": "2026-09-28T17:03:32.007709+00:00",
+              "source": "task.open"
+            }
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 1,
+        "_ailedgerCommandEventCount": 2
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000003",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:32.269576+00:00",
+        "correlationId": "97a1289de76e4efe8f2c7c5fc55a16eb",
+        "data": {
+          "eventType": "actor.role-assigned",
+          "assignment": {
+            "actorId": "researcher",
+            "role": "researcher",
+            "capabilities": [
+              "addClaim",
+              "addEvidence",
+              "buildContext"
+            ],
+            "assignedBy": {
+              "actorId": "operator",
+              "recordedAt": "2026-09-28T17:03:32.269576+00:00",
+              "source": "actor.assign-role"
+            }
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000004",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:32.489834+00:00",
+        "correlationId": "f38c561866d147f583992c6e5f3afb42",
+        "data": {
+          "eventType": "stage.prerequisites-waived",
+          "targetStage": "research",
+          "reason": "Disposable task-6 trial fixture only",
+          "provenance": {
+            "origin": "manual"
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 0,
+        "_ailedgerCommandEventCount": 2
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000005",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:32.489834+00:00",
+        "causationId": "live:0000000004",
+        "correlationId": "f38c561866d147f583992c6e5f3afb42",
+        "data": {
+          "eventType": "stage.transitioned",
+          "previous": "discovery",
+          "current": "research"
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 1,
+        "_ailedgerCommandEventCount": 2
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000006",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:32.989609+00:00",
+        "correlationId": "f7f2381e85574c6ca9ca7f85d085b001",
+        "data": {
+          "eventType": "context.built",
+          "role": "operator",
+          "skills": [
+            {
+              "skillId": "workflow-coordinator",
+              "contentHash": "6ADB4B6CFBBDED133F8770F78A2FBEBAE420CA9C1A53ACA9C9715803AB3C418F"
+            },
+            {
+              "skillId": "task-orchestrator",
+              "contentHash": "AC6EBFF4175ADC1F287DE3E2FB05AADA3E5D15CCE84BF5639A39A339F9835038"
+            },
+            {
+              "skillId": "task-orchestrator/references/orchestration-rubric.md:task-orchestrator",
+              "contentHash": "4B28C8BEC0C5F8CB7E9EECAE578BD5F29C8E5CD978EB16D89516B7B9C2215808"
+            }
+          ]
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000007",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:33.666476+00:00",
+        "correlationId": "5b2ddcf80f4e4860b0e7bdad413c374e",
+        "data": {
+          "eventType": "run.started",
+          "run": {
+            "id": "R1",
+            "actorId": "researcher",
+            "provider": "codex",
+            "status": "active",
+            "startedAt": "2026-09-28T17:03:33.666476+00:00",
+            "providerVersion": "codex-cli 0.155.0-alpha.9.2",
+            "launchTokenHash": "D16CA6F49684F6828C3DC676F005C4E4977104BE2D84846D096686C08015DDEA",
+            "launchedBy": "operator",
+            "subjectRole": "researcher",
+            "hasNoProviderSessionByDeclaration": false
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000008",
+        "taskId": "live",
+        "actorId": "operator",
+        "recordedAt": "2026-09-28T17:03:33.724658+00:00",
+        "causationId": "live:0000000007",
+        "correlationId": "5b2ddcf80f4e4860b0e7bdad413c374e",
+        "data": {
+          "eventType": "run.completed",
+          "runId": "R1",
+          "status": "failed",
+          "endedAt": "2026-09-28T17:03:33.724658+00:00",
+          "launcherAuthorized": true,
+          "launchTimeoutSeconds": 240,
+          "terminalFailureReason": "Permission denied"
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        }
+      }
+    ],
+    "retrospective": {
+      "task": "live",
+      "stage": "research",
+      "version": 8,
+      "wallClockHours": 0,
+      "agentMinutes": 0,
+      "events": {
+        "actor.role-assigned": 2,
+        "context.built": 1,
+        "run.completed": 1,
+        "run.started": 1,
+        "stage.prerequisites-waived": 1,
+        "stage.transitioned": 1,
+        "task.opened": 1
+      },
+      "runs": {
+        "total": 1,
+        "byStatus": {
+          "failed": 1
+        },
+        "bySubjectRole": {
+          "researcher": 1
+        },
+        "byProvider": {
+          "codex": 1
+        },
+        "byActor": {
+          "researcher": 1
+        },
+        "briefDelivered": 0,
+        "costRecorded": 0,
+        "operatorFilingRuns": 0,
+        "diedBeforeBriefing": 1
+      },
+      "cost": {
+        "runsMeasured": 0,
+        "runsUnmeasured": 1,
+        "turns": {
+          "runsMeasured": 0
+        },
+        "outputTokens": {
+          "runsMeasured": 0
+        },
+        "millisecondsToFirstLedgerWrite": {
+          "runsMeasured": 0
+        },
+        "tokensInUncached": {
+          "runsMeasured": 0
+        },
+        "tokensInCacheWrite": {
+          "runsMeasured": 0
+        },
+        "tokensInCacheRead": {
+          "runsMeasured": 0
+        }
+      },
+      "epistemic": {
+        "claims": {
+          "open": 0,
+          "validated": 0,
+          "rejected": 0,
+          "superseded": 0
+        },
+        "openClaimsWithSupportingEvidence": 0,
+        "evidence": {
+          "total": 0,
+          "supportsOnly": 0,
+          "refutesOnly": 0,
+          "both": 0,
+          "neither": 0,
+          "bySourceType": {}
+        },
+        "decisions": {
+          "proposed": 0,
+          "accepted": 0,
+          "superseded": 0,
+          "invalidated": 0
+        },
+        "alternatives": 0,
+        "challenges": {
+          "open": 0,
+          "supported": 0,
+          "rejected": 0,
+          "withdrawn": 0
+        }
+      },
+      "causalChains": [],
+      "authorship": {
+        "operator": 8
+      },
+      "stages": {
+        "transitions": 1,
+        "waivers": 1,
+        "waiverReasons": [
+          "Disposable task-6 trial fixture only"
+        ],
+        "waiversByOrigin": {
+          "manual": 1
+        }
+      },
+      "artifacts": {
+        "byKind": {},
+        "supersessions": 0
+      },
+      "escalations": [],
+      "lessons": {
+        "recalled": 0,
+        "cited": 0,
+        "minted": 0,
+        "marks": 0
+      },
+      "workItems": [],
+      "notMeasured": [
+        "outcomeQuality",
+        "coordinatorCost",
+        "coordinatorLoop.reworkCausedByCoordinatorDecisions",
+        "coordinatorLoop.failedDispatchesAttributableToCoordinator",
+        "coordinatorLoop.sessionWallClock",
+        "coordinatorLoop.timeWithNoAgentRunning",
+        "governanceCost.tokens",
+        "runs.briefDelivered",
+        "refusals",
+        "learningBehaviour"
+      ],
+      "coordinatorLoop": {
+        "coordinatorActors": [
+          "operator"
+        ],
+        "sessions": [],
+        "hasUnbracketedCoordinatorActivity": true,
+        "degradations": [
+          {
+            "measure": "sessionWallClock",
+            "reason": "unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+          },
+          {
+            "measure": "timeWithNoAgentRunning",
+            "reason": "unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+          },
+          {
+            "measure": "sessionAttribution",
+            "reason": "Delays, ratios, avoidability and refusals are computed at task and actor level. Claims, decisions, work items and refusal rows carry no session id, so none of them can be partitioned between two sessions of the same actor without inventing the split."
+          },
+          {
+            "measure": "eventsPerDeliveredWorkItem",
+            "reason": "The ratio is an actor-and-task figure. Its numerator is deliberately not reported: a raw event count is never a measure on its own (D4)."
+          },
+          {
+            "measure": "coordinatorClaimReversed",
+            "reason": "The refuting record is added after the claim it names, because evidence cannot cite a claim that does not yet exist. So a reversal here reads as a reasonable revision unless the reversal also cited older evidence, and the exact form of this comparison is reopened findings, where the disposition follows the evidence rather than preceding it."
+          },
+          {
+            "measure": "misScopedWorkItems",
+            "reason": "An abandoned item and the wider item that replaced it are both in the record, but the abandon reason is free text and names no coordinator record, so the mis-scope is reported without an avoidability verdict. And only the pair is reported: an item released with no wider item after it is not counted here at all, because the wider successor is the evidence that the original scope was too narrow and a release has many other reasons."
+          }
+        ],
+        "delays": {
+          "toFindingDisposed": {
+            "measured": 0,
+            "unmatched": 1
+          },
+          "toNextDispatch": {
+            "measured": 0,
+            "unmatched": 1
+          },
+          "population": "One row per run.completed in this task's log. A finding belongs to a run when the event that added it carries the run's id or the run's own correlation id, which is the convention the launcher briefs an agent with. The figures here are the whole task; the partition in byActor holds the same rows keyed by the actor that closed each gap, and an unmatched row appears here only, because a gap nobody closed has no actor to attribute."
+        },
+        "ratios": {
+          "eventsPerDeliveredWorkItem": {
+            "denominator": 0,
+            "absence": "noWorkItemDeliveredYet"
+          },
+          "eventsPerFindingDisposed": {
+            "denominator": 0,
+            "absence": "noFindingDisposedYet"
+          }
+        },
+        "reversedClaims": [],
+        "supersededDecisions": [],
+        "reopenedFindings": [],
+        "misScopedWorkItems": [],
+        "tokenCost": {
+          "absence": "noCoordinatorUsageSupplied: no harness transcript was named, so nothing was read. This is an absence of a measurement, not a measurement of zero."
+        },
+        "dispatches": {
+          "rework": {
+            "dispatches": 1,
+            "joined": 0,
+            "namingNothing": 1,
+            "rows": [],
+            "population": "Every dispatch a coordinating actor recorded on this task, whether by 'provider launch' or by 'run start'. A dispatch is joined when it names a cause and that cause is an event in this log; naming nothing, and naming an id this log does not hold, are both counted as unjoined, because neither can be compared against anything.",
+            "absence": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing '--cause' on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+          },
+          "failedDispatches": {
+            "launches": 1,
+            "judged": 1,
+            "rows": [
+              {
+                "run": "R1",
+                "limitSeconds": 240,
+                "elapsedSeconds": 0.058182,
+                "reason": "Permission denied",
+                "attribution": "whatEndedThisDispatchWasNotRecorded",
+                "basis": "Nobody observed which condition ended this run: it was recorded before the launcher carried that observation, was started by hand rather than by a launch, or its launch died before the adapter returned. The row is left unjudged. Its elapsed time is not consulted, because the interval here is run.started to run.completed — wider than the provider's own run — so a run that failed on its own terms just short of its limit crosses that limit on this clock (VC6)."
+              }
+            ],
+            "population": "The coordinating actors' provider launches on this task. A launch is judged when it carries the limit it was given, the provider's own terminal reason, or the launcher's observation of what ended it; one carrying none of the three was recorded before those inputs existed. Whether a dispatch failed is read from the provider's reason and never from run.status, because a run whose agent returned an adverse verdict is a run that did its job (C8). Whether the coordinator's own limit ended it is read from that recorded observation and never from elapsed time, because the interval this projection can see is wider than the provider's run (VC6). Refused launches are the same rows measure 9 reports under the provider-launch site and must not be added to it twice.",
+            "absence": "Every failed dispatch here is reported and none is attributed: no row records which condition ended its run, and this measure will not supply that from elapsed time. The launcher records the observation going forward; until a dispatch carries one, whether the coordinator's limit ended a run is unknown rather than negative (VC6)."
+          },
+          "wastedDispatches": {
+            "judged": 1,
+            "rows": [
+              {
+                "run": "R1",
+                "reason": "Permission denied",
+                "ground": "noBriefReachedTheAdapter",
+                "comparison": "The run records a provider failure and no manifest hash. The hash is set only once the request is fully built and immediately before the adapter is called, so its absence means the adapter never received this run's brief and the run could not have done the work it was sent to do."
+              }
+            ],
+            "unclassified": 0,
+            "population": "The coordinating actors' provider launches that carry the inputs this measure needs. A completed run is never counted here, whatever its agent concluded: a verifier that finds nothing did the work it was sent to do. A launch that failed with a brief delivered is counted under the unclassified figure and not as waste, because separating a wrong scope from an ordinary provider fault would mean grading the reason's prose. Refused launches are the same rows measure 9 reports under the provider-launch site."
+          }
+        },
+        "notMeasured": [
+          {
+            "measure": "reworkCausedByCoordinatorDecisions",
+            "reason": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing '--cause' on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+          },
+          {
+            "measure": "failedDispatchesAttributableToCoordinator",
+            "reason": "Every failed dispatch here is reported and none is attributed: no row records which condition ended its run, and this measure will not supply that from elapsed time. The launcher records the observation going forward; until a dispatch carries one, whether the coordinator's limit ended a run is unknown rather than negative (VC6)."
+          }
+        ],
+        "byActor": []
+      },
+      "briefWaivers": {
+        "total": 0,
+        "byOrigin": {}
+      },
+      "kernelIdentityPartitions": [
+        {
+          "identity": "2.0.0|cd3f2d917e31e2c022cf694d0720d93441a81586|1970-01-01T00:00:00.0000000+00:00",
+          "build": {
+            "version": "2.0.0",
+            "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+            "buildTime": "1970-01-01T00:00:00+00:00"
+          },
+          "events": 8,
+          "eventsByType": {
+            "actor.role-assigned": 2,
+            "context.built": 1,
+            "run.completed": 1,
+            "run.started": 1,
+            "stage.prerequisites-waived": 1,
+            "stage.transitioned": 1,
+            "task.opened": 1
+          },
+          "refusals": 0,
+          "refusalsBySite": {},
+          "refusalsByCommand": {}
+        }
+      ],
+      "findings": {
+        "canonicalVersion": 8,
+        "committedTransactions": 0,
+        "granularEvents": 0,
+        "transactions": [],
+        "attempts": [],
+        "runs": [
+          {
+            "runId": "R1",
+            "actorId": "researcher",
+            "provider": "codex",
+            "providerVersion": "codex-cli 0.155.0-alpha.9.2",
+            "completion": {
+              "runId": "R1",
+              "status": "failed",
+              "endedAt": "2026-09-28T17:03:33.724658+00:00",
+              "launcherAuthorized": true,
+              "launchTimeoutSeconds": 240,
+              "terminalFailureReason": "Permission denied"
+            }
+          }
+        ],
+        "coverageGaps": [
+          {
+            "source": "/tmp/ailedger-task6-live-prepared/ledger/live/findings-attempts.jsonl",
+            "reason": "Telemetry unavailable: FileNotFoundException"
+          },
+          {
+            "source": "/tmp/ailedger-task6-live-prepared/ledger/live/telemetry",
+            "reason": "Transport directory unavailable: DirectoryNotFoundException"
+          }
+        ],
+        "notMeasured": [
+          "Attempt counts are observed lower bounds. Best-effort journals have no completeness watermark; a crash or failed write can leave no row.",
+          "Transport, application and phase timings nest; they are not added to task elapsed time.",
+          "Response delivery 'written' is local write/flush, not client acknowledgement. Commit and delivery are independent.",
+          "Exact negotiated MCP versions, relay authentication failures, provider permission/search-hook denials and client acknowledgements are not captured by these journals.",
+          "Run completion supplies joined session/model/turn observations only when recorded; no requested identity or event count fills a missing observation.",
+          "Provider usage remains once per run in the existing retrospective cost measures; attempts, transactions and granular events are separate populations.",
+          "Kernel refusal rows remain in the existing refusal report with original command/reason/build. Journals have no shared refusal ID; no heuristic one-to-one refusal join is asserted."
+        ]
+      }
+    },
+    "classification": "Host sandbox denied TcpListener.Bind before adapter.RunAsync. No billable model episode; original failed completion and missing usage/telemetry remain visible. Fresh equivalent fixture used with host socket permission; provider grants unchanged."
+  },
+  "canonical_events": [
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000001",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:30.312911+00:00",
+      "correlationId": "cc2613be1a7b4908907c028ea53fcc9a",
+      "data": {
+        "eventType": "task.opened",
+        "title": "Disposable task 6 bounded source trial",
+        "goal": "This is an explicitly authorized, bounded task-6 live trial in a disposable ledger.\nInspect only the supplied read-only source snapshots under sources/. Determine how the tests locate\ntheir source checkout when build artifacts are external, and identify one material remaining limitation.\nDo not modify source or implement changes. Use the supplied record_findings MCP tool for all findings.\nDo not dispatch agents, invoke CLI writes, install anything, change grants, or bypass expected refusals.\n\nFirst inspect RepositoryLayout.cs and RepositoryLayout.props. BEFORE inspecting the remaining files,\nrecord one source-backed observation as request_id task6-early with one finding key first and one\nevidence key first-evidence supporting {\"finding\":\"first\"}. Preserve concrete file/line citations.\nThen inspect the remaining four files and prepare one distinct source-backed observation about the\ncognitive-root setting or another material limitation. Use request_id task6-later, finding key later,\nand evidence key later-evidence. For the FIRST attempt of this second batch ONLY, deliberately use\nsupports:[{\"claim_id\":\"task6-deliberately-missing\"}]. Expect kernel_refused and no canonical prefix.\nThis tests the guardrail; do not bypass it. Correct only that reference to {\"finding\":\"later\"} and\nresubmit task6-later. After the corrected call succeeds, retry that EXACT corrected body and key once;\nexpect the same transaction/IDs and replayed:true. This is an intentional replay, not a simulated lost response.\n\nStop after these four tool attempts. In your final answer report both observations, citations,\ntransaction IDs, expected refusal, replay result, and remaining uncertainty. Use small early batches;\nkeep observations distinct from inference. No further investigation or repairs are authorized."
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 0,
+      "_ailedgerCommandEventCount": 2
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000002",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:30.312911+00:00",
+      "causationId": "live:0000000001",
+      "correlationId": "cc2613be1a7b4908907c028ea53fcc9a",
+      "data": {
+        "eventType": "actor.role-assigned",
+        "assignment": {
+          "actorId": "operator",
+          "role": "operator",
+          "capabilities": [
+            "manageRoles",
+            "manageScope",
+            "addClaim",
+            "resolveClaim",
+            "addEvidence",
+            "proposeDecision",
+            "resolveDecision",
+            "raiseChallenge",
+            "disposeChallenge",
+            "manageWork",
+            "manageRuns",
+            "requestTransition",
+            "buildContext",
+            "raiseEscalation",
+            "resolveEscalation",
+            "recordAlternative",
+            "manageConstraints",
+            "recordArtifact"
+          ],
+          "assignedBy": {
+            "actorId": "operator",
+            "recordedAt": "2026-09-28T17:04:30.312911+00:00",
+            "source": "task.open"
+          }
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 1,
+      "_ailedgerCommandEventCount": 2
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000003",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:30.54437+00:00",
+      "correlationId": "579496b9f1a947c2b8e66408139fd541",
+      "data": {
+        "eventType": "actor.role-assigned",
+        "assignment": {
+          "actorId": "researcher",
+          "role": "researcher",
+          "capabilities": [
+            "addClaim",
+            "addEvidence",
+            "buildContext"
+          ],
+          "assignedBy": {
+            "actorId": "operator",
+            "recordedAt": "2026-09-28T17:04:30.54437+00:00",
+            "source": "actor.assign-role"
+          }
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000004",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:30.75876+00:00",
+      "correlationId": "9dd3ab8251314c85a466a4e71be6665d",
+      "data": {
+        "eventType": "stage.prerequisites-waived",
+        "targetStage": "research",
+        "reason": "Disposable task-6 trial fixture only",
+        "provenance": {
+          "origin": "manual"
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 0,
+      "_ailedgerCommandEventCount": 2
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000005",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:30.75876+00:00",
+      "causationId": "live:0000000004",
+      "correlationId": "9dd3ab8251314c85a466a4e71be6665d",
+      "data": {
+        "eventType": "stage.transitioned",
+        "previous": "discovery",
+        "current": "research"
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 1,
+      "_ailedgerCommandEventCount": 2
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000006",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:31.105142+00:00",
+      "correlationId": "5a6dcc254f414e369f224c95146361b2",
+      "data": {
+        "eventType": "context.built",
+        "role": "operator",
+        "skills": [
+          {
+            "skillId": "workflow-coordinator",
+            "contentHash": "6ADB4B6CFBBDED133F8770F78A2FBEBAE420CA9C1A53ACA9C9715803AB3C418F"
+          },
+          {
+            "skillId": "task-orchestrator",
+            "contentHash": "AC6EBFF4175ADC1F287DE3E2FB05AADA3E5D15CCE84BF5639A39A339F9835038"
+          },
+          {
+            "skillId": "task-orchestrator/references/orchestration-rubric.md:task-orchestrator",
+            "contentHash": "4B28C8BEC0C5F8CB7E9EECAE578BD5F29C8E5CD978EB16D89516B7B9C2215808"
+          }
+        ]
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000007",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:04:31.438385+00:00",
+      "correlationId": "01b45643e42b436482e8a87f13f3df09",
+      "data": {
+        "eventType": "run.started",
+        "run": {
+          "id": "R1",
+          "actorId": "researcher",
+          "provider": "codex",
+          "status": "active",
+          "startedAt": "2026-09-28T17:04:31.438385+00:00",
+          "providerVersion": "codex-cli 0.155.0-alpha.9.2",
+          "launchTokenHash": "8695832C59D406107117A0BCD025358A1C2987FBE6B265A7933CDDFEB33E8045",
+          "launchedBy": "operator",
+          "subjectRole": "researcher",
+          "hasNoProviderSessionByDeclaration": false
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000008",
+      "taskId": "live",
+      "actorId": "researcher",
+      "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+      "correlationId": "R1",
+      "data": {
+        "eventType": "claim.added",
+        "claim": {
+          "id": "CF_338e7598b71b45e1a37738042bce743c",
+          "statement": "The test build embeds the source checkout path as AILedger.TestRepositoryRoot assembly metadata, and RepositoryLayout reads that metadata and validates the recorded checkout by requiring an absolute path containing AILedger.sln and a .git file or directory.",
+          "status": "open",
+          "evidenceIds": [],
+          "provenance": {
+            "actorId": "researcher",
+            "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+            "source": "claim.add"
+          }
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 0,
+      "_ailedgerCommandEventCount": 2,
+      "_ailedgerFindingsReceipt": {
+        "schema_version": 1,
+        "request_id": "task6-early",
+        "transaction_id": "2398dc87e13847ee9fc23f93632266b4",
+        "task_id": "live",
+        "actor_id": "researcher",
+        "run_id": "R1",
+        "correlation_id": "R1",
+        "causation_id": null,
+        "payload_fingerprint": "980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b",
+        "fingerprint_algorithm": "findings-v1-c14n1",
+        "committed_at": "2026-09-28T17:04:58.556082+00:00",
+        "ledger_version": 9,
+        "event_ids": [
+          "live:0000000008",
+          "live:0000000009"
+        ],
+        "findings": [
+          {
+            "key": "first",
+            "claim_id": "CF_338e7598b71b45e1a37738042bce743c",
+            "event_id": "live:0000000008"
+          }
+        ],
+        "evidence": [
+          {
+            "key": "first-evidence",
+            "evidence_id": "EF_2908873cab134686a912e19d358d8719",
+            "event_id": "live:0000000009"
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000009",
+      "taskId": "live",
+      "actorId": "researcher",
+      "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+      "correlationId": "R1",
+      "data": {
+        "eventType": "evidence.added",
+        "evidence": {
+          "id": "EF_2908873cab134686a912e19d358d8719",
+          "sourceType": "source-read",
+          "citation": "sources/RepositoryLayout.props:2-6; sources/RepositoryLayout.cs:9-19",
+          "summary": "RepositoryLayout.props computes the root from its own directory and adds assembly metadata; RepositoryLayout.Root retrieves that metadata and ValidateRoot checks path qualification, solution file, and Git marker.",
+          "supports": [
+            "CF_338e7598b71b45e1a37738042bce743c"
+          ],
+          "refutes": [],
+          "provenance": {
+            "actorId": "researcher",
+            "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+            "source": "evidence.add"
+          }
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 1,
+      "_ailedgerCommandEventCount": 2
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000010",
+      "taskId": "live",
+      "actorId": "researcher",
+      "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+      "correlationId": "R1",
+      "data": {
+        "eventType": "claim.added",
+        "claim": {
+          "id": "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5",
+          "statement": "The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.",
+          "status": "open",
+          "evidenceIds": [],
+          "provenance": {
+            "actorId": "researcher",
+            "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+            "source": "claim.add"
+          }
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 0,
+      "_ailedgerCommandEventCount": 2,
+      "_ailedgerFindingsReceipt": {
+        "schema_version": 1,
+        "request_id": "task6-later",
+        "transaction_id": "05c781986df543e983501a738725a2ad",
+        "task_id": "live",
+        "actor_id": "researcher",
+        "run_id": "R1",
+        "correlation_id": "R1",
+        "causation_id": null,
+        "payload_fingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+        "fingerprint_algorithm": "findings-v1-c14n1",
+        "committed_at": "2026-09-28T17:05:21.27289+00:00",
+        "ledger_version": 11,
+        "event_ids": [
+          "live:0000000010",
+          "live:0000000011"
+        ],
+        "findings": [
+          {
+            "key": "later",
+            "claim_id": "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5",
+            "event_id": "live:0000000010"
+          }
+        ],
+        "evidence": [
+          {
+            "key": "later-evidence",
+            "evidence_id": "EF_7854afae9b6c409987adbe0801a2fb59",
+            "event_id": "live:0000000011"
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000011",
+      "taskId": "live",
+      "actorId": "researcher",
+      "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+      "correlationId": "R1",
+      "data": {
+        "eventType": "evidence.added",
+        "evidence": {
+          "id": "EF_7854afae9b6c409987adbe0801a2fb59",
+          "sourceType": "source-read",
+          "citation": "sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66",
+          "summary": "The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.",
+          "supports": [
+            "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5"
+          ],
+          "refutes": [],
+          "provenance": {
+            "actorId": "researcher",
+            "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+            "source": "evidence.add"
+          }
+        }
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      },
+      "_ailedgerCommandEventIndex": 1,
+      "_ailedgerCommandEventCount": 2
+    },
+    {
+      "schemaVersion": 1,
+      "eventId": "live:0000000012",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:05:38.564328+00:00",
+      "causationId": "live:0000000007",
+      "correlationId": "01b45643e42b436482e8a87f13f3df09",
+      "data": {
+        "eventType": "run.completed",
+        "runId": "R1",
+        "status": "completed",
+        "providerSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39",
+        "endedAt": "2026-09-28T17:05:38.564328+00:00",
+        "launcherAuthorized": true,
+        "manifestHash": "d3917c6b6250ac2f9b44fef12abc9fc5922394b78cf0730439eadede958f2dbd",
+        "manifestArtifactCount": 8,
+        "outputTokens": 2297,
+        "millisecondsToFirstLedgerWrite": 27118,
+        "tokensInUncached": 29410,
+        "tokensInCacheWrite": 0,
+        "tokensInCacheRead": 281344,
+        "truncatedLines": 0,
+        "launchTimeoutSeconds": 240,
+        "endedAtTheLaunchTimeout": false
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      }
+    }
+  ],
+  "refusal_rows": [
+    {
+      "recordedAt": "2026-09-28T17:05:14.499586+00:00",
+      "actorId": "researcher",
+      "command": "AddEvidenceCommand",
+      "site": "service",
+      "taskVersion": 9,
+      "message": "Unknown claim 'task6-deliberately-missing'.",
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      }
+    }
+  ],
+  "provider_result_without_effective_arguments": {
+    "runId": "R1",
+    "provider": "codex",
+    "providerSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39",
+    "status": "completed",
+    "startedAt": "2026-09-28T17:04:32.63967+00:00",
+    "endedAt": "2026-09-28T17:05:38.46309+00:00",
+    "exitCode": 0,
+    "finalOutput": "The source snapshots show that the test build records the source checkout path in `AILedger.TestRepositoryRoot` assembly metadata. `RepositoryLayout` reads it and requires an absolute path containing `AILedger.sln` and a `.git` marker. This lets tests identify the checkout when build artifacts are elsewhere. [RepositoryLayout.props](/private/tmp/ailedger-task6-live-authorized/work/sources/RepositoryLayout.props:2) · [RepositoryLayout.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/RepositoryLayout.cs:9)  \nTransaction `2398dc87e13847ee9fc23f93632266b4`; evidence `EF_2908873cab134686a912e19d358d8719`.\n\nA remaining limitation is that tests without an explicit cognitive root use a process-wide `AILEDGER_COGNITIVE_ROOT` set to that checkout’s `cognitive` directory. An alternate root therefore needs an explicit override. [TestEnvironment.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/TestEnvironment.cs:7) · [ContextBrief.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/ContextBrief.cs:96) · [CognitiveArtifactLoader.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/CognitiveArtifactLoader.cs:60)  \nTransaction `05c781986df543e983501a738725a2ad`; evidence `EF_7854afae9b6c409987adbe0801a2fb59`.\n\nThe deliberate missing-claim attempt returned `kernel_refused`, `not_committed`, and no canonical transaction or evidence IDs. The corrected request committed; its exact retry returned `replayed:true` with the same transaction and IDs.\n\nThe snapshots do not establish which test projects import `RepositoryLayout.props`, so coverage across all test assemblies remains unconfirmed.",
+    "events": [
+      {
+        "sequence": 0,
+        "type": "thread.started",
+        "rawJson": "{\"type\":\"thread.started\",\"thread_id\":\"01a0e8f9-b3aa-7d61-8e80-6485f15cea39\"}",
+        "sessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:33.861036+00:00"
+      },
+      {
+        "sequence": 1,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"error\",\"message\":\"Ignoring unknown `features` requirement `remote_computer_use` from requirements layers: enterprise-managed requirements Group requirements (049d1bdb-2a8e-4efe-9298-0a57c35ac0a5), enterprise-managed requirements Computer History access (rbac-computer-history)\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:33.862498+00:00"
+      },
+      {
+        "sequence": 2,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"error\",\"message\":\"Ignoring unknown `features` requirement `remote_computer_use` from requirements layers: enterprise-managed requirements Group requirements (049d1bdb-2a8e-4efe-9298-0a57c35ac0a5), enterprise-managed requirements Computer History access (rbac-computer-history)\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:33.862524+00:00"
+      },
+      {
+        "sequence": 3,
+        "type": "turn.started",
+        "rawJson": "{\"type\":\"turn.started\"}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:33.913989+00:00"
+      },
+      {
+        "sequence": 4,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_2\",\"type\":\"agent_message\",\"text\":\"I’ll inspect the two specified layout snapshots, record the early observation, then inspect the remaining four snapshots and run the required refusal and replay sequence.\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:45.513915+00:00"
+      },
+      {
+        "sequence": 5,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_3\",\"type\":\"command_execution\",\"command\":\"/bin/zsh -lc 'pwd; rg --files sources | sort; ls -la /private/tmp/ailedger-task6-live-authorized/ledger/live'\",\"aggregated_output\":\"\",\"exit_code\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:46.734404+00:00"
+      },
+      {
+        "sequence": 6,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_3\",\"type\":\"command_execution\",\"command\":\"/bin/zsh -lc 'pwd; rg --files sources | sort; ls -la /private/tmp/ailedger-task6-live-authorized/ledger/live'\",\"aggregated_output\":\"/private/tmp/ailedger-task6-live-authorized/work\\nsources/CodexAgentAdapter.cs\\nsources/CognitiveArtifactLoader.cs\\nsources/ContextBrief.cs\\nsources/RepositoryLayout.cs\\nsources/RepositoryLayout.props\\nsources/TestEnvironment.cs\\ntotal 56\\ndrwxr-xr-x@ 8 user  wheel   256 Sep 28 20:04 .\\ndrwxr-xr-x@ 3 user  wheel    96 Sep 28 20:04 ..\\n-rw-r--r--@ 1 user  wheel     0 Sep 28 20:04 .writer.lock\\n-rw-r--r--@ 1 user  wheel    34 Sep 28 20:04 assumptions.md\\n-rw-r--r--@ 1 user  wheel    56 Sep 28 20:04 decisions.md\\n-rw-r--r--@ 1 user  wheel  6393 Sep 28 20:04 events.jsonl\\n-rw-r--r--@ 1 user  wheel  4604 Sep 28 20:04 state.json\\n-rw-r--r--@ 1 user  wheel  2611 Sep 28 20:04 task.md\\n\",\"exit_code\":0,\"status\":\"completed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:46.736724+00:00"
+      },
+      {
+        "sequence": 7,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_4\",\"type\":\"command_execution\",\"command\":\"/bin/zsh -lc 'cat /private/tmp/ailedger-task6-live-authorized/ledger/live/task.md /private/tmp/ailedger-task6-live-authorized/ledger/live/assumptions.md /private/tmp/ailedger-task6-live-authorized/ledger/live/decisions.md; nl -ba sources/RepositoryLayout.cs; nl -ba sources/RepositoryLayout.props'\",\"aggregated_output\":\"\",\"exit_code\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:50.399765+00:00"
+      },
+      {
+        "sequence": 8,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_4\",\"type\":\"command_execution\",\"command\":\"/bin/zsh -lc 'cat /private/tmp/ailedger-task6-live-authorized/ledger/live/task.md /private/tmp/ailedger-task6-live-authorized/ledger/live/assumptions.md /private/tmp/ailedger-task6-live-authorized/ledger/live/decisions.md; nl -ba sources/RepositoryLayout.cs; nl -ba sources/RepositoryLayout.props'\",\"aggregated_output\":\"# Disposable task 6 bounded source trial\\n\\n- Task: `live`\\n- Stage: `Research`\\n- Version: `7`\\n\\n## Goal\\n\\nThis is an explicitly authorized, bounded task-6 live trial in a disposable ledger. Inspect only the supplied read-only source snapshots under sources/. Determine how the tests locate their source checkout when build artifacts are external, and identify one material remaining limitation. Do not modify source or implement changes. Use the supplied record_findings MCP tool for all findings. Do not dispatch agents, invoke CLI writes, install anything, change grants, or bypass expected refusals.  First inspect RepositoryLayout.cs and RepositoryLayout.props. BEFORE inspecting the remaining files, record one source-backed observation as request_id task6-early with one finding key first and one evidence key first-evidence supporting {\\\"finding\\\":\\\"first\\\"}. Preserve concrete file/line citations. Then inspect the remaining four files and prepare one distinct source-backed observation about the cognitive-root setting or another material limitation. Use request_id task6-later, finding key later, and evidence key later-evidence. For the FIRST attempt of this second batch ONLY, deliberately use supports:[{\\\"claim_id\\\":\\\"task6-deliberately-missing\\\"}]. Expect kernel_refused and no canonical prefix. This tests the guardrail; do not bypass it. Correct only that reference to {\\\"finding\\\":\\\"later\\\"} and resubmit task6-later. After the corrected call succeeds, retry that EXACT corrected body and key once; expect the same transaction/IDs and replayed:true. This is an intentional replay, not a simulated lost response.  Stop after these four tool attempts. In your final answer report both observations, citations, transaction IDs, expected refusal, replay result, and remaining uncertainty. Use small early batches; keep observations distinct from inference. No further investigation or repairs are authorized.\\n\\n## Roles\\n\\n- `operator` — Operator; capabilities: AddClaim, AddEvidence, BuildContext, DisposeChallenge, ManageConstraints, ManageRoles, ManageRuns, ManageScope, ManageWork, ProposeDecision, RaiseChallenge, RaiseEscalation, RecordAlternative, RecordArtifact, RequestTransition, ResolveClaim, ResolveDecision, ResolveEscalation\\n- `researcher` — Researcher; capabilities: AddClaim, AddEvidence, BuildContext\\n\\n## Work Items\\n\\n_None._\\n\\n## Runs\\n\\n- `R1` — **Active** — Researcher `researcher` via codex (codex-cli 0.155.0-alpha.9.2) ← live\\n\\n## Artifacts\\n\\n_None._\\n\\n## Active Constraints\\n\\n_None._\\n\\n## Open Escalations\\n\\n_None._\\n\\n## Open Challenges\\n\\n_None._\\n\\n## Lessons\\n\\n_None._\\n\\n## Lesson Marks\\n\\n_None._\\n# Assumptions and Claims\\n\\n_None._\\n# Decisions\\n\\n_None._\\n\\n## Rejected Alternatives\\n\\n_None._\\n     1\\tusing System.Reflection;\\n     2\\t\\n     3\\tnamespace AILedger.TestSupport;\\n     4\\t\\n     5\\tinternal static class RepositoryLayout\\n     6\\t{\\n     7\\t    // The source checkout is authoritative, even if the test host runs in another Git tree.\\n     8\\t    // Keep this metadata in test assemblies only; no production discovery behavior changes.\\n     9\\t    public static string Root { get; } = ValidateRoot(\\n    10\\t        typeof(RepositoryLayout).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()\\n    11\\t            .SingleOrDefault(attribute => attribute.Key == \\\"AILedger.TestRepositoryRoot\\\")?.Value);\\n    12\\t\\n    13\\t    internal static string ValidateRoot(string? root)\\n    14\\t    {\\n    15\\t        if (!string.IsNullOrWhiteSpace(root) && Path.IsPathFullyQualified(root) &&\\n    16\\t            File.Exists(Path.Combine(root, \\\"AILedger.sln\\\")) &&\\n    17\\t            (Directory.Exists(Path.Combine(root, \\\".git\\\")) || File.Exists(Path.Combine(root, \\\".git\\\"))))\\n    18\\t        {\\n    19\\t            return Path.GetFullPath(root);\\n    20\\t        }\\n    21\\t\\n    22\\t        throw new DirectoryNotFoundException(\\n    23\\t            $\\\"Could not locate the AILedger source checkout recorded by the test build: '{root}'. \\\" +\\n    24\\t            \\\"Expected AILedger.sln and a .git file or directory. Keep the checkout available; \\\" +\\n    25\\t            \\\"rebuild the tests if it moved. Runtime working directories are not source identity.\\\");\\n    26\\t    }\\n    27\\t}\\n     1\\t<Project>\\n     2\\t  <!-- Test-only source identity: VSTest may run from an artifacts directory outside the checkout. -->\\n     3\\t  <ItemGroup>\\n     4\\t    <AssemblyMetadata Include=\\\"AILedger.TestRepositoryRoot\\\"\\n     5\\t                      Value=\\\"$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))\\\" />\\n     6\\t    <Compile Include=\\\"$(MSBuildThisFileDirectory)RepositoryLayout.cs\\\" Link=\\\"Support/RepositoryLayout.cs\\\" />\\n     7\\t  </ItemGroup>\\n     8\\t</Project>\\n\",\"exit_code\":0,\"status\":\"completed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:50.408662+00:00"
+      },
+      {
+        "sequence": 9,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_5\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-early\",\"findings\":[{\"key\":\"first\",\"statement\":\"The test build embeds the source checkout path as AILedger.TestRepositoryRoot assembly metadata, and RepositoryLayout reads that metadata and validates the recorded checkout by requiring an absolute path containing AILedger.sln and a .git file or directory.\"}],\"evidence\":[{\"key\":\"first-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/RepositoryLayout.props:2-6; sources/RepositoryLayout.cs:9-19\",\"summary\":\"RepositoryLayout.props computes the root from its own directory and adds assembly metadata; RepositoryLayout.Root retrieves that metadata and ValidateRoot checks path qualification, solution file, and Git marker.\",\"supports\":[{\"finding\":\"first\"}],\"refutes\":[]}]},\"result\":null,\"error\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:58.531297+00:00"
+      },
+      {
+        "sequence": 10,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_5\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-early\",\"findings\":[{\"key\":\"first\",\"statement\":\"The test build embeds the source checkout path as AILedger.TestRepositoryRoot assembly metadata, and RepositoryLayout reads that metadata and validates the recorded checkout by requiring an absolute path containing AILedger.sln and a .git file or directory.\"}],\"evidence\":[{\"key\":\"first-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/RepositoryLayout.props:2-6; sources/RepositoryLayout.cs:9-19\",\"summary\":\"RepositoryLayout.props computes the root from its own directory and adds assembly metadata; RepositoryLayout.Root retrieves that metadata and ValidateRoot checks path qualification, solution file, and Git marker.\",\"supports\":[{\"finding\":\"first\"}],\"refutes\":[]}]},\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"schema_version\\\":1,\\\"attempt_id\\\":\\\"b8c927eaf7104d8bb52e83c5676bc33a\\\",\\\"status\\\":\\\"committed\\\",\\\"replayed\\\":false,\\\"receipt\\\":{\\\"schema_version\\\":1,\\\"request_id\\\":\\\"task6-early\\\",\\\"transaction_id\\\":\\\"2398dc87e13847ee9fc23f93632266b4\\\",\\\"task_id\\\":\\\"live\\\",\\\"actor_id\\\":\\\"researcher\\\",\\\"run_id\\\":\\\"R1\\\",\\\"correlation_id\\\":\\\"R1\\\",\\\"causation_id\\\":null,\\\"payload_fingerprint\\\":\\\"980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b\\\",\\\"fingerprint_algorithm\\\":\\\"findings-v1-c14n1\\\",\\\"committed_at\\\":\\\"2026-09-28T17:04:58.556082+00:00\\\",\\\"ledger_version\\\":9,\\\"event_ids\\\":[\\\"live:0000000008\\\",\\\"live:0000000009\\\"],\\\"findings\\\":[{\\\"key\\\":\\\"first\\\",\\\"claim_id\\\":\\\"CF_338e7598b71b45e1a37738042bce743c\\\",\\\"event_id\\\":\\\"live:0000000008\\\"}],\\\"evidence\\\":[{\\\"key\\\":\\\"first-evidence\\\",\\\"evidence_id\\\":\\\"EF_2908873cab134686a912e19d358d8719\\\",\\\"event_id\\\":\\\"live:0000000009\\\"}]}}\"}],\"structured_content\":{\"schema_version\":1,\"attempt_id\":\"b8c927eaf7104d8bb52e83c5676bc33a\",\"status\":\"committed\",\"replayed\":false,\"receipt\":{\"schema_version\":1,\"request_id\":\"task6-early\",\"transaction_id\":\"2398dc87e13847ee9fc23f93632266b4\",\"task_id\":\"live\",\"actor_id\":\"researcher\",\"run_id\":\"R1\",\"correlation_id\":\"R1\",\"causation_id\":null,\"payload_fingerprint\":\"980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b\",\"fingerprint_algorithm\":\"findings-v1-c14n1\",\"committed_at\":\"2026-09-28T17:04:58.556082+00:00\",\"ledger_version\":9,\"event_ids\":[\"live:0000000008\",\"live:0000000009\"],\"findings\":[{\"key\":\"first\",\"claim_id\":\"CF_338e7598b71b45e1a37738042bce743c\",\"event_id\":\"live:0000000008\"}],\"evidence\":[{\"key\":\"first-evidence\",\"evidence_id\":\"EF_2908873cab134686a912e19d358d8719\",\"event_id\":\"live:0000000009\"}]}}},\"error\":null,\"status\":\"completed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:04:58.609635+00:00"
+      },
+      {
+        "sequence": 11,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_6\",\"type\":\"agent_message\",\"text\":\"The early finding is recorded. The build embeds a checkout path in test assembly metadata, and the test helper validates that path before using it. I’ll inspect the remaining snapshots for a separate limitation.\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:01.34609+00:00"
+      },
+      {
+        "sequence": 12,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_7\",\"type\":\"command_execution\",\"command\":\"/bin/zsh -lc 'nl -ba sources/CodexAgentAdapter.cs; nl -ba sources/CognitiveArtifactLoader.cs; nl -ba sources/ContextBrief.cs; nl -ba sources/TestEnvironment.cs'\",\"aggregated_output\":\"\",\"exit_code\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:02.787847+00:00"
+      },
+      {
+        "sequence": 13,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_7\",\"type\":\"command_execution\",\"command\":\"/bin/zsh -lc 'nl -ba sources/CodexAgentAdapter.cs; nl -ba sources/CognitiveArtifactLoader.cs; nl -ba sources/ContextBrief.cs; nl -ba sources/TestEnvironment.cs'\",\"aggregated_output\":\"     1\\tusing System.Text.Json;\\n     2\\tusing AILedger.Core.Contracts;\\n     3\\t\\n     4\\tnamespace AILedger.Providers.Adapters;\\n     5\\t\\n     6\\tpublic sealed class CodexAgentAdapter : AgentAdapterBase\\n     7\\t{\\n     8\\t    private readonly Func<string, string, string, string, CancellationToken, Task> trustHook;\\n     9\\t\\n    10\\t    public CodexAgentAdapter(IProcessRunner processRunner) : this(processRunner, CodexHookTrust.TrustAsync) { }\\n    11\\t\\n    12\\t    internal CodexAgentAdapter(IProcessRunner processRunner,\\n    13\\t        Func<string, string, string, string, CancellationToken, Task> trustHook) : base(processRunner)\\n    14\\t    {\\n    15\\t        this.trustHook = trustHook;\\n    16\\t    }\\n    17\\t\\n    18\\t    public override string Provider => \\\"codex\\\";\\n    19\\t\\n    20\\t    protected override IReadOnlyList<CapabilityProbe> CapabilityProbes =>\\n    21\\t    [\\n    22\\t        new([\\\"exec\\\", \\\"--help\\\"], [\\\"--strict-config\\\", \\\"--sandbox\\\", \\\"--cd\\\", \\\"--add-dir\\\", \\\"--output-schema\\\", \\\"--json\\\"]),\\n    23\\t        new([\\\"exec\\\", \\\"resume\\\", \\\"--help\\\"], [\\\"SESSION_ID\\\", \\\"--json\\\"])\\n    24\\t    ];\\n    25\\t\\n    26\\t    // Codex refuses to run outside a git work tree unless --skip-git-repo-check is passed, and\\n    27\\t    // that flag exists to be a deliberate choice rather than an adapter default. Governed work\\n    28\\t    // should be in a repository anyway, so this is checked as a precondition and reported before\\n    29\\t    // launch — the same reason the capability probes run first.\\n    30\\t    protected override void EnsurePreconditions(AgentLaunchRequest request)\\n    31\\t    {\\n    32\\t        for (var directory = new DirectoryInfo(request.WorkingDirectory);\\n    33\\t             directory is not null;\\n    34\\t             directory = directory.Parent)\\n    35\\t        {\\n    36\\t            if (Directory.Exists(Path.Combine(directory.FullName, \\\".git\\\")) ||\\n    37\\t                File.Exists(Path.Combine(directory.FullName, \\\".git\\\")))\\n    38\\t            {\\n    39\\t                return;\\n    40\\t            }\\n    41\\t        }\\n    42\\t\\n    43\\t        throw new AgentAdapterException(\\n    44\\t            $\\\"Codex refuses to run outside a git work tree, and '{request.WorkingDirectory}' is not inside one. \\\" +\\n    45\\t            \\\"Govern work that lives in a repository, or initialise one for this scope.\\\");\\n    46\\t    }\\n    47\\t\\n    48\\t    // Codex discovers skills and AGENTS.md under CODEX_HOME. The operator's own home carries a\\n    49\\t    // full interactive install — including its own copies of the pipeline skills — so a governed\\n    50\\t    // run gets a purpose-built home holding authentication, the model choice and optional\\n    51\\t    // explicitly configured Roslyn navigation. Ledger\\n    52\\t    // serves the role's skills through the manifest; the ambient copies would be a second source\\n    53\\t    // of the same rules, diverging the moment either is edited.\\n    54\\t    protected override async Task<ProviderLaunchScope> OpenLaunchScopeAsync(AgentLaunchRequest request,\\n    55\\t        CancellationToken cancellationToken)\\n    56\\t    {\\n    57\\t        var operatorHome = Environment.GetEnvironmentVariable(\\\"CODEX_HOME\\\")\\n    58\\t                           ?? Path.Combine(\\n    59\\t                               Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), \\\".codex\\\");\\n    60\\t        var credentials = Path.Combine(operatorHome, \\\"auth.json\\\");\\n    61\\t        if (!File.Exists(credentials))\\n    62\\t        {\\n    63\\t            throw new AgentAdapterException(\\n    64\\t                $\\\"Codex authentication was not found at '{credentials}'. Authenticate Codex, or set CODEX_HOME.\\\");\\n    65\\t        }\\n    66\\t\\n    67\\t        var governedHome = Directory.CreateDirectory(\\n    68\\t            Path.Combine(Path.GetTempPath(), $\\\"ailedger-codex-{request.RunId.Value}-{Guid.NewGuid():N}\\\")).FullName;\\n    69\\t        try\\n    70\\t        {\\n    71\\t            // Linked, not copied: a governed run should not put a second copy of the operator's\\n    72\\t            // credentials on disk for its duration.\\n    73\\t            File.CreateSymbolicLink(Path.Combine(governedHome, \\\"auth.json\\\"), credentials);\\n    74\\t            var configuration = request.Model is null\\n    75\\t                ? string.Empty\\n    76\\t                : $\\\"model = {RoslynNavigation.Quote(request.Model)}{Environment.NewLine}\\\";\\n    77\\t            var settings = RoslynNavigation.CreateSettingsFile(request, governedHome);\\n    78\\t            string? guardCommand = null;\\n    79\\t            if (settings is not null)\\n    80\\t            {\\n    81\\t                configuration += RoslynNavigation.Configuration(request.NavigationHostAssembly!, settings, governedHome);\\n    82\\t                guardCommand = RoslynNavigation.GuardCommand(request.NavigationHostAssembly!, settings);\\n    83\\t                File.WriteAllText(Path.Combine(governedHome, \\\"hooks.json\\\"),\\n    84\\t                    JsonSerializer.Serialize(new { hooks = RoslynNavigation.Hooks(guardCommand) }));\\n    85\\t                configuration += \\\"\\\\n[features]\\\\nhooks = true\\\\nplugins = false\\\\n\\\";\\n    86\\t                foreach (var root in ProjectRoots(request))\\n    87\\t                {\\n    88\\t                    configuration += $\\\"\\\\n[projects.{RoslynNavigation.Quote(root)}]\\\\ntrust_level = \\\\\\\"untrusted\\\\\\\"\\\\n\\\";\\n    89\\t                }\\n    90\\t            }\\n    91\\t\\n    92\\t            File.WriteAllText(Path.Combine(governedHome, \\\"config.toml\\\"), configuration);\\n    93\\t            if (guardCommand is not null)\\n    94\\t            {\\n    95\\t                await trustHook(request.ExecutablePath, governedHome, request.WorkingDirectory, guardCommand,\\n    96\\t                    cancellationToken).ConfigureAwait(false);\\n    97\\t            }\\n    98\\t\\n    99\\t            return new ProviderLaunchScope(\\n   100\\t                new Dictionary<string, string>(StringComparer.Ordinal) { [\\\"CODEX_HOME\\\"] = governedHome },\\n   101\\t                governedHome);\\n   102\\t        }\\n   103\\t        catch\\n   104\\t        {\\n   105\\t            Directory.Delete(governedHome, recursive: true);\\n   106\\t            throw;\\n   107\\t        }\\n   108\\t    }\\n   109\\t\\n   110\\t    private static IEnumerable<string> ProjectRoots(AgentLaunchRequest request) =>\\n   111\\t        request.AdditionalDirectories.Prepend(request.WorkingDirectory).Concat(request.NavigationDirectories ?? [])\\n   112\\t            .Select(directory =>\\n   113\\t            {\\n   114\\t                for (var current = new DirectoryInfo(directory); current is not null; current = current.Parent)\\n   115\\t                {\\n   116\\t                    if (Directory.Exists(Path.Combine(current.FullName, \\\".git\\\")) || File.Exists(Path.Combine(current.FullName, \\\".git\\\")))\\n   117\\t                    {\\n   118\\t                        return Navigation.RoslynSolutionPaths.Canonicalize(current.FullName);\\n   119\\t                    }\\n   120\\t                }\\n   121\\t\\n   122\\t                return Navigation.RoslynSolutionPaths.Canonicalize(directory);\\n   123\\t            }).Distinct(StringComparer.Ordinal);\\n   124\\t\\n   125\\t    protected override IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId)\\n   126\\t    {\\n   127\\t        var arguments = new List<string> { \\\"exec\\\", \\\"--strict-config\\\", \\\"--sandbox\\\", \\\"workspace-write\\\", \\\"--cd\\\", request.WorkingDirectory };\\n   128\\t        AddOptionalGlobalArguments(arguments, request);\\n   129\\t        FindingsRecording.AddCodexArguments(arguments, request.FindingsEndpoint);\\n   130\\t\\n   131\\t        if (request.Assurance?.VerifierRunId is not null)\\n   132\\t        {\\n   133\\t            // R4 (reviewer-narrative-isolation): CLI precedence keeps project configuration\\n   134\\t            // from restoring ambient instructions outside the neutral reviewer manifest.\\n   135\\t            arguments.Add(\\\"--config\\\");\\n   136\\t            arguments.Add(\\\"project_doc_max_bytes=0\\\");\\n   137\\t        }\\n   138\\t\\n   139\\t        if (request.Mode == AgentLaunchMode.Resume)\\n   140\\t        {\\n   141\\t            arguments.Add(\\\"resume\\\");\\n   142\\t            arguments.Add(\\\"--json\\\");\\n   143\\t            arguments.Add(request.ProviderSessionId!);\\n   144\\t            arguments.Add(\\\"-\\\");\\n   145\\t            return arguments;\\n   146\\t        }\\n   147\\t\\n   148\\t        arguments.Add(\\\"--json\\\");\\n   149\\t        arguments.Add(\\\"--color\\\");\\n   150\\t        arguments.Add(\\\"never\\\");\\n   151\\t        arguments.Add(\\\"-\\\");\\n   152\\t        return arguments;\\n   153\\t    }\\n   154\\t\\n   155\\t    // Codex takes its prompt from stdin, so the briefing leads and the manifest follows it.\\n   156\\t    protected override string ComposeStandardInput(AgentLaunchRequest request) =>\\n   157\\t        GovernedExecutionBriefing.For(request, request.LedgerRoot) + Environment.NewLine +\\n   158\\t        RoslynNavigation.Guidance + Environment.NewLine + request.StandardInput;\\n   159\\t\\n   160\\t    protected override ProviderEvent ParseEvent(long sequence, string json) => ProviderProtocol.ParseCodex(sequence, json);\\n   161\\t\\n   162\\t    protected override string? ReadFinalOutput(ProviderEvent providerEvent)\\n   163\\t    {\\n   164\\t        try\\n   165\\t        {\\n   166\\t            return providerEvent.Type switch\\n   167\\t            {\\n   168\\t                \\\"item.completed\\\" => ProviderProtocol.ReadNestedString(providerEvent.RawJson, \\\"item\\\", \\\"text\\\"),\\n   169\\t                \\\"turn.completed\\\" => ProviderProtocol.ReadString(providerEvent.RawJson, \\\"output_text\\\"),\\n   170\\t                _ => null\\n   171\\t            };\\n   172\\t        }\\n   173\\t        catch (JsonException)\\n   174\\t        {\\n   175\\t            return null;\\n   176\\t        }\\n   177\\t    }\\n   178\\t\\n   179\\t    private static void AddOptionalGlobalArguments(ICollection<string> arguments, AgentLaunchRequest request)\\n   180\\t    {\\n   181\\t        if (!string.IsNullOrWhiteSpace(request.Model))\\n   182\\t        {\\n   183\\t            arguments.Add(\\\"--model\\\");\\n   184\\t            arguments.Add(request.Model);\\n   185\\t        }\\n   186\\t\\n   187\\t        if (!string.IsNullOrWhiteSpace(request.OutputSchema))\\n   188\\t        {\\n   189\\t            arguments.Add(\\\"--output-schema\\\");\\n   190\\t            arguments.Add(request.OutputSchema);\\n   191\\t        }\\n   192\\t\\n   193\\t        foreach (var directory in request.AdditionalDirectories)\\n   194\\t        {\\n   195\\t            arguments.Add(\\\"--add-dir\\\");\\n   196\\t            arguments.Add(directory);\\n   197\\t        }\\n   198\\t    }\\n   199\\t}\\n     1\\tusing System.Text.Json;\\n     2\\tusing System.Security.Cryptography;\\n     3\\tusing AILedger.Core.Contracts;\\n     4\\t\\n     5\\tnamespace AILedger.Cli;\\n     6\\t\\n     7\\tinternal sealed class CognitiveArtifactLoader\\n     8\\t{\\n     9\\t    public async Task<IReadOnlyList<ContextArtifact>> LoadAsync(\\n    10\\t        string? configuredRoot,\\n    11\\t        CancellationToken cancellationToken)\\n    12\\t    {\\n    13\\t        var root = ResolveRoot(configuredRoot);\\n    14\\t        var manifestPath = Path.Combine(root, \\\"manifest.json\\\");\\n    15\\t        if (!File.Exists(manifestPath))\\n    16\\t        {\\n    17\\t            throw new FileNotFoundException(\\\"The cognitive manifest was not found.\\\", manifestPath);\\n    18\\t        }\\n    19\\t\\n    20\\t        await using var stream = File.OpenRead(manifestPath);\\n    21\\t        var manifest = await JsonSerializer.DeserializeAsync<CognitiveManifest>(\\n    22\\t            stream,\\n    23\\t            new JsonSerializerOptions { PropertyNameCaseInsensitive = true },\\n    24\\t            cancellationToken).ConfigureAwait(false)\\n    25\\t            ?? throw new InvalidDataException(\\\"The cognitive manifest is empty.\\\");\\n    26\\t\\n    27\\t        var artifacts = new List<ContextArtifact>();\\n    28\\t\\n    29\\t        foreach (var entry in manifest.Files.OrderBy(item => item.Path, StringComparer.Ordinal))\\n    30\\t        {\\n    31\\t            cancellationToken.ThrowIfCancellationRequested();\\n    32\\t            if (!entry.Path.EndsWith(\\\".md\\\", StringComparison.OrdinalIgnoreCase))\\n    33\\t            {\\n    34\\t                continue;\\n    35\\t            }\\n    36\\t\\n    37\\t            var path = ResolveManifestPath(root, entry.Path);\\n    38\\t            await VerifyHashAsync(path, entry.Sha256, cancellationToken).ConfigureAwait(false);\\n    39\\t            var isRules = entry.Path.Equals(\\\"RULES.md\\\", StringComparison.OrdinalIgnoreCase);\\n    40\\t            var skillName = entry.Path.Split('/', StringSplitOptions.RemoveEmptyEntries)[0];\\n    41\\t            artifacts.Add(new ContextArtifact(\\n    42\\t                isRules ? ContextArtifactKind.Rules : ContextArtifactKind.Skill,\\n    43\\t                isRules\\n    44\\t                    ? \\\"governing-rules\\\"\\n    45\\t                    : entry.Path.EndsWith(\\\"/SKILL.md\\\", StringComparison.OrdinalIgnoreCase)\\n    46\\t                        ? skillName\\n    47\\t                        : $\\\"{entry.Path}:{skillName}\\\",\\n    48\\t                await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false),\\n    49\\t                []));\\n    50\\t        }\\n    51\\t\\n    52\\t        artifacts.Add(new ContextArtifact(\\n    53\\t            ContextArtifactKind.StopCondition,\\n    54\\t            \\\"governance-stop\\\",\\n    55\\t            \\\"Stop when proceeding would exceed assigned capabilities, alter scope, or bypass required independent verification.\\\",\\n    56\\t            []));\\n    57\\t        return artifacts;\\n    58\\t    }\\n    59\\t\\n    60\\t    private static string ResolveRoot(string? configuredRoot)\\n    61\\t    {\\n    62\\t        var explicitRoot = configuredRoot ?? Environment.GetEnvironmentVariable(\\\"AILEDGER_COGNITIVE_ROOT\\\");\\n    63\\t        if (!string.IsNullOrWhiteSpace(explicitRoot))\\n    64\\t        {\\n    65\\t            return Path.GetFullPath(explicitRoot);\\n    66\\t        }\\n    67\\t\\n    68\\t        foreach (var start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })\\n    69\\t        {\\n    70\\t            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)\\n    71\\t            {\\n    72\\t                var candidate = Path.Combine(directory.FullName, \\\"cognitive\\\");\\n    73\\t                if (File.Exists(Path.Combine(candidate, \\\"manifest.json\\\")))\\n    74\\t                {\\n    75\\t                    return candidate;\\n    76\\t                }\\n    77\\t            }\\n    78\\t        }\\n    79\\t\\n    80\\t        throw new DirectoryNotFoundException(\\n    81\\t            \\\"Could not locate the cognitive layer. Use '--cognitive-root PATH' or AILEDGER_COGNITIVE_ROOT.\\\");\\n    82\\t    }\\n    83\\t\\n    84\\t    private static string ResolveManifestPath(string root, string relativePath)\\n    85\\t    {\\n    86\\t        var path = Path.GetFullPath(Path.Combine(root, relativePath));\\n    87\\t        if (!File.Exists(path))\\n    88\\t        {\\n    89\\t            path = Path.GetFullPath(Path.Combine(root, \\\"skills\\\", relativePath));\\n    90\\t        }\\n    91\\t\\n    92\\t        var relative = Path.GetRelativePath(root, path);\\n    93\\t        if (Path.IsPathRooted(relative) || relative.StartsWith(\\\"..\\\", StringComparison.Ordinal))\\n    94\\t        {\\n    95\\t            throw new InvalidDataException($\\\"Cognitive manifest path '{relativePath}' escapes its root.\\\");\\n    96\\t        }\\n    97\\t\\n    98\\t        if (!File.Exists(path))\\n    99\\t        {\\n   100\\t            throw new FileNotFoundException($\\\"Cognitive artifact '{relativePath}' was not found.\\\", path);\\n   101\\t        }\\n   102\\t\\n   103\\t        return path;\\n   104\\t    }\\n   105\\t\\n   106\\t    private static async Task VerifyHashAsync(\\n   107\\t        string path,\\n   108\\t        string expectedHash,\\n   109\\t        CancellationToken cancellationToken)\\n   110\\t    {\\n   111\\t        await using var stream = File.OpenRead(path);\\n   112\\t        var hash = await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);\\n   113\\t        var actualHash = Convert.ToHexString(hash);\\n   114\\t        if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))\\n   115\\t        {\\n   116\\t            throw new InvalidDataException($\\\"Cognitive artifact '{path}' does not match its manifest hash.\\\");\\n   117\\t        }\\n   118\\t    }\\n   119\\t\\n   120\\t    private sealed record CognitiveManifest(IReadOnlyList<CognitiveFile> Files);\\n   121\\t    private sealed record CognitiveFile(string Path, string Sha256);\\n   122\\t}\\n     1\\tusing AILedger.Cli;\\n     2\\tusing AILedger.Core.Application;\\n     3\\tusing AILedger.Core.Contracts;\\n     4\\tusing AILedger.Core.Domain;\\n     5\\tusing AILedger.Storage;\\n     6\\tusing AILedger.TestSupport;\\n     7\\t\\n     8\\tnamespace AILedger.Tests.Support;\\n     9\\t\\n    10\\t// Adding work and launching a provider are refused until the acting actor has been briefed, so a\\n    11\\t// test that reaches either command brief its actor first — which is what an operator now does\\n    12\\t// before decomposing a task.\\n    13\\t//\\n    14\\t// It goes through the real 'context build' rather than writing the event by hand. The gate\\n    15\\t// recomputes the skill digests from the cognitive layer and compares them, so a hand-written\\n    16\\t// digest would be refused as stale. That refusal would be the check working; going through the\\n    17\\t// production path is what makes the staged brief a current one.\\n    18\\tinternal static class ContextBrief\\n    19\\t{\\n    20\\t    public static async Task BuildAsync(\\n    21\\t        string ledgerRoot,\\n    22\\t        string taskId,\\n    23\\t        string actorId = \\\"operator\\\",\\n    24\\t        string? cognitiveRoot = null)\\n    25\\t    {\\n    26\\t        var application = new CliApplication(\\n    27\\t            TextWriter.Null,\\n    28\\t            TextWriter.Null,\\n    29\\t            Service,\\n    30\\t            _ => throw new InvalidOperationException(\\\"Briefing an actor starts no provider.\\\"),\\n    31\\t            new ContextAssembler());\\n    32\\t        // Written to a file rather than to standard output, so a test asserting on what the\\n    33\\t        // command under test printed does not also read a manifest.\\n    34\\t        var manifestPath = Path.Combine(Path.GetTempPath(), $\\\"brief-{Guid.NewGuid():N}.json\\\");\\n    35\\t        var exit = await application.RunAsync(\\n    36\\t            [\\\"context\\\", \\\"build\\\", \\\"--root\\\", ledgerRoot, \\\"--task\\\", taskId, \\\"--actor\\\", actorId,\\n    37\\t             \\\"--cognitive-root\\\", cognitiveRoot ?? CognitiveRoot(), \\\"--output\\\", manifestPath],\\n    38\\t            CancellationToken.None);\\n    39\\t        File.Delete(manifestPath);\\n    40\\t        if (exit != 0)\\n    41\\t        {\\n    42\\t            throw new InvalidOperationException(\\n    43\\t                $\\\"Briefing '{actorId}' on task '{taskId}' failed with exit code {exit}.\\\");\\n    44\\t        }\\n    45\\t    }\\n    46\\t\\n    47\\t    // The brief a test that drives the service directly stands in for the cognitive layer with. The\\n    48\\t    // kernel reads no skill's text, only whether the digest a caller found still matches the one the\\n    49\\t    // brief recorded, so a fixed pair is a complete stand-in — as long as both the brief and the\\n    50\\t    // gated command name the same pair.\\n    51\\t    public static readonly IReadOnlyList<ContextSkill> Served =\\n    52\\t    [\\n    53\\t        new ContextSkill(\\\"workflow-coordinator\\\", \\\"hash-of-workflow-coordinator\\\"),\\n    54\\t        new ContextSkill(\\\"task-orchestrator\\\", \\\"hash-of-task-orchestrator\\\")\\n    55\\t    ];\\n    56\\t\\n    57\\t    // For a test that drives the service directly rather than through the CLI.\\n    58\\t    public static async Task RecordAsync(\\n    59\\t        IGovernedTaskService service,\\n    60\\t        string taskId,\\n    61\\t        string actorId = \\\"operator\\\")\\n    62\\t    {\\n    63\\t        await service.ExecuteAsync(\\n    64\\t            new TaskId(taskId),\\n    65\\t            new RecordContextBuiltCommand(\\n    66\\t                new ActorId(actorId), null, $\\\"brief-{actorId}\\\", null, Served),\\n    67\\t            CancellationToken.None).ConfigureAwait(false);\\n    68\\t    }\\n    69\\t\\n    70\\t    // The digests a brief built through the CLI recorded, for a test that briefs against the real\\n    71\\t    // cognitive layer and then drives the service by hand. Restating them as literals would be a\\n    72\\t    // second copy of what the layer says, and it would go stale the first time a skill is edited.\\n    73\\t    public static async Task<IReadOnlyList<ContextSkill>> RecordedAsync(\\n    74\\t        IGovernedTaskService service,\\n    75\\t        string taskId,\\n    76\\t        string actorId = \\\"operator\\\")\\n    77\\t    {\\n    78\\t        var state = await service.GetStateAsync(new TaskId(taskId), CancellationToken.None)\\n    79\\t            .ConfigureAwait(false);\\n    80\\t        return state!.ContextBuilds[new ActorId(actorId)].Skills;\\n    81\\t    }\\n    82\\t\\n    83\\t    // What the CLI does before a gated command: read the layer again and hand the kernel what it\\n    84\\t    // serves now. A command that names nothing is refused, because a brief nobody can check is not\\n    85\\t    // a current brief — so a test driving the service by hand says, through this, that the layer it\\n    86\\t    // was briefed from has not changed.\\n    87\\t    public static LedgerCommand WithServedSkills(LedgerCommand command) =>\\n    88\\t        command switch\\n    89\\t        {\\n    90\\t            AddWorkItemCommand { SkillsServedNow: null } add => add with { SkillsServedNow = Served },\\n    91\\t            StartRunCommand { LaunchTokenHash: not null, SkillsServedNow: null } start =>\\n    92\\t                start with { SkillsServedNow = Served },\\n    93\\t            _ => command\\n    94\\t        };\\n    95\\t\\n    96\\t    public static string CognitiveRoot()\\n    97\\t    {\\n    98\\t        var candidate = Path.Combine(RepositoryLayout.Root, \\\"cognitive\\\");\\n    99\\t        if (!File.Exists(Path.Combine(candidate, \\\"manifest.json\\\")))\\n   100\\t        {\\n   101\\t            throw new DirectoryNotFoundException($\\\"Test cognitive manifest is missing from '{candidate}'.\\\");\\n   102\\t        }\\n   103\\t\\n   104\\t        return candidate;\\n   105\\t    }\\n   106\\t\\n   107\\t    // No lesson store: briefing reads the task and appends one event, and a shared store would let\\n   108\\t    // a test holding a temporary root write into the operator's real one.\\n   109\\t    private static IGovernedTaskService Service(string root)\\n   110\\t    {\\n   111\\t        var reducer = new TaskReducer();\\n   112\\t        return new FileGovernedTaskService(root, new CommandHandler(reducer, new AuthorizationPolicy()), reducer);\\n   113\\t    }\\n   114\\t}\\n     1\\tusing System.Runtime.CompilerServices;\\n     2\\t\\n     3\\tnamespace AILedger.Tests.Support;\\n     4\\t\\n     5\\tinternal static class TestEnvironment\\n     6\\t{\\n     7\\t    // CLI fixtures that omit --cognitive-root must read the same layer they were briefed from.\\n     8\\t    // Configure it once before parallel tests start, using the production-supported setting.\\n     9\\t    // This affects only this test process and its children, never the shell or installed tool.\\n    10\\t    [ModuleInitializer]\\n    11\\t    internal static void Initialize() =>\\n    12\\t        Environment.SetEnvironmentVariable(\\\"AILEDGER_COGNITIVE_ROOT\\\", ContextBrief.CognitiveRoot());\\n    13\\t}\\n\",\"exit_code\":0,\"status\":\"completed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:02.807069+00:00"
+      },
+      {
+        "sequence": 14,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_8\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"findings\":[{\"key\":\"later\",\"statement\":\"The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.\"}],\"evidence\":[{\"key\":\"later-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66\",\"summary\":\"The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.\",\"supports\":[{\"claim_id\":\"task6-deliberately-missing\"}],\"refutes\":[]}]},\"result\":null,\"error\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:14.460019+00:00"
+      },
+      {
+        "sequence": 15,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_8\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"findings\":[{\"key\":\"later\",\"statement\":\"The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.\"}],\"evidence\":[{\"key\":\"later-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66\",\"summary\":\"The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.\",\"supports\":[{\"claim_id\":\"task6-deliberately-missing\"}],\"refutes\":[]}]},\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"schema_version\\\":1,\\\"attempt_id\\\":\\\"ae6253c1d18a4a78b312b3bf2add6efe\\\",\\\"status\\\":\\\"error\\\",\\\"error\\\":{\\\"code\\\":\\\"kernel_refused\\\",\\\"message\\\":\\\"Unknown claim \\\\u0027task6-deliberately-missing\\\\u0027.\\\",\\\"boundary\\\":\\\"kernel\\\",\\\"commit_state\\\":\\\"not_committed\\\",\\\"retry\\\":\\\"none\\\",\\\"item_path\\\":\\\"evidence[0]\\\",\\\"rule_id\\\":null}}\"}],\"structured_content\":{\"schema_version\":1,\"attempt_id\":\"ae6253c1d18a4a78b312b3bf2add6efe\",\"status\":\"error\",\"error\":{\"code\":\"kernel_refused\",\"message\":\"Unknown claim 'task6-deliberately-missing'.\",\"boundary\":\"kernel\",\"commit_state\":\"not_committed\",\"retry\":\"none\",\"item_path\":\"evidence[0]\",\"rule_id\":null}}},\"error\":null,\"status\":\"failed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:14.523845+00:00"
+      },
+      {
+        "sequence": 16,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_9\",\"type\":\"agent_message\",\"text\":\"The deliberate missing-claim reference was refused with `kernel_refused` and `not_committed`. I’ll correct only that reference, submit the batch, then replay the identical request once.\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:17.521642+00:00"
+      },
+      {
+        "sequence": 17,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_10\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"findings\":[{\"key\":\"later\",\"statement\":\"The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.\"}],\"evidence\":[{\"key\":\"later-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66\",\"summary\":\"The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.\",\"supports\":[{\"finding\":\"later\"}],\"refutes\":[]}]},\"result\":null,\"error\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:21.271624+00:00"
+      },
+      {
+        "sequence": 18,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_10\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"findings\":[{\"key\":\"later\",\"statement\":\"The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.\"}],\"evidence\":[{\"key\":\"later-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66\",\"summary\":\"The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.\",\"supports\":[{\"finding\":\"later\"}],\"refutes\":[]}]},\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"schema_version\\\":1,\\\"attempt_id\\\":\\\"cfaa12a002ea412fa53fafe4800fc702\\\",\\\"status\\\":\\\"committed\\\",\\\"replayed\\\":false,\\\"receipt\\\":{\\\"schema_version\\\":1,\\\"request_id\\\":\\\"task6-later\\\",\\\"transaction_id\\\":\\\"05c781986df543e983501a738725a2ad\\\",\\\"task_id\\\":\\\"live\\\",\\\"actor_id\\\":\\\"researcher\\\",\\\"run_id\\\":\\\"R1\\\",\\\"correlation_id\\\":\\\"R1\\\",\\\"causation_id\\\":null,\\\"payload_fingerprint\\\":\\\"10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c\\\",\\\"fingerprint_algorithm\\\":\\\"findings-v1-c14n1\\\",\\\"committed_at\\\":\\\"2026-09-28T17:05:21.27289+00:00\\\",\\\"ledger_version\\\":11,\\\"event_ids\\\":[\\\"live:0000000010\\\",\\\"live:0000000011\\\"],\\\"findings\\\":[{\\\"key\\\":\\\"later\\\",\\\"claim_id\\\":\\\"CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5\\\",\\\"event_id\\\":\\\"live:0000000010\\\"}],\\\"evidence\\\":[{\\\"key\\\":\\\"later-evidence\\\",\\\"evidence_id\\\":\\\"EF_7854afae9b6c409987adbe0801a2fb59\\\",\\\"event_id\\\":\\\"live:0000000011\\\"}]}}\"}],\"structured_content\":{\"schema_version\":1,\"attempt_id\":\"cfaa12a002ea412fa53fafe4800fc702\",\"status\":\"committed\",\"replayed\":false,\"receipt\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"transaction_id\":\"05c781986df543e983501a738725a2ad\",\"task_id\":\"live\",\"actor_id\":\"researcher\",\"run_id\":\"R1\",\"correlation_id\":\"R1\",\"causation_id\":null,\"payload_fingerprint\":\"10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c\",\"fingerprint_algorithm\":\"findings-v1-c14n1\",\"committed_at\":\"2026-09-28T17:05:21.27289+00:00\",\"ledger_version\":11,\"event_ids\":[\"live:0000000010\",\"live:0000000011\"],\"findings\":[{\"key\":\"later\",\"claim_id\":\"CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5\",\"event_id\":\"live:0000000010\"}],\"evidence\":[{\"key\":\"later-evidence\",\"evidence_id\":\"EF_7854afae9b6c409987adbe0801a2fb59\",\"event_id\":\"live:0000000011\"}]}}},\"error\":null,\"status\":\"completed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:21.30473+00:00"
+      },
+      {
+        "sequence": 19,
+        "type": "item.started",
+        "rawJson": "{\"type\":\"item.started\",\"item\":{\"id\":\"item_11\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"findings\":[{\"key\":\"later\",\"statement\":\"The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.\"}],\"evidence\":[{\"key\":\"later-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66\",\"summary\":\"The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.\",\"supports\":[{\"finding\":\"later\"}],\"refutes\":[]}]},\"result\":null,\"error\":null,\"status\":\"in_progress\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:23.460631+00:00"
+      },
+      {
+        "sequence": 20,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_11\",\"type\":\"mcp_tool_call\",\"server\":\"ailedger\",\"tool\":\"record_findings\",\"arguments\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"findings\":[{\"key\":\"later\",\"statement\":\"The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.\"}],\"evidence\":[{\"key\":\"later-evidence\",\"source_type\":\"source-read\",\"citation\":\"sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66\",\"summary\":\"The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.\",\"supports\":[{\"finding\":\"later\"}],\"refutes\":[]}]},\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"schema_version\\\":1,\\\"attempt_id\\\":\\\"406e20748b534606bd4d24bfdaef9f90\\\",\\\"status\\\":\\\"committed\\\",\\\"replayed\\\":true,\\\"receipt\\\":{\\\"schema_version\\\":1,\\\"request_id\\\":\\\"task6-later\\\",\\\"transaction_id\\\":\\\"05c781986df543e983501a738725a2ad\\\",\\\"task_id\\\":\\\"live\\\",\\\"actor_id\\\":\\\"researcher\\\",\\\"run_id\\\":\\\"R1\\\",\\\"correlation_id\\\":\\\"R1\\\",\\\"causation_id\\\":null,\\\"payload_fingerprint\\\":\\\"10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c\\\",\\\"fingerprint_algorithm\\\":\\\"findings-v1-c14n1\\\",\\\"committed_at\\\":\\\"2026-09-28T17:05:21.27289+00:00\\\",\\\"ledger_version\\\":11,\\\"event_ids\\\":[\\\"live:0000000010\\\",\\\"live:0000000011\\\"],\\\"findings\\\":[{\\\"key\\\":\\\"later\\\",\\\"claim_id\\\":\\\"CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5\\\",\\\"event_id\\\":\\\"live:0000000010\\\"}],\\\"evidence\\\":[{\\\"key\\\":\\\"later-evidence\\\",\\\"evidence_id\\\":\\\"EF_7854afae9b6c409987adbe0801a2fb59\\\",\\\"event_id\\\":\\\"live:0000000011\\\"}]}}\"}],\"structured_content\":{\"schema_version\":1,\"attempt_id\":\"406e20748b534606bd4d24bfdaef9f90\",\"status\":\"committed\",\"replayed\":true,\"receipt\":{\"schema_version\":1,\"request_id\":\"task6-later\",\"transaction_id\":\"05c781986df543e983501a738725a2ad\",\"task_id\":\"live\",\"actor_id\":\"researcher\",\"run_id\":\"R1\",\"correlation_id\":\"R1\",\"causation_id\":null,\"payload_fingerprint\":\"10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c\",\"fingerprint_algorithm\":\"findings-v1-c14n1\",\"committed_at\":\"2026-09-28T17:05:21.27289+00:00\",\"ledger_version\":11,\"event_ids\":[\"live:0000000010\",\"live:0000000011\"],\"findings\":[{\"key\":\"later\",\"claim_id\":\"CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5\",\"event_id\":\"live:0000000010\"}],\"evidence\":[{\"key\":\"later-evidence\",\"evidence_id\":\"EF_7854afae9b6c409987adbe0801a2fb59\",\"event_id\":\"live:0000000011\"}]}}},\"error\":null,\"status\":\"completed\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:23.523318+00:00"
+      },
+      {
+        "sequence": 21,
+        "type": "item.completed",
+        "rawJson": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_12\",\"type\":\"agent_message\",\"text\":\"The source snapshots show that the test build records the source checkout path in `AILedger.TestRepositoryRoot` assembly metadata. `RepositoryLayout` reads it and requires an absolute path containing `AILedger.sln` and a `.git` marker. This lets tests identify the checkout when build artifacts are elsewhere. [RepositoryLayout.props](/private/tmp/ailedger-task6-live-authorized/work/sources/RepositoryLayout.props:2) · [RepositoryLayout.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/RepositoryLayout.cs:9)  \\nTransaction `2398dc87e13847ee9fc23f93632266b4`; evidence `EF_2908873cab134686a912e19d358d8719`.\\n\\nA remaining limitation is that tests without an explicit cognitive root use a process-wide `AILEDGER_COGNITIVE_ROOT` set to that checkout’s `cognitive` directory. An alternate root therefore needs an explicit override. [TestEnvironment.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/TestEnvironment.cs:7) · [ContextBrief.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/ContextBrief.cs:96) · [CognitiveArtifactLoader.cs](/private/tmp/ailedger-task6-live-authorized/work/sources/CognitiveArtifactLoader.cs:60)  \\nTransaction `05c781986df543e983501a738725a2ad`; evidence `EF_7854afae9b6c409987adbe0801a2fb59`.\\n\\nThe deliberate missing-claim attempt returned `kernel_refused`, `not_committed`, and no canonical transaction or evidence IDs. The corrected request committed; its exact retry returned `replayed:true` with the same transaction and IDs.\\n\\nThe snapshots do not establish which test projects import `RepositoryLayout.props`, so coverage across all test assemblies remains unconfirmed.\"}}",
+        "isTerminal": false,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:37.663999+00:00"
+      },
+      {
+        "sequence": 22,
+        "type": "turn.completed",
+        "rawJson": "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":310754,\"cached_input_tokens\":281344,\"cache_write_input_tokens\":0,\"output_tokens\":2297,\"reasoning_output_tokens\":782}}",
+        "isTerminal": true,
+        "isError": false,
+        "recordedAt": "2026-09-28T17:05:37.690075+00:00"
+      }
+    ],
+    "standardError": "",
+    "detectedVersion": "codex-cli 0.155.0-alpha.9.2",
+    "isResume": false,
+    "truncatedLines": 0,
+    "endedAtTheLaunchTimeout": false
+  },
+  "retrospective": {
+    "task": "live",
+    "stage": "research",
+    "version": 12,
+    "wallClockHours": 0.02,
+    "agentMinutes": 1,
+    "events": {
+      "actor.role-assigned": 2,
+      "claim.added": 2,
+      "context.built": 1,
+      "evidence.added": 2,
+      "run.completed": 1,
+      "run.started": 1,
+      "stage.prerequisites-waived": 1,
+      "stage.transitioned": 1,
+      "task.opened": 1
+    },
+    "runs": {
+      "total": 1,
+      "byStatus": {
+        "completed": 1
+      },
+      "bySubjectRole": {
+        "researcher": 1
+      },
+      "byProvider": {
+        "codex": 1
+      },
+      "byActor": {
+        "researcher": 1
+      },
+      "briefDelivered": 1,
+      "costRecorded": 1,
+      "operatorFilingRuns": 0,
+      "diedBeforeBriefing": 0
+    },
+    "cost": {
+      "runsMeasured": 1,
+      "runsUnmeasured": 0,
+      "turns": {
+        "runsMeasured": 0
+      },
+      "outputTokens": {
+        "runsMeasured": 1,
+        "total": 2297
+      },
+      "millisecondsToFirstLedgerWrite": {
+        "runsMeasured": 1,
+        "total": 27118
+      },
+      "tokensInUncached": {
+        "runsMeasured": 1,
+        "total": 29410
+      },
+      "tokensInCacheWrite": {
+        "runsMeasured": 1,
+        "total": 0
+      },
+      "tokensInCacheRead": {
+        "runsMeasured": 1,
+        "total": 281344
+      }
+    },
+    "epistemic": {
+      "claims": {
+        "open": 2,
+        "validated": 0,
+        "rejected": 0,
+        "superseded": 0
+      },
+      "openClaimsWithSupportingEvidence": 2,
+      "evidence": {
+        "total": 2,
+        "supportsOnly": 2,
+        "refutesOnly": 0,
+        "both": 0,
+        "neither": 0,
+        "bySourceType": {
+          "source-read": 2
+        }
+      },
+      "decisions": {
+        "proposed": 0,
+        "accepted": 0,
+        "superseded": 0,
+        "invalidated": 0
+      },
+      "alternatives": 0,
+      "challenges": {
+        "open": 0,
+        "supported": 0,
+        "rejected": 0,
+        "withdrawn": 0
+      }
+    },
+    "causalChains": [],
+    "authorship": {
+      "operator": 8,
+      "researcher": 4
+    },
+    "refusals": {
+      "total": 1,
+      "unreadableRows": 0,
+      "bySite": {
+        "service": 1
+      },
+      "byActor": {
+        "researcher": 1
+      },
+      "byCommand": {
+        "AddEvidenceCommand": 1
+      }
+    },
+    "stages": {
+      "transitions": 1,
+      "waivers": 1,
+      "waiverReasons": [
+        "Disposable task-6 trial fixture only"
+      ],
+      "waiversByOrigin": {
+        "manual": 1
+      }
+    },
+    "artifacts": {
+      "byKind": {},
+      "supersessions": 0
+    },
+    "escalations": [],
+    "lessons": {
+      "recalled": 0,
+      "cited": 0,
+      "minted": 0,
+      "marks": 0
+    },
+    "workItems": [],
+    "notMeasured": [
+      "outcomeQuality",
+      "coordinatorCost",
+      "coordinatorLoop.reworkCausedByCoordinatorDecisions",
+      "coordinatorLoop.sessionWallClock",
+      "coordinatorLoop.timeWithNoAgentRunning",
+      "learningBehaviour"
+    ],
+    "coordinatorLoop": {
+      "coordinatorActors": [
+        "operator"
+      ],
+      "sessions": [],
+      "hasUnbracketedCoordinatorActivity": true,
+      "degradations": [
+        {
+          "measure": "sessionWallClock",
+          "reason": "unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+        },
+        {
+          "measure": "timeWithNoAgentRunning",
+          "reason": "unbracketedHistory: this work was recorded before a coordinator session existed, and no bracket is ever inferred from a time gap, a task lifetime or an actor lifetime (D7, PALT3)."
+        },
+        {
+          "measure": "sessionAttribution",
+          "reason": "Delays, ratios, avoidability and refusals are computed at task and actor level. Claims, decisions, work items and refusal rows carry no session id, so none of them can be partitioned between two sessions of the same actor without inventing the split."
+        },
+        {
+          "measure": "eventsPerDeliveredWorkItem",
+          "reason": "The ratio is an actor-and-task figure. Its numerator is deliberately not reported: a raw event count is never a measure on its own (D4)."
+        },
+        {
+          "measure": "coordinatorClaimReversed",
+          "reason": "The refuting record is added after the claim it names, because evidence cannot cite a claim that does not yet exist. So a reversal here reads as a reasonable revision unless the reversal also cited older evidence, and the exact form of this comparison is reopened findings, where the disposition follows the evidence rather than preceding it."
+        },
+        {
+          "measure": "misScopedWorkItems",
+          "reason": "An abandoned item and the wider item that replaced it are both in the record, but the abandon reason is free text and names no coordinator record, so the mis-scope is reported without an avoidability verdict. And only the pair is reported: an item released with no wider item after it is not counted here at all, because the wider successor is the evidence that the original scope was too narrow and a release has many other reasons."
+        }
+      ],
+      "delays": {
+        "toFindingDisposed": {
+          "measured": 0,
+          "unmatched": 1
+        },
+        "toNextDispatch": {
+          "measured": 0,
+          "unmatched": 1
+        },
+        "population": "One row per run.completed in this task's log. A finding belongs to a run when the event that added it carries the run's id or the run's own correlation id, which is the convention the launcher briefs an agent with. The figures here are the whole task; the partition in byActor holds the same rows keyed by the actor that closed each gap, and an unmatched row appears here only, because a gap nobody closed has no actor to attribute."
+      },
+      "ratios": {
+        "eventsPerDeliveredWorkItem": {
+          "denominator": 0,
+          "absence": "noWorkItemDeliveredYet"
+        },
+        "eventsPerFindingDisposed": {
+          "denominator": 0,
+          "absence": "noFindingDisposedYet"
+        }
+      },
+      "reversedClaims": [],
+      "supersededDecisions": [],
+      "reopenedFindings": [],
+      "misScopedWorkItems": [],
+      "refusals": {
+        "rows": 0,
+        "unreadableRows": 0,
+        "firstTime": 0,
+        "repeat": 0,
+        "repeatedKeys": [],
+        "population": "The coordinating actors' rows only; a worker's or a verifier's refusals are that actor's lesson and not this loop's. Refusal rows carry no session id, so this is an actor-level population for the whole task and cannot be partitioned between two sessions of one actor."
+      },
+      "tokenCost": {
+        "absence": "noCoordinatorUsageSupplied: no harness transcript was named, so nothing was read. This is an absence of a measurement, not a measurement of zero."
+      },
+      "dispatches": {
+        "rework": {
+          "dispatches": 1,
+          "joined": 0,
+          "namingNothing": 1,
+          "rows": [],
+          "population": "Every dispatch a coordinating actor recorded on this task, whether by 'provider launch' or by 'run start'. A dispatch is joined when it names a cause and that cause is an event in this log; naming nothing, and naming an id this log does not hold, are both counted as unjoined, because neither can be compared against anything.",
+          "absence": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing '--cause' on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+        },
+        "failedDispatches": {
+          "launches": 1,
+          "judged": 1,
+          "rows": [],
+          "refusedLaunches": 0,
+          "population": "The coordinating actors' provider launches on this task. A launch is judged when it carries the limit it was given, the provider's own terminal reason, or the launcher's observation of what ended it; one carrying none of the three was recorded before those inputs existed. Whether a dispatch failed is read from the provider's reason and never from run.status, because a run whose agent returned an adverse verdict is a run that did its job (C8). Whether the coordinator's own limit ended it is read from that recorded observation and never from elapsed time, because the interval this projection can see is wider than the provider's run (VC6). Refused launches are the same rows measure 9 reports under the provider-launch site and must not be added to it twice."
+        },
+        "wastedDispatches": {
+          "judged": 1,
+          "rows": [],
+          "unclassified": 0,
+          "refusedLaunches": 0,
+          "population": "The coordinating actors' provider launches that carry the inputs this measure needs. A completed run is never counted here, whatever its agent concluded: a verifier that finds nothing did the work it was sent to do. A launch that failed with a brief delivered is counted under the unclassified figure and not as waste, because separating a wrong scope from an ordinary provider fault would mean grading the reason's prose. Refused launches are the same rows measure 9 reports under the provider-launch site."
+        }
+      },
+      "notMeasured": [
+        {
+          "measure": "reworkCausedByCoordinatorDecisions",
+          "reason": "No dispatch on this task names the coordinator record that prompted it, so no dispatch can be joined to a reversed record. The link is a causationId on run.started, set by passing '--cause' on the launch; it is recorded going forward and never backfilled, because an inferred causal link is a fabricated measurement (D7, PALT3)."
+        }
+      ],
+      "byActor": []
+    },
+    "briefWaivers": {
+      "total": 0,
+      "byOrigin": {}
+    },
+    "kernelIdentityPartitions": [
+      {
+        "identity": "2.0.0|cd3f2d917e31e2c022cf694d0720d93441a81586|1970-01-01T00:00:00.0000000+00:00",
+        "build": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "events": 12,
+        "eventsByType": {
+          "actor.role-assigned": 2,
+          "claim.added": 2,
+          "context.built": 1,
+          "evidence.added": 2,
+          "run.completed": 1,
+          "run.started": 1,
+          "stage.prerequisites-waived": 1,
+          "stage.transitioned": 1,
+          "task.opened": 1
+        },
+        "refusals": 1,
+        "refusalsBySite": {
+          "service": 1
+        },
+        "refusalsByCommand": {
+          "AddEvidenceCommand": 1
+        }
+      }
+    ],
+    "findings": {
+      "canonicalVersion": 12,
+      "committedTransactions": 2,
+      "granularEvents": 4,
+      "observedTransportAttempts": 4,
+      "observedToolAttempts": 4,
+      "observedApplicationAttempts": 4,
+      "transactions": [
+        {
+          "schemaVersion": 1,
+          "requestId": "task6-early",
+          "transactionId": "2398dc87e13847ee9fc23f93632266b4",
+          "taskId": "live",
+          "actorId": "researcher",
+          "runId": "R1",
+          "correlationId": "R1",
+          "payloadFingerprint": "980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b",
+          "fingerprintAlgorithm": "findings-v1-c14n1",
+          "committedAt": "2026-09-28T17:04:58.556082+00:00",
+          "ledgerVersion": 9,
+          "eventIds": [
+            "live:0000000008",
+            "live:0000000009"
+          ],
+          "findings": [
+            {
+              "key": "first",
+              "claimId": "CF_338e7598b71b45e1a37738042bce743c",
+              "eventId": "live:0000000008"
+            }
+          ],
+          "evidence": [
+            {
+              "key": "first-evidence",
+              "evidenceId": "EF_2908873cab134686a912e19d358d8719",
+              "eventId": "live:0000000009"
+            }
+          ]
+        },
+        {
+          "schemaVersion": 1,
+          "requestId": "task6-later",
+          "transactionId": "05c781986df543e983501a738725a2ad",
+          "taskId": "live",
+          "actorId": "researcher",
+          "runId": "R1",
+          "correlationId": "R1",
+          "payloadFingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+          "fingerprintAlgorithm": "findings-v1-c14n1",
+          "committedAt": "2026-09-28T17:05:21.27289+00:00",
+          "ledgerVersion": 11,
+          "eventIds": [
+            "live:0000000010",
+            "live:0000000011"
+          ],
+          "findings": [
+            {
+              "key": "later",
+              "claimId": "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5",
+              "eventId": "live:0000000010"
+            }
+          ],
+          "evidence": [
+            {
+              "key": "later-evidence",
+              "evidenceId": "EF_7854afae9b6c409987adbe0801a2fb59",
+              "eventId": "live:0000000011"
+            }
+          ]
+        }
+      ],
+      "attempts": [
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/findings-attempts.jsonl",
+          "line": 1,
+          "kind": "application",
+          "observation": {
+            "schemaVersion": 1,
+            "attemptId": "b8c927eaf7104d8bb52e83c5676bc33a",
+            "requestId": "task6-early",
+            "payloadFingerprint": "980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "kernelIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:04:58.547502+00:00",
+            "endedAt": "2026-09-28T17:04:58.59329+00:00",
+            "durationMs": 45.7873,
+            "lockWaitMs": 0.1848,
+            "validationMs": 10.8585,
+            "appendMs": 9.6524,
+            "outcome": "committed",
+            "commitState": "committed",
+            "transactionId": "2398dc87e13847ee9fc23f93632266b4",
+            "eventIds": [
+              "live:0000000008",
+              "live:0000000009"
+            ],
+            "replayed": false,
+            "collectionStatus": "collected"
+          },
+          "canonicalTransactionId": "2398dc87e13847ee9fc23f93632266b4",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/findings-attempts.jsonl",
+          "line": 2,
+          "kind": "application",
+          "observation": {
+            "schemaVersion": 1,
+            "attemptId": "ae6253c1d18a4a78b312b3bf2add6efe",
+            "requestId": "task6-later",
+            "payloadFingerprint": "6bcffe1e4bd4db9536acdb85c2e6ac8250fd96126cd9c9cc5d779a21442f284f",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "kernelIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:05:14.461404+00:00",
+            "endedAt": "2026-09-28T17:05:14.504684+00:00",
+            "durationMs": 43.2798,
+            "lockWaitMs": 0.1272,
+            "validationMs": 1.869,
+            "outcome": "error",
+            "code": "kernel_refused",
+            "commitState": "not_committed",
+            "replayed": false,
+            "collectionStatus": "collected"
+          },
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/findings-attempts.jsonl",
+          "line": 3,
+          "kind": "application",
+          "observation": {
+            "schemaVersion": 1,
+            "attemptId": "cfaa12a002ea412fa53fafe4800fc702",
+            "requestId": "task6-later",
+            "payloadFingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "kernelIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:05:21.271863+00:00",
+            "endedAt": "2026-09-28T17:05:21.28997+00:00",
+            "durationMs": 18.1082,
+            "lockWaitMs": 0.0816,
+            "validationMs": 0.1658,
+            "appendMs": 6.6822,
+            "outcome": "committed",
+            "commitState": "committed",
+            "transactionId": "05c781986df543e983501a738725a2ad",
+            "eventIds": [
+              "live:0000000010",
+              "live:0000000011"
+            ],
+            "replayed": false,
+            "collectionStatus": "collected"
+          },
+          "canonicalTransactionId": "05c781986df543e983501a738725a2ad",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/findings-attempts.jsonl",
+          "line": 4,
+          "kind": "application",
+          "observation": {
+            "schemaVersion": 1,
+            "attemptId": "406e20748b534606bd4d24bfdaef9f90",
+            "requestId": "task6-later",
+            "payloadFingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "kernelIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:05:23.461072+00:00",
+            "endedAt": "2026-09-28T17:05:23.503921+00:00",
+            "durationMs": 42.8499,
+            "lockWaitMs": 0.1431,
+            "outcome": "committed",
+            "commitState": "committed",
+            "transactionId": "05c781986df543e983501a738725a2ad",
+            "eventIds": [
+              "live:0000000010",
+              "live:0000000011"
+            ],
+            "replayed": true,
+            "collectionStatus": "collected"
+          },
+          "canonicalTransactionId": "05c781986df543e983501a738725a2ad",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/telemetry/findings-transport-2db68141b5b74334bd473e5da8813a49.jsonl",
+          "line": 1,
+          "kind": "transport",
+          "observation": {
+            "schemaVersion": 1,
+            "transportAttemptId": "ecd285fccced42beb81e8df5b7b58dd4",
+            "transportSessionId": "2db68141b5b74334bd473e5da8813a49",
+            "messageKind": "tool_call",
+            "requestId": "task6-early",
+            "payloadFingerprint": "980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "correlationId": "R1",
+            "provider": "codex",
+            "adapterIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:04:58.531229+00:00",
+            "endedAt": "2026-09-28T17:04:58.603685+00:00",
+            "durationMs": 72.4554,
+            "applicationEntered": true,
+            "applicationAttemptId": "b8c927eaf7104d8bb52e83c5676bc33a",
+            "applicationMs": 52.9203,
+            "applicationCollectionStatus": "collected",
+            "outcome": "committed",
+            "commitState": "committed",
+            "transactionId": "2398dc87e13847ee9fc23f93632266b4",
+            "eventIds": [
+              "live:0000000008",
+              "live:0000000009"
+            ],
+            "replayed": false,
+            "responseDelivery": "written",
+            "collectionStatus": "collected"
+          },
+          "canonicalTransactionId": "2398dc87e13847ee9fc23f93632266b4",
+          "joinedApplicationAttemptId": "b8c927eaf7104d8bb52e83c5676bc33a",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/telemetry/findings-transport-2db68141b5b74334bd473e5da8813a49.jsonl",
+          "line": 2,
+          "kind": "transport",
+          "observation": {
+            "schemaVersion": 1,
+            "transportAttemptId": "26f1d443e51d4e74a6fddf4020384a6f",
+            "transportSessionId": "2db68141b5b74334bd473e5da8813a49",
+            "messageKind": "tool_call",
+            "requestId": "task6-later",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "correlationId": "R1",
+            "provider": "codex",
+            "adapterIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:05:14.460999+00:00",
+            "endedAt": "2026-09-28T17:05:14.50614+00:00",
+            "durationMs": 45.1419,
+            "applicationEntered": true,
+            "applicationAttemptId": "ae6253c1d18a4a78b312b3bf2add6efe",
+            "applicationMs": 44.255,
+            "applicationCollectionStatus": "collected",
+            "outcome": "error",
+            "code": "kernel_refused",
+            "boundary": "kernel",
+            "commitState": "not_committed",
+            "replayed": false,
+            "responseDelivery": "written",
+            "collectionStatus": "collected"
+          },
+          "joinedApplicationAttemptId": "ae6253c1d18a4a78b312b3bf2add6efe",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/telemetry/findings-transport-2db68141b5b74334bd473e5da8813a49.jsonl",
+          "line": 3,
+          "kind": "transport",
+          "observation": {
+            "schemaVersion": 1,
+            "transportAttemptId": "fdb67ac6a5c94bdf8c63f32337d6ef5b",
+            "transportSessionId": "2db68141b5b74334bd473e5da8813a49",
+            "messageKind": "tool_call",
+            "requestId": "task6-later",
+            "payloadFingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "correlationId": "R1",
+            "provider": "codex",
+            "adapterIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:05:21.271734+00:00",
+            "endedAt": "2026-09-28T17:05:21.291256+00:00",
+            "durationMs": 19.5226,
+            "applicationEntered": true,
+            "applicationAttemptId": "cfaa12a002ea412fa53fafe4800fc702",
+            "applicationMs": 19.2388,
+            "applicationCollectionStatus": "collected",
+            "outcome": "committed",
+            "commitState": "committed",
+            "transactionId": "05c781986df543e983501a738725a2ad",
+            "eventIds": [
+              "live:0000000010",
+              "live:0000000011"
+            ],
+            "replayed": false,
+            "responseDelivery": "written",
+            "collectionStatus": "collected"
+          },
+          "canonicalTransactionId": "05c781986df543e983501a738725a2ad",
+          "joinedApplicationAttemptId": "cfaa12a002ea412fa53fafe4800fc702",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        },
+        {
+          "source": "/private/tmp/ailedger-task6-live-authorized/ledger/live/telemetry/findings-transport-2db68141b5b74334bd473e5da8813a49.jsonl",
+          "line": 4,
+          "kind": "transport",
+          "observation": {
+            "schemaVersion": 1,
+            "transportAttemptId": "6a9bd1158cf144a3884dea2a984df3c9",
+            "transportSessionId": "2db68141b5b74334bd473e5da8813a49",
+            "messageKind": "tool_call",
+            "requestId": "task6-later",
+            "payloadFingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+            "taskId": "live",
+            "actorId": "researcher",
+            "runId": "R1",
+            "correlationId": "R1",
+            "provider": "codex",
+            "adapterIdentity": {
+              "Version": "2.0.0",
+              "SourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+              "BuildTime": "1970-01-01T00:00:00+00:00"
+            },
+            "startedAt": "2026-09-28T17:05:23.460825+00:00",
+            "endedAt": "2026-09-28T17:05:23.509626+00:00",
+            "durationMs": 48.8011,
+            "applicationEntered": true,
+            "applicationAttemptId": "406e20748b534606bd4d24bfdaef9f90",
+            "applicationMs": 48.1893,
+            "applicationCollectionStatus": "collected",
+            "outcome": "committed",
+            "commitState": "committed",
+            "transactionId": "05c781986df543e983501a738725a2ad",
+            "eventIds": [
+              "live:0000000010",
+              "live:0000000011"
+            ],
+            "replayed": true,
+            "responseDelivery": "written",
+            "collectionStatus": "collected"
+          },
+          "canonicalTransactionId": "05c781986df543e983501a738725a2ad",
+          "joinedApplicationAttemptId": "406e20748b534606bd4d24bfdaef9f90",
+          "joinedRunId": "R1",
+          "joinedProviderSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39"
+        }
+      ],
+      "runs": [
+        {
+          "runId": "R1",
+          "actorId": "researcher",
+          "provider": "codex",
+          "providerVersion": "codex-cli 0.155.0-alpha.9.2",
+          "completion": {
+            "runId": "R1",
+            "status": "completed",
+            "providerSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39",
+            "endedAt": "2026-09-28T17:05:38.564328+00:00",
+            "launcherAuthorized": true,
+            "manifestHash": "d3917c6b6250ac2f9b44fef12abc9fc5922394b78cf0730439eadede958f2dbd",
+            "manifestArtifactCount": 8,
+            "outputTokens": 2297,
+            "millisecondsToFirstLedgerWrite": 27118,
+            "tokensInUncached": 29410,
+            "tokensInCacheWrite": 0,
+            "tokensInCacheRead": 281344,
+            "truncatedLines": 0,
+            "launchTimeoutSeconds": 240,
+            "endedAtTheLaunchTimeout": false
+          }
+        }
+      ],
+      "coverageGaps": [],
+      "notMeasured": [
+        "Attempt counts are observed lower bounds. Best-effort journals have no completeness watermark; a crash or failed write can leave no row.",
+        "Transport, application and phase timings nest; they are not added to task elapsed time.",
+        "Response delivery 'written' is local write/flush, not client acknowledgement. Commit and delivery are independent.",
+        "Exact negotiated MCP versions, relay authentication failures, provider permission/search-hook denials and client acknowledgements are not captured by these journals.",
+        "Run completion supplies joined session/model/turn observations only when recorded; no requested identity or event count fills a missing observation.",
+        "Provider usage remains once per run in the existing retrospective cost measures; attempts, transactions and granular events are separate populations.",
+        "Kernel refusal rows remain in the existing refusal report with original command/reason/build. Journals have no shared refusal ID; no heuristic one-to-one refusal join is asserted."
+      ]
+    }
+  },
+  "mechanical_acceptance_original": {
+    "mechanical_acceptance": true,
+    "semantic_review_required": true,
+    "source_sha256": {
+      "tests/Support/RepositoryLayout.cs": "73380873a4016f6894f765789aeeefe8b1eb5b26ccc38217712c9885cd84f049",
+      "tests/Support/RepositoryLayout.props": "4e8fe32ff25c6a262d247108cbc54819a9c3b28d3d22873bb96f7edb3067ea47",
+      "tests/AILedger.Tests/Support/TestEnvironment.cs": "4dc50622d1a396420c947c7a9b1b5c646a17ace0e9372794f80ebca567465400",
+      "tests/AILedger.Tests/Support/ContextBrief.cs": "23a5c92c4fc377d7f3d42de82380960fe0d1bbe0629731a7bb859be50dcec502",
+      "src/AILedger.Cli/CognitiveArtifactLoader.cs": "394ef9fa945b665103aa70c706312f2a9880e6bba14f23a8a065854c11739002",
+      "src/AILedger.Providers/Adapters/CodexAgentAdapter.cs": "49eb6a9a3b475f2b293c07284df953241a504df1152cdec5b2aa383d06c8bfde"
+    },
+    "claims": [
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000008",
+        "taskId": "live",
+        "actorId": "researcher",
+        "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+        "correlationId": "R1",
+        "data": {
+          "eventType": "claim.added",
+          "claim": {
+            "id": "CF_338e7598b71b45e1a37738042bce743c",
+            "statement": "The test build embeds the source checkout path as AILedger.TestRepositoryRoot assembly metadata, and RepositoryLayout reads that metadata and validates the recorded checkout by requiring an absolute path containing AILedger.sln and a .git file or directory.",
+            "status": "open",
+            "evidenceIds": [],
+            "provenance": {
+              "actorId": "researcher",
+              "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+              "source": "claim.add"
+            }
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 0,
+        "_ailedgerCommandEventCount": 2,
+        "_ailedgerFindingsReceipt": {
+          "schema_version": 1,
+          "request_id": "task6-early",
+          "transaction_id": "2398dc87e13847ee9fc23f93632266b4",
+          "task_id": "live",
+          "actor_id": "researcher",
+          "run_id": "R1",
+          "correlation_id": "R1",
+          "causation_id": null,
+          "payload_fingerprint": "980f7f928d238ef7c969f1ee9e8b6f17cf2f12f07cb6f820c67193acafba0c7b",
+          "fingerprint_algorithm": "findings-v1-c14n1",
+          "committed_at": "2026-09-28T17:04:58.556082+00:00",
+          "ledger_version": 9,
+          "event_ids": [
+            "live:0000000008",
+            "live:0000000009"
+          ],
+          "findings": [
+            {
+              "key": "first",
+              "claim_id": "CF_338e7598b71b45e1a37738042bce743c",
+              "event_id": "live:0000000008"
+            }
+          ],
+          "evidence": [
+            {
+              "key": "first-evidence",
+              "evidence_id": "EF_2908873cab134686a912e19d358d8719",
+              "event_id": "live:0000000009"
+            }
+          ]
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000010",
+        "taskId": "live",
+        "actorId": "researcher",
+        "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+        "correlationId": "R1",
+        "data": {
+          "eventType": "claim.added",
+          "claim": {
+            "id": "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5",
+            "statement": "The test module initializer sets AILEDGER_COGNITIVE_ROOT for the test process to the recorded checkout's cognitive directory, and CognitiveArtifactLoader uses that environment value when no explicit root is configured.",
+            "status": "open",
+            "evidenceIds": [],
+            "provenance": {
+              "actorId": "researcher",
+              "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+              "source": "claim.add"
+            }
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 0,
+        "_ailedgerCommandEventCount": 2,
+        "_ailedgerFindingsReceipt": {
+          "schema_version": 1,
+          "request_id": "task6-later",
+          "transaction_id": "05c781986df543e983501a738725a2ad",
+          "task_id": "live",
+          "actor_id": "researcher",
+          "run_id": "R1",
+          "correlation_id": "R1",
+          "causation_id": null,
+          "payload_fingerprint": "10101e1e754f66edc599d098c0dac6d632efc075a0f869b7235ec26f3a6bd60c",
+          "fingerprint_algorithm": "findings-v1-c14n1",
+          "committed_at": "2026-09-28T17:05:21.27289+00:00",
+          "ledger_version": 11,
+          "event_ids": [
+            "live:0000000010",
+            "live:0000000011"
+          ],
+          "findings": [
+            {
+              "key": "later",
+              "claim_id": "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5",
+              "event_id": "live:0000000010"
+            }
+          ],
+          "evidence": [
+            {
+              "key": "later-evidence",
+              "evidence_id": "EF_7854afae9b6c409987adbe0801a2fb59",
+              "event_id": "live:0000000011"
+            }
+          ]
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000009",
+        "taskId": "live",
+        "actorId": "researcher",
+        "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+        "correlationId": "R1",
+        "data": {
+          "eventType": "evidence.added",
+          "evidence": {
+            "id": "EF_2908873cab134686a912e19d358d8719",
+            "sourceType": "source-read",
+            "citation": "sources/RepositoryLayout.props:2-6; sources/RepositoryLayout.cs:9-19",
+            "summary": "RepositoryLayout.props computes the root from its own directory and adds assembly metadata; RepositoryLayout.Root retrieves that metadata and ValidateRoot checks path qualification, solution file, and Git marker.",
+            "supports": [
+              "CF_338e7598b71b45e1a37738042bce743c"
+            ],
+            "refutes": [],
+            "provenance": {
+              "actorId": "researcher",
+              "recordedAt": "2026-09-28T17:04:58.556082+00:00",
+              "source": "evidence.add"
+            }
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 1,
+        "_ailedgerCommandEventCount": 2
+      },
+      {
+        "schemaVersion": 1,
+        "eventId": "live:0000000011",
+        "taskId": "live",
+        "actorId": "researcher",
+        "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+        "correlationId": "R1",
+        "data": {
+          "eventType": "evidence.added",
+          "evidence": {
+            "id": "EF_7854afae9b6c409987adbe0801a2fb59",
+            "sourceType": "source-read",
+            "citation": "sources/TestEnvironment.cs:7-12; sources/ContextBrief.cs:96-105; sources/CognitiveArtifactLoader.cs:60-66",
+            "summary": "The initializer assigns AILEDGER_COGNITIVE_ROOT from ContextBrief.CognitiveRoot(); that method uses RepositoryLayout.Root/cognitive, and ResolveRoot prefers configuredRoot then the environment variable.",
+            "supports": [
+              "CF_6e6fd5f8e3aa4564bb0fdd4a2dc003f5"
+            ],
+            "refutes": [],
+            "provenance": {
+              "actorId": "researcher",
+              "recordedAt": "2026-09-28T17:05:21.27289+00:00",
+              "source": "evidence.add"
+            }
+          }
+        },
+        "kernelIdentity": {
+          "version": "2.0.0",
+          "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+          "buildTime": "1970-01-01T00:00:00+00:00"
+        },
+        "_ailedgerCommandEventIndex": 1,
+        "_ailedgerCommandEventCount": 2
+      }
+    ],
+    "completion": {
+      "schemaVersion": 1,
+      "eventId": "live:0000000012",
+      "taskId": "live",
+      "actorId": "operator",
+      "recordedAt": "2026-09-28T17:05:38.564328+00:00",
+      "causationId": "live:0000000007",
+      "correlationId": "01b45643e42b436482e8a87f13f3df09",
+      "data": {
+        "eventType": "run.completed",
+        "runId": "R1",
+        "status": "completed",
+        "providerSessionId": "01a0e8f9-b3aa-7d61-8e80-6485f15cea39",
+        "endedAt": "2026-09-28T17:05:38.564328+00:00",
+        "launcherAuthorized": true,
+        "manifestHash": "d3917c6b6250ac2f9b44fef12abc9fc5922394b78cf0730439eadede958f2dbd",
+        "manifestArtifactCount": 8,
+        "outputTokens": 2297,
+        "millisecondsToFirstLedgerWrite": 27118,
+        "tokensInUncached": 29410,
+        "tokensInCacheWrite": 0,
+        "tokensInCacheRead": 281344,
+        "truncatedLines": 0,
+        "launchTimeoutSeconds": 240,
+        "endedAtTheLaunchTimeout": false
+      },
+      "kernelIdentity": {
+        "version": "2.0.0",
+        "sourceCommit": "cd3f2d917e31e2c022cf694d0720d93441a81586",
+        "buildTime": "1970-01-01T00:00:00+00:00"
+      }
+    },
+    "limitations": [
+      "No loss injection in live run: retry is deliberate after observed success.",
+      "Mechanical checks do not establish truth of model observations."
+    ]
+  },
+  "derived_metrics": {
+    "provider_adapter_elapsed_seconds": 65.82342,
+    "canonical_run_elapsed_seconds": 67.125943,
+    "first_write_ms_original_completion": 27118,
+    "host_transport_duration_ms_by_call": [
+      72.4554,
+      45.1419,
+      19.5226,
+      48.8011
+    ],
+    "application_duration_ms_by_call": [
+      45.7873,
+      43.2798,
+      18.1082,
+      42.8499
+    ],
+    "sum_sequential_host_transport_duration_ms": 185.921,
+    "sum_sequential_application_duration_ms": 150.0252,
+    "first_host_call_start_to_last_host_response_seconds": 24.978397,
+    "refusal_host_start_to_corrected_host_response_seconds": 6.830257,
+    "refusal_client_completion_to_corrected_client_completion_seconds": 6.780885,
+    "early_commit_before_remaining_read_seconds": 4.231765,
+    "provider_usage_counted_runs": 1,
+    "terminal_usage_original": {
+      "input_tokens": 310754,
+      "cached_input_tokens": 281344,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 2297,
+      "reasoning_output_tokens": 782
+    },
+    "limits": [
+      "Nested timings must not be added together or to run time.",
+      "Intervals spanning separate tool calls include model scheduling, reading and other activity; they are not pure recording cost.",
+      "The transcript turn.completed event is not a measured model-turn count.",
+      "No currency cost or isolated model inference duration is observed."
+    ]
+  },
+  "review": {
+    "early_order": "Provider sequences 7-8 read layout sources; 9-10 submit/receive early receipt; 12-13 read the remaining four sources. First commit precedes the later read.",
+    "source_grounding": "Both claim statements and evidence summaries agree with the exact cited source snapshots. First: RepositoryLayout.props:2-6 and RepositoryLayout.cs:9-19. Second: TestEnvironment.cs:7-12, ContextBrief.cs:96-105, CognitiveArtifactLoader.cs:60-66.",
+    "semantic_limits": "The final answer infers an alternate cognitive root requires an explicit override under the unchanged process default; it does not demonstrate a failing test or exclude deliberate environment changes. The retained sources do not establish all importing test projects. Claims stay open; no claim resolution was performed.",
+    "scope_deviation": "Provider sequences 5-8 also list the disposable ledger and read task.md, assumptions.md and decisions.md, beyond the source-only wording. Those files are task projections, not additional code sources. Do not claim strict snapshot-only behavior.",
+    "fidelity": "All supplied statements, source types, citations and summaries equal canonical values exactly. No consequence was supplied. The sole correction is evidence[0].supports; corrected and replay request bodies match exactly and receipts are identical.",
+    "guardrail": "The absent target claim caused kernel_refused at evidence[0]; refusal taskVersion remains 9 and corrected batch advances to 11. No rejected claim prefix, duplicate events or invented authority. This is referential integrity, not a substantive fact checker.",
+    "retry": "Deliberate replay after observed success, not lost-response recovery. Lost-response evidence remains the previously completed deterministic trial.",
+    "transcript_anomalies": "Two item-level error messages (sequences 1-2) report an unknown remote_computer_use feature requirement. Provider wrapper isError is false and launch completes. All three shell reads exit 0; no permission/search denial appears in retained transcript.",
+    "usage": "One terminal provider usage record, one successful completion, one measured run. Served/requested model and model turns absent; cache-write zero preserved. reasoning_output_tokens=782 stays in the original raw usage only and is not added to output_tokens=2297.",
+    "checks": "Exact-body/ref-only correction, canonical text/references/attribution, early ordering, source/CLI/goal hashes, one completion and usage-field coverage, session joins, refusal version, no duplicate/rejected prefix, and opt-in/default retrospective equality all passed."
+  }
+}

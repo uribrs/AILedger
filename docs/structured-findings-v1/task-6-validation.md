@@ -81,3 +81,19 @@ the earlier no-install restriction for that action. A clean archive of **cd3f2d9
 pilot tools, was packed outside the checkout at `/tmp/ailedger-install-cd3f2d9.0cUMpp`. The global tool
 was updated from **2.0.157** to **2.0.163**. `ailedger version` verified **2.0.163 from cd3f2d9**.
 This installation did not authorize a billable task-6 episode or install the unfinished pilot.
+
+
+## Subsequent checkpoint — authorized live evaluation
+
+The prepared-pilot record above remains unchanged. After the user approved the proposed one-episode
+plan with “just proceed”, one live Codex episode completed and passed the original harness and
+additional transcript/canonical/measurement checks. See [live validation](task-6-live-validation.md)
+and [retained results](task-6-live-results.json) for the actual observations, source review, scope
+limits and both launch outcomes. The first sandbox socket failure occurred before the adapter ran;
+its failed completion and absent usage remain visible. No billable retry was performed.
+
+The continuation changes only task-6 evidence and documentation/status. All 11 frozen hashes,
+retained source/CLI/goal hashes, JSON/provenance checks, local links and Git whitespace checks pass.
+The prior full-suite results are retained without rerunning unchanged implementation. The completed
+pilot supports the proposed first delivery, but **the operator delivery decision is still pending**.
+The episode authorization does not authorize delivery acceptance, additional operations or task 7.

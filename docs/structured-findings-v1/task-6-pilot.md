@@ -132,3 +132,24 @@ The interface is sufficient for the present recording pilot. Recommend no additi
 this task. The operator still needs to review the pilot and choose the next slice (or none).
 No task-7 approval, task-8 evaluation, YAML, stage/role-policy change, workflow retirement or migration
 is implied by these results or by installing the verified existing release.
+
+
+## Subsequent live evaluation — 2026-09-28
+
+The checkpoint above is preserved as written. The user subsequently authorized the proposed single
+Codex episode. The [live validation and delivery recommendation](task-6-live-validation.md) and
+[retained actual results](task-6-live-results.json) now supply the previously missing transcript,
+source review, canonical observations and provider usage. A host-sandbox launch failure before model
+execution is retained separately; one equivalent live episode completed with the existing grants.
+
+Four tool/application attempts produced two transactions and four events, with early recording,
+expected missing-reference refusal, reference-only correction and identical deliberate replay.
+Exact supplied text/reference fidelity passed. Both observations are source-grounded, with the
+semantic and scope limits documented in the live review. Provider elapsed time was 65.823420 seconds;
+sequential local host-tool intervals totalled 185.9210 ms. Neither is a controlled whole-workflow
+speedup measurement. Usage is counted once for the successful run.
+
+The technical pilot is finished. Recommend accepting the interface as-is with documented limits and
+choosing no further operation now. **Operator delivery acceptance remains pending, so task 6 is not
+closed.** The successful live checks do not erase the extra task-projection reads, provider warnings
+or first launch failure. No further billable episode or task-7/8 work is authorized by this result.
