@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–8 installed and task 9 implemented; client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–9 implemented and installed; client trials pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -526,18 +526,19 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoints: tasks 7 and 8 implemented and installed; both client trials pending.** Uri explicitly selected task 8 before completing task 7's
+**Current checkpoints: tasks 7–9 implemented and installed; all three client trials pending.** Uri explicitly selected task 8 before completing task 7's
 trial; this does not imply acceptance of either increment. Task 8 supports VerifierOutput and
 CodeReviewOutput only, as described in the [contract](../docs/structured-artifacts-v1.md) and
-[validation](../docs/structured-artifacts-v1/task-8-validation.md). Task 8 is installed as **2.0.170 from 540d6e6**; its
+[validation](../docs/structured-artifacts-v1/task-8-validation.md). Task 8 was installed as **2.0.170 from 540d6e6**; its
 [installation receipt](../docs/structured-artifacts-v1/task-8-installation.md) retains the exact identity.
 The next checkpoint is Uri's ordinary task and inspection of the actual result.
 The task-7 [implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md) and
 validation remain intact. Task 9 now implements atomic explicit claim dispositions; its
 [contract](../docs/structured-claim-dispositions-v1.md) and
 [validation](../docs/structured-claim-dispositions-v1/task-9-validation.md) define the supported scope.
-Uri authorized proceeding and installing task 9 before the earlier client trials. Task 9 installation
-is a separate checkpoint; no task-9 client observation or acceptance is claimed. Tasks 10–14 remain unstarted.
+Uri authorized proceeding and installing task 9 before the earlier client trials. Task 9 is now installed as **2.0.172 from 6ebb55a**, with the exact
+[installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
+No task-9 client observation or acceptance is claimed. Tasks 10–14 remain unstarted.
 
 ## Related work
 
