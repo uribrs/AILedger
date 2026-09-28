@@ -5,10 +5,12 @@ using System.Text.Json;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Core.Findings;
+using AILedger.Storage.Findings;
 
 namespace AILedger.Storage;
 
-public sealed class FileGovernedTaskService : IGovernedTaskService
+public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFindingsRecorder
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
@@ -575,9 +577,11 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private async IAsyncEnumerable<LedgerEvent> ReadEventsAsync(
         string eventsPath,
         [EnumeratorCancellation] CancellationToken cancellationToken,
-        bool allowConcurrentReplacement = false)
+        bool allowConcurrentReplacement = false,
+        List<FindingsReceipt>? receipts = null,
+        bool enforceLimits = true)
     {
-        EnsureEventLogSize(eventsPath);
+        if (enforceLimits) EnsureEventLogSize(eventsPath);
         await using var file = new FileStream(
             eventsPath,
             FileMode.Open,
@@ -593,6 +597,8 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         var lineNumber = 0;
         List<LedgerEvent>? pendingCommand = null;
         var pendingCommandEventCount = 0;
+        JsonElement? pendingReceipt = null;
+        var receiptKeys = new HashSet<(string Actor, string Request)>();
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             // An unterminated last line is never committed, even when the bytes happen to be valid
@@ -603,7 +609,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             }
 
             lineNumber++;
-            if (lineNumber > _maximumEventsPerTask)
+            if (enforceLimits && lineNumber > _maximumEventsPerTask)
             {
                 throw new InvalidDataException(
                     $"Event log '{eventsPath}' exceeds the limit of {_maximumEventsPerTask} events. Archive it " +
@@ -618,12 +624,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
             LedgerEvent? @event;
             CommandEventPosition? commandPosition;
+            JsonElement? receiptMetadata;
             try
             {
                 commandPosition = ReadCommandEventPosition(line);
+                receiptMetadata = FindingsReceiptEnvelope.ReadMetadata(line);
                 @event = JsonSerializer.Deserialize<LedgerEvent>(line, _eventJson);
             }
-            catch (JsonException exception)
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
             {
                 throw new InvalidDataException(
                     $"Invalid event JSON at line {lineNumber} in '{eventsPath}'.", exception);
@@ -631,6 +639,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
             var parsedEvent = @event ?? throw new InvalidDataException(
                 $"Null event at line {lineNumber} in '{eventsPath}'.");
+
+            if (receiptMetadata is not null && commandPosition?.Index != 0)
+                throw new InvalidDataException("Findings receipt must be at index zero of a marked group.");
 
             if (commandPosition is null)
             {
@@ -645,7 +656,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             }
 
             var position = commandPosition.Value;
-            if (position.Count > _maximumEventsPerTask)
+            if (enforceLimits && position.Count > _maximumEventsPerTask)
             {
                 throw new InvalidDataException(
                     $"Command boundary at line {lineNumber} in '{eventsPath}' exceeds the event limit.");
@@ -659,8 +670,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                         $"Incomplete command before line {lineNumber} in '{eventsPath}'.");
                 }
 
-                pendingCommand = new List<LedgerEvent>(position.Count);
+                pendingCommand = new List<LedgerEvent>(Math.Min(position.Count, 128));
                 pendingCommandEventCount = position.Count;
+                pendingReceipt = receiptMetadata;
             }
             else if (pendingCommand is null ||
                      position.Count != pendingCommandEventCount ||
@@ -676,6 +688,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                 continue;
             }
 
+            if (pendingReceipt is { } metadata)
+            {
+                var receipt = FindingsReceiptEnvelope.Validate(metadata, pendingCommand, lineNumber);
+                if (!receiptKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed findings receipt key.");
+                receipts?.Add(receipt);
+            }
+
             foreach (var committedEvent in pendingCommand)
             {
                 yield return committedEvent;
@@ -683,6 +703,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
             pendingCommand = null;
             pendingCommandEventCount = 0;
+            pendingReceipt = null;
         }
 
         // R1 (atomicity-must-survive): a marked multi-event command is visible only after every
@@ -693,7 +714,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private async Task AppendEventsAsync(
         string taskDirectory,
         IReadOnlyList<LedgerEvent> events,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FindingsReceipt? receipt = null,
+        Action? appendStarting = null)
     {
         if (events.Count == 0)
         {
@@ -705,7 +728,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var json = JsonSerializer.Serialize(events[index], _eventJson);
-            if (events.Count == 1)
+            if (events.Count == 1 && receipt is null)
             {
                 payload.Append(json).Append('\n');
                 continue;
@@ -716,6 +739,9 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             payload.Append(json.AsSpan(0, json.Length - 1))
                 .Append(",\"").Append(CommandEventIndexProperty).Append("\":").Append(index)
                 .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
+                .Append(index == 0 && receipt is not null
+                    ? ",\"" + FindingsReceiptEnvelope.PropertyName + "\":" + FindingsReceiptEnvelope.Serialize(receipt)
+                    : string.Empty)
                 .Append("}\n");
         }
 
@@ -749,8 +775,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             FileOptions.Asynchronous | FileOptions.WriteThrough);
         // Keep the payload in one API write. WriteThrough plus the explicit disk flush makes its
         // completion durable; command markers make any prefix left by a lower-level tear invisible.
-        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-        stream.Flush(flushToDisk: true);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (receipt is not null && _findingsFaults?.BeforeWrite is { } beforeWrite) beforeWrite();
+        appendStarting?.Invoke();
+        if (receipt is not null && _findingsFaults?.Write is { } write)
+            await write(stream, bytes, cancellationToken).ConfigureAwait(false);
+        else
+            await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        FlushFindingsStream(stream, receipt is not null);
     }
 
     private static async Task<long> RemoveUncommittedTailAsync(string eventsPath)
@@ -861,7 +893,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         if (!hasIndex || !hasCount ||
             !indexElement.TryGetInt32(out var index) ||
             !countElement.TryGetInt32(out var count) ||
-            count < 2 || index < 0 || index >= count)
+            count < 1 || index < 0 || index >= count)
         {
             throw new JsonException("Invalid command-boundary metadata.");
         }
@@ -1078,7 +1110,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                 $"Event sequence is invalid at position {zeroBasedIndex + 1}: expected '{expected}', found '{@event.EventId}'.");
         }
 
-        if (string.IsNullOrWhiteSpace(@event.ActorId.Value) ||
+        if (@event.Data is null || string.IsNullOrWhiteSpace(@event.ActorId.Value) ||
             string.IsNullOrWhiteSpace(@event.CorrelationId) ||
             @event.RecordedAt == default)
         {

@@ -147,7 +147,7 @@ Historical measurements must remain reproducible from frozen inputs. Missing dat
 | Task | Concrete deliverable | Depends on | Explicit boundary |
 |---|---|---|---|
 | 1. Contract and measurement baseline — complete | Reviewed JSON contract, atomic/retry design, measurement inventory and frozen comparison fixtures | Existing investigation | Design and fixtures only; no production endpoint |
-| 2. Reliable application operation | Atomic, authorized, retry-safe findings/evidence submission | 1 | Application/storage and tests; no MCP or provider changes |
+| 2. Reliable application operation — complete | Atomic, authorized, retry-safe findings/evidence submission | 1 | Application/storage and tests; no MCP or provider changes |
 | 3. Structured tool endpoint | Local MCP adapter with trusted identity binding and typed responses | 2 | Transport and tool diagnostics; no shell wrapper or broader authority |
 | 4. Provider adoption | Claude and Codex configured to use the tool with correct attribution and guidance | 3 | Provider integration; no new workflow or role policy |
 | 5. Measurement continuity | Existing reports verified, new transport attempts measurable and joined to committed results | 2–4; capture requirements fixed in 1 | Adapt collectors/readers as needed; no scoring-rubric redesign or dashboard rebuild |
@@ -176,19 +176,21 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Delivered:** [implementation design](../docs/structured-findings-v1.md), [measurement inventory and frozen baseline](../docs/structured-findings-v1/measurement-baseline.md), [validation record](../docs/structured-findings-v1/task-1-validation.md), and [Astra handoff for task 2](../docs/handoffs/structured-findings-task-2.md). The baseline records one existing timing-sensitive test failure; production source is unchanged.
 
-### 2. Add the atomic, retry-safe application operation
+### 2. Add the atomic, retry-safe application operation — complete
 
-- [ ] Implement the typed application operation without an MCP dependency.
-- [ ] Allocate IDs and map local references within the protected transaction boundary.
-- [ ] Reuse existing command validation and authorization against sequentially advanced state.
-- [ ] Commit the resulting events as one recoverable unit and update derived projections appropriately.
-- [ ] Verify successful recording, invalid references, missing authority, duplicate local keys, conflicting evidence directions, concurrent submissions, and replay compatibility.
-- [ ] Persist request/receipt identity consistently with the batch commit.
-- [ ] Return the original receipt after a successful commit whose response was lost.
-- [ ] Reject changed content under an already-used key and define concurrent identical-request behavior.
-- [ ] Exercise interruption before append, torn append, committed append before response, restart, and projection-repair failure.
+- [x] Implement the typed application operation without an MCP dependency.
+- [x] Allocate IDs and map local references within the protected transaction boundary.
+- [x] Reuse existing command validation and authorization against sequentially advanced state.
+- [x] Commit the resulting events as one recoverable unit and update derived projections appropriately.
+- [x] Verify successful recording, invalid references, missing authority, duplicate local keys, conflicting evidence directions, concurrent submissions, and replay compatibility.
+- [x] Persist request/receipt identity consistently with the batch commit.
+- [x] Return the original receipt after a successful commit whose response was lost.
+- [x] Reject changed content under an already-used key and define concurrent identical-request behavior.
+- [x] Exercise interruption before append, torn append, committed append before response, restart, and projection-repair failure.
 
 **Exit:** fixture-ledger evidence that an accepted batch lands completely, a rejected batch leaves canonical state unchanged, and retry/restart produces no duplicate findings or ambiguous partial submission. Include concurrent submissions, run attribution, and historical replay. Keep the operation internal until these guarantees are complete.
+
+**Delivered:** the typed `IFindingsRecorder` operation, atomic candidate validation/append, canonical receipts and retry recovery, trusted run binding, scoped attempt capture, and 86 passing findings cases. The full repository-aware suite passed 1,776 main tests and 99 Memory tests; frozen fixtures/reports are unchanged. See the [task-2 validation record](../docs/structured-findings-v1/task-2-validation.md) for standard-test environment failures and the old-storage singleton compatibility limit, and the [task-3 handoff](../docs/handoffs/structured-findings-task-3.md). No MCP or provider integration is delivered yet.
 
 ### 3. Expose the structured tool
 
@@ -260,7 +262,7 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
 
-The next piece of work is **task 2 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-2.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
+The next piece of work is **task 3 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-3.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
 
 ## Related work
 
