@@ -263,3 +263,20 @@ live task permanently unreadable. If a new rule keys on a field that older event
 is safe by construction; otherwise it does not belong in the validator.
 
 Run `dotnet test` before reporting work done.
+
+## Structured recording in supplied provider sessions
+
+When the host supplies `ailedger.record_findings` and `ailedger.record_alternatives`, use
+those tools directly for authored observations and rejected approaches. They supersede
+shell examples for those recording operations; the operator CLI remains available.
+Do not allocate durable IDs or ask another actor to transcribe your alternative merely
+because your existing assignment lacks `RecordAlternative`. New default researcher,
+worker, verifier and code-reviewer assignments include that narrow capability. Existing
+assignments retain their recorded grants: a missing grant requires an explicit operator
+assignment change preserving the intended capabilities, never self-expansion or an
+automatic reassignment. Recording grants no resolution, acceptance, scope or approval.
+
+Keep original request bodies/keys and returned mappings. After a lost response or
+`outcome_unknown`, retry the exact request on its original trusted binding. Changed
+content under a committed key conflicts. See `docs/structured-alternatives-v1.md` for
+bounds, text normalization, link validation, recovery and measurement limits.

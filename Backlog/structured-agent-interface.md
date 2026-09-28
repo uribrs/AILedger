@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 specified next. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 implemented, client trial pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -346,11 +346,11 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 
 ## Remaining increments — current scope
 
-The following are planned work packages, not started implementations. The current request respecifies
-the backlog. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+Task 7 now has a verified implementation; installation and client observation are separate checkpoints.
+Tasks 8–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
-### 7. Record alternatives directly — next
+### 7. Record alternatives directly — client trial pending
 
 **User effect:** the agent that investigated an approach can preserve why it rejected it, without
 shell transcription or launching a more privileged agent solely to file the reasoning.
@@ -370,6 +370,14 @@ shell transcription or launching a more privileged agent solely to file the reas
 - Wire Codex and Claude, narrow tool grants and repository recording guidance. Verify multiline and
   quoted text, late-invalid references, exact fidelity, concurrent IDs, retry/restart and no rejected
   prefix. Preserve observational attempts/refusals and count provider usage once.
+
+**Implementation checkpoint (2026-09-28):** typed `record_alternatives`, atomic receipts/retries,
+trusted Codex/Claude binding, narrow author defaults and separate measurement are implemented.
+Both full runners pass 1,995 main and 99 Memory tests; all frozen hashes and historical report/cost
+baselines match. See the [contract](../docs/structured-alternatives-v1.md) and
+[validation record](../docs/structured-alternatives-v1/task-7-validation.md). Exact-version installation
+is authorized and follows the scoped commit. Uri's ordinary-task trial remains pending; task 7 is
+not claimed accepted and tasks 8–14 have not started.
 
 **Checkpoint A:** after verification, prepare the exact installable commit and install it when the
 implementation request authorizes that step. Uri runs an ordinary task that considers alternatives.
@@ -516,9 +524,11 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Next: task 7 only, structured alternatives recording.** Use the
-[implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md). Deliver a concrete
-increment Uri can install and try. Evaluate that task before treating later scope as settled.
+**Current checkpoint: task 7 implementation verified; installation and client trial remain distinct.**
+The authorized next step is installing its exact verified commit, followed by an ordinary task Uri
+chooses to run. Inspect that outcome before declaring acceptance or selecting later scope. The
+[implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md) and validation retain
+the bounded delivery requirements.
 
 ## Related work
 

@@ -10,9 +10,9 @@ namespace AILedger.Tests.Findings;
 // assertion keywords fail here so a schema evolution cannot silently weaken conformance coverage.
 internal static class FindingsResponseSchema
 {
-    internal static void AssertValid(JsonElement value)
+    internal static void AssertValid(JsonElement value, string resource = "Findings.ResponseSchema")
     {
-        using var stream = typeof(CliApplication).Assembly.GetManifestResourceStream("Findings.ResponseSchema")!;
+        using var stream = typeof(CliApplication).Assembly.GetManifestResourceStream(resource)!;
         using var schema = JsonDocument.Parse(stream);
         Assert.True(Matches(value, schema.RootElement, schema.RootElement), value.GetRawText());
     }

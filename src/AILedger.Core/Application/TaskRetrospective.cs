@@ -866,4 +866,6 @@ public sealed record TaskRetrospectiveReport(
     // Opt-in extension: absent from historical/default serialization, including frozen reports.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AILedger.Core.Findings.FindingsMeasurementReport? Findings { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.Alternatives.AlternativesMeasurementReport? Alternatives { get; init; }
 }

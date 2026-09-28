@@ -1,11 +1,13 @@
 using AILedger.Core.Contracts;
 
-namespace AILedger.Core.Findings;
+using AILedger.Core.Findings;
 
-public static class FindingsMeasurement
+namespace AILedger.Core.Alternatives;
+
+public static class AlternativesMeasurement
 {
-    public static FindingsMeasurementReport Build(GovernedTaskState state,
-        IReadOnlyList<LedgerEvent> history, IReadOnlyList<FindingsReceipt>? receipts,
+    public static AlternativesMeasurementReport Build(GovernedTaskState state,
+        IReadOnlyList<LedgerEvent> history, IReadOnlyList<AlternativesReceipt>? receipts,
         IReadOnlyList<LocatedFindingsAttempt> observations, IReadOnlyList<FindingsCoverageGap> gaps)
     {
         var report = RecordingMeasurement.Build(state, history, receipts, observations, gaps);

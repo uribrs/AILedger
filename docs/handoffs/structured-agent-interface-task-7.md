@@ -1,7 +1,7 @@
 # Task 7 — structured alternatives recording
 
 This is task 7 in the **respecified install-and-try roadmap**, not the former task-7 episode prototype.
-The governing scope is [item 63](../../Backlog/structured-agent-interface.md#7-record-alternatives-directly--next).
+The governing scope is [item 63](../../Backlog/structured-agent-interface.md#7-record-alternatives-directly--client-trial-pending).
 Tasks 1–6 were accepted; their latest evidence commit is `69b4301` and acceptance commit is `abd3f49`.
 Inspect later commits and worktree changes before acting; do not reset to those checkpoints.
 

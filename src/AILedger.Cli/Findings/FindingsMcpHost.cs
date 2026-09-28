@@ -4,6 +4,7 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Core.Findings;
+using AILedger.Core.Alternatives;
 using AILedger.Storage;
 
 namespace AILedger.Cli.Findings;
@@ -13,8 +14,11 @@ namespace AILedger.Cli.Findings;
 public sealed record FindingsHostConfiguration(string TaskWorkspaceRoot, string TaskId, string ActorId,
     string CorrelationId, string DiagnosticsDirectory, string? RunId = null, string? CausationId = null,
     bool AllowRecordFindings = false, bool AllowRunless = false, string? Provider = null,
-    string? ProviderSessionId = null)
+    string? ProviderSessionId = null, bool AllowRecordAlternatives = false)
 {
+    internal AlternativesBinding AlternativesBinding => new(new(TaskId), new(ActorId),
+        RunId is null ? null : new RunId(RunId), CorrelationId,
+        CausationId is null ? null : new EventId(CausationId), AllowRecordAlternatives, AllowRunless);
     internal FindingsBinding Binding => new(new(TaskId), new(ActorId),
         RunId is null ? null : new RunId(RunId), CorrelationId,
         CausationId is null ? null : new EventId(CausationId), AllowRecordFindings, AllowRunless);
@@ -39,14 +43,21 @@ public sealed class FindingsMcpHost
         _readConfiguration = readConfiguration;
     }
 
-    internal async Task<FindingsBinding> BindAsync(CancellationToken cancellationToken)
+    internal async Task<FindingsBinding> BindAsync(CancellationToken cancellationToken) =>
+        (await ReadBindingAsync(cancellationToken).ConfigureAwait(false)).Binding;
+
+    internal async Task<AlternativesBinding> BindAlternativesAsync(CancellationToken cancellationToken) =>
+        (await ReadBindingAsync(cancellationToken).ConfigureAwait(false)).AlternativesBinding;
+
+    private async Task<FindingsHostConfiguration> ReadBindingAsync(CancellationToken cancellationToken)
     {
         var current = await _readConfiguration(cancellationToken).ConfigureAwait(false);
         // Grants may be revoked on a running connection. Attribution and destination are pinned.
         if (current with { AllowRecordFindings = Configuration.AllowRecordFindings,
-                AllowRunless = Configuration.AllowRunless } != Configuration)
+                AllowRunless = Configuration.AllowRunless,
+                AllowRecordAlternatives = Configuration.AllowRecordAlternatives } != Configuration)
             throw new InvalidDataException("Host attribution changed; reconnect with the original binding for recovery.");
-        return current.Binding;
+        return current;
     }
 
     internal static async Task<FindingsMcpHost> LoadAsync(string path, CancellationToken cancellationToken)
@@ -69,7 +80,7 @@ public sealed class FindingsMcpHost
         StrictJson.Validate(document.RootElement);
         StrictJson.Members(document.RootElement,
             ["task_workspace_root", "task_id", "actor_id", "correlation_id", "diagnostics_directory"],
-            ["run_id", "causation_id", "allow_record_findings", "allow_runless", "provider", "provider_session_id"]);
+            ["run_id", "causation_id", "allow_record_findings", "allow_runless", "provider", "provider_session_id", "allow_record_alternatives"]);
         return document.RootElement.Deserialize<FindingsHostConfiguration>(new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,

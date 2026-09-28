@@ -16,7 +16,7 @@ internal static class CliHelpText
                            Role coverage names, per role, the actors assigned to it and whether a
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
-        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY]
+        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY] [--alternatives] [--alternatives-telemetry DIRECTORY]
                            (what governance did on one task and what it cost)
                            Counts, durations and the causal chains the log can join, with no score,
                            grade or overall number anywhere, and a notMeasured list naming what this

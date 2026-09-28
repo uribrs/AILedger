@@ -125,7 +125,8 @@ internal static class GovernedExecutionBriefing
             .AppendLine()
             .AppendLine(FindingsRecording.Guidance(request, request.LedgerCommandLine))
             .AppendLine($"  {request.LedgerCommandLine} claim resolve   --task {request.TaskId} --actor {request.ActorId} --id ID --status validated|rejected --evidence ID")
-            .AppendLine($"  {request.LedgerCommandLine} alternative record --task {request.TaskId} --actor {request.ActorId} --id ID --statement TEXT --rejected-because TEXT")
+            .AppendLine(request.FindingsEndpoint is null
+                ? $"  {request.LedgerCommandLine} alternative record --task {request.TaskId} --actor {request.ActorId} --id ID --statement TEXT --rejected-because TEXT" : null)
             .AppendLine($"  {request.LedgerCommandLine} escalation raise --task {request.TaskId} --actor {request.ActorId} --id ID --kind KIND --question TEXT")
             .AppendLine($"  {request.LedgerCommandLine} status          --task {request.TaskId}")
             .AppendLine()

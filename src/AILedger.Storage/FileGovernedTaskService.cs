@@ -6,11 +6,13 @@ using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Core.Findings;
+using AILedger.Core.Alternatives;
+using AILedger.Storage.Alternatives;
 using AILedger.Storage.Findings;
 
 namespace AILedger.Storage;
 
-public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFindingsRecorder
+public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFindingsRecorder, IAlternativesRecorder
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
@@ -579,7 +581,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         [EnumeratorCancellation] CancellationToken cancellationToken,
         bool allowConcurrentReplacement = false,
         List<FindingsReceipt>? receipts = null,
-        bool enforceLimits = true)
+        bool enforceLimits = true,
+        List<AlternativesReceipt>? alternativeReceipts = null)
     {
         if (enforceLimits) EnsureEventLogSize(eventsPath);
         await using var file = new FileStream(
@@ -598,6 +601,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         List<LedgerEvent>? pendingCommand = null;
         var pendingCommandEventCount = 0;
         JsonElement? pendingReceipt = null;
+        JsonElement? pendingAlternativesReceipt = null;
+        var alternativeKeys = new HashSet<(string Actor, string Request)>();
         var receiptKeys = new HashSet<(string Actor, string Request)>();
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
@@ -625,10 +630,11 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             LedgerEvent? @event;
             CommandEventPosition? commandPosition;
             JsonElement? receiptMetadata;
+            JsonElement? alternativesMetadata;
             try
             {
                 commandPosition = ReadCommandEventPosition(line);
-                receiptMetadata = FindingsReceiptEnvelope.ReadMetadata(line);
+                (receiptMetadata, alternativesMetadata) = RecordingReceiptMetadata.Read(line);
                 @event = JsonSerializer.Deserialize<LedgerEvent>(line, _eventJson);
             }
             catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
@@ -640,6 +646,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             var parsedEvent = @event ?? throw new InvalidDataException(
                 $"Null event at line {lineNumber} in '{eventsPath}'.");
 
+            if (alternativesMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null))
+                throw new InvalidDataException("Alternatives receipt must exclusively occupy index zero of a marked group.");
             if (receiptMetadata is not null && commandPosition?.Index != 0)
                 throw new InvalidDataException("Findings receipt must be at index zero of a marked group.");
 
@@ -673,6 +681,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 pendingCommand = new List<LedgerEvent>(Math.Min(position.Count, 128));
                 pendingCommandEventCount = position.Count;
                 pendingReceipt = receiptMetadata;
+                pendingAlternativesReceipt = alternativesMetadata;
             }
             else if (pendingCommand is null ||
                      position.Count != pendingCommandEventCount ||
@@ -696,6 +705,14 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 receipts?.Add(receipt);
             }
 
+            if (pendingAlternativesReceipt is { } alternatives)
+            {
+                var receipt = AlternativesReceiptEnvelope.Validate(alternatives, pendingCommand, lineNumber);
+                if (!alternativeKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed alternatives receipt key.");
+                alternativeReceipts?.Add(receipt);
+            }
+
             foreach (var committedEvent in pendingCommand)
             {
                 yield return committedEvent;
@@ -704,6 +721,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             pendingCommand = null;
             pendingCommandEventCount = 0;
             pendingReceipt = null;
+            pendingAlternativesReceipt = null;
         }
 
         // R1 (atomicity-must-survive): a marked multi-event command is visible only after every
@@ -716,19 +734,23 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         IReadOnlyList<LedgerEvent> events,
         CancellationToken cancellationToken,
         FindingsReceipt? receipt = null,
-        Action? appendStarting = null)
+        Action? appendStarting = null,
+        AlternativesReceipt? alternativesReceipt = null)
     {
         if (events.Count == 0)
         {
             return;
         }
 
+        if (receipt is not null && alternativesReceipt is not null)
+            throw new InvalidOperationException("One operation receipt per group is required.");
+        var hasReceipt = receipt is not null || alternativesReceipt is not null;
         var payload = new StringBuilder();
         for (var index = 0; index < events.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var json = JsonSerializer.Serialize(events[index], _eventJson);
-            if (events.Count == 1 && receipt is null)
+            if (events.Count == 1 && !hasReceipt)
             {
                 payload.Append(json).Append('\n');
                 continue;
@@ -741,6 +763,9 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
                 .Append(index == 0 && receipt is not null
                     ? ",\"" + FindingsReceiptEnvelope.PropertyName + "\":" + FindingsReceiptEnvelope.Serialize(receipt)
+                    : string.Empty)
+                .Append(index == 0 && alternativesReceipt is not null
+                    ? ",\"" + AlternativesReceiptEnvelope.PropertyName + "\":" + AlternativesReceiptEnvelope.Serialize(alternativesReceipt)
                     : string.Empty)
                 .Append("}\n");
         }
@@ -776,13 +801,13 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         // Keep the payload in one API write. WriteThrough plus the explicit disk flush makes its
         // completion durable; command markers make any prefix left by a lower-level tear invisible.
         cancellationToken.ThrowIfCancellationRequested();
-        if (receipt is not null && _findingsFaults?.BeforeWrite is { } beforeWrite) beforeWrite();
+        if (hasReceipt && _findingsFaults?.BeforeWrite is { } beforeWrite) beforeWrite();
         appendStarting?.Invoke();
-        if (receipt is not null && _findingsFaults?.Write is { } write)
+        if (hasReceipt && _findingsFaults?.Write is { } write)
             await write(stream, bytes, cancellationToken).ConfigureAwait(false);
         else
             await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-        FlushFindingsStream(stream, receipt is not null);
+        FlushFindingsStream(stream, hasReceipt);
     }
 
     private static async Task<long> RemoveUncommittedTailAsync(string eventsPath)

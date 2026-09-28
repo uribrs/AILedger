@@ -28,7 +28,7 @@ public sealed record FindingsReceipt(int SchemaVersion, string RequestId, string
     string TaskId, string ActorId, string? RunId, string CorrelationId, string? CausationId,
     string PayloadFingerprint, string FingerprintAlgorithm, DateTimeOffset CommittedAt,
     long LedgerVersion, IReadOnlyList<string> EventIds, IReadOnlyList<FindingMap> Findings,
-    IReadOnlyList<EvidenceMap> Evidence);
+    IReadOnlyList<EvidenceMap> Evidence) : IRecordingReceiptIdentity;
 
 public sealed record FindingsError(string Code, string Message, string Boundary, string CommitState,
     string Retry, string? ItemPath = null, string? RuleId = null);

@@ -22,7 +22,7 @@ internal static class FindingsRequestParser
         return FindingsValidation.Snapshot(new(1, StrictJson.Text(body, "request_id"), findings, evidence));
     }
 
-    private static bool IsVersionOne(JsonElement value)
+    internal static bool IsVersionOne(JsonElement value)
     {
         if (value.ValueKind != JsonValueKind.Number) return false;
         var number = value.GetRawText();
@@ -63,14 +63,14 @@ internal static class FindingsRequestParser
             : new(ClaimId: StrictJson.Text(item, "claim_id"));
     }
 
-    private static JsonElement.ArrayEnumerator Array(JsonElement value, int maximum)
+    internal static JsonElement.ArrayEnumerator Array(JsonElement value, int maximum)
     {
         if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() > maximum)
             throw new JsonException($"Expected an array with at most {maximum} items.");
         return value.EnumerateArray();
     }
 
-    private static string? OptionalText(JsonElement item, string name) =>
+    internal static string? OptionalText(JsonElement item, string name) =>
         !item.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null
             ? null : StrictJson.Text(item, name);
 }

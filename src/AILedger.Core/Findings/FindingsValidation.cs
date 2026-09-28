@@ -92,11 +92,11 @@ public static partial class FindingsValidation
     {
         if (!IsKey(key) || !keys.Add(key!)) Fail("Local keys must be valid and unique across both arrays.", path + ".key");
     }
-    private static void OptionalText(string? value, int limit, string path)
+    internal static void OptionalText(string? value, int limit, string path)
     {
         if (value is not null) Text(value, limit, path);
     }
-    private static void Text(string? value, int limit, string path)
+    internal static void Text(string? value, int limit, string path)
     {
         if (string.IsNullOrWhiteSpace(value)) Fail("Nonblank text is required.", path);
         var remaining = value.AsSpan();

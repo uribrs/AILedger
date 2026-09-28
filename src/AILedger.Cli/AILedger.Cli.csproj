@@ -26,6 +26,8 @@
   <ItemGroup>
     <EmbeddedResource Include="../../docs/structured-findings-v1/request.schema.json" LogicalName="Findings.RequestSchema" />
     <EmbeddedResource Include="../../docs/structured-findings-v1/response.schema.json" LogicalName="Findings.ResponseSchema" />
+    <EmbeddedResource Include="../../docs/structured-alternatives-v1/request.schema.json" LogicalName="Alternatives.RequestSchema" />
+    <EmbeddedResource Include="../../docs/structured-alternatives-v1/response.schema.json" LogicalName="Alternatives.ResponseSchema" />
   </ItemGroup>
 
 </Project>
