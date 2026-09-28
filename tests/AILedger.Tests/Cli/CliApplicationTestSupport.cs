@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using AILedger.Cli;
+using AILedger.Core.Findings;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -314,9 +315,12 @@ internal static class CliApplicationTestSupport
 
     internal sealed class CompletionFailureService(
         IGovernedTaskService inner,
-        int failuresBeforeSuccess) : IGovernedTaskService
+        int failuresBeforeSuccess) : IGovernedTaskService, IFindingsRecorder
     {
         public int CompletionAttempts { get; private set; }
+
+        public Task<FindingsResult> RecordAsync(FindingsBinding binding, FindingsRequest request, CancellationToken cancellationToken) =>
+            ((IFindingsRecorder)inner).RecordAsync(binding, request, cancellationToken);
 
         public Task<CommandOutcome> ExecuteAsync(
             TaskId taskId,

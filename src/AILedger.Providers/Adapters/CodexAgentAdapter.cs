@@ -126,6 +126,7 @@ public sealed class CodexAgentAdapter : AgentAdapterBase
     {
         var arguments = new List<string> { "exec", "--strict-config", "--sandbox", "workspace-write", "--cd", request.WorkingDirectory };
         AddOptionalGlobalArguments(arguments, request);
+        FindingsRecording.AddCodexArguments(arguments, request.FindingsEndpoint);
 
         if (request.Assurance?.VerifierRunId is not null)
         {

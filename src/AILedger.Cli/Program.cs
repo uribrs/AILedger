@@ -20,6 +20,11 @@ using var termination = OperatingSystem.IsWindows()
 
 try
 {
+    if (args is ["findings", "relay", var port, var secret])
+    {
+        return await AILedger.Cli.Findings.FindingsRelayCommand.RunAsync(port, secret, cancellation.Token);
+    }
+
     if (args is ["findings", "serve", var findingsConfigurationPath])
     {
         return await AILedger.Cli.Findings.FindingsStdioCommand.RunAsync(findingsConfigurationPath, cancellation.Token);

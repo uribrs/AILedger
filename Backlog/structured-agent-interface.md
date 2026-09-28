@@ -2,7 +2,7 @@
 
 **Priority: 1. Backlog ID: 63. Status: open. Kind: feature.**
 
-Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and task 1 are complete; production implementation has not started. Work through the remaining tasks separately, with a concrete result and verification at each task.
+Created 2026-09-28 from the architectural investigation and the subsequent interface-design discussion. The investigation and tasks 1–4 are complete; provider adoption has real acceptance on both clients. Work through the remaining tasks separately, with a concrete result and verification at each task.
 
 ## Purpose
 
@@ -203,15 +203,17 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Delivered:** a trusted local stdio MCP endpoint over `IFindingsRecorder`, strict wire parsing, frozen v1 responses, host binding with per-call grants, and separate transport diagnostics including pre-application and lost-response failures. All 82 new MCP cases and the unchanged 86 task-2 cases pass. The repository-aware full suite passed 1,858 main tests and 99 Memory tests; all frozen hashes/reports match. Standard `dotnet test` reproduces the existing external-output failures; no findings case failed. See the [task-3 validation record](../docs/structured-findings-v1/task-3-validation.md), [endpoint contract](../docs/structured-findings-v1/task-3-endpoint.md), and [task-4 handoff](../docs/handoffs/structured-findings-task-4.md). Provider wiring and live provider acceptance remain task 4.
 
-### 4. Wire providers and update the relevant recording guidance
+### 4. Wire providers and update the relevant recording guidance — complete
 
-- [ ] Configure the endpoint in Claude and Codex launches, including actual tool permissions.
-- [ ] Make it discoverable independently of whether Roslyn navigation is enabled.
-- [ ] Replace claim/evidence shell examples with structured recording guidance where this endpoint is supplied; retain documented CLI support for operators and other operations.
-- [ ] Check that provider/session attribution survives and evidence prose no longer passes through shell/search classification.
-- [ ] Verify a real disposable episode on each provider, documenting environmental limitations if either cannot run.
+- [x] Configure the endpoint in Claude and Codex launches, including actual tool permissions.
+- [x] Make it discoverable independently of whether Roslyn navigation is enabled.
+- [x] Replace claim/evidence shell examples with structured recording guidance where this endpoint is supplied; retain documented CLI support for operators and other operations.
+- [x] Check that provider/session attribution survives and evidence prose no longer passes through shell/search classification.
+- [x] Verify a real disposable episode on each provider, documenting environmental limitations if either cannot run.
 
 **Exit:** both provider paths can record findings with their real configured grants. No global approval bypass, wider filesystem grant, or fictitious role is used to make the demonstration pass.
+
+**Delivered:** host-owned in-memory findings binding, capability-protected local stdio relay, inline Claude/Codex registration with the exact tool grant, navigation-independent availability and conditional recording guidance. Both real clients completed a disposable commit/retry/capability-revocation sequence with one canonical batch and one usage record. Session observations remain honestly absent from immutable transport bindings and available on the completed run. See [task-4 validation](../docs/structured-findings-v1/task-4-validation.md), [host/trust contract](../docs/structured-findings-v1/task-4-provider-adoption.md), [reproducible live probe](../tools/FindingsProviderProbe/README.md), and [task-5 handoff](../docs/handoffs/structured-findings-task-5.md). Exact negotiated protocol versions are unobserved; the real tool paths succeeded. Existing standard-test and storage compatibility limits remain documented.
 
 ### 5. Preserve and connect the measurement tools
 
@@ -264,7 +266,7 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
 
-The next piece of work is **task 4 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-4.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
+The next piece of work is **task 5 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-5.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
 
 ## Related work
 

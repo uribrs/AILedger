@@ -81,7 +81,9 @@ internal sealed class McpProcess : IDisposable
     private readonly Process _process;
     private readonly Task<string> _errors;
     private readonly CancellationTokenSource _timeout = new(TimeSpan.FromSeconds(45));
-    internal McpProcess(string configurationPath)
+    internal McpProcess(string configurationPath) : this(["findings", "serve", configurationPath]) { }
+
+    internal McpProcess(IReadOnlyList<string> endpointArguments)
     {
         var runtime = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         var muxer = Path.GetFullPath(Path.Combine(runtime, "..", "..", "..", OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"));
@@ -89,8 +91,7 @@ internal sealed class McpProcess : IDisposable
         var start = new ProcessStartInfo(muxer) { UseShellExecute = false, RedirectStandardInput = true,
             RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var argument in new[] { "exec", "--runtimeconfig", Path.ChangeExtension(tests, "runtimeconfig.json"),
-                     "--depsfile", Path.ChangeExtension(tests, "deps.json"), typeof(CliApplication).Assembly.Location,
-                     "findings", "serve", configurationPath }) start.ArgumentList.Add(argument);
+                     "--depsfile", Path.ChangeExtension(tests, "deps.json"), typeof(CliApplication).Assembly.Location }.Concat(endpointArguments)) start.ArgumentList.Add(argument);
         _process = Process.Start(start)!;
         _errors = _process.StandardError.ReadToEndAsync(_timeout.Token);
     }

@@ -37,7 +37,11 @@ public sealed record AgentLaunchRequest(
     // Local host for optional navigation MCP. Launch metadata only, never a ledger event.
     string? NavigationHostAssembly = null,
     // Repository roots for semantic navigation only. Never forwarded as provider write grants.
-    IReadOnlyList<string>? NavigationDirectories = null);
+    IReadOnlyList<string>? NavigationDirectories = null,
+    // Trusted host-created stdio relay; contains no task binding or grant configuration.
+    ProviderFindingsEndpoint? FindingsEndpoint = null);
+
+public sealed record ProviderFindingsEndpoint(string Command, IReadOnlyList<string> Arguments);
 
 public sealed record ProviderEvent(
     long Sequence,
