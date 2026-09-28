@@ -868,4 +868,7 @@ public sealed record TaskRetrospectiveReport(
     public AILedger.Core.Findings.FindingsMeasurementReport? Findings { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AILedger.Core.Alternatives.AlternativesMeasurementReport? Alternatives { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.Artifacts.ArtifactSubmissionMeasurementReport? ArtifactSubmissions { get; init; }
 }

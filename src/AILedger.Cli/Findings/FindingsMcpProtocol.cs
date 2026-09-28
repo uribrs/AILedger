@@ -22,8 +22,23 @@ internal static class FindingsMcpProtocol
             serverInfo = new { name = "ailedger-findings", version = "1.0.0" } };
     }
 
-    internal static object Tools(bool alternatives = false) => new { tools = (alternatives
-        ? new[] { FindingsTool(), AlternativesTool() } : new[] { FindingsTool() }) };
+    internal static object Tools(bool alternatives = false, bool artifacts = false)
+    {
+        var tools = new List<object> { FindingsTool() };
+        if (alternatives) tools.Add(AlternativesTool());
+        if (artifacts) tools.Add(ArtifactTool());
+        return new { tools };
+    }
+
+    private static object ArtifactTool() => new
+    {
+        name = "submit_artifact", title = "Submit verification or review output",
+        description = "Atomically submit one Markdown verifier-output or code-review-output with host-generated identity, " +
+            "trusted producer and scope, content digest and version links. Keep the original key/body for retries. " +
+            "Submission records authored output; it does not approve work or complete a run.",
+        inputSchema = Schema("Artifacts.RequestSchema"), outputSchema = Schema("Artifacts.ResponseSchema"),
+        annotations = new { readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = false }
+    };
 
     private static object FindingsTool() => new
     {
@@ -45,7 +60,7 @@ internal static class FindingsMcpProtocol
 
     private static JsonElement Schema(string name)
     {
-        using var stream = typeof(FindingsMcpProtocol).Assembly.GetManifestResourceStream(name.StartsWith("Alternatives.", StringComparison.Ordinal) ? name : "Findings." + name)
+        using var stream = typeof(FindingsMcpProtocol).Assembly.GetManifestResourceStream((name.StartsWith("Alternatives.", StringComparison.Ordinal) || name.StartsWith("Artifacts.", StringComparison.Ordinal)) ? name : "Findings." + name)
             ?? throw new InvalidOperationException("Missing embedded findings schema.");
         using var document = JsonDocument.Parse(stream);
         var schema = JsonNode.Parse(document.RootElement.GetRawText())!.AsObject();

@@ -17,7 +17,7 @@ internal sealed class RetrospectiveCliCommands(
         yield return new CliCommandRegistration(
             ["retrospective build"],
             CliCommandOptions.Set(
-                "root", "task", "actor", "coordinator-session", "coordinator-transcript", "findings", "findings-telemetry", "alternatives", "alternatives-telemetry"),
+                "root", "task", "actor", "coordinator-session", "coordinator-transcript", "findings", "findings-telemetry", "alternatives", "alternatives-telemetry", "artifacts", "artifacts-telemetry"),
             isReadOnly: true,
             BuildAsync);
         yield return new CliCommandRegistration(
@@ -56,6 +56,13 @@ internal sealed class RetrospectiveCliCommands(
                 throw new CliUsageException("Alternatives measurement requires the file-backed canonical receipt reader.");
             report = report with { Alternatives = await files.ReadAlternativesMeasurementAsync(state, history,
                 input.Optional("alternatives-telemetry"), cancellationToken).ConfigureAwait(false) };
+        }
+        if (input.Flag("artifacts") || input.Optional("artifacts-telemetry") is not null)
+        {
+            if (invocation.Service is not FileGovernedTaskService files)
+                throw new CliUsageException("Artifact measurement requires the file-backed canonical receipt reader.");
+            report = report with { ArtifactSubmissions = await files.ReadArtifactSubmissionMeasurementAsync(state, history,
+                input.Optional("artifacts-telemetry"), cancellationToken).ConfigureAwait(false) };
         }
         await executor.WriteJsonAsync(report).ConfigureAwait(false);
     }

@@ -53,6 +53,7 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
                 servers["ailedger"] = FindingsRecording.ClaudeServer(findings);
                 tools.Add(FindingsRecording.ClaudeTool);
                 tools.Add(FindingsRecording.ClaudeAlternativesTool);
+                tools.Add(FindingsRecording.ClaudeArtifactTool);
             }
 
             var arguments = new List<string> { "--settings", providerSettings.ToJsonString() };

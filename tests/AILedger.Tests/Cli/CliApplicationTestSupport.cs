@@ -302,9 +302,14 @@ internal static class CliApplicationTestSupport
 
     internal sealed class CompletionFailureService(
         IGovernedTaskService inner,
-        int failuresBeforeSuccess) : IGovernedTaskService, IFindingsRecorder, AILedger.Core.Alternatives.IAlternativesRecorder
+        int failuresBeforeSuccess) : IGovernedTaskService, IFindingsRecorder, AILedger.Core.Alternatives.IAlternativesRecorder, AILedger.Core.Artifacts.IArtifactSubmitter
     {
         public int CompletionAttempts { get; private set; }
+
+        public Task<AILedger.Core.Artifacts.ArtifactSubmissionResult> SubmitArtifactAsync(
+            AILedger.Core.Artifacts.ArtifactSubmissionBinding binding, AILedger.Core.Artifacts.ArtifactSubmissionRequest request,
+            CancellationToken cancellationToken) =>
+            ((AILedger.Core.Artifacts.IArtifactSubmitter)inner).SubmitArtifactAsync(binding, request, cancellationToken);
 
         public Task<AILedger.Core.Alternatives.AlternativesResult> RecordAlternativesAsync(
             AILedger.Core.Alternatives.AlternativesBinding binding,

@@ -39,8 +39,8 @@ public sealed class ProviderFindingsConfigurationTests
             {
                 var config = ProviderProtocolTests.ValueAfter(invocation.Arguments, "--config");
                 Assert.StartsWith("mcp_servers.ailedger=", config);
-                Assert.Contains("enabled_tools=[\"record_findings\",\"record_alternatives\"]", config);
-                Assert.Contains("tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"}}", config);
+                Assert.Contains("enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\"]", config);
+                Assert.Contains("tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"}}", config);
                 Assert.Contains("required=true", config);
                 Assert.DoesNotContain("mcp_servers.ailedger", File.ReadAllText(Path.Combine(invocation.Environment["CODEX_HOME"], "config.toml")));
                 briefing = invocation.StandardInput;
@@ -56,6 +56,7 @@ public sealed class ProviderFindingsConfigurationTests
                 var grants = ProviderProtocolTests.ValueAfter(invocation.Arguments, "--allowedTools").Split(',');
                 Assert.Contains("mcp__ailedger__record_findings", grants);
                 Assert.Contains("mcp__ailedger__record_alternatives", grants);
+                Assert.Contains("mcp__ailedger__submit_artifact", grants);
                 Assert.DoesNotContain("mcp__ailedger__record_artifact", grants);
                 Assert.DoesNotContain("mcp__ailedger__*", grants);
                 briefing = ProviderProtocolTests.ValueAfter(invocation.Arguments, "-p");
@@ -65,6 +66,7 @@ public sealed class ProviderFindingsConfigurationTests
             Assert.DoesNotContain("evidence add --task", briefing);
             Assert.DoesNotContain("alternative record --task", briefing);
             Assert.Contains("record_alternatives", briefing);
+            Assert.Contains("submit_artifact", briefing);
             Assert.Contains("old recorded assignments do not change", briefing);
             Assert.Equal(request.AdditionalDirectories.Count, invocation.Arguments.Count(a => a == "--add-dir"));
             var session = resume ? "session-1" : provider == "claude"

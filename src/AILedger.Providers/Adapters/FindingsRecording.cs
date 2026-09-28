@@ -7,16 +7,18 @@ internal static class FindingsRecording
     internal const string ClaudeTool = "mcp__ailedger__record_findings";
     internal const string ClaudeAlternativesTool = "mcp__ailedger__record_alternatives";
 
+    internal const string ClaudeArtifactTool = "mcp__ailedger__submit_artifact";
+
     // CLI overrides have precedence over writable user/project files. There is no host binding
-    // in CODEX_HOME. Approval is granted to these two recording operations, not every MCP or shell tool.
+    // in CODEX_HOME. Approval is granted to these three recording operations, not every MCP or shell tool.
     internal static void AddCodexArguments(List<string> arguments, ProviderFindingsEndpoint? endpoint)
     {
         if (endpoint is null) return;
         var args = string.Join(", ", endpoint.Arguments.Select(RoslynNavigation.Quote));
         arguments.Add("--config");
         arguments.Add("mcp_servers.ailedger={command=" + RoslynNavigation.Quote(endpoint.Command) +
-            ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\"],required=true," +
-            "default_tools_approval_mode=\"prompt\",tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"}}}");
+            ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\"],required=true," +
+            "default_tools_approval_mode=\"prompt\",tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"}}}");
     }
 
     internal static object ClaudeServer(ProviderFindingsEndpoint endpoint) =>
@@ -49,7 +51,16 @@ internal static class FindingsRecording
             capability requires an explicit operator assignment change preserving intended existing grants; do not
             impersonate a lead, self-grant, or hand reasoning to another actor merely for transcription.
             New default author roles include RecordAlternative; old recorded assignments do not change.
-            Recording alternatives grants no approval powers. Other operations still use the CLI below;
+            Submit verifier-output and code-review-output documents directly with submit_artifact:
+            {"schema_version":1,"request_id":"output-1","kind":"code-review-output","title":"Review result","content":"Your complete Markdown output"}
+            The host assigns the artifact ID, actor, producer run, work scope and assurance/candidate links.
+            Content is required inline (128 KiB UTF-8 maximum); it is preserved verbatim and hashed in the receipt.
+            Optional expected_content_sha256 asserts its identity. Optional supersedes_artifact_id names a
+            current predecessor; legacy revisions require it, and assurance replacements follow existing member rules.
+            Submit while your matching verifier/reviewer run is active; existing document prerequisites still apply.
+            This supersedes file-write/artifact-record instructions for these two kinds only. Preserve the original
+            key/body for retries, including after a lost response. Submission never approves work or closes your run.
+            Other kinds, external content references, artifact export and workflow operations still use the CLI below;
             operator recording CLI support remains available outside this supplied path.
             """;
     }

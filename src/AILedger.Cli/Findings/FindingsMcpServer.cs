@@ -4,6 +4,8 @@ using System.Text.Json;
 using AILedger.Core.Findings;
 using AILedger.Core.Alternatives;
 using AILedger.Cli.Alternatives;
+using AILedger.Core.Artifacts;
+using AILedger.Cli.Artifacts;
 
 namespace AILedger.Cli.Findings;
 
@@ -103,7 +105,8 @@ public sealed partial class FindingsMcpServer
             if (method == "tools/list")
             {
                 if (parameters.ValueKind != JsonValueKind.Undefined) StrictJson.Members(parameters, [], ["_meta"]);
-                await SendAsync(FindingsMcpProtocol.Result(id!.Value, FindingsMcpProtocol.Tools(_host.Configuration.AllowRecordAlternatives && _host.Recorder is IAlternativesRecorder)), connection.Token)
+                await SendAsync(FindingsMcpProtocol.Result(id!.Value, FindingsMcpProtocol.Tools(_host.Configuration.AllowRecordAlternatives && _host.Recorder is IAlternativesRecorder,
+                    _host.Configuration.AllowSubmitArtifact && _host.Recorder is IArtifactSubmitter)), connection.Token)
                     .ConfigureAwait(false);
                 return;
             }
@@ -111,7 +114,8 @@ public sealed partial class FindingsMcpServer
             StrictJson.Members(parameters, ["name", "arguments"], ["_meta"]);
             var tool = StrictJson.Text(parameters, "name");
             attempt.IsAlternatives = tool == "record_alternatives";
-            if (tool is not ("record_findings" or "record_alternatives"))
+            attempt.IsArtifactSubmission = tool == "submit_artifact";
+            if (tool is not ("record_findings" or "record_alternatives" or "submit_artifact"))
                 throw new RpcFailure(-32602, "Unknown tool.");
             if (parameters.TryGetProperty("_meta", out var meta)) StrictJson.Validate(meta);
             var key = FindingsMcpProtocol.IdKey(id!.Value);
@@ -165,7 +169,12 @@ public sealed partial class FindingsMcpServer
         try
         {
             JsonElement body;
-            if (attempt.IsAlternatives)
+            if (attempt.IsArtifactSubmission)
+            {
+                attempt.ArtifactSubmissionResult = await InvokeArtifactSubmissionAsync(arguments, attempt, cancellationToken).ConfigureAwait(false);
+                body = ArtifactSubmissionResponseWriter.Write(attempt.ArtifactSubmissionResult);
+            }
+            else if (attempt.IsAlternatives)
             {
                 attempt.AlternativesResult = await InvokeAlternativesAsync(arguments, attempt, cancellationToken).ConfigureAwait(false);
                 body = AlternativesResponseWriter.Write(attempt.AlternativesResult);
@@ -176,7 +185,7 @@ public sealed partial class FindingsMcpServer
                 body = FindingsResponseWriter.Write(attempt.Result);
             }
             var result = new { content = new[] { new { type = "text", text = body.GetRawText() } },
-                structuredContent = body, isError = attempt.Result?.Error is not null || attempt.AlternativesResult?.Error is not null };
+                structuredContent = body, isError = attempt.Result?.Error is not null || attempt.AlternativesResult?.Error is not null || attempt.ArtifactSubmissionResult?.Error is not null };
             await SendAsync(FindingsMcpProtocol.Result(id, result), connection.Token).ConfigureAwait(false);
             attempt.Delivery = "written"; // A flush is observed, not acknowledgement by the client.
         }

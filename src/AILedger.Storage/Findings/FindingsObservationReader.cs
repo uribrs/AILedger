@@ -13,15 +13,15 @@ internal static class FindingsObservationReader
 
     internal static async Task<IReadOnlyList<LocatedFindingsAttempt>> ReadAsync(string taskDirectory,
         string taskId, string? transportDirectory, List<FindingsCoverageGap> gaps, CancellationToken cancellationToken,
-        bool alternatives = false)
+        bool alternatives = false, bool artifacts = false)
     {
         var rows = new List<LocatedFindingsAttempt>();
-        await ReadFileAsync(Path.Combine(taskDirectory, alternatives ? "alternatives-attempts.jsonl" : "findings-attempts.jsonl"), "application", taskId,
+        await ReadFileAsync(Path.Combine(taskDirectory, artifacts ? "artifact_submission-attempts.jsonl" : alternatives ? "alternatives-attempts.jsonl" : "findings-attempts.jsonl"), "application", taskId,
             rows, gaps, cancellationToken).ConfigureAwait(false);
         var directory = transportDirectory ?? Path.Combine(taskDirectory, "telemetry");
         try
         {
-            var paths = Directory.GetFiles(directory, alternatives ? "alternatives-transport-*.jsonl" : "findings-transport-*.jsonl");
+            var paths = Directory.GetFiles(directory, artifacts ? "artifact_submission-transport-*.jsonl" : alternatives ? "alternatives-transport-*.jsonl" : "findings-transport-*.jsonl");
             if (paths.Length == 0) gaps.Add(new(directory, "No transport files observed; attempts are unknown, not zero."));
             foreach (var path in paths.Order(StringComparer.Ordinal))
                 await ReadFileAsync(path, "transport", taskId, rows, gaps, cancellationToken).ConfigureAwait(false);

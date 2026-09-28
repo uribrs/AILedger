@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 implemented and installed, client trial pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; task 7 installed with client trial pending; task 8 implemented and verified, installation and client trial pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -217,7 +217,7 @@ and handoffs retain their original numbering and checkpoint meaning.
 | 5. Measurement continuity — complete | Existing measurements preserved and new attempts observable | Accepted first delivery |
 | 6. Pilot and delivery decision — complete | Prepared/live evidence and client acceptance | Accepted; do not repeat |
 | 7. Record alternatives directly — next | Small structured batches and narrowly scoped recording authority | Builds on 1–6; install-and-try checkpoint A |
-| 8. Submit artifacts coherently | Content, metadata, identity and version references in one operation | Reuses trusted tool/receipt path; checkpoint B |
+| 8. Submit artifacts coherently — implemented | Content, metadata, identity and version references in one operation | Reuses trusted tool/receipt path; checkpoint B |
 | 9. Record explicit claim dispositions | Authorized grouped judgments over cited evidence | Reuses existing evidence and decision rules; checkpoint C |
 | 10. Inspect readiness and retrieve task context | Structured blockers, relevant state and context; explicit map of remaining CLI dependencies | Uses 7–9 where available; checkpoint D |
 | 11. Prepare bounded handoffs | Versioned selected inputs, output contracts and preserved material dependencies | Reuses artifact identities from 8 and reads from 10; inspect on a real task |
@@ -526,10 +526,14 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoint: task 7 implementation verified and installed; client trial pending.**
-The next step is an ordinary task Uri chooses to run. Inspect that outcome before declaring acceptance or selecting later scope. The
-[implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md) and validation retain
-the bounded delivery requirements.
+**Current checkpoints: task 7 installed, client trial pending; task 8 implemented and verified,
+installation and client trial pending.** Uri explicitly selected task 8 before completing task 7's
+trial; this does not imply acceptance of either increment. Task 8 supports VerifierOutput and
+CodeReviewOutput only, as described in the [contract](../docs/structured-artifacts-v1.md) and
+[validation](../docs/structured-artifacts-v1/task-8-validation.md). The next checkpoint is installation
+of its exact verified commit, followed by Uri's ordinary task and inspection of the actual result.
+The task-7 [implementation handoff](../docs/handoffs/structured-agent-interface-task-7.md) and
+validation remain intact. Tasks 9–14 are unstarted.
 
 ## Related work
 

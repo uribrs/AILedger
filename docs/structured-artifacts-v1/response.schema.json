@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AILedger submit_artifact v1 response",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "status": {
+          "const": "committed"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "receipt": {
+          "$ref": "#/$defs/receipt"
+        }
+      },
+      "required": [
+        "schema_version",
+        "attempt_id",
+        "status",
+        "replayed",
+        "receipt"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "status": {
+          "const": "error"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "invalid_request",
+                "invalid_reference",
+                "authorization_denied",
+                "kernel_refused",
+                "idempotency_conflict",
+                "task_not_found",
+                "capacity_exceeded",
+                "storage_unavailable",
+                "outcome_unknown",
+                "history_corrupt",
+                "unsupported_artifact_kind",
+                "content_identity_mismatch"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "boundary": {
+              "enum": [
+                "request",
+                "binding",
+                "application",
+                "kernel",
+                "storage"
+              ]
+            },
+            "commit_state": {
+              "enum": [
+                "not_committed",
+                "committed",
+                "unknown"
+              ]
+            },
+            "retry": {
+              "enum": [
+                "same_request",
+                "after_correction",
+                "none"
+              ]
+            },
+            "item_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "rule_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "boundary",
+            "commit_state",
+            "retry",
+            "item_path",
+            "rule_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "attempt_id",
+        "status",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "transaction_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "correlation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "payload_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fingerprint_algorithm": {
+          "const": "artifact-submission-v1-c14n1"
+        },
+        "committed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ledger_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "artifact_id": {
+              "type": "string",
+              "pattern": "^AS_[a-f0-9]{32}$"
+            },
+            "kind": {
+              "enum": [
+                "verifier-output",
+                "code-review-output"
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "media_type": {
+              "const": "text/markdown; charset=utf-8"
+            },
+            "content_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "content_bytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "content_reference": {
+              "type": "string"
+            },
+            "work_item_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "producer_run_id": {
+              "type": "string"
+            },
+            "supersedes_artifact_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "covered_work_item_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "candidate_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "verifier_run_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "work_versions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "work_item_id": {
+                    "type": "string"
+                  },
+                  "working_run_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "work_item_id",
+                  "working_run_id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "member_replacements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "work_item_id": {
+                    "type": "string"
+                  },
+                  "artifact_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "work_item_id",
+                  "artifact_ids"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "artifact_id",
+            "kind",
+            "title",
+            "media_type",
+            "content_sha256",
+            "content_bytes",
+            "content_reference",
+            "work_item_id",
+            "producer_run_id",
+            "supersedes_artifact_id",
+            "covered_work_item_ids",
+            "candidate_id",
+            "verifier_run_id",
+            "work_versions",
+            "member_replacements"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "request_id",
+        "transaction_id",
+        "task_id",
+        "actor_id",
+        "run_id",
+        "correlation_id",
+        "causation_id",
+        "payload_fingerprint",
+        "fingerprint_algorithm",
+        "committed_at",
+        "ledger_version",
+        "event_ids",
+        "artifact"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
