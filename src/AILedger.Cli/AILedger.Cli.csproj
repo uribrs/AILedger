@@ -23,4 +23,9 @@
     <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/nupkg</PackageOutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../../docs/structured-findings-v1/request.schema.json" LogicalName="Findings.RequestSchema" />
+    <EmbeddedResource Include="../../docs/structured-findings-v1/response.schema.json" LogicalName="Findings.ResponseSchema" />
+  </ItemGroup>
+
 </Project>

@@ -148,7 +148,7 @@ Historical measurements must remain reproducible from frozen inputs. Missing dat
 |---|---|---|---|
 | 1. Contract and measurement baseline — complete | Reviewed JSON contract, atomic/retry design, measurement inventory and frozen comparison fixtures | Existing investigation | Design and fixtures only; no production endpoint |
 | 2. Reliable application operation — complete | Atomic, authorized, retry-safe findings/evidence submission | 1 | Application/storage and tests; no MCP or provider changes |
-| 3. Structured tool endpoint | Local MCP adapter with trusted identity binding and typed responses | 2 | Transport and tool diagnostics; no shell wrapper or broader authority |
+| 3. Structured tool endpoint — complete | Local MCP adapter with trusted identity binding and typed responses | 2 | Transport and tool diagnostics; no shell wrapper or broader authority |
 | 4. Provider adoption | Claude and Codex configured to use the tool with correct attribution and guidance | 3 | Provider integration; no new workflow or role policy |
 | 5. Measurement continuity | Existing reports verified, new transport attempts measurable and joined to committed results | 2–4; capture requirements fixed in 1 | Adapt collectors/readers as needed; no scoring-rubric redesign or dashboard rebuild |
 | 6. Measured pilot and delivery decision | Prepared-findings trial, bounded live trial, reliability evidence and comparison report | 5 | Evaluate this interface; no claim of proven cognitive improvement |
@@ -190,16 +190,18 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 **Exit:** fixture-ledger evidence that an accepted batch lands completely, a rejected batch leaves canonical state unchanged, and retry/restart produces no duplicate findings or ambiguous partial submission. Include concurrent submissions, run attribution, and historical replay. Keep the operation internal until these guarantees are complete.
 
-**Delivered:** the typed `IFindingsRecorder` operation, atomic candidate validation/append, canonical receipts and retry recovery, trusted run binding, scoped attempt capture, and 86 passing findings cases. The full repository-aware suite passed 1,776 main tests and 99 Memory tests; frozen fixtures/reports are unchanged. See the [task-2 validation record](../docs/structured-findings-v1/task-2-validation.md) for standard-test environment failures and the old-storage singleton compatibility limit, and the [task-3 handoff](../docs/handoffs/structured-findings-task-3.md). No MCP or provider integration is delivered yet.
+**Delivered:** the typed `IFindingsRecorder` operation, atomic candidate validation/append, canonical receipts and retry recovery, trusted run binding, scoped attempt capture, and 86 passing findings cases. The full repository-aware suite passed 1,776 main tests and 99 Memory tests; frozen fixtures/reports are unchanged. See the [task-2 validation record](../docs/structured-findings-v1/task-2-validation.md) for standard-test environment failures and the old-storage singleton compatibility limit, and the [task-3 handoff](../docs/handoffs/structured-findings-task-3.md). Task 2 did not include MCP or provider integration.
 
-### 3. Expose the structured tool
+### 3. Expose the structured tool — complete
 
-- [ ] Add a local MCP endpoint for record_findings over the application operation.
-- [ ] Bind ledger/task/actor and allowed actions to trusted configuration; refuse attempts to impersonate or exceed that grant.
-- [ ] Return concise typed receipts and actionable errors. Keep diagnostics off the protocol output stream.
-- [ ] Test adversarial quoting and multiline prose as ordinary payload data, with no shell translation.
+- [x] Add a local MCP endpoint for record_findings over the application operation.
+- [x] Bind ledger/task/actor and allowed actions to trusted configuration; refuse attempts to impersonate or exceed that grant.
+- [x] Return concise typed receipts and actionable errors. Keep diagnostics off the protocol output stream.
+- [x] Test adversarial quoting and multiline prose as ordinary payload data, with no shell translation.
 
 **Exit:** an end-to-end tool submission against a disposable fixture succeeds through the real application and kernel path, while unauthorized submissions still fail.
+
+**Delivered:** a trusted local stdio MCP endpoint over `IFindingsRecorder`, strict wire parsing, frozen v1 responses, host binding with per-call grants, and separate transport diagnostics including pre-application and lost-response failures. All 82 new MCP cases and the unchanged 86 task-2 cases pass. The repository-aware full suite passed 1,858 main tests and 99 Memory tests; all frozen hashes/reports match. Standard `dotnet test` reproduces the existing external-output failures; no findings case failed. See the [task-3 validation record](../docs/structured-findings-v1/task-3-validation.md), [endpoint contract](../docs/structured-findings-v1/task-3-endpoint.md), and [task-4 handoff](../docs/handoffs/structured-findings-task-4.md). Provider wiring and live provider acceptance remain task 4.
 
 ### 4. Wire providers and update the relevant recording guidance
 
@@ -262,7 +264,7 @@ Each task owns its relevant verification. Task 5 verifies continuity end to end;
 
 Tasks 1–6 deliver the first usable increment. It is complete when authorized agents on both supported provider paths can submit coherent findings/evidence batches without shell construction, receive durable compact receipts, retry safely after uncertain outcomes, and preserve the same kernel validation and historical replay behavior. Existing measurement tools remain usable, historical outputs stay comparable, and new-path measurements and residual limitations accompany the result.
 
-The next piece of work is **task 3 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-3.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
+The next piece of work is **task 4 only**, using the [scoped handoff](../docs/handoffs/structured-findings-task-4.md). Complete and review each task's result before moving to the next; this backlog entry does not request implementing all tasks in one run. Tasks 7–8 are conditional experiments; any production replacement or migration will need its own scope after their results.
 
 ## Related work
 

@@ -20,6 +20,11 @@ using var termination = OperatingSystem.IsWindows()
 
 try
 {
+    if (args is ["findings", "serve", var findingsConfigurationPath])
+    {
+        return await AILedger.Cli.Findings.FindingsStdioCommand.RunAsync(findingsConfigurationPath, cancellation.Token);
+    }
+
     if (args is ["navigation", "serve", var configurationPath])
     {
         return await RoslynNavigationServer.RunAsync(configurationPath, cancellation.Token);
