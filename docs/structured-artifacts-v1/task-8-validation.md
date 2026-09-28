@@ -105,8 +105,9 @@ The installation record retains package, source and log identities.
 Initial installed identity: **2.0.168 from f966952**. Its original package was preserved
 before editing at `/tmp/ailedger-task8/rollback/ailedger.cli.2.0.168.nupkg`, SHA-256
 `1f92c5becb3c87b798b6e24cf0e923b9d2c2000c597c359213ecccb7899d3d21`.
-The user authorized installation of the scoped verified commit. Installation will be
-recorded separately from implementation verification and client acceptance.
+The user authorized installation of the scoped verified commit. The separate
+[installation receipt](task-8-installation.md) records **2.0.170 from 540d6e6**, its successful
+non-billable package checks and the durable rollback copy. Client acceptance remains pending.
 
 No ai-kernel, governed development records, agent dispatch, global instruction/skill
 changes, merge, publication, historical-task migration, or billable episode occurred.
