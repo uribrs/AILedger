@@ -1,0 +1,156 @@
+{
+  "dependent_b": {
+    "snapshot": {
+      "area_id": "b",
+      "candidate_sha256": "3b2783726ae90764936ef623689eed152a48420890c65db6e6b33884e5eb811a",
+      "requirement_sha256": "7b44cb17a48cb990e1d1578f4b84f783b968f9a91eec048bb2769417c1d37c38",
+      "binding_sha256": "0c3d68939b3abbc0c5d3850662c92f590bc11fc7c7051962951824c3c8b3e539",
+      "inputs": [
+        {
+          "kind": "candidate",
+          "path": "b.txt",
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+          "bytes": 2,
+          "content": ""
+        },
+        {
+          "kind": "requirement",
+          "path": "b.requirements",
+          "sha256": "1cf5b7a25fe60266003751e48a1fcdb9ab664a65a6b5a4bbf676cd5984c8017b",
+          "bytes": 53,
+          "content": ""
+        },
+        {
+          "kind": "source",
+          "path": "b.source",
+          "sha256": "91a1ae2c3ee600b16674b33750433db407609b268b6bd6ea1daf67b5847f2959",
+          "bytes": 44,
+          "content": ""
+        }
+      ],
+      "dependencies": {
+        "a": "3c7b3fb4cb25375807350ea00a4bc96f5b561db7ff541c652e5570c54afa195c"
+      },
+      "criteria": [
+        {
+          "id": "output",
+          "description": "Exact one-line output",
+          "check_id": "unit"
+        }
+      ],
+      "implementer": "external-implementer",
+      "origin": "external_candidate_host_snapshot; implementation execution is not observed"
+    },
+    "history": [
+      {
+        "id": "AU_f83ad3c14f2b4b2eae2b333c7437cfed",
+        "operation": "record_assurance",
+        "principal": "reviewer",
+        "status": "reassessment_required",
+        "reasons": [
+          "relied-on area changed: a"
+        ],
+        "payload": null
+      },
+      {
+        "id": "AU_88899ca85d934b04881faff88dd64248",
+        "operation": "read_assurance",
+        "principal": "reviewer",
+        "status": "reassessment_required",
+        "reasons": [
+          "relied-on area changed: a"
+        ],
+        "payload": null
+      }
+    ],
+    "uninspected_paths": [
+      "b.txt",
+      "b.requirements",
+      "b.source"
+    ],
+    "untested_criteria": [
+      "output"
+    ],
+    "unresolved_findings": [],
+    "acceptance": "not_accepted",
+    "measurement": "host observations and authored judgments are distinct; provider usage not collected",
+    "uncommitted_files": 0,
+    "pending_checks": [],
+    "journal_version": 20,
+    "total_history": 2,
+    "next_offset": null,
+    "check_attempts": []
+  },
+  "unrelated_c": {
+    "snapshot": {
+      "area_id": "c",
+      "candidate_sha256": "f94d52a5aafdd4174fab0d30571b9a6d6b89f4ccac66bd7c2f5d56614980d305",
+      "requirement_sha256": "ace5c2a1f599742c72c417d435b7e60cfcd0ab16697e10810e1051f3a2cde683",
+      "binding_sha256": "6a0d2c766072d97974c3cdcc45db5035ed61d2e75f9116f8bab4f4a12d4140da",
+      "inputs": [
+        {
+          "kind": "candidate",
+          "path": "c.txt",
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+          "bytes": 2,
+          "content": ""
+        },
+        {
+          "kind": "requirement",
+          "path": "c.requirements",
+          "sha256": "1cf5b7a25fe60266003751e48a1fcdb9ab664a65a6b5a4bbf676cd5984c8017b",
+          "bytes": 53,
+          "content": ""
+        },
+        {
+          "kind": "source",
+          "path": "c.source",
+          "sha256": "91a1ae2c3ee600b16674b33750433db407609b268b6bd6ea1daf67b5847f2959",
+          "bytes": 44,
+          "content": ""
+        }
+      ],
+      "dependencies": {},
+      "criteria": [
+        {
+          "id": "output",
+          "description": "Exact one-line output",
+          "check_id": "unit"
+        }
+      ],
+      "implementer": "external-implementer",
+      "origin": "external_candidate_host_snapshot; implementation execution is not observed"
+    },
+    "history": [
+      {
+        "id": "AU_28e21b7d6af6417c9e83e7416aa4264c",
+        "operation": "record_assurance",
+        "principal": "reviewer",
+        "status": "current",
+        "reasons": [],
+        "payload": null
+      },
+      {
+        "id": "AU_c8a8835c8b014f3998b6dadfb553df1d",
+        "operation": "read_assurance",
+        "principal": "reviewer",
+        "status": "current",
+        "reasons": [],
+        "payload": null
+      }
+    ],
+    "uninspected_paths": [],
+    "untested_criteria": [
+      "output"
+    ],
+    "unresolved_findings": [],
+    "acceptance": "not_accepted",
+    "measurement": "host observations and authored judgments are distinct; provider usage not collected",
+    "uncommitted_files": 0,
+    "pending_checks": [],
+    "journal_version": 20,
+    "total_history": 2,
+    "next_offset": null,
+    "check_attempts": []
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "snapshot": {
+    "area_id": "a",
+    "candidate_sha256": "75758dc597edb0f91df56b4095eb65fea7decf7644f244dd09c2ef262cf22766",
+    "requirement_sha256": "ae56ab620e2de5f86316033308664654220ad45f1fad548cbb3606cc69d94726",
+    "binding_sha256": "9df78cb021cb3ae32fded7b60bf3459214ee64d42fc5eb0656c7fa18a0a0f47b",
+    "inputs": [
+      {
+        "kind": "candidate",
+        "path": "a.txt",
+        "sha256": "5a0a2b76858bf8cc147613f783d84cd22c0047d142ba0d9ce13fcedf953b57ed",
+        "bytes": 3,
+        "content": ""
+      },
+      {
+        "kind": "requirement",
+        "path": "a.requirements",
+        "sha256": "1cf5b7a25fe60266003751e48a1fcdb9ab664a65a6b5a4bbf676cd5984c8017b",
+        "bytes": 53,
+        "content": ""
+      },
+      {
+        "kind": "source",
+        "path": "a.source",
+        "sha256": "91a1ae2c3ee600b16674b33750433db407609b268b6bd6ea1daf67b5847f2959",
+        "bytes": 44,
+        "content": ""
+      }
+    ],
+    "dependencies": {},
+    "criteria": [
+      {
+        "id": "output",
+        "description": "Exact one-line output",
+        "check_id": "unit"
+      }
+    ],
+    "implementer": "external-implementer",
+    "origin": "external_candidate_host_snapshot; implementation execution is not observed"
+  },
+  "history": [
+    {
+      "id": "AU_10dfba29b7d3430eaca00a2c5366c1a8",
+      "operation": "record_assurance",
+      "principal": "verifier",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    },
+    {
+      "id": "AU_f08ba64f7d59442688f1310b6e996914",
+      "operation": "read_assurance",
+      "principal": "verifier",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    }
+  ],
+  "uninspected_paths": [],
+  "untested_criteria": [
+    "output"
+  ],
+  "unresolved_findings": [],
+  "acceptance": "not_accepted",
+  "measurement": "host observations and authored judgments are distinct; provider usage not collected",
+  "uncommitted_files": 0,
+  "pending_checks": [],
+  "journal_version": 6,
+  "total_history": 2,
+  "next_offset": null,
+  "check_attempts": [
+    {
+      "start": {
+        "fingerprint": "144db3429c71d81a28a0472fa4af62f278dfed9ce1709a37f856d7c05bd37c72",
+        "request_id": "interrupted-check",
+        "principal": "verifier",
+        "session_id": "verifier-session",
+        "area_id": "a",
+        "binding_sha256": "9df78cb021cb3ae32fded7b60bf3459214ee64d42fc5eb0656c7fa18a0a0f47b",
+        "directory": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-assurance-check-6BxeXb",
+        "check_ids": [
+          "unit"
+        ],
+        "process_outcome": "unknown"
+      },
+      "observations": [
+        {
+          "kind": "assurance_check_reconciled",
+          "data": {
+            "fingerprint": "144db3429c71d81a28a0472fa4af62f278dfed9ce1709a37f856d7c05bd37c72",
+            "_session": {
+              "principal": "operator",
+              "session_id": "operator-session",
+              "provider": "external-client",
+              "requested_model": null
+            },
+            "outcome": "unknown",
+            "basis": "operator attests process stopped; no successful ending invented"
+          }
+        }
+      ],
+      "receipt_id": null
+    }
+  ]
+}

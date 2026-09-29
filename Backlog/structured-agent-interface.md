@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–12 installed; task 13 implemented with installation pending; client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–13 installed; all seven client trials pending; task 14 unstarted. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -519,7 +519,7 @@ and [retained recovery example](../docs/bounded-execution-v1/examples/recovery.m
 other limited task. Inspect the full experience, including an interruption probe. The existing path
 remains usable. Do not present this limited trial as full assurance for a code change.
 
-### 13. Preserve assurance across handoffs
+### 13. Preserve assurance across handoffs — installed, client trial pending
 
 **User effect:** useful independent checks and dependency corrections survive the smaller execution
 model without requiring every task to traverse the same ceremonial route.
@@ -541,8 +541,9 @@ authorized execution environment; task 12 remains offline/read-only. No waived h
 spend, global configuration change or task-14 implementation is included. See the
 [contract](../docs/handoff-assurance-v1.md), [validation](../docs/handoff-assurance-v1/validation.md),
 [coverage update](../docs/structured-inspection-v1.md#task-13-interaction-coverage-update) and
-[checkpoint-F trial](../docs/handoff-assurance-v1/trial.md). Installation and client acceptance are
-separate, pending checkpoints at this implementation commit.
+[checkpoint-F trial](../docs/handoff-assurance-v1/trial.md). **2.0.180 from d338d3b is installed**; see the
+[installation receipt and retained example](../docs/handoff-assurance-v1/installation.md).
+Client acceptance remains a separate pending checkpoint.
 
 **Checkpoint F / exit:** install the verified assurance slice; Uri runs a bounded implementation task
 through it. Inspect actual findings, candidate freshness, repairs, preserved knowledge and human
@@ -573,7 +574,7 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoints: tasks 7–12 implemented and installed; all six client trials pending.** Uri explicitly selected task 8 before completing task 7's
+**Current checkpoints: tasks 7–13 implemented and installed; all seven client trials pending.** Uri explicitly selected task 8 before completing task 7's
 trial; this does not imply acceptance of either increment. Task 8 supports VerifierOutput and
 CodeReviewOutput only, as described in the [contract](../docs/structured-artifacts-v1.md) and
 [validation](../docs/structured-artifacts-v1/task-8-validation.md). Task 8 was installed as **2.0.170 from 540d6e6**; its
@@ -587,7 +588,7 @@ Uri authorized proceeding and installing task 9 before the earlier client trials
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
 No task-9 client observation or acceptance is claimed. Task 10 is installed as **2.0.174 from dbeafbd**
 under explicit advance authorization; its [installation checkpoint](../docs/structured-inspection-v1/task-10-installation.md)
-is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Task 12 is implemented and installed as **2.0.178 from 142bab5**, with [separate installation and trial records](../docs/bounded-execution-v1/installation.md); its client acceptance remains pending. Task 13 is implemented with installation and client acceptance pending; task 14 remains unstarted.
+is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Task 12 is implemented and installed as **2.0.178 from 142bab5**, with [separate installation and trial records](../docs/bounded-execution-v1/installation.md); its client acceptance remains pending. Task 13 is implemented and installed as **2.0.180  from d338d3b**, with [installation and retained examples](../docs/handoff-assurance-v1/installation.md); its client acceptance remains pending. Task 14 remains unstarted.
 
 ## Related work
 

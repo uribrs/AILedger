@@ -1,0 +1,20 @@
+{
+  "identity": "2.0.180  from d338d3b",
+  "result": "passed",
+  "real_provider_episodes": 0,
+  "client_acceptance": "pending",
+  "checks": [
+    "scoped discovery and actual typed calls",
+    "host identity",
+    "read receipt replay",
+    "independent explicit acceptance",
+    "candidate/source/requirement binding",
+    "affected and unaffected areas",
+    "stale refusal",
+    "partial restart",
+    "hard host/process-group interruption",
+    "unknown reconciliation",
+    "partial receipt preservation"
+  ],
+  "limitation": "Mechanical fixture only; scripted repair remains unaccepted and illustrates test relevance limits."
+}
