@@ -1,5 +1,8 @@
 # Task-13 installation checkpoint
 
+Historical implementation receipt. The subsequent guidance/help refresh is installed as
+**2.0.185 from 907280b**; see its [verification and receipt](../interaction-guidance-refresh.md).
+
 Installed **2.0.180  from d338d3b** from implementation commit
 `d338d3b17ec1f2ba43e12823714293b7397070d1` on `codex/structured-findings-contract`.
 The separate documentation commit does not change the runtime and was not reinstalled.

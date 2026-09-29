@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "candidate_payload_verified": true,
+  "source_commit": "907280b89ced316fd1ee0e424bdeff436bf07d4c",
+  "version": "2.0.185",
+  "candidate_identity": "2.0.185  from 907280b",
+  "package": "/tmp/ailedger-guidance-refresh/packages/AILedger.Cli.2.0.185.nupkg",
+  "package_sha256": "7604eaa73c0a3299e07f9334e2687d849f68f6a377d3773f4ff36db075e0b1d2",
+  "payload": [
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.deps.json",
+      "sha256": "d6e93dc06091bc0a7a047171df775bb4e634a8e8c412af60ddfcb9dc4b65889b"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.dll",
+      "sha256": "1139a51bdbbacea423716dcc3ef3dd856f68571c9fcd3fee73bab2c097df9247"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.pdb",
+      "sha256": "9f598577143281bede90f99759734cea6d3f686734dfe572356ab025be7c15e1"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.runtimeconfig.json",
+      "sha256": "97c9700542b659150b230c3578b29530fd76ab01ec66a92cd16945e0245713df"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Core.dll",
+      "sha256": "ebe8df947893cf1d6711c82e558b724d12a61d0dab35831277facb859567b22d"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Core.pdb",
+      "sha256": "5c473d6b1144034765311ae32f5340d53a36c7319a17ba315ba267776b119dbd"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Providers.dll",
+      "sha256": "fe86e61079d6d706285ce9f0576e794c3c5f0c6fcf6f0dc92fd4ab9c0bd27f40"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Providers.pdb",
+      "sha256": "a93255b1307cd4fdf969dd701a7c7d489e4d9e69c8c5007ec539a37e667151d6"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Storage.dll",
+      "sha256": "d5122e52b4cfa78585b1f10e9edf04e4e32dd4de46b9c308683a109b877b86d5"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Storage.pdb",
+      "sha256": "9d19993dc0cfd605bab060d581d0d12cb5c184f39147b950c4e3031f5253ca75"
+    },
+    {
+      "path": "tools/net8.0/any/DotnetToolSettings.xml",
+      "sha256": "ccfb937d1dcebd6f525b4a2f430f76d4bf1cd67f342abf25c222c1d45f53fc1c"
+    }
+  ],
+  "pack_command": [
+    "dotnet",
+    "pack",
+    "src/AILedger.Cli/AILedger.Cli.csproj",
+    "-c",
+    "Release",
+    "-m:1",
+    "--nologo",
+    "--artifacts-path",
+    "/tmp/ailedger-guidance-refresh/package-build",
+    "-p:NuGetAudit=false",
+    "-p:UseSharedCompilation=false",
+    "-p:PackageOutputPath=/tmp/ailedger-guidance-refresh/packages",
+    "-p:Version=2.0.185",
+    "-p:InformationalVersion=2.0.185+907280b.t1790682599"
+  ],
+  "prior": {
+    "identity": "2.0.180  from d338d3b",
+    "package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.180/ailedger.cli/2.0.180/ailedger.cli.2.0.180.nupkg",
+    "sha256": "e20f3e0732ea338e1cf0d4ae20109f742dde05f00672df7d3af98af13c90a722",
+    "rollback": "/Users/user/.local/share/ailedger/rollback/ailedger.cli.2.0.180.nupkg",
+    "executable_sha256": "762ecf17871189bcf37cb61df6e5ffec560815bfb56633271e814ead60ca3bb7"
+  },
+  "client_acceptance": "pending",
+  "real_provider_episodes": 0,
+  "install_command": [
+    "dotnet",
+    "tool",
+    "update",
+    "--global",
+    "AILedger.Cli",
+    "--version",
+    "2.0.185",
+    "--configfile",
+    "/tmp/ailedger-guidance-refresh/NuGet.Config"
+  ],
+  "installed_identity": "2.0.185  from 907280b",
+  "installed_package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.185/ailedger.cli/2.0.185/ailedger.cli.2.0.185.nupkg",
+  "executable": "/Users/user/.local/bin/ailedger",
+  "executable_target": "/Users/user/.dotnet/tools/ailedger",
+  "executable_sha256": "ae9be373e9e45c7ae01c3f0bc161e3cf183f05da97b0e36f055f859cbe901609",
+  "payload_verified": true,
+  "validation": {
+    "dotnet_test": {
+      "main_passed": 2285,
+      "memory_passed": 99,
+      "failed": 0,
+      "skipped": 0
+    },
+    "cognitive_artifacts_verified": 12,
+    "contexts_per_executable": 7,
+    "frozen_hashes_verified": 11,
+    "baseline_verifier": "Previously built frozen baseline verifier; four historical reports and four provider-cost samples matched",
+    "real_provider_episodes": 0
+  },
+  "probes": [
+    {
+      "executable": "candidate",
+      "probe": "context",
+      "result": "passed"
+    },
+    {
+      "executable": "candidate",
+      "probe": "assurance",
+      "result": "passed",
+      "log": "/tmp/ailedger-guidance-refresh/candidate-assurance.log",
+      "sha256": "0d352b2c28d8b54d6f21b9d85629068097b528dc2e19cc774e7efc119b91ffaf"
+    },
+    {
+      "executable": "installed",
+      "probe": "context",
+      "result": "passed"
+    },
+    {
+      "executable": "installed",
+      "probe": "assurance",
+      "result": "passed",
+      "log": "/tmp/ailedger-guidance-refresh/installed-assurance.log",
+      "sha256": "0d352b2c28d8b54d6f21b9d85629068097b528dc2e19cc774e7efc119b91ffaf"
+    }
+  ],
+  "codex_skill": {
+    "path": "/Users/user/.codex/skills/ai-kernel/SKILL.md",
+    "version": "1.0.5",
+    "sha256": "9f9ac606705680ccf345c704d1df811a5029949e2dddd374464e84f424ae65d7",
+    "rollback": "/Users/user/.local/share/ailedger/rollback/ai-kernel/codex-1.0.4-before-default-assurance.md"
+  }
+}

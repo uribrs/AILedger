@@ -45,3 +45,16 @@ prior CLI package from the installation rollback receipt when reverting runtime 
 governed context before further dispatch so roles receive the restored snapshot. A broader redesign
 rollback must also restore the entrypoints and CLI matching that earlier revision; the 1.0.4 backup
 reverses this default-policy update only.
+
+## Exact installed build
+
+Installed **2.0.185 from 907280b**, source commit
+`907280b89ced316fd1ee0e424bdeff436bf07d4c`. The candidate and global installation matched all
+11 package payload hashes. Both passed help checks, fresh contexts for all seven roles and the
+existing scripted assurance probe (including interruption, unknown reconciliation, receipts and
+independent acceptance). This later receipt-only commit does not require another installation.
+
+The [installation receipt](interaction-guidance-installation.json) retains package/payload/executable
+hashes, commands, probe log hashes and the prior 2.0.180 package rollback path. Restore that package
+with the authorized tool installer if reverting this refresh; do not infer rollback success from a
+Git revert alone. Client acceptance remains pending.

@@ -541,8 +541,10 @@ authorized execution environment; task 12 remains offline/read-only. No waived h
 spend, global configuration change or task-14 implementation is included. See the
 [contract](../docs/handoff-assurance-v1.md), [validation](../docs/handoff-assurance-v1/validation.md),
 [coverage update](../docs/structured-inspection-v1.md#task-13-interaction-coverage-update) and
-[checkpoint-F trial](../docs/handoff-assurance-v1/trial.md). **2.0.180 from d338d3b is installed**; see the
+[checkpoint-F trial](../docs/handoff-assurance-v1/trial.md). Task 13 was first installed as **2.0.180 from d338d3b**; see the
 [installation receipt and retained example](../docs/handoff-assurance-v1/installation.md).
+The current guidance/help build is **2.0.185 from 907280b**; see the
+[refresh and installation receipt](../docs/interaction-guidance-refresh.md).
 Client acceptance remains a separate pending checkpoint.
 
 **Operating policy (2026-09-29):** task 13 is now the default assurance flow for supported work,
