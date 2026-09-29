@@ -7,7 +7,9 @@ internal static class CliHelpText
 
         Global options: --root PATH        (default: platform local application data/AILedger/tasks)
                         --lesson-root PATH (default: platform local application data/AILedger/lessons)
-        Every mutation requires an explicit --actor ID. Repeat list options once per value.
+        Every governed mutation requires an explicit --actor ID. Repeat list options once per value.
+        Experimental offline episodes use a separate trusted host binding and store:
+        episode --help      run/resume/inspect/reconcile; read-only, no model spend or acceptance
 
         version            (no options)   what this build was made from
         task open          --task ID --actor ID --title TEXT --goal TEXT [--tag TAG]

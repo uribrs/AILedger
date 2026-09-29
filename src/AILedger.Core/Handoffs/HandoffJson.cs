@@ -18,7 +18,7 @@ public static class HandoffJson
     public static AILedger.Core.Inspection.RetrievalQuery ParseRetrieval(string json) =>
         ParseDocument<AILedger.Core.Inspection.RetrievalQuery>(json);
 
-    private static T ParseDocument<T>(string json) where T : class
+    public static T ParseDocument<T>(string json) where T : class
     {
         if (System.Text.Encoding.UTF8.GetByteCount(json) > MaximumRequestBytes)
             throw new ArgumentException("Handoff request exceeds 512 KiB.");

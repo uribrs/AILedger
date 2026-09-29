@@ -4,13 +4,13 @@ using AILedger.Core.Findings;
 
 namespace AILedger.Core.Handoffs;
 
-internal static class HandoffValidation
+public static class HandoffValidation
 {
     internal static readonly string[] Categories = ["decisions", "alternatives", "constraints", "contradictions",
         "lessons", "corrections", "uncertainty", "provenance"];
     internal const int MaximumRecords = 512;
 
-    internal static void Validate(HandoffRequest request)
+    public static void Validate(HandoffRequest request)
     {
         if (request is null || request.SchemaVersion != 1 || request.ExpectedVersion < 1)
             throw new ArgumentException("Expected handoff v1 and a positive ledger version.");
@@ -63,7 +63,7 @@ internal static class HandoffValidation
     private static void Spec(EpisodeSpec spec)
     {
         if (spec is null || spec.SchemaVersion != 1 || !FindingsValidation.IsRequestId(spec.Id) ||
-            spec.Profile is not ("verification-preparation" or "research-to-design"))
+            spec.Profile is not ("verification-preparation" or "research-to-design" or "read-only-audit"))
             throw new ArgumentException("Expected episode v1, an ID and a supported preparation profile.");
         Text(spec.Objective); Texts(spec.NonGoals); Texts(spec.ExpectedOutputs);
         Texts(spec.AcceptanceChecks); Texts(spec.StopConditions);

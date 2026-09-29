@@ -347,7 +347,7 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 ## Remaining increments — current scope
 
 Tasks 7–11 now have verified, installed implementations; client observations remain separate checkpoints.
-Task 11 installation is verified; its client acceptance remains a separate checkpoint. Tasks 12–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+Task 11 installation is verified; its client acceptance remains a separate checkpoint. Task 12 implementation is verified below; installation is a separate checkpoint. Tasks 13–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
 ### 7. Record alternatives directly — client trial pending
@@ -505,6 +505,15 @@ results rather than forcing Uri or the next agent to reconstruct what happened.
   inventory. On interruption, preserve partial results and distinguish failed, blocked and unknown.
 - Exercise retry, cancellation, absent telemetry and resume/reconciliation with disposable fixtures.
 
+**Implementation checkpoint (2026-09-29):** the explicitly selected `episode` path runs bounded
+offline read-only episodes with trusted grant/package/executable binding, existing task-10 retrieval,
+task-8 content identity reuse, separate durable submissions, bounded follow-ups and interruption
+recovery. Its first justified client trial is a deterministic package inventory audit, not a model
+research or implementation-assurance trial. See the [contract](../docs/bounded-execution-v1.md),
+[validation](../docs/bounded-execution-v1/validation.md) and [precise trial](../docs/bounded-execution-v1/trial.md).
+Implementation is verified; exact installation is recorded separately. Client acceptance remains
+pending. No real/billable provider, fabricated governed history or task-13 change is included.
+
 **Checkpoint E / exit:** install an explicitly selectable path and let Uri run a bounded research or
 other limited task. Inspect the full experience, including an interruption probe. The existing path
 remains usable. Do not present this limited trial as full assurance for a code change.
@@ -565,7 +574,7 @@ Uri authorized proceeding and installing task 9 before the earlier client trials
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
 No task-9 client observation or acceptance is claimed. Task 10 is installed as **2.0.174 from dbeafbd**
 under explicit advance authorization; its [installation checkpoint](../docs/structured-inspection-v1/task-10-installation.md)
-is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Tasks 12–14 remain unstarted.
+is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Task 12 has a verified implementation; installation and client acceptance remain separate. Tasks 13–14 remain unstarted.
 
 ## Related work
 

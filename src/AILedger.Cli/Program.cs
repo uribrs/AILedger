@@ -20,6 +20,9 @@ using var termination = OperatingSystem.IsWindows()
 
 try
 {
+    if (args.Length > 0 && args[0] == "episode")
+        return await AILedger.Cli.Episodes.EpisodeCliCommands.RunAsync(args, cancellation.Token);
+
     if (args is ["findings", "relay", var port, var secret])
     {
         return await AILedger.Cli.Findings.FindingsRelayCommand.RunAsync(port, secret, cancellation.Token);

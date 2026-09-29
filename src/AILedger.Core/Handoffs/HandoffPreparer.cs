@@ -117,7 +117,7 @@ public sealed class HandoffPreparer(ITaskInspector inspector)
         return (json, calls);
     }
 
-    private static ArtifactContentIdentity? ArtifactIdentity(ContextReference reference, string json)
+    public static ArtifactContentIdentity? ArtifactIdentity(ContextReference reference, string json)
     {
         // ContextArtifact content includes a rendered title/candidate prefix. It is NOT the
         // task-8 artifact body. Only its original submission receipt supplies that identity.
