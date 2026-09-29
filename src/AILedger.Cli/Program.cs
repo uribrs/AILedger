@@ -20,6 +20,22 @@ using var termination = OperatingSystem.IsWindows()
 
 try
 {
+    if (args.Length > 0 && args[0] == "assurance")
+        return await AILedger.Cli.Assurance.AssuranceCliCommands.RunAsync(args, cancellation.Token);
+
+    if (args.Length > 0 && args[0] == "episode")
+        return await AILedger.Cli.Episodes.EpisodeCliCommands.RunAsync(args, cancellation.Token);
+
+    if (args is ["findings", "relay", var port, var secret])
+    {
+        return await AILedger.Cli.Findings.FindingsRelayCommand.RunAsync(port, secret, cancellation.Token);
+    }
+
+    if (args is ["findings", "serve", var findingsConfigurationPath])
+    {
+        return await AILedger.Cli.Findings.FindingsStdioCommand.RunAsync(findingsConfigurationPath, cancellation.Token);
+    }
+
     if (args is ["navigation", "serve", var configurationPath])
     {
         return await RoslynNavigationServer.RunAsync(configurationPath, cancellation.Token);

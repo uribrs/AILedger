@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Xml.Linq;
-using AILedger.Memory.Tests.Support;
+using AILedger.TestSupport;
 
 namespace AILedger.Memory.Tests.Architecture;
 

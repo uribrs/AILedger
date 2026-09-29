@@ -79,18 +79,5 @@ public sealed class ConstraintContextTests
     }
 
     private static string FindCognitiveRoot()
-    {
-        for (var directory = new DirectoryInfo(Environment.CurrentDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            var candidate = Path.Combine(directory.FullName, "cognitive");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-            {
-                return candidate;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Test could not locate the cognitive root.");
-    }
+        => ContextBrief.CognitiveRoot();
 }

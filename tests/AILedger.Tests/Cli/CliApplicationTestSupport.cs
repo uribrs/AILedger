@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using AILedger.Cli;
+using AILedger.Core.Findings;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
@@ -249,20 +250,7 @@ internal static class CliApplicationTestSupport
     }
 
     internal static string FindCognitiveRoot()
-    {
-        for (var directory = new DirectoryInfo(Environment.CurrentDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            var candidate = Path.Combine(directory.FullName, "cognitive");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-            {
-                return candidate;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Test could not locate the cognitive root.");
-    }
+        => ContextBrief.CognitiveRoot();
 
     internal sealed class CancellingAdapter(CancellationTokenSource cancellation) : IAgentAdapter
     {
@@ -314,9 +302,27 @@ internal static class CliApplicationTestSupport
 
     internal sealed class CompletionFailureService(
         IGovernedTaskService inner,
-        int failuresBeforeSuccess) : IGovernedTaskService
+        int failuresBeforeSuccess) : IGovernedTaskService, IFindingsRecorder, AILedger.Core.Alternatives.IAlternativesRecorder, AILedger.Core.Artifacts.IArtifactSubmitter, AILedger.Core.ClaimDispositions.IClaimDispositionsRecorder
     {
         public int CompletionAttempts { get; private set; }
+
+        public Task<AILedger.Core.ClaimDispositions.ClaimDispositionsResult> RecordClaimDispositionsAsync(
+            AILedger.Core.ClaimDispositions.ClaimDispositionsBinding binding,
+            AILedger.Core.ClaimDispositions.ClaimDispositionsRequest request, CancellationToken cancellationToken) =>
+            ((AILedger.Core.ClaimDispositions.IClaimDispositionsRecorder)inner).RecordClaimDispositionsAsync(binding, request, cancellationToken);
+
+        public Task<AILedger.Core.Artifacts.ArtifactSubmissionResult> SubmitArtifactAsync(
+            AILedger.Core.Artifacts.ArtifactSubmissionBinding binding, AILedger.Core.Artifacts.ArtifactSubmissionRequest request,
+            CancellationToken cancellationToken) =>
+            ((AILedger.Core.Artifacts.IArtifactSubmitter)inner).SubmitArtifactAsync(binding, request, cancellationToken);
+
+        public Task<AILedger.Core.Alternatives.AlternativesResult> RecordAlternativesAsync(
+            AILedger.Core.Alternatives.AlternativesBinding binding,
+            AILedger.Core.Alternatives.AlternativesRequest request, CancellationToken cancellationToken) =>
+            ((AILedger.Core.Alternatives.IAlternativesRecorder)inner).RecordAlternativesAsync(binding, request, cancellationToken);
+
+        public Task<FindingsResult> RecordAsync(FindingsBinding binding, FindingsRequest request, CancellationToken cancellationToken) =>
+            ((IFindingsRecorder)inner).RecordAsync(binding, request, cancellationToken);
 
         public Task<CommandOutcome> ExecuteAsync(
             TaskId taskId,

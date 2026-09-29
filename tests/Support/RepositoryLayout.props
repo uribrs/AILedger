@@ -1,0 +1,8 @@
+<Project>
+  <!-- Test-only source identity: VSTest may run from an artifacts directory outside the checkout. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="AILedger.TestRepositoryRoot"
+                      Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))" />
+    <Compile Include="$(MSBuildThisFileDirectory)RepositoryLayout.cs" Link="Support/RepositoryLayout.cs" />
+  </ItemGroup>
+</Project>

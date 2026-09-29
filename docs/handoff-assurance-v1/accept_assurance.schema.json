@@ -1,0 +1,87 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "area_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "expected_binding": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "decision": {
+            "const": "not_applicable"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "evidence_reports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "maxItems": 32,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "finding_id",
+          "decision",
+          "rationale",
+          "evidence_reports"
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "schema_version",
+    "area_id",
+    "request_id",
+    "expected_binding",
+    "reports",
+    "rationale",
+    "dispositions"
+  ]
+}

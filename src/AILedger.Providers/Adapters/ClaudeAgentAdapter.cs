@@ -37,27 +37,38 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
             var providerSettings = JsonNode.Parse(request.Assurance?.VerifierRunId is not null
                 ? ReviewerSettings() : SandboxSettings)!.AsObject();
             var settings = RoslynNavigation.CreateSettingsFile(request, directory);
-            if (settings is null)
+            var servers = new Dictionary<string, object>();
+            var tools = new List<string>();
+            if (settings is not null)
             {
-                return new ProviderLaunchScope(environment, directory, ["--settings", providerSettings.ToJsonString()]);
+                providerSettings["hooks"] = JsonSerializer.SerializeToNode(
+                    RoslynNavigation.Hooks(RoslynNavigation.GuardCommand(request.NavigationHostAssembly!, settings)));
+                providerSettings["disableAllHooks"] = false;
+                servers["roslyn"] = new { type = "stdio", command = "dotnet",
+                    args = new[] { request.NavigationHostAssembly!, "navigation", "serve", settings } };
+                tools.AddRange(RoslynNavigation.Tools.Select(tool => $"mcp__roslyn__{tool}"));
+            }
+            if (request.FindingsEndpoint is { } findings)
+            {
+                servers["ailedger"] = FindingsRecording.ClaudeServer(findings);
+                tools.Add(FindingsRecording.ClaudeTool);
+                tools.Add(FindingsRecording.ClaudeAlternativesTool);
+                tools.Add(FindingsRecording.ClaudeArtifactTool);
+                tools.Add(FindingsRecording.ClaudeClaimDispositionsTool);
+                tools.Add("mcp__ailedger__inspect_task");
+                tools.Add("mcp__ailedger__retrieve_context");
+                tools.Add("mcp__ailedger__check_readiness");
+                tools.AddRange((findings.AssuranceTools ?? []).Select(name => "mcp__ailedger__" + name));
             }
 
-            providerSettings["hooks"] = JsonSerializer.SerializeToNode(
-                RoslynNavigation.Hooks(RoslynNavigation.GuardCommand(request.NavigationHostAssembly!, settings)));
-            providerSettings["disableAllHooks"] = false;
-
-            var configuration = Path.Combine(directory, "mcp.json");
-            File.WriteAllText(configuration, JsonSerializer.Serialize(new
+            var arguments = new List<string> { "--settings", providerSettings.ToJsonString() };
+            if (servers.Count > 0)
             {
-                mcpServers = new
-                {
-                    roslyn = new { type = "stdio", command = "dotnet",
-                        args = new[] { request.NavigationHostAssembly!, "navigation", "serve", settings } }
-                }
-            }));
-            return new ProviderLaunchScope(environment, directory,
-                ["--settings", providerSettings.ToJsonString(), "--mcp-config", configuration, "--allowedTools",
-                    string.Join(",", RoslynNavigation.Tools.Select(tool => $"mcp__roslyn__{tool}"))]);
+                // Inline launch configuration cannot be rewritten through an agent-writable file.
+                arguments.AddRange(["--mcp-config", JsonSerializer.Serialize(new { mcpServers = servers }),
+                    "--allowedTools", string.Join(",", tools)]);
+            }
+            return new ProviderLaunchScope(environment, directory, arguments);
         }
         catch
         {

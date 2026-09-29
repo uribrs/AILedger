@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "candidate_payload_verified": true,
+  "source_commit": "d338d3b17ec1f2ba43e12823714293b7397070d1",
+  "version": "2.0.180",
+  "candidate_identity": "2.0.180  from d338d3b",
+  "package": "/tmp/ailedger-task13/packages/AILedger.Cli.2.0.180.nupkg",
+  "package_sha256": "e20f3e0732ea338e1cf0d4ae20109f742dde05f00672df7d3af98af13c90a722",
+  "payload": [
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.deps.json",
+      "sha256": "fa4e7c260ec0706cd10a95a81eb7a32d5a201af173fcebf36f823e10df5fa842"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.dll",
+      "sha256": "ce33d74b2ec40a9fa66ba49e163167ffa69c6ff583f93d56ec50ac6696029621"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.pdb",
+      "sha256": "0b0eab13467271ee78630179cbe92e82c48834d22d923fbc17a5b2340a1b642a"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.runtimeconfig.json",
+      "sha256": "97c9700542b659150b230c3578b29530fd76ab01ec66a92cd16945e0245713df"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Core.dll",
+      "sha256": "80d5a306537bd1e236ee0122c5bc840da7682d6c58a5f84e7e671ecd22cb1c1a"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Core.pdb",
+      "sha256": "3da7fa95a034f27348ec7f1903e1667011a9cf89d1d9b329189ccfa0903bbca6"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Providers.dll",
+      "sha256": "5464a173eab58fa6ab44572122432503cb0fde97a7b8a1d161eb55c214256c72"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Providers.pdb",
+      "sha256": "dcc3c9b57ca9fd5df739a403238242dd5b1f81263dabab9380813986a2a0e881"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Storage.dll",
+      "sha256": "6d940faac0f076d221e88f07df67d827e771529877d9303b0ebbb10ba5fd798f"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Storage.pdb",
+      "sha256": "10821456ee6ff2915e6868092a84f28afde5daafb5d7a1b43a9f23e2e272d849"
+    },
+    {
+      "path": "tools/net8.0/any/DotnetToolSettings.xml",
+      "sha256": "ccfb937d1dcebd6f525b4a2f430f76d4bf1cd67f342abf25c222c1d45f53fc1c"
+    }
+  ],
+  "pack_command": [
+    "dotnet",
+    "pack",
+    "src/AILedger.Cli/AILedger.Cli.csproj",
+    "-c",
+    "Release",
+    "-m:1",
+    "--nologo",
+    "--artifacts-path",
+    "/tmp/ailedger-task13/package-build",
+    "-p:NuGetAudit=false",
+    "-p:UseSharedCompilation=false",
+    "-p:PackageOutputPath=/tmp/ailedger-task13/packages",
+    "-p:Version=2.0.180",
+    "-p:InformationalVersion=2.0.180+d338d3b.t1790679450"
+  ],
+  "prior": {
+    "identity": "2.0.178  from 142bab5",
+    "package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.178/ailedger.cli/2.0.178/ailedger.cli.2.0.178.nupkg",
+    "sha256": "7177ea11e95132cffdc5a7558c226b765d77772725b05922cc223f19e8a72b24",
+    "rollback": "/Users/user/.local/share/ailedger/rollback/ailedger.cli.2.0.178.nupkg",
+    "executable_sha256": "8db2262db3d2ff4e16e852526774aa64c85182b90bbbd133a014bcfa354990c6"
+  },
+  "client_acceptance": "pending",
+  "real_provider_episodes": 0,
+  "install_command": [
+    "dotnet",
+    "tool",
+    "update",
+    "--global",
+    "AILedger.Cli",
+    "--version",
+    "2.0.180",
+    "--configfile",
+    "/tmp/ailedger-task13/NuGet.Config"
+  ],
+  "installed_identity": "2.0.180  from d338d3b",
+  "installed_package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.180/ailedger.cli/2.0.180/ailedger.cli.2.0.180.nupkg",
+  "executable": "/Users/user/.local/bin/ailedger",
+  "executable_target": "/Users/user/.dotnet/tools/ailedger",
+  "executable_sha256": "762ecf17871189bcf37cb61df6e5ffec560815bfb56633271e814ead60ca3bb7",
+  "payload_verified": true,
+  "candidate_probes": [
+    {
+      "probe": "assurance",
+      "command": [
+        "python3",
+        "tools/AssuranceProbe/run.py",
+        "/tmp/ailedger-task13/candidate/ailedger",
+        "/tmp/ailedger-task13/candidate-assurance"
+      ],
+      "log": "/tmp/ailedger-task13/candidate-assurance.log",
+      "result": "passed",
+      "log_sha256": "afd87748d52afb368b217cc94370ea7ef2d84f8d7d6a44c7f412516ba7aa1f44"
+    },
+    {
+      "probe": "inspection",
+      "command": [
+        "python3",
+        "tools/InspectionProbe/run.py",
+        "/tmp/ailedger-task13/candidate/ailedger"
+      ],
+      "log": "/tmp/ailedger-task13/candidate-inspection.log",
+      "result": "passed",
+      "log_sha256": "c6d894a52efc0eddee091a87025aaead41fb71f4be96e42a6e6d03a6377d62a3"
+    },
+    {
+      "probe": "episode",
+      "command": [
+        "python3",
+        "tools/EpisodeProbe/run.py",
+        "/tmp/ailedger-task13/candidate/ailedger",
+        "/tmp/ailedger-task13/candidate-episode"
+      ],
+      "log": "/tmp/ailedger-task13/candidate-episode.log",
+      "result": "passed",
+      "log_sha256": "cf6b2b0c487a848f6cdc61ebefd17be9e7b44d4180bb4c50a08c3b205d187abc"
+    },
+    {
+      "probe": "artifact",
+      "command": [
+        "python3",
+        "tools/ArtifactSubmissionProbe/run.py",
+        "/tmp/ailedger-task13/candidate/ailedger",
+        "/Users/user/.codex/worktrees/structured-findings-contract/AILedger/cognitive"
+      ],
+      "log": "/tmp/ailedger-task13/candidate-artifact.log",
+      "result": "passed",
+      "log_sha256": "5f3e49e9d56087bf3dd79ee3bfbf28b927adebc4e7c96a9a2545791356a04212"
+    }
+  ],
+  "installed_probes": [
+    {
+      "probe": "assurance",
+      "command": [
+        "python3",
+        "tools/AssuranceProbe/run.py",
+        "/Users/user/.local/bin/ailedger",
+        "/tmp/ailedger-task13/installed-assurance"
+      ],
+      "log": "/tmp/ailedger-task13/installed-assurance.log",
+      "result": "passed",
+      "log_sha256": "afd87748d52afb368b217cc94370ea7ef2d84f8d7d6a44c7f412516ba7aa1f44"
+    },
+    {
+      "probe": "inspection",
+      "command": [
+        "python3",
+        "tools/InspectionProbe/run.py",
+        "/Users/user/.local/bin/ailedger"
+      ],
+      "log": "/tmp/ailedger-task13/installed-inspection.log",
+      "result": "passed",
+      "log_sha256": "f0ba4a0a23358f39970737c7fcf3df6802bd574b0bf3d289f7df960c44353a56"
+    },
+    {
+      "probe": "episode",
+      "command": [
+        "python3",
+        "tools/EpisodeProbe/run.py",
+        "/Users/user/.local/bin/ailedger",
+        "/tmp/ailedger-task13/installed-episode"
+      ],
+      "log": "/tmp/ailedger-task13/installed-episode.log",
+      "result": "passed",
+      "log_sha256": "cf6b2b0c487a848f6cdc61ebefd17be9e7b44d4180bb4c50a08c3b205d187abc"
+    },
+    {
+      "probe": "artifact",
+      "command": [
+        "python3",
+        "tools/ArtifactSubmissionProbe/run.py",
+        "/Users/user/.local/bin/ailedger",
+        "/Users/user/.codex/worktrees/structured-findings-contract/AILedger/cognitive"
+      ],
+      "log": "/tmp/ailedger-task13/installed-artifact.log",
+      "result": "passed",
+      "log_sha256": "99179954d1d69454fec9cf0f433e8847f46852b42a5c144510c1317892f3eda7"
+    }
+  ],
+  "verification_logs": [
+    {
+      "path": "/tmp/ailedger-task13/full-isolated.log",
+      "sha256": "36ec893971afad7dce9edf507cf3b72696ed140b819b969dd0e83e90a1176a28"
+    },
+    {
+      "path": "/tmp/ailedger-task13/full-final.log",
+      "sha256": "dd14c1dc4e52827e420549ad7b035202aa1bb223d7e2d7801e8ba21d6a87e498"
+    },
+    {
+      "path": "/tmp/ailedger-task13/focused-final.log",
+      "sha256": "742da413d85cb2c845f086b9564028c92b9241a7d3714cb34c42b76d2a0eaebf"
+    },
+    {
+      "path": "/tmp/ailedger-task13/runner-final.log",
+      "sha256": "4494afc76646b0b4d00ebde75ae0d14610e5dfe250d342e66b4625ebe27836f3"
+    },
+    {
+      "path": "/tmp/ailedger-task13/telemetry-recheck.log",
+      "sha256": "d0b0352fc9a64edef03f6357e017a83c2a107aca53d19f0bdc86a2f62894d0d1"
+    },
+    {
+      "path": "/tmp/ailedger-task13/frozen-final.log",
+      "sha256": "1549f160669268c1f6416f029c065ffd1783ad2cd122e8a576e5c195963ba56f"
+    },
+    {
+      "path": "/tmp/ailedger-task13/pack.log",
+      "sha256": "e6a431ef8276369a567a71421da33043bde7ed47243528fcef08ff48ffc23fe1"
+    },
+    {
+      "path": "/tmp/ailedger-task13/global-install.log",
+      "sha256": "7ee9bc3c9271578e5ebb765180b0f73213727ab441baec8dac7fe5f4a65d1e92"
+    }
+  ],
+  "retained_example_source": "/tmp/ailedger-task13/installed-assurance",
+  "full_transcript": {
+    "path": "/tmp/ailedger-task13/installed-assurance/transcript.json",
+    "sha256": "d17d9e401601ca2d43d2b6441ba6442cb42b22a91c893f003740b17bcd9b15ba"
+  },
+  "retained_examples": [
+    {
+      "path": "docs/handoff-assurance-v1/examples/accepted.json",
+      "sha256": "5b1dbac8f9fad714fc255f788dbf962bcb5c77e93d4fcf934544143ff85de05e"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/affected-unaffected.json",
+      "sha256": "637eec0db33d7b679c48cda7a81b04795862204b2a00e4802b47142dd83cec5b"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/after-reconciliation.json",
+      "sha256": "6674b1c29194d1ab7c764138632a6ab4d1f9fb6b60b650b7a340d448b4c359e7"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/changed.json",
+      "sha256": "d7c8c1c16b4329bfcea6d56736fa733b679f03d680d35e8ac7d25351ac203213"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/independent-evidence.json",
+      "sha256": "7fabba68606b894dcbc37b9f8f44ebb53e718f4afc7857ef6f67896603471b1b"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/interrupted.json",
+      "sha256": "2e0fb47ec409e075d715b688c2724d056e4c52b0dcb3a858d545e5c19f0fd0c2"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/interruption-checkpoint-retry.json",
+      "sha256": "b29011e53daa19e8b1c5797ec2fd2f4dcdeb727ffb119843d9572d21567add4e"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/partial.json",
+      "sha256": "b5c9f4fb41a73b9a52db7507ba19ac296d6a56371ac95793abed61238fe5047d"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/reconciled.json",
+      "sha256": "ae3457f1c7505b65a653e84677da0396ec721b6790c8ca51252f982561dbcea9"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/recovered-partial.json",
+      "sha256": "505000142197776acff34f51e3a6aeea68caadcc323ca804452e370b189f9c87"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/repaired-unaccepted.json",
+      "sha256": "f7fd4b23d776c6418286f75f2f86c905b0bf3be039c3f55a9313a6d5f9c0e1c2"
+    },
+    {
+      "path": "docs/handoff-assurance-v1/examples/report.json",
+      "sha256": "afd87748d52afb368b217cc94370ea7ef2d84f8d7d6a44c7f412516ba7aa1f44"
+    }
+  ],
+  "rollback_command": [
+    "dotnet",
+    "tool",
+    "update",
+    "--global",
+    "AILedger.Cli",
+    "--version",
+    "2.0.178",
+    "--allow-downgrade",
+    "--source",
+    "/Users/user/.local/share/ailedger/rollback"
+  ]
+}

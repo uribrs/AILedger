@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "attempt_id": "44444444444444444444444444444444",
+  "status": "committed",
+  "replayed": false,
+  "receipt": {
+    "schema_version": 1,
+    "request_id": "research-0001",
+    "transaction_id": "11111111111111111111111111111111",
+    "task_id": "demo",
+    "actor_id": "researcher",
+    "run_id": "R1",
+    "correlation_id": "R1",
+    "causation_id": null,
+    "payload_fingerprint": "e5fd2c4239111e6f5eb9c38b64ffa23042a4c9dbcbcb5a5c556ebe576a8d5fd3",
+    "fingerprint_algorithm": "findings-v1-c14n1",
+    "committed_at": "2026-09-28T12:00:00Z",
+    "ledger_version": 12,
+    "event_ids": [
+      "demo:0000000011",
+      "demo:0000000012"
+    ],
+    "findings": [
+      {
+        "key": "f1",
+        "claim_id": "CF_22222222222222222222222222222222",
+        "event_id": "demo:0000000011"
+      }
+    ],
+    "evidence": [
+      {
+        "key": "e1",
+        "evidence_id": "EF_33333333333333333333333333333333",
+        "event_id": "demo:0000000012"
+      }
+    ]
+  }
+}

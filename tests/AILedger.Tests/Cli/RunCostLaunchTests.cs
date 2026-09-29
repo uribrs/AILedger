@@ -600,20 +600,7 @@ public sealed class RunCostLaunchTests
             .FullName;
 
     private static string FindCognitiveRoot()
-    {
-        for (var directory = new DirectoryInfo(Environment.CurrentDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            var candidate = Path.Combine(directory.FullName, "cognitive");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-            {
-                return candidate;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Test could not locate the cognitive root.");
-    }
+        => ContextBrief.CognitiveRoot();
 
     // An adapter that returns a stream the test wrote, and optionally writes to the ledger while it
     // is running — which is what a briefed agent does, and the only way the first-write measurement

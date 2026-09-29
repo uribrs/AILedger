@@ -146,10 +146,10 @@ public sealed class ProviderArgumentsTests
             .Enqueue(0,
                 ["{\"type\":\"thread.started\",\"thread_id\":\"session-1\"}", "{\"type\":\"turn.completed\"}"]);
 
-        var result = await new CodexAgentAdapter(runner).RunAsync(
-            ProviderProtocolTests.Request("codex", AgentLaunchMode.Resume, "session-1"), CancellationToken.None);
+        var request = ProviderProtocolTests.Request("codex", AgentLaunchMode.Resume, "session-1");
+        var result = await new CodexAgentAdapter(runner).RunAsync(request, CancellationToken.None);
 
-        Assert.Equal(["exec", "--strict-config", "--sandbox", "workspace-write", "--cd", Environment.CurrentDirectory,
+        Assert.Equal(["exec", "--strict-config", "--sandbox", "workspace-write", "--cd", request.WorkingDirectory,
             "resume", "--json", "session-1", "-"], runner.Invocations[3].Arguments);
         Assert.True(result.IsResume);
     }

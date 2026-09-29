@@ -5,10 +5,18 @@ using System.Text.Json;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Core.Findings;
+using AILedger.Core.Alternatives;
+using AILedger.Core.ClaimDispositions;
+using AILedger.Storage.ClaimDispositions;
+using AILedger.Core.Artifacts;
+using AILedger.Storage.Artifacts;
+using AILedger.Storage.Alternatives;
+using AILedger.Storage.Findings;
 
 namespace AILedger.Storage;
 
-public sealed class FileGovernedTaskService : IGovernedTaskService
+public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFindingsRecorder, IAlternativesRecorder, IArtifactSubmitter, IClaimDispositionsRecorder
 {
     private const int RecalledArchivedTaskLimit = 3;
     private const int TaggedRecalledLessonLimit = 10;
@@ -575,9 +583,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private async IAsyncEnumerable<LedgerEvent> ReadEventsAsync(
         string eventsPath,
         [EnumeratorCancellation] CancellationToken cancellationToken,
-        bool allowConcurrentReplacement = false)
+        bool allowConcurrentReplacement = false,
+        List<FindingsReceipt>? receipts = null,
+        bool enforceLimits = true,
+        List<AlternativesReceipt>? alternativeReceipts = null,
+        List<ArtifactSubmissionReceipt>? artifactReceipts = null,
+        List<ClaimDispositionsReceipt>? dispositionReceipts = null)
     {
-        EnsureEventLogSize(eventsPath);
+        if (enforceLimits) EnsureEventLogSize(eventsPath);
         await using var file = new FileStream(
             eventsPath,
             FileMode.Open,
@@ -593,6 +606,14 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         var lineNumber = 0;
         List<LedgerEvent>? pendingCommand = null;
         var pendingCommandEventCount = 0;
+        JsonElement? pendingReceipt = null;
+        JsonElement? pendingAlternativesReceipt = null;
+        JsonElement? pendingArtifactReceipt = null;
+        JsonElement? pendingDispositionsReceipt = null;
+        var dispositionKeys = new HashSet<(string Actor, string Request)>();
+        var artifactKeys = new HashSet<(string Actor, string Request)>();
+        var alternativeKeys = new HashSet<(string Actor, string Request)>();
+        var receiptKeys = new HashSet<(string Actor, string Request)>();
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             // An unterminated last line is never committed, even when the bytes happen to be valid
@@ -603,7 +624,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             }
 
             lineNumber++;
-            if (lineNumber > _maximumEventsPerTask)
+            if (enforceLimits && lineNumber > _maximumEventsPerTask)
             {
                 throw new InvalidDataException(
                     $"Event log '{eventsPath}' exceeds the limit of {_maximumEventsPerTask} events. Archive it " +
@@ -618,12 +639,17 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
             LedgerEvent? @event;
             CommandEventPosition? commandPosition;
+            JsonElement? receiptMetadata;
+            JsonElement? alternativesMetadata;
+            JsonElement? artifactMetadata;
+            JsonElement? dispositionsMetadata;
             try
             {
                 commandPosition = ReadCommandEventPosition(line);
+                (receiptMetadata, alternativesMetadata, artifactMetadata, dispositionsMetadata) = RecordingReceiptMetadata.Read(line);
                 @event = JsonSerializer.Deserialize<LedgerEvent>(line, _eventJson);
             }
-            catch (JsonException exception)
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
             {
                 throw new InvalidDataException(
                     $"Invalid event JSON at line {lineNumber} in '{eventsPath}'.", exception);
@@ -631,6 +657,15 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
             var parsedEvent = @event ?? throw new InvalidDataException(
                 $"Null event at line {lineNumber} in '{eventsPath}'.");
+
+            if (dispositionsMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null || alternativesMetadata is not null || artifactMetadata is not null))
+                throw new InvalidDataException("Disposition receipt must exclusively occupy index zero of a marked group.");
+            if (artifactMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null || alternativesMetadata is not null))
+                throw new InvalidDataException("Artifact receipt must exclusively occupy index zero of a marked group.");
+            if (alternativesMetadata is not null && (commandPosition?.Index != 0 || receiptMetadata is not null))
+                throw new InvalidDataException("Alternatives receipt must exclusively occupy index zero of a marked group.");
+            if (receiptMetadata is not null && commandPosition?.Index != 0)
+                throw new InvalidDataException("Findings receipt must be at index zero of a marked group.");
 
             if (commandPosition is null)
             {
@@ -645,7 +680,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             }
 
             var position = commandPosition.Value;
-            if (position.Count > _maximumEventsPerTask)
+            if (enforceLimits && position.Count > _maximumEventsPerTask)
             {
                 throw new InvalidDataException(
                     $"Command boundary at line {lineNumber} in '{eventsPath}' exceeds the event limit.");
@@ -659,8 +694,12 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                         $"Incomplete command before line {lineNumber} in '{eventsPath}'.");
                 }
 
-                pendingCommand = new List<LedgerEvent>(position.Count);
+                pendingCommand = new List<LedgerEvent>(Math.Min(position.Count, 128));
                 pendingCommandEventCount = position.Count;
+                pendingReceipt = receiptMetadata;
+                pendingAlternativesReceipt = alternativesMetadata;
+                pendingArtifactReceipt = artifactMetadata;
+                pendingDispositionsReceipt = dispositionsMetadata;
             }
             else if (pendingCommand is null ||
                      position.Count != pendingCommandEventCount ||
@@ -676,6 +715,38 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                 continue;
             }
 
+            if (pendingReceipt is { } metadata)
+            {
+                var receipt = FindingsReceiptEnvelope.Validate(metadata, pendingCommand, lineNumber);
+                if (!receiptKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed findings receipt key.");
+                receipts?.Add(receipt);
+            }
+
+            if (pendingAlternativesReceipt is { } alternatives)
+            {
+                var receipt = AlternativesReceiptEnvelope.Validate(alternatives, pendingCommand, lineNumber);
+                if (!alternativeKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed alternatives receipt key.");
+                alternativeReceipts?.Add(receipt);
+            }
+
+            if (pendingArtifactReceipt is { } artifactSubmission)
+            {
+                var receipt = ArtifactSubmissionReceiptEnvelope.Validate(artifactSubmission, pendingCommand, lineNumber);
+                if (!artifactKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed artifact submission receipt key.");
+                artifactReceipts?.Add(receipt);
+            }
+
+            if (pendingDispositionsReceipt is { } dispositions)
+            {
+                var receipt = ClaimDispositionsReceiptEnvelope.Validate(dispositions, pendingCommand, lineNumber);
+                if (!dispositionKeys.Add((receipt.ActorId, receipt.RequestId)))
+                    throw new InvalidDataException("Duplicate committed claim dispositions receipt key.");
+                dispositionReceipts?.Add(receipt);
+            }
+
             foreach (var committedEvent in pendingCommand)
             {
                 yield return committedEvent;
@@ -683,6 +754,10 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
 
             pendingCommand = null;
             pendingCommandEventCount = 0;
+            pendingReceipt = null;
+            pendingAlternativesReceipt = null;
+            pendingArtifactReceipt = null;
+            pendingDispositionsReceipt = null;
         }
 
         // R1 (atomicity-must-survive): a marked multi-event command is visible only after every
@@ -693,34 +768,22 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
     private async Task AppendEventsAsync(
         string taskDirectory,
         IReadOnlyList<LedgerEvent> events,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FindingsReceipt? receipt = null,
+        Action? appendStarting = null,
+        AlternativesReceipt? alternativesReceipt = null,
+        ArtifactSubmissionReceipt? artifactReceipt = null,
+        ClaimDispositionsReceipt? dispositionsReceipt = null)
     {
         if (events.Count == 0)
         {
             return;
         }
 
-        var payload = new StringBuilder();
-        for (var index = 0; index < events.Count; index++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var json = JsonSerializer.Serialize(events[index], _eventJson);
-            if (events.Count == 1)
-            {
-                payload.Append(json).Append('\n');
-                continue;
-            }
-
-            // Unknown JSON properties preserve compatibility with the LedgerEvent model and raw
-            // JSONL consumers while giving replay enough information to withhold a command prefix.
-            payload.Append(json.AsSpan(0, json.Length - 1))
-                .Append(",\"").Append(CommandEventIndexProperty).Append("\":").Append(index)
-                .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
-                .Append("}\n");
-        }
+        var hasReceipt = receipt is not null || alternativesReceipt is not null || artifactReceipt is not null || dispositionsReceipt is not null;
+        var bytes = SerializeAppend(events, receipt, alternativesReceipt, artifactReceipt, dispositionsReceipt, cancellationToken);
 
         var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
-        var bytes = Utf8WithoutBom.GetBytes(payload.ToString());
         if (!File.Exists(eventsPath) && bytes.LongLength > _maximumEventLogBytes)
         {
             throw EventLogWouldExceedByteLimit();
@@ -749,8 +812,55 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
             FileOptions.Asynchronous | FileOptions.WriteThrough);
         // Keep the payload in one API write. WriteThrough plus the explicit disk flush makes its
         // completion durable; command markers make any prefix left by a lower-level tear invisible.
-        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-        stream.Flush(flushToDisk: true);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (hasReceipt && _findingsFaults?.BeforeWrite is { } beforeWrite) beforeWrite();
+        appendStarting?.Invoke();
+        if (hasReceipt && _findingsFaults?.Write is { } write)
+            await write(stream, bytes, cancellationToken).ConfigureAwait(false);
+        else
+            await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        FlushFindingsStream(stream, hasReceipt);
+    }
+
+    private byte[] SerializeAppend(IReadOnlyList<LedgerEvent> events, FindingsReceipt? receipt = null,
+        AlternativesReceipt? alternativesReceipt = null, ArtifactSubmissionReceipt? artifactReceipt = null,
+        ClaimDispositionsReceipt? dispositionsReceipt = null, CancellationToken cancellationToken = default)
+    {
+        if ((receipt is not null ? 1 : 0) + (alternativesReceipt is not null ? 1 : 0) + (artifactReceipt is not null ? 1 : 0) + (dispositionsReceipt is not null ? 1 : 0) > 1)
+            throw new InvalidOperationException("One operation receipt per group is required.");
+        var hasReceipt = receipt is not null || alternativesReceipt is not null || artifactReceipt is not null || dispositionsReceipt is not null;
+        var payload = new StringBuilder();
+        for (var index = 0; index < events.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var json = JsonSerializer.Serialize(events[index], _eventJson);
+            if (events.Count == 1 && !hasReceipt)
+            {
+                payload.Append(json).Append('\n');
+                continue;
+            }
+
+            // Unknown JSON properties preserve compatibility with the LedgerEvent model and raw
+            // JSONL consumers while giving replay enough information to withhold a command prefix.
+            payload.Append(json.AsSpan(0, json.Length - 1))
+                .Append(",\"").Append(CommandEventIndexProperty).Append("\":").Append(index)
+                .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
+                .Append(index == 0 && receipt is not null
+                    ? ",\"" + FindingsReceiptEnvelope.PropertyName + "\":" + FindingsReceiptEnvelope.Serialize(receipt)
+                    : string.Empty)
+                .Append(index == 0 && alternativesReceipt is not null
+                    ? ",\"" + AlternativesReceiptEnvelope.PropertyName + "\":" + AlternativesReceiptEnvelope.Serialize(alternativesReceipt)
+                    : string.Empty)
+                .Append(index == 0 && artifactReceipt is not null
+                    ? ",\"" + ArtifactSubmissionReceiptEnvelope.PropertyName + "\":" + ArtifactSubmissionReceiptEnvelope.Serialize(artifactReceipt)
+                    : string.Empty)
+                .Append(index == 0 && dispositionsReceipt is not null
+                    ? ",\"" + ClaimDispositionsReceiptEnvelope.PropertyName + "\":" + ClaimDispositionsReceiptEnvelope.Serialize(dispositionsReceipt)
+                    : string.Empty)
+                .Append("}\n");
+        }
+
+        return Utf8WithoutBom.GetBytes(payload.ToString());
     }
 
     private static async Task<long> RemoveUncommittedTailAsync(string eventsPath)
@@ -861,7 +971,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
         if (!hasIndex || !hasCount ||
             !indexElement.TryGetInt32(out var index) ||
             !countElement.TryGetInt32(out var count) ||
-            count < 2 || index < 0 || index >= count)
+            count < 1 || index < 0 || index >= count)
         {
             throw new JsonException("Invalid command-boundary metadata.");
         }
@@ -1078,7 +1188,7 @@ public sealed class FileGovernedTaskService : IGovernedTaskService
                 $"Event sequence is invalid at position {zeroBasedIndex + 1}: expected '{expected}', found '{@event.EventId}'.");
         }
 
-        if (string.IsNullOrWhiteSpace(@event.ActorId.Value) ||
+        if (@event.Data is null || string.IsNullOrWhiteSpace(@event.ActorId.Value) ||
             string.IsNullOrWhiteSpace(@event.CorrelationId) ||
             @event.RecordedAt == default)
         {

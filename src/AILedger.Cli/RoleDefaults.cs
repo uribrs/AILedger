@@ -23,10 +23,10 @@ internal static class RoleDefaults
         ],
         RoleKind.Verifier or RoleKind.CodeReviewer =>
         [Capability.AddClaim, Capability.AddEvidence, Capability.RaiseChallenge, Capability.BuildContext,
-         Capability.RaiseEscalation, Capability.RecordArtifact],
+         Capability.RaiseEscalation, Capability.RecordAlternative, Capability.RecordArtifact],
         RoleKind.Researcher or RoleKind.Worker =>
         [Capability.AddClaim, Capability.AddEvidence, Capability.RaiseChallenge, Capability.BuildContext,
-         Capability.RaiseEscalation],
+         Capability.RaiseEscalation, Capability.RecordAlternative],
         _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown role.")
     };
 

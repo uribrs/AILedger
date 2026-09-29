@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "source_directory": "/Users/user/Dev/Uri/localprojects/AILedger/.ailedger/tasks/2026-09-24_1141-aligning-falconcollector-and-its-yamladapter-counterpart",
+  "source_hashes": {
+    "events.jsonl": "8bc571c86a6c451da6de7a96287d36d94d6c91d538910d4f5c00343286e3786b",
+    "runs/RN1.json": "a7e5da0bdd10f5d476ffdc1568680e5ac6791ea204979dd624fe469d2d739cb7"
+  },
+  "historical_task": "2026-09-24_1141-aligning-falconcollector-and-its-yamladapter-counterpart",
+  "historical_run": "RN1",
+  "historical_actor": "falcon-recon-native",
+  "prepared_sequence": 336,
+  "canonical_event_lines": [
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75
+  ],
+  "sha256": {
+    "prepared.json": "c0b300114043e064c7733d77f12c2619d7c4f63b94932d7fcf13031bd90ab859",
+    "recorded.json": "d79a8f44d2cf64c7304340eb71b087d4f28cb39493e2567f3bd31fd841953e1b",
+    "canonical-events.json": "284aa032c2749cddb557514418a92ef30b27f84959839e0ab632e772a099eac4",
+    "text-differences.json": "011b6c26d0fc41f5ab833be1fd8941ac8eb3e84c626fe0493e567e59850f3676",
+    "prepared-command.txt": "90b529cbeaa65493357f8d6a7336e82389169b7f0db7ce8f165b4fb447ab0fca"
+  },
+  "source_unchanged": true,
+  "historical_filing": {
+    "started_at": "2026-09-24T11:55:19.886724+00:00",
+    "ended_at": "2026-09-24T11:58:37.78922+00:00",
+    "elapsed_seconds": 197.902496,
+    "denied_calls": 3,
+    "successful_calls": 11,
+    "attempts": [
+      {
+        "tool_use_id": "toolu_01HehkJhYhoFuDWGfMupA8te",
+        "sequence": 336,
+        "started_at": "2026-09-24T11:55:19.886724+00:00",
+        "result_sequence": 339,
+        "ended_at": "2026-09-24T11:55:19.996468+00:00",
+        "denied": true,
+        "denial": "Permission for this tool use was denied. It requires approval, and this session has no approval surface — nobody can answer a permission prompt here — so it was denied automatically. The action was NOT performed; do not claim it succeeded, and do not retry it: this action, and anything else that requires approval, will be denied the same way for the rest of this session. Tell the user what was blocked and why you needed it, then continue with the parts of the task that do not require approval. What required approval: Contains brace with quote character (expansion obfuscation)"
+      },
+      {
+        "tool_use_id": "toolu_01YYJ8xDGYXNEPpjmvL8tEMh",
+        "sequence": 352,
+        "started_at": "2026-09-24T11:56:26.152963+00:00",
+        "result_sequence": 355,
+        "ended_at": "2026-09-24T11:56:26.24959+00:00",
+        "denied": true,
+        "denial": "Permission for this tool use was denied. It requires approval, and this session has no approval surface — nobody can answer a permission prompt here — so it was denied automatically. The action was NOT performed; do not claim it succeeded, and do not retry it: this action, and anything else that requires approval, will be denied the same way for the rest of this session. Tell the user what was blocked and why you needed it, then continue with the parts of the task that do not require approval. What required approval: Parser aborted (timeout, resource limit, or over-length)"
+      },
+      {
+        "tool_use_id": "toolu_01QP6Q1Ckjg4QMuv7BLLVtpZ",
+        "sequence": 360,
+        "started_at": "2026-09-24T11:56:33.135925+00:00",
+        "result_sequence": 362,
+        "ended_at": "2026-09-24T11:56:33.286763+00:00",
+        "denied": true,
+        "denial": "Permission for this tool use was denied. It requires approval, and this session has no approval surface — nobody can answer a permission prompt here — so it was denied automatically. The action was NOT performed; do not claim it succeeded, and do not retry it: this action, and anything else that requires approval, will be denied the same way for the rest of this session. Tell the user what was blocked and why you needed it, then continue with the parts of the task that do not require approval. What required approval: Contains simple_expansion"
+      },
+      {
+        "tool_use_id": "toolu_01TMEyYjyQZDz8tjsYjpk15e",
+        "sequence": 367,
+        "started_at": "2026-09-24T11:56:37.552689+00:00",
+        "result_sequence": 368,
+        "ended_at": "2026-09-24T11:56:37.999382+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01PFVSdaawaVzjd5hejHD6KJ",
+        "sequence": 372,
+        "started_at": "2026-09-24T11:56:45.030812+00:00",
+        "result_sequence": 373,
+        "ended_at": "2026-09-24T11:56:45.754727+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01G4eZkogyff5Qrh7Q4bPzcr",
+        "sequence": 377,
+        "started_at": "2026-09-24T11:56:55.802085+00:00",
+        "result_sequence": 379,
+        "ended_at": "2026-09-24T11:56:56.784403+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01EMQGehyYm389sn4TbKpsrH",
+        "sequence": 380,
+        "started_at": "2026-09-24T11:57:07.644615+00:00",
+        "result_sequence": 381,
+        "ended_at": "2026-09-24T11:57:08.772588+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01UdbyNcmj4pGKkN9w7BEc5E",
+        "sequence": 382,
+        "started_at": "2026-09-24T11:57:20.39166+00:00",
+        "result_sequence": 383,
+        "ended_at": "2026-09-24T11:57:21.506261+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01Ds5uRGSdncs16n1EoJ2wfk",
+        "sequence": 384,
+        "started_at": "2026-09-24T11:57:33.145708+00:00",
+        "result_sequence": 385,
+        "ended_at": "2026-09-24T11:57:34.384834+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01L7ThwHADtUQTAoA7rMuVad",
+        "sequence": 387,
+        "started_at": "2026-09-24T11:57:46.403956+00:00",
+        "result_sequence": 388,
+        "ended_at": "2026-09-24T11:57:47.559114+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01BbdNAvPDA7rNq7oeLhMegT",
+        "sequence": 389,
+        "started_at": "2026-09-24T11:57:59.154629+00:00",
+        "result_sequence": 390,
+        "ended_at": "2026-09-24T11:58:00.464006+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01EMRAm9YtoVGdpajj7tSU9B",
+        "sequence": 391,
+        "started_at": "2026-09-24T11:58:10.72692+00:00",
+        "result_sequence": 392,
+        "ended_at": "2026-09-24T11:58:11.918019+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01AygAdfsVdSjWwoBnhSJ9vj",
+        "sequence": 393,
+        "started_at": "2026-09-24T11:58:22.147744+00:00",
+        "result_sequence": 394,
+        "ended_at": "2026-09-24T11:58:23.28102+00:00",
+        "denied": false,
+        "denial": null
+      },
+      {
+        "tool_use_id": "toolu_01ALd9esdmfdscURdiK17JZD",
+        "sequence": 395,
+        "started_at": "2026-09-24T11:58:36.004773+00:00",
+        "result_sequence": 397,
+        "ended_at": "2026-09-24T11:58:37.78922+00:00",
+        "denied": false,
+        "denial": null
+      }
+    ]
+  },
+  "changed_fields": {
+    "statement": 14,
+    "consequence_if_wrong": 2,
+    "citation": 20,
+    "summary": 17
+  },
+  "limitations": [
+    "Prepared strings are tokenized from the first denied script, never executed.",
+    "Only the two recorded citation aliases are expanded; source and accepted text are both retained.",
+    "Text differences do not by themselves establish semantic loss or why wording changed.",
+    "Historical elapsed time includes model scheduling and retries; local MCP timing is not a causal speedup estimate."
+  ]
+}

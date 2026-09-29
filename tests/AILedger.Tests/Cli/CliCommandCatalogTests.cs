@@ -34,7 +34,7 @@ public sealed class CliCommandCatalogTests
                 "audit", "batch preflight", "challenge dispose", "challenge raise", "claim add", "claim resolve",
                 "closeout evidence", "closeout status", "constraint add", "constraint supersede",
                 "context build", "decision propose",
-                "decision resolve", "escalation raise", "escalation resolve", "evidence add", "history",
+                "decision resolve", "escalation raise", "escalation resolve", "evidence add", "handoff index", "handoff prepare", "handoff retrieve", "history",
                 "lesson consult", "lesson mark", "lesson recheck", "preflight batch", "provider launch", "provider resume", "retrospective build",
                 "retrospective record", "run complete", "run start", "session complete", "session start",
                 "stage transition", "status", "task cleanup apply", "task cleanup plan", "task history",
@@ -56,6 +56,13 @@ public sealed class CliCommandCatalogTests
         Assert.Contains("task", status.AllowedOptions);
 
         Assert.True(application.CommandCatalog.TryGet("claim add", out var claimAdd));
+        foreach (var name in new[] { "handoff index", "handoff prepare", "handoff retrieve" })
+        {
+            Assert.True(application.CommandCatalog.TryGet(name, out var handoff));
+            Assert.True(handoff.IsReadOnly);
+            Assert.DoesNotContain("provider", handoff.AllowedOptions);
+        }
+
         Assert.False(claimAdd.IsReadOnly);
         Assert.Contains("statement", claimAdd.AllowedOptions);
     }

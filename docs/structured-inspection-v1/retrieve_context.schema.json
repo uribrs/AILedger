@@ -1,0 +1,48 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "selection": {
+      "enum": [
+        "relevant",
+        "task"
+      ]
+    },
+    "kind": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "expected_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000000
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16384
+    },
+    "expected_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "selection",
+    "kind",
+    "id",
+    "expected_version",
+    "expected_sha256"
+  ]
+}

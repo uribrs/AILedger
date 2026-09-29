@@ -1,6 +1,7 @@
 using AILedger.Core.Contracts;
 using AILedger.Providers.Adapters;
 using AILedger.Tests.Support;
+using AILedger.TestSupport;
 using System.Text.Json;
 
 namespace AILedger.Tests.Providers;
@@ -322,7 +323,7 @@ public sealed class ProviderProtocolTests
         provider,
         "/usr/bin/agent",
         // Inside the repository, because Codex refuses to run outside a git work tree.
-        Environment.CurrentDirectory,
+        RepositoryLayout.Root,
         Path.Combine(Path.GetTempPath(), ".ailedger", "tasks"),
         "\"/usr/bin/dotnet\" \"/opt/ledger/AILedger.Cli.dll\"",
         "governed context",

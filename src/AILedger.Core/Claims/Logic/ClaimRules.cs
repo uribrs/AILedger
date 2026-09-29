@@ -35,6 +35,7 @@ internal static class ClaimRules
         GovernedTaskState state,
         ResolveClaimCommand command)
     {
+        if (command.Rationale is not null) RequireText(command.Rationale, nameof(command.Rationale));
         var claim = Get(state.Claims, command.ClaimId, "claim");
         EnsureClaimResolution(claim, command.Status);
         EnsureUnique(command.EvidenceIds, "Evidence IDs");
@@ -69,7 +70,7 @@ internal static class ClaimRules
         var events = new List<LedgerEventData>
         {
             new ClaimResolved(command.ClaimId, command.Status, command.EvidenceIds.ToArray(),
-                command.SupersededByClaimId, outcome)
+                command.SupersededByClaimId, outcome, command.Rationale)
         };
 
         if (outcome == SupersessionOutcome.Refinement)

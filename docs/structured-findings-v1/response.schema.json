@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AILedger record_findings v1 response",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "status": {
+          "const": "committed"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "receipt": {
+          "$ref": "#/$defs/receipt"
+        }
+      },
+      "required": [
+        "schema_version",
+        "attempt_id",
+        "status",
+        "replayed",
+        "receipt"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "status": {
+          "const": "error"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "invalid_request",
+                "invalid_reference",
+                "authorization_denied",
+                "kernel_refused",
+                "idempotency_conflict",
+                "task_not_found",
+                "capacity_exceeded",
+                "storage_unavailable",
+                "outcome_unknown",
+                "history_corrupt"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "boundary": {
+              "enum": [
+                "request",
+                "binding",
+                "application",
+                "kernel",
+                "storage"
+              ]
+            },
+            "commit_state": {
+              "enum": [
+                "not_committed",
+                "committed",
+                "unknown"
+              ]
+            },
+            "retry": {
+              "enum": [
+                "same_request",
+                "after_correction",
+                "none"
+              ]
+            },
+            "item_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "rule_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "boundary",
+            "commit_state",
+            "retry",
+            "item_path",
+            "rule_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "attempt_id",
+        "status",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "transaction_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "correlation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "payload_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fingerprint_algorithm": {
+          "const": "findings-v1-c14n1"
+        },
+        "committed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ledger_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 96
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+              },
+              "claim_id": {
+                "type": "string",
+                "pattern": "^CF_[0-9a-f]{32}$"
+              },
+              "event_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "key",
+              "claim_id",
+              "event_id"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+              },
+              "evidence_id": {
+                "type": "string",
+                "pattern": "^EF_[0-9a-f]{32}$"
+              },
+              "event_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "key",
+              "evidence_id",
+              "event_id"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "schema_version",
+        "request_id",
+        "transaction_id",
+        "task_id",
+        "actor_id",
+        "run_id",
+        "correlation_id",
+        "causation_id",
+        "payload_fingerprint",
+        "fingerprint_algorithm",
+        "committed_at",
+        "ledger_version",
+        "event_ids",
+        "findings",
+        "evidence"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

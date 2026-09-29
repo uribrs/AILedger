@@ -1,0 +1,328 @@
+{
+  "spec": {
+    "schema_version": 1,
+    "id": "falcon-trial",
+    "profile": "research-to-design",
+    "objective": "Compare native and YAML findings/resume behavior before design; distinguish the shipping refs, working-tree change, claims and unknowns.",
+    "non_goals": [
+      "No implementation, launch, ledger mutation, assurance acceptance or workflow changes.",
+      "Do not treat later findings as available at this cutoff.",
+      "No full assets/authentication/region/FQL/dry-run parity assessment; retrieve omitted records before extending the question."
+    ],
+    "expected_outputs": [
+      "A cited technical checklist or design assessment, with unknowns, omissions encountered and extra reads reported."
+    ],
+    "acceptance_checks": [
+      "Retain material constraints, rejected approaches, corrections and source versions.",
+      "Distinguish reported historical checks from checks actually performed; preserve unknowns and proposed status.",
+      "Identify missing dependencies before a conclusion; measure any additional retrieval."
+    ],
+    "requested_grants": [
+      {
+        "action": "read_context",
+        "scope": "2026-09-24_1141-aligning-falconcollector-and-its-yamladapter-counterpart"
+      },
+      {
+        "action": "read_source",
+        "scope": "Only pinned source versions; actual access must be authorized separately."
+      }
+    ],
+    "budget": {
+      "maximum_package_bytes": 524288,
+      "maximum_preparation_reads": 1024,
+      "maximum_additional_reads": 8,
+      "maximum_elapsed_minutes": 30,
+      "maximum_cost_usd": 0
+    },
+    "stop_conditions": [
+      "Stop on a missing material source, changed identity, denied access, unresolved scope conflict or exhausted budget.",
+      "Preserve partial output; do not resolve claims, accept decisions, or infer test success."
+    ]
+  },
+  "included_keys": [
+    "TaskGoal:task-goal",
+    "Constraint:K1",
+    "Constraint:K3",
+    "Constraint:K6",
+    "Claim:C1",
+    "Claim:C4",
+    "Claim:NC10",
+    "Claim:NC11",
+    "Claim:NC12",
+    "Claim:NC13",
+    "Claim:NC14",
+    "Claim:NC15",
+    "Claim:NC16",
+    "Claim:NC17",
+    "Claim:NC18",
+    "Claim:NC6",
+    "Claim:NC7",
+    "Claim:NC8",
+    "Claim:NC9",
+    "Claim:YC1",
+    "Claim:YC2",
+    "Claim:YC3",
+    "Claim:YC4",
+    "Claim:YC5",
+    "Claim:YC6",
+    "Claim:YC7",
+    "Evidence:NE10",
+    "Evidence:NE11",
+    "Evidence:NE12",
+    "Evidence:NE13",
+    "Evidence:NE14",
+    "Evidence:NE15",
+    "Evidence:NE16",
+    "Evidence:NE17",
+    "Evidence:NE18",
+    "Evidence:NE6",
+    "Evidence:NE7",
+    "Evidence:NE8",
+    "Evidence:NE9",
+    "Evidence:YE1",
+    "Evidence:YE2",
+    "Evidence:YE3",
+    "Evidence:YE4",
+    "Evidence:YE5",
+    "Evidence:YE6",
+    "Evidence:YE7",
+    "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C8"
+  ],
+  "omitted": {
+    "Claim:NC1": {
+      "reason": "Claim:NC1 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Claim:NC19": {
+      "reason": "Claim:NC19 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Claim:NC2": {
+      "reason": "Claim:NC2 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Claim:NC20": {
+      "reason": "Claim:NC20 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Claim:NC3": {
+      "reason": "Claim:NC3 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Claim:NC4": {
+      "reason": "Claim:NC4 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Claim:NC5": {
+      "reason": "Claim:NC5 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Constraint:K2": {
+      "reason": "Constraint:K2 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "Constraint:K4": {
+      "reason": "Constraint:K4 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "Constraint:K5": {
+      "reason": "Constraint:K5 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "ContextBuild:operator": {
+      "reason": "Recorded broad brief is workflow bookkeeping; this package preserves technical inputs separately.",
+      "risk": "An old brief may reveal a missing requirement or procedure; this is not proof of completeness.",
+      "retrieve_when": "Retrieve if a procedure/version discrepancy matters; it cannot override episode instructions."
+    },
+    "Evidence:NE1": {
+      "reason": "Evidence:NE1 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Evidence:NE19": {
+      "reason": "Evidence:NE19 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Evidence:NE2": {
+      "reason": "Evidence:NE2 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Evidence:NE20": {
+      "reason": "Evidence:NE20 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Evidence:NE3": {
+      "reason": "Evidence:NE3 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Evidence:NE4": {
+      "reason": "Evidence:NE4 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "Evidence:NE5": {
+      "reason": "Evidence:NE5 covers full flow enumeration, assets windows, authentication/region, FQL or dry-run behavior; this slice focuses findings/storage and policy envelopes.",
+      "risk": "A broader parity claim could incorrectly imply parity for these omitted behaviors.",
+      "retrieve_when": "Retrieve before making any parity claim outside the declared findings/storage question."
+    },
+    "TaskGoal:task-stage": {
+      "reason": "Stage is already identified in the package snapshot; its duplicate body adds no technical requirement.",
+      "risk": "Snapshot stage is an observation, never permission to proceed.",
+      "retrieve_when": "Retrieve if the recorded stage itself is disputed."
+    }
+  },
+  "preservation": [
+    {
+      "category": "decisions",
+      "input_keys": [],
+      "assessment": "No separate decisions record is available in this authorized frozen selection. Do not infer absence outside it; stop if needed."
+    },
+    {
+      "category": "alternatives",
+      "input_keys": [],
+      "assessment": "No separate alternatives record is available in this authorized frozen selection. Do not infer absence outside it; stop if needed."
+    },
+    {
+      "category": "constraints",
+      "input_keys": [
+        "Constraint:K1",
+        "Constraint:K3",
+        "Constraint:K6"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "contradictions",
+      "input_keys": [
+        "Claim:C1",
+        "Claim:C4",
+        "Claim:NC10",
+        "Claim:NC11",
+        "Claim:NC12",
+        "Claim:NC13",
+        "Claim:NC14",
+        "Claim:NC15",
+        "Claim:NC16",
+        "Claim:NC17",
+        "Claim:NC18",
+        "Claim:NC6",
+        "Claim:NC7",
+        "Claim:NC8",
+        "Claim:NC9",
+        "Claim:YC1",
+        "Claim:YC2",
+        "Claim:YC3",
+        "Claim:YC4",
+        "Claim:YC5",
+        "Claim:YC6",
+        "Claim:YC7"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "lessons",
+      "input_keys": [
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C8"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "corrections",
+      "input_keys": [
+        "Claim:C1",
+        "Claim:C4",
+        "Claim:NC10",
+        "Claim:NC11",
+        "Claim:NC12",
+        "Claim:NC13",
+        "Claim:NC14",
+        "Claim:NC15",
+        "Claim:NC16",
+        "Claim:NC17",
+        "Claim:NC18",
+        "Claim:NC6",
+        "Claim:NC7",
+        "Claim:NC8",
+        "Claim:NC9",
+        "Claim:YC1",
+        "Claim:YC2",
+        "Claim:YC3",
+        "Claim:YC4",
+        "Claim:YC5",
+        "Claim:YC6",
+        "Claim:YC7",
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C8"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "uncertainty",
+      "input_keys": [
+        "Claim:C1",
+        "Claim:C4",
+        "Claim:NC10",
+        "Claim:NC11",
+        "Claim:NC12",
+        "Claim:NC13",
+        "Claim:NC14",
+        "Claim:NC15",
+        "Claim:NC16",
+        "Claim:NC17",
+        "Claim:NC18",
+        "Claim:NC6",
+        "Claim:NC7",
+        "Claim:NC8",
+        "Claim:NC9",
+        "Claim:YC1",
+        "Claim:YC2",
+        "Claim:YC3",
+        "Claim:YC4",
+        "Claim:YC5",
+        "Claim:YC6",
+        "Claim:YC7"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "provenance",
+      "input_keys": [
+        "Evidence:NE10",
+        "Evidence:NE11",
+        "Evidence:NE12",
+        "Evidence:NE13",
+        "Evidence:NE14",
+        "Evidence:NE15",
+        "Evidence:NE16",
+        "Evidence:NE17",
+        "Evidence:NE18",
+        "Evidence:NE6",
+        "Evidence:NE7",
+        "Evidence:NE8",
+        "Evidence:NE9",
+        "Evidence:YE1",
+        "Evidence:YE2",
+        "Evidence:YE3",
+        "Evidence:YE4",
+        "Evidence:YE5",
+        "Evidence:YE6",
+        "Evidence:YE7"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    }
+  ],
+  "sources": []
+}

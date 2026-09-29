@@ -1,0 +1,92 @@
+{
+  "status": "recorded",
+  "attempt_id": "AA_468ba233908c44a78b0d5ff472e23256",
+  "receipt": {
+    "id": "AU_c8e3c3ee18114d04ac95a48b97e5fffb",
+    "operation": "record_assurance",
+    "request_id": "review-checkpoint",
+    "request_sha256": "60e4cffff10f5410f92465127624293a72828cc51bff65289ada60d498e40a65",
+    "principal": "reviewer",
+    "session_id": "reviewer-session",
+    "provider": "external-client",
+    "requested_model": null,
+    "policy_sha256": "5d553da5e39f0bf5421b22c7c3ea37de88a94779eb98fbac78f23636bca57598",
+    "scope_policy_sha256": "55c63010aa0e21986e205d8770f59317e1dfdeebe41733ad16ea721c5c1c3240",
+    "content_sha256": "6d04574774fd7c9ffa507f8170a9061af7449c440b8264e089c96da36d338643",
+    "content_bytes": 1639,
+    "content_reference": "ailedger-assurance:d640d256032095cc9a47561535b64d73265eec7e0d6f8fdd4943e07a24d3dee7:AU_c8e3c3ee18114d04ac95a48b97e5fffb",
+    "recorded_at": "2026-09-29T10:58:56.943737+00:00"
+  },
+  "replayed": false,
+  "data": {
+    "snapshot": {
+      "area_id": "a",
+      "candidate_sha256": "185e9364a0805594a65ce9e3d05aa2d3a09897f041bf8bff6259c1cc08e3578f",
+      "requirement_sha256": "ae56ab620e2de5f86316033308664654220ad45f1fad548cbb3606cc69d94726",
+      "binding_sha256": "344009925ee0caf3fa233624a2d0541285beab9ec80e30950413a771b2a3ac15",
+      "inputs": [
+        {
+          "kind": "candidate",
+          "path": "a.txt",
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+          "bytes": 2,
+          "content": "1\n"
+        },
+        {
+          "kind": "requirement",
+          "path": "a.requirements",
+          "sha256": "1cf5b7a25fe60266003751e48a1fcdb9ab664a65a6b5a4bbf676cd5984c8017b",
+          "bytes": 53,
+          "content": "The output is the integer one followed by a newline.\n"
+        },
+        {
+          "kind": "source",
+          "path": "a.source",
+          "sha256": "91a1ae2c3ee600b16674b33750433db407609b268b6bd6ea1daf67b5847f2959",
+          "bytes": 44,
+          "content": "Source contract: preserve the exact output.\n"
+        }
+      ],
+      "dependencies": {},
+      "criteria": [
+        {
+          "id": "output",
+          "description": "Exact one-line output",
+          "check_id": "unit"
+        }
+      ],
+      "implementer": "external-implementer",
+      "origin": "external_candidate_host_snapshot; implementation execution is not observed"
+    },
+    "report": {
+      "schema_version": 1,
+      "request_id": "review-checkpoint",
+      "area_id": "a",
+      "expected_binding": "344009925ee0caf3fa233624a2d0541285beab9ec80e30950413a771b2a3ac15",
+      "status": "partial",
+      "summary": "Scripted inspection of captured content; no model judgment.",
+      "inspected_paths": [
+        "a.txt",
+        "a.requirements",
+        "a.source"
+      ],
+      "read_receipts": [
+        "AU_a2194ce67f3b4603825058c4e16a7fc6"
+      ],
+      "checks": [
+        {
+          "criterion_id": "output",
+          "status": "unknown",
+          "evidence": "Captured exact input and host check where applicable.",
+          "test_receipts": []
+        }
+      ],
+      "findings": [],
+      "uncertainty": [],
+      "supersedes": null
+    },
+    "uninspected_paths": [],
+    "role": "review"
+  },
+  "error": null
+}

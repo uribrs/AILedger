@@ -6,6 +6,7 @@ using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Tests.Support;
+using AILedger.TestSupport;
 
 namespace AILedger.Tests.Cli;
 
@@ -206,18 +207,7 @@ public sealed class KernelVersionTests
         Assert.Null(InvokeGit(RepositoryRoot(), "rev-parse --verify no-such-ref-in-this-tree"));
 
     private static string RepositoryRoot()
-    {
-        var repository = new DirectoryInfo(Environment.CurrentDirectory);
-        while (repository is not null
-            && !Directory.Exists(Path.Combine(repository.FullName, ".git"))
-            && !File.Exists(Path.Combine(repository.FullName, ".git")))
-        {
-            repository = repository.Parent;
-        }
-
-        Assert.NotNull(repository);
-        return repository!.FullName;
-    }
+        => RepositoryLayout.Root;
 
     private static Assembly AssemblyWithInformationalVersion(string informationalVersion)
     {

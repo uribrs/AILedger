@@ -20,6 +20,8 @@ internal static class Program
 
     public static async Task<int> Main(string[] arguments)
     {
+        if (arguments.Length > 0 && arguments[0] == Findings.FindingsProcessProbe.Argument)
+            return await Findings.FindingsProcessProbe.RunAsync(arguments).ConfigureAwait(false);
         if (arguments.Length == 0 || arguments[0] != ProbeArgument)
         {
             return 0;

@@ -23,4 +23,23 @@
     <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/nupkg</PackageOutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/inspect_assurance.schema.json" LogicalName="Assurance.inspect_assurance" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/read_assurance.schema.json" LogicalName="Assurance.read_assurance" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/run_assurance_checks.schema.json" LogicalName="Assurance.run_assurance_checks" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/record_assurance.schema.json" LogicalName="Assurance.record_assurance" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/accept_assurance.schema.json" LogicalName="Assurance.accept_assurance" />
+    <EmbeddedResource Include="../../docs/structured-inspection-v1/check_readiness.schema.json" LogicalName="Inspection.check_readiness" />
+    <EmbeddedResource Include="../../docs/structured-inspection-v1/retrieve_context.schema.json" LogicalName="Inspection.retrieve_context" />
+    <EmbeddedResource Include="../../docs/structured-inspection-v1/inspect_task.schema.json" LogicalName="Inspection.inspect_task" />
+    <EmbeddedResource Include="../../docs/structured-claim-dispositions-v1/request.schema.json" LogicalName="ClaimDispositions.RequestSchema" />
+    <EmbeddedResource Include="../../docs/structured-claim-dispositions-v1/response.schema.json" LogicalName="ClaimDispositions.ResponseSchema" />
+    <EmbeddedResource Include="../../docs/structured-findings-v1/request.schema.json" LogicalName="Findings.RequestSchema" />
+    <EmbeddedResource Include="../../docs/structured-findings-v1/response.schema.json" LogicalName="Findings.ResponseSchema" />
+    <EmbeddedResource Include="../../docs/structured-artifacts-v1/request.schema.json" LogicalName="Artifacts.RequestSchema" />
+    <EmbeddedResource Include="../../docs/structured-artifacts-v1/response.schema.json" LogicalName="Artifacts.ResponseSchema" />
+    <EmbeddedResource Include="../../docs/structured-alternatives-v1/request.schema.json" LogicalName="Alternatives.RequestSchema" />
+    <EmbeddedResource Include="../../docs/structured-alternatives-v1/response.schema.json" LogicalName="Alternatives.ResponseSchema" />
+  </ItemGroup>
+
 </Project>

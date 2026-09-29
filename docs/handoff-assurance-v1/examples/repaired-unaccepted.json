@@ -1,0 +1,251 @@
+{
+  "snapshot": {
+    "area_id": "a",
+    "candidate_sha256": "75758dc597edb0f91df56b4095eb65fea7decf7644f244dd09c2ef262cf22766",
+    "requirement_sha256": "ae56ab620e2de5f86316033308664654220ad45f1fad548cbb3606cc69d94726",
+    "binding_sha256": "9df78cb021cb3ae32fded7b60bf3459214ee64d42fc5eb0656c7fa18a0a0f47b",
+    "inputs": [
+      {
+        "kind": "candidate",
+        "path": "a.txt",
+        "sha256": "5a0a2b76858bf8cc147613f783d84cd22c0047d142ba0d9ce13fcedf953b57ed",
+        "bytes": 3,
+        "content": ""
+      },
+      {
+        "kind": "requirement",
+        "path": "a.requirements",
+        "sha256": "1cf5b7a25fe60266003751e48a1fcdb9ab664a65a6b5a4bbf676cd5984c8017b",
+        "bytes": 53,
+        "content": ""
+      },
+      {
+        "kind": "source",
+        "path": "a.source",
+        "sha256": "91a1ae2c3ee600b16674b33750433db407609b268b6bd6ea1daf67b5847f2959",
+        "bytes": 44,
+        "content": ""
+      }
+    ],
+    "dependencies": {},
+    "criteria": [
+      {
+        "id": "output",
+        "description": "Exact one-line output",
+        "check_id": "unit"
+      }
+    ],
+    "implementer": "external-implementer",
+    "origin": "external_candidate_host_snapshot; implementation execution is not observed"
+  },
+  "history": [
+    {
+      "id": "AU_358ebb1d362140c990b9c9c5660c6a97",
+      "operation": "record_assurance",
+      "principal": "verifier",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    },
+    {
+      "id": "AU_16ef4004788d4d85b825518a99216097",
+      "operation": "run_assurance_checks",
+      "principal": "verifier",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    },
+    {
+      "id": "AU_51c41812c7f0479c93541e606e60886c",
+      "operation": "read_assurance",
+      "principal": "verifier",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    },
+    {
+      "id": "AU_1a08794316734aff9dbb81ed7529b89b",
+      "operation": "record_assurance",
+      "principal": "reviewer",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    },
+    {
+      "id": "AU_198df7ac7ac4447ea65e456cb14d2d33",
+      "operation": "read_assurance",
+      "principal": "reviewer",
+      "status": "current",
+      "reasons": [],
+      "payload": null
+    },
+    {
+      "id": "AU_364f92774e13451483c3ed8fb3423a8d",
+      "operation": "accept_assurance",
+      "principal": "operator",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_70bbe5757871444ca1e3af781bfaaa0d",
+      "operation": "record_assurance",
+      "principal": "verifier",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_3121d4d2cc2a467595cd580241f5edbd",
+      "operation": "run_assurance_checks",
+      "principal": "verifier",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_dc212c2db9154d8f916cb92ad9409ef8",
+      "operation": "read_assurance",
+      "principal": "verifier",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_bd2a8399c7a74fb8b31997f3eab4d9ca",
+      "operation": "record_assurance",
+      "principal": "reviewer",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_9181c2aeb63f4e098a222c15748c27e6",
+      "operation": "read_assurance",
+      "principal": "reviewer",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_c8e3c3ee18114d04ac95a48b97e5fffb",
+      "operation": "record_assurance",
+      "principal": "reviewer",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    },
+    {
+      "id": "AU_a2194ce67f3b4603825058c4e16a7fc6",
+      "operation": "read_assurance",
+      "principal": "reviewer",
+      "status": "reassessment_required",
+      "reasons": [
+        "candidate changed: a.txt"
+      ],
+      "payload": null
+    }
+  ],
+  "uninspected_paths": [],
+  "untested_criteria": [],
+  "unresolved_findings": [],
+  "acceptance": "not_accepted",
+  "measurement": "host observations and authored judgments are distinct; provider usage not collected",
+  "uncommitted_files": 0,
+  "pending_checks": [],
+  "journal_version": 29,
+  "total_history": 13,
+  "next_offset": null,
+  "check_attempts": [
+    {
+      "start": {
+        "fingerprint": "d619f6e0b07ed312839934aa7972e629fe3402b3a7ad07fb242153203ef66289",
+        "request_id": "verify-final-check",
+        "principal": "verifier",
+        "session_id": "verifier-session",
+        "area_id": "a",
+        "binding_sha256": "344009925ee0caf3fa233624a2d0541285beab9ec80e30950413a771b2a3ac15",
+        "directory": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-assurance-check-s5XxFh",
+        "check_ids": [
+          "unit"
+        ],
+        "process_outcome": "unknown"
+      },
+      "observations": [
+        {
+          "kind": "assurance_test_observed",
+          "data": {
+            "fingerprint": "d619f6e0b07ed312839934aa7972e629fe3402b3a7ad07fb242153203ef66289",
+            "test": {
+              "check_id": "unit",
+              "outcome": "succeeded",
+              "exit_code": 0,
+              "standard_output": "observed output: 1\n",
+              "standard_error": "",
+              "truncated_lines": 0,
+              "environment": "Darwin 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:17:26 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6041; .NET 8.0.28; cwd=/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-assurance-check-s5XxFh; captured UTF-8 inputs; system runtime dependencies are not hermetic; no model process",
+              "executable_sha256": "1da348c052fd2f7ed1bd320797a82a8e589f7fcf987e749193f8039fa9c4b5e1",
+              "arguments": [],
+              "started_at": "2026-09-29T10:58:57.360551+00:00",
+              "ended_at": "2026-09-29T10:58:57.601289+00:00",
+              "limitation": null
+            }
+          }
+        }
+      ],
+      "receipt_id": "AU_3121d4d2cc2a467595cd580241f5edbd"
+    },
+    {
+      "start": {
+        "fingerprint": "253636e5d55ee4abe2c68d5d702e4afaef3ca54a483c05b3e437bc89a678a1c4",
+        "request_id": "verify-repaired-check",
+        "principal": "verifier",
+        "session_id": "verifier-session",
+        "area_id": "a",
+        "binding_sha256": "9df78cb021cb3ae32fded7b60bf3459214ee64d42fc5eb0656c7fa18a0a0f47b",
+        "directory": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-assurance-check-VvYTNK",
+        "check_ids": [
+          "unit"
+        ],
+        "process_outcome": "unknown"
+      },
+      "observations": [
+        {
+          "kind": "assurance_test_observed",
+          "data": {
+            "fingerprint": "253636e5d55ee4abe2c68d5d702e4afaef3ca54a483c05b3e437bc89a678a1c4",
+            "test": {
+              "check_id": "unit",
+              "outcome": "succeeded",
+              "exit_code": 0,
+              "standard_output": "observed output: 1\n\n",
+              "standard_error": "",
+              "truncated_lines": 0,
+              "environment": "Darwin 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:17:26 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6041; .NET 8.0.28; cwd=/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-assurance-check-VvYTNK; captured UTF-8 inputs; system runtime dependencies are not hermetic; no model process",
+              "executable_sha256": "1da348c052fd2f7ed1bd320797a82a8e589f7fcf987e749193f8039fa9c4b5e1",
+              "arguments": [],
+              "started_at": "2026-09-29T10:58:58.26194+00:00",
+              "ended_at": "2026-09-29T10:58:58.285247+00:00",
+              "limitation": null
+            }
+          }
+        }
+      ],
+      "receipt_id": "AU_16ef4004788d4d85b825518a99216097"
+    }
+  ]
+}

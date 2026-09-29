@@ -1,0 +1,6 @@
+{
+  "algorithm": "findings-v1-c14n1",
+  "note": "ASCII example vector; task 2 must also add vectors from its C# canonical writer for Unicode/escaping and optional fields.",
+  "canonical_utf8": "{\"operation\":\"record_findings\",\"schema_version\":1,\"binding\":{\"task_id\":\"demo\",\"actor_id\":\"researcher\",\"run_id\":\"R1\",\"correlation_id\":\"R1\",\"causation_id\":null},\"findings\":[{\"key\":\"f1\",\"statement\":\"The failed run retained its checkpoint.\",\"consequence_if_wrong\":\"A retry may repeat work.\",\"from_lesson\":null}],\"evidence\":[{\"key\":\"e1\",\"source_type\":\"test-run\",\"citation\":\"fixture://checkpoint/failed-run\",\"summary\":\"Checkpoint survived. Literal data: $HOME | `probe`\\nSecond line.\",\"supports\":[{\"finding\":\"f1\"}],\"refutes\":[]}]}",
+  "sha256": "e5fd2c4239111e6f5eb9c38b64ffa23042a4c9dbcbcb5a5c556ebe576a8d5fd3"
+}

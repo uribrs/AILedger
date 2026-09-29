@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AILedger.Cli.ContextBriefing;
+using AILedger.Cli.Findings;
 using AILedger.Cli.Routing;
 using AILedger.Cli.Runs;
 using AILedger.Cli.Verification;
@@ -13,7 +14,7 @@ using static AILedger.Cli.Routing.CliInput;
 
 namespace AILedger.Cli.Providers;
 
-internal sealed class ProviderLauncher(
+internal sealed partial class ProviderLauncher(
     Func<string, IAgentAdapter> _adapterFactory,
     ContextBriefingCliCommands _contextCommands,
     CliCommandExecutor executor,
@@ -32,6 +33,8 @@ internal sealed class ProviderLauncher(
         var provider = input.Required("provider").ToLowerInvariant();
         var sessionId = input.Optional("session");
         _ = AssuranceCliInput.Selection(input);
+        if (mode == AgentLaunchMode.Resume && input.Optional("assurance-authority") is not null)
+            throw new CliUsageException("Handoff assurance requires a fresh provider session; recover partial records through a new independent inspection rather than provider resume.");
         if (mode == AgentLaunchMode.Resume &&
             (input.Optional("candidate") is not null || input.Many("also-work").Count > 0 ||
              input.Optional("verifier-run") is not null))
@@ -151,6 +154,9 @@ internal sealed class ProviderLauncher(
             // Parsed before the request rather than inside its constructor, because the record and
             // the request must carry one number and not two readings of one option.
             launchTimeoutSeconds = PositiveInt(input.Optional("timeout-seconds"), 1800);
+            var assuranceService = await OpenAssuranceAsync(service, input, start.RunId, provider, grants, ledgerRoot, cancellationToken).ConfigureAwait(false);
+            await using var findings = ProviderFindingsSession.Start(service, ledgerRoot, Task(input),
+                SubjectOrActor(input), start.RunId, Cause(input), provider, CognitiveArtifactLoader.ResolveRoot(input.Optional("cognitive-root")), assuranceService);
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,
@@ -161,7 +167,7 @@ internal sealed class ProviderLauncher(
                 new Dictionary<string, string>(),
                 TimeSpan.FromSeconds(launchTimeoutSeconds.Value),
                 manifest.CoveredWorkItemIds, started.State.Runs[start.RunId].Assurance,
-                typeof(CliApplication).Assembly.Location, grants.NavigationDirectories);
+                typeof(CliApplication).Assembly.Location, grants.NavigationDirectories, findings.Endpoint);
             // Marked delivered only once the request is fully built, because building it is fallible
             // — the timeout argument is parsed on the line above and throws on a bad value.
             // Assigning earlier recorded a brief for a run the adapter never received, which is the

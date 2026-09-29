@@ -57,7 +57,7 @@ internal sealed class CognitiveArtifactLoader
         return artifacts;
     }
 
-    private static string ResolveRoot(string? configuredRoot)
+    internal static string ResolveRoot(string? configuredRoot)
     {
         var explicitRoot = configuredRoot ?? Environment.GetEnvironmentVariable("AILEDGER_COGNITIVE_ROOT");
         if (!string.IsNullOrWhiteSpace(explicitRoot))

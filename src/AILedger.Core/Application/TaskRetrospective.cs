@@ -861,4 +861,17 @@ public sealed record TaskRetrospectiveReport(
     RetrospectiveBriefWaivers BriefWaivers,
     // Appended without disturbing the established serialized field order. Rows written before the
     // envelope field existed appear under the explicit `not recorded` identity.
-    IReadOnlyList<RetrospectiveKernelIdentityPartition> KernelIdentityPartitions);
+    IReadOnlyList<RetrospectiveKernelIdentityPartition> KernelIdentityPartitions)
+{
+    // Opt-in extension: absent from historical/default serialization, including frozen reports.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.Findings.FindingsMeasurementReport? Findings { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.Alternatives.AlternativesMeasurementReport? Alternatives { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.Artifacts.ArtifactSubmissionMeasurementReport? ArtifactSubmissions { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.ClaimDispositions.ClaimDispositionsMeasurementReport? ClaimDispositions { get; init; }
+}

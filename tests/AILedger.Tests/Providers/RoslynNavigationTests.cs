@@ -152,9 +152,7 @@ public sealed class RoslynNavigationTests
             }
             else
             {
-                var configurationPath = ProviderProtocolTests.ValueAfter(invocation.Arguments, "--mcp-config");
-                scratchDirectory = Path.GetDirectoryName(configurationPath)!;
-                using var configuration = JsonDocument.Parse(File.ReadAllText(configurationPath));
+                using var configuration = JsonDocument.Parse(ProviderProtocolTests.ValueAfter(invocation.Arguments, "--mcp-config"));
                 var servers = configuration.RootElement.GetProperty("mcpServers");
                 Assert.Single(servers.EnumerateObject());
                 var server = servers.GetProperty("roslyn");
@@ -165,6 +163,7 @@ public sealed class RoslynNavigationTests
                 Assert.Equal("navigation", arguments[1]);
                 Assert.Equal("serve", arguments[2]);
                 settingsPath = arguments[3]!;
+                scratchDirectory = Path.GetDirectoryName(settingsPath)!;
                 Assert.Equal(NavigationTools.Select(tool => $"mcp__roslyn__{tool}"),
                     ProviderProtocolTests.ValueAfter(invocation.Arguments, "--allowedTools").Split(','));
                 Assert.Contains("--strict-mcp-config", invocation.Arguments);

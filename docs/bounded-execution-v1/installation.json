@@ -1,0 +1,282 @@
+{
+  "source_commit": "142bab5126e6e3e02b7aaba619b0532dcea2f421",
+  "branch": "codex/structured-findings-contract",
+  "version": "2.0.178",
+  "installed_identity": "2.0.178  from 142bab5",
+  "package": "/tmp/ailedger-task12/packages/AILedger.Cli.2.0.178.nupkg",
+  "package_sha256": "7177ea11e95132cffdc5a7558c226b765d77772725b05922cc223f19e8a72b24",
+  "payload": [
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.deps.json",
+      "sha256": "2b616829cb9bc1e8d4cddad165bc432c08574ee61cd7536fa7efe6e552102ccf"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.dll",
+      "sha256": "0376766f91020a79f934d621d572c9618c1e134b47e8bec7bdc28eff7789bc06"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.pdb",
+      "sha256": "3c89b7605dbd47d447c84024f38e2d87e4d6f3de4983a6c3af1107c59acaef4b"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Cli.runtimeconfig.json",
+      "sha256": "97c9700542b659150b230c3578b29530fd76ab01ec66a92cd16945e0245713df"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Core.dll",
+      "sha256": "925c5687578e8e2ef0bad187cdf2487f73cf71a874cca0a6b5d9e5dd44adaeee"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Core.pdb",
+      "sha256": "c472351c424e280b636760fd2c32b2ef0a54da08bf7ea010e6c6dd3084cf9673"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Providers.dll",
+      "sha256": "c48f382a61168055b309c0487768750936578a32b27c6249a4b6e4eaa25ebe5e"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Providers.pdb",
+      "sha256": "d8328d5abfd16cef7eda3195b393c1ac845a1a8febfa909b3400c4fae8021880"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Storage.dll",
+      "sha256": "871877c3b0dacbd4f213372a82e031dd1b175bd0edc1af455293d6df384b4d38"
+    },
+    {
+      "path": "tools/net8.0/any/AILedger.Storage.pdb",
+      "sha256": "0937cfb0a2fc761b3549467dc058b194752848fc91fd969669223623ab57f0cc"
+    },
+    {
+      "path": "tools/net8.0/any/DotnetToolSettings.xml",
+      "sha256": "ccfb937d1dcebd6f525b4a2f430f76d4bf1cd67f342abf25c222c1d45f53fc1c"
+    }
+  ],
+  "pack_command": [
+    "dotnet",
+    "pack",
+    "src/AILedger.Cli/AILedger.Cli.csproj",
+    "-c",
+    "Release",
+    "-m:1",
+    "--nologo",
+    "--artifacts-path",
+    "/tmp/ailedger-task12/installation-artifacts",
+    "-p:NuGetAudit=false",
+    "-p:UseSharedCompilation=false",
+    "-p:PackageOutputPath=/tmp/ailedger-task12/packages",
+    "-p:Version=2.0.178",
+    "-p:InformationalVersion=2.0.178+142bab5.t1790671451"
+  ],
+  "prior": {
+    "identity": "2.0.176  from 4a0f117",
+    "source_commit": "4a0f11708cd48dcc657d45f8dd806d88555eca59",
+    "package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.176/ailedger.cli/2.0.176/ailedger.cli.2.0.176.nupkg",
+    "sha256": "e2ea2ea4bd0d3b6d9f88e13e38f0adafa6d3da314c76e2036cd61a613cc31c9b",
+    "rollback": "/Users/user/.local/share/ailedger/rollback/ailedger.cli.2.0.176.nupkg"
+  },
+  "candidate": {
+    "episode": {
+      "identity": "2.0.178  from 142bab5",
+      "cases": [
+        {
+          "case": "inventory-and-lost-response-replay",
+          "outcome": "passed",
+          "execution_id": "60a2e13d6bce98eb6f9d63383c16ab0b2dc98fd4484b658ce5cab61629bc8c67"
+        },
+        {
+          "case": "cancel-and-resume",
+          "outcome": "passed",
+          "execution_id": "ab2eff08a7371e64bff0cecd65b0fd074f291bfa49ae7ab0cfacb43b21486e93"
+        },
+        {
+          "case": "host-kill-and-resume",
+          "outcome": "passed",
+          "execution_id": "67d3fb64a2bb2a96014a088a3e317586d22ca1199d7cb44244c6d2fbb84c069b"
+        },
+        {
+          "case": "elapsed-budget",
+          "outcome": "passed",
+          "execution_id": "cad0dfbec4ab0f815c4ec56f8b63d11f17b15078b2019253baa198fa0c33bf10"
+        },
+        {
+          "case": "provider-failure",
+          "outcome": "passed",
+          "execution_id": "872fd07a902e1c042d30ee237afc85b857610e2dd5e82094a4c57b083a42655a"
+        },
+        {
+          "case": "authorized-retrieval-follow-up",
+          "outcome": "passed",
+          "execution_id": "8a49b59adc3cccdba87f513438516052030db84071a3da5fec412711ded0cacf"
+        },
+        {
+          "case": "sandbox-read-write-network-denials",
+          "outcome": "passed",
+          "execution_id": "2e4d52e9de0d54f7265a379baa56ceda57c746551675364b5b06f97c7930d43a"
+        }
+      ],
+      "source_sha256": "bccd1478110c190c92e9abd9e594058ae1023b8da5b1e19433ce05ce24fa6504",
+      "client_acceptance": "pending",
+      "real_provider_episodes": 0,
+      "usage": "unavailable stays null; scripts are not model usage",
+      "limitation": "Mechanical offline execution and recovery only; no judgment, cost or delivery improvement claimed."
+    },
+    "inspection": {
+      "identity": "2.0.178  from 142bab5",
+      "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-inspection-package-jqhqncp2",
+      "result": "passed",
+      "client_trial": "pending",
+      "billable_episode": false,
+      "checks": [
+        "seven narrow tools",
+        "trusted actor/run",
+        "typed retrieval",
+        "exact chunk digest",
+        "own receipt",
+        "no projection repair or canonical writes",
+        "ready/stale/unsupported separation",
+        "execution-time revalidation",
+        "spoof refusal",
+        "grant revocation",
+        "inspection and mutation measurement separation",
+        "unknown provider usage"
+      ]
+    },
+    "artifacts": {
+      "identity": "2.0.178  from 142bab5",
+      "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-artifact-package-6fuy1nmk",
+      "result": "passed",
+      "client_trial": "not performed",
+      "billable_episode": false,
+      "checks": [
+        "three exact tools",
+        "content mismatch no mutation",
+        "inline content fidelity and SHA-256",
+        "trusted author/run/scope",
+        "restart receipt after run completion",
+        "key conflict",
+        "both artifact kinds",
+        "separate measurement populations",
+        "capability revocation"
+      ]
+    }
+  },
+  "client_acceptance": "pending",
+  "real_provider_episodes": 0,
+  "installed_package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.178/ailedger.cli/2.0.178/ailedger.cli.2.0.178.nupkg",
+  "executable": "/Users/user/.local/bin/ailedger",
+  "executable_target": "/Users/user/.dotnet/tools/ailedger",
+  "executable_sha256": "8db2262db3d2ff4e16e852526774aa64c85182b90bbbd133a014bcfa354990c6",
+  "install_command": [
+    "dotnet",
+    "tool",
+    "update",
+    "--global",
+    "AILedger.Cli",
+    "--version",
+    "2.0.178",
+    "--add-source",
+    "/tmp/ailedger-task12/packages",
+    "--ignore-failed-sources"
+  ],
+  "installed": {
+    "episode": {
+      "identity": "2.0.178  from 142bab5",
+      "cases": [
+        {
+          "case": "inventory-and-lost-response-replay",
+          "outcome": "passed",
+          "execution_id": "60a2e13d6bce98eb6f9d63383c16ab0b2dc98fd4484b658ce5cab61629bc8c67"
+        },
+        {
+          "case": "cancel-and-resume",
+          "outcome": "passed",
+          "execution_id": "ab2eff08a7371e64bff0cecd65b0fd074f291bfa49ae7ab0cfacb43b21486e93"
+        },
+        {
+          "case": "host-kill-and-resume",
+          "outcome": "passed",
+          "execution_id": "67d3fb64a2bb2a96014a088a3e317586d22ca1199d7cb44244c6d2fbb84c069b"
+        },
+        {
+          "case": "elapsed-budget",
+          "outcome": "passed",
+          "execution_id": "cad0dfbec4ab0f815c4ec56f8b63d11f17b15078b2019253baa198fa0c33bf10"
+        },
+        {
+          "case": "provider-failure",
+          "outcome": "passed",
+          "execution_id": "872fd07a902e1c042d30ee237afc85b857610e2dd5e82094a4c57b083a42655a"
+        },
+        {
+          "case": "authorized-retrieval-follow-up",
+          "outcome": "passed",
+          "execution_id": "8a49b59adc3cccdba87f513438516052030db84071a3da5fec412711ded0cacf"
+        },
+        {
+          "case": "sandbox-read-write-network-denials",
+          "outcome": "passed",
+          "execution_id": "2e4d52e9de0d54f7265a379baa56ceda57c746551675364b5b06f97c7930d43a"
+        }
+      ],
+      "source_sha256": "bccd1478110c190c92e9abd9e594058ae1023b8da5b1e19433ce05ce24fa6504",
+      "client_acceptance": "pending",
+      "real_provider_episodes": 0,
+      "usage": "unavailable stays null; scripts are not model usage",
+      "limitation": "Mechanical offline execution and recovery only; no judgment, cost or delivery improvement claimed."
+    },
+    "inspection": {
+      "identity": "2.0.178  from 142bab5",
+      "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-inspection-package-23_4l7wg",
+      "result": "passed",
+      "client_trial": "pending",
+      "billable_episode": false,
+      "checks": [
+        "seven narrow tools",
+        "trusted actor/run",
+        "typed retrieval",
+        "exact chunk digest",
+        "own receipt",
+        "no projection repair or canonical writes",
+        "ready/stale/unsupported separation",
+        "execution-time revalidation",
+        "spoof refusal",
+        "grant revocation",
+        "inspection and mutation measurement separation",
+        "unknown provider usage"
+      ]
+    },
+    "artifacts": {
+      "identity": "2.0.178  from 142bab5",
+      "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-artifact-package-r1r5ft15",
+      "result": "passed",
+      "client_trial": "not performed",
+      "billable_episode": false,
+      "checks": [
+        "three exact tools",
+        "content mismatch no mutation",
+        "inline content fidelity and SHA-256",
+        "trusted author/run/scope",
+        "restart receipt after run completion",
+        "key conflict",
+        "both artifact kinds",
+        "separate measurement populations",
+        "capability revocation"
+      ]
+    }
+  },
+  "verification_logs": {
+    "candidate-install.log": "9a59d733ddc2da7f1b804a2e0cfed36e3fca11cb0c67e393dd2dd92572475bf0",
+    "installed-episode.log": "bb8014827dc2f43ad0f833d037b2b40c205071fe3bc3170c4dd493262eb3d8d5",
+    "concurrency-recheck.log": "12549f80b0d7cc9d47c7ff681cc3d26b649cc8bbd9904700744be0d759e0a636",
+    "candidate-artifacts.log": "5ed213eba3718e996d00e45c74b0a84824916cb8930c698a93c1bc36d5b801ff",
+    "installed-inspection.log": "d385adc12892dd6babd6dcf941adf8c597efe3a7d2e7b73b2c3936cf8f171601",
+    "installed-artifacts.log": "bdfa7c482279b60d1312d6372e2d0d59467bcb0039f03ad2e4d9a93422e8aa17",
+    "runner-final.log": "c3c2a0e40a157175be99a4ccf0d7c3cb9028a9faae166a425507490670391dcd",
+    "pack.log": "0a8ac0adb24ec37127194f27912fbb6510e2da7fc34caf4cf459b2597431f4af",
+    "runner-isolated-final.log": "443fc0a39f124e414912619c2dda3bbbcb141e507c731e89458e2fa2de04baee",
+    "candidate-inspection.log": "ceb21f50fc7cf7e5215736299db62a075d9e3fc687700ef2799e794dc9753f18",
+    "candidate-episode.log": "bb8014827dc2f43ad0f833d037b2b40c205071fe3bc3170c4dd493262eb3d8d5",
+    "global-install.log": "6fb9c4e6f03bad167d1f276f4784aa4dc3871408acc0e3a27d283f51dae4bff9",
+    "full-final.log": "926be4fb0fe163492673af40033e29e247f05989d7bdc3f8525c9e3cd39dbe79"
+  }
+}

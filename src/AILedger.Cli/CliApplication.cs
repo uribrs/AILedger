@@ -229,6 +229,7 @@ public sealed class CliApplication
         var verification = new VerificationCliCommands(_executor, _json, () => VerificationHost);
         return new CliCommandCatalog(new[] { TaskCliCommands.Open(_executor) }
             .Concat(taskInspection.Registrations())
+            .Concat(new AILedger.Cli.Handoffs.HandoffCliCommands(_executor, ProcessStandardInput).Registrations())
             .Append(VersionCliCommands.Registration(_executor))
             .Append(ActorCliCommands.Registration(_executor))
             .Concat(artifacts.Registrations())

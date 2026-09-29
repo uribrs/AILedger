@@ -1,0 +1,75 @@
+{
+  "status": "recorded",
+  "attempt_id": "AA_4b170f771be1499488452beae7e69b77",
+  "receipt": {
+    "id": "AU_364f92774e13451483c3ed8fb3423a8d",
+    "operation": "accept_assurance",
+    "request_id": "accept-a",
+    "request_sha256": "e88d84a93de67b71c435ab4801646c95d9212b8f3e16fef1899d7a3282c79509",
+    "principal": "operator",
+    "session_id": "operator-session",
+    "provider": "external-client",
+    "requested_model": null,
+    "policy_sha256": "5d553da5e39f0bf5421b22c7c3ea37de88a94779eb98fbac78f23636bca57598",
+    "scope_policy_sha256": "55c63010aa0e21986e205d8770f59317e1dfdeebe41733ad16ea721c5c1c3240",
+    "content_sha256": "5838af7814f59e4df7f2d04702e6ebe2e615197c284ca8f6e62aa92c5ffa9927",
+    "content_bytes": 1398,
+    "content_reference": "ailedger-assurance:d640d256032095cc9a47561535b64d73265eec7e0d6f8fdd4943e07a24d3dee7:AU_364f92774e13451483c3ed8fb3423a8d",
+    "recorded_at": "2026-09-29T10:58:57.969807+00:00"
+  },
+  "replayed": false,
+  "data": {
+    "snapshot": {
+      "area_id": "a",
+      "candidate_sha256": "185e9364a0805594a65ce9e3d05aa2d3a09897f041bf8bff6259c1cc08e3578f",
+      "requirement_sha256": "ae56ab620e2de5f86316033308664654220ad45f1fad548cbb3606cc69d94726",
+      "binding_sha256": "344009925ee0caf3fa233624a2d0541285beab9ec80e30950413a771b2a3ac15",
+      "inputs": [
+        {
+          "kind": "candidate",
+          "path": "a.txt",
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+          "bytes": 2,
+          "content": "1\n"
+        },
+        {
+          "kind": "requirement",
+          "path": "a.requirements",
+          "sha256": "1cf5b7a25fe60266003751e48a1fcdb9ab664a65a6b5a4bbf676cd5984c8017b",
+          "bytes": 53,
+          "content": "The output is the integer one followed by a newline.\n"
+        },
+        {
+          "kind": "source",
+          "path": "a.source",
+          "sha256": "91a1ae2c3ee600b16674b33750433db407609b268b6bd6ea1daf67b5847f2959",
+          "bytes": 44,
+          "content": "Source contract: preserve the exact output.\n"
+        }
+      ],
+      "dependencies": {},
+      "criteria": [
+        {
+          "id": "output",
+          "description": "Exact one-line output",
+          "check_id": "unit"
+        }
+      ],
+      "implementer": "external-implementer",
+      "origin": "external_candidate_host_snapshot; implementation execution is not observed"
+    },
+    "decision": {
+      "schema_version": 1,
+      "request_id": "accept-a",
+      "area_id": "a",
+      "expected_binding": "344009925ee0caf3fa233624a2d0541285beab9ec80e30950413a771b2a3ac15",
+      "reports": [
+        "AU_bd2a8399c7a74fb8b31997f3eab4d9ca",
+        "AU_70bbe5757871444ca1e3af781bfaaa0d"
+      ],
+      "rationale": "Explicit scripted fixture acceptance; not client acceptance or semantic proof.",
+      "dispositions": []
+    }
+  },
+  "error": null
+}

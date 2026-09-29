@@ -7,7 +7,9 @@ internal static class CliHelpText
 
         Global options: --root PATH        (default: platform local application data/AILedger/tasks)
                         --lesson-root PATH (default: platform local application data/AILedger/lessons)
-        Every mutation requires an explicit --actor ID. Repeat list options once per value.
+        Every governed mutation requires an explicit --actor ID. Repeat list options once per value.
+        Experimental offline episodes use a separate trusted host binding and store:
+        episode --help      run/resume/inspect/reconcile; read-only, no model spend or acceptance
 
         version            (no options)   what this build was made from
         task open          --task ID --actor ID --title TEXT --goal TEXT [--tag TAG]
@@ -16,7 +18,7 @@ internal static class CliHelpText
                            Role coverage names, per role, the actors assigned to it and whether a
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
-        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH]
+        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY] [--alternatives] [--alternatives-telemetry DIRECTORY]
                            (what governance did on one task and what it cost)
                            Counts, durations and the causal chains the log can join, with no score,
                            grade or overall number anywhere, and a notMeasured list naming what this
@@ -83,6 +85,9 @@ internal static class CliHelpText
                            New assurance output inherits its run's full membership when work flags
                            are omitted. Supplied work flags assert exactly that set. Legacy output
                            still requires --work; task-wide kinds must not use work flags.
+        handoff index --task <id> --actor <id> [--run <id>] [--selection task|relevant]
+        handoff retrieve --task <id> --actor <id> [--run <id>] --body-stdin
+        handoff prepare --task <id> --actor <id> [--run <id>] --body-stdin
         artifact show      --task ID --id ID [--json]
         artifact list      --task ID [--work ID [--also-work ID ...]] [--kind KIND]
                            Work selection intersects original coverage. Metadata retains historical

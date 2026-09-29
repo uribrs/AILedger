@@ -1,0 +1,373 @@
+[
+  {
+    "kind": "findings",
+    "key": "NC2",
+    "field": "statement",
+    "prepared": "The native collector does not derive a base URL per cloud region: apiEndpoint comes from configuration (https:// prepended if missing), and the OAuth2 client-credentials token endpoint is {apiEndpoint}/oauth2/token handled by the Http.Package session.",
+    "recorded": "The native collector does not derive a base URL per cloud region: apiEndpoint comes from configuration (https:// prepended if missing), and the OAuth2 client-credentials token endpoint is apiEndpoint + /oauth2/token, handled by the Http.Package session."
+  },
+  {
+    "kind": "findings",
+    "key": "NC3",
+    "field": "statement",
+    "prepared": "When no baseDate is supplied, both native flows still filter on a 365-day lookback: Discover gets last_seen_timestamp:>='now-365d' and Spotlight gets updated_timestamp:>='now-365d'.",
+    "recorded": "When no baseDate is supplied, both native flows still filter on a 365-day lookback: Discover gets last_seen_timestamp >= now-365d and Spotlight gets updated_timestamp >= now-365d."
+  },
+  {
+    "kind": "findings",
+    "key": "NC4",
+    "field": "statement",
+    "prepared": "Native assets call GET /discover/combined/hosts/v1?limit=1000&sort=last_seen_timestamp.asc&facet=risk_factors&facet=third_party&facet=system_insights plus &filter= and &after=, paginated by the meta.pagination.after cursor until after is empty.",
+    "recorded": "Native assets call GET /discover/combined/hosts/v1?limit=1000&sort=last_seen_timestamp.asc&facet=risk_factors&facet=third_party&facet=system_insights plus filter= and after=, paginated by the meta.pagination.after cursor until after is empty."
+  },
+  {
+    "kind": "findings",
+    "key": "NC5",
+    "field": "statement",
+    "prepared": "With an explicit baseDate the native assets flow splits the window into newest-first calendar-month segments, each queried with last_seen_timestamp:>=start+last_seen_timestamp:<end; the findings flow never segments.",
+    "recorded": "With an explicit baseDate the native assets flow splits the window into newest-first calendar-month segments, each queried with last_seen_timestamp >= start and < end; the findings flow never segments."
+  },
+  {
+    "kind": "findings",
+    "key": "NC6",
+    "field": "statement",
+    "prepared": "The native assets payload is one NDJSON object per Discover page, key {storageUrl key prefix}/assets_{page:D6}.json, one line per Discover resource: the vendor host object verbatim plus an added device_policies property; UTF-8 without BOM, content type application/x-ndjson, no wrapper and no collector metadata inside the object.",
+    "recorded": "The native assets payload is one NDJSON object per Discover page, key storageUrl-key-prefix/assets_NNNNNN.json, one line per Discover resource: the vendor host object verbatim plus an added device_policies property; UTF-8 without BOM, content type application/x-ndjson, no wrapper and no collector metadata inside the object."
+  },
+  {
+    "kind": "findings",
+    "key": "NC7",
+    "field": "statement",
+    "prepared": "The native findings flow is two-phase: Phase 1 spools the Discover inventory into {storageUrl}/_staging/gen_<ticks>/hosts_NNNNNN.json and writes manifest.json; Phase 2 walks that frozen list in aid batches and runs one Spotlight scroll per batch.",
+    "recorded": "The native findings flow is two-phase: Phase 1 spools the Discover inventory into storageUrl/_staging/gen_TICKS/hosts_NNNNNN.json and writes manifest.json; Phase 2 walks that frozen list in aid batches and runs one Spotlight scroll per batch."
+  },
+  {
+    "kind": "findings",
+    "key": "NC9",
+    "field": "statement",
+    "prepared": "Native Spotlight calls are GET /spotlight/combined/vulnerabilities/v1?limit=2500&facet=cve&facet=remediation&facet=evaluation_logic&sort=updated_timestamp.asc&filter=suppression_info.is_suppressed:!'true'+status:['open','reopen','closed']+aid:['a1',...]+updated_timestamp:>='floor', one cursor scroll per aid batch of 8 hosts (default), with only vendor-stated sensor AIDs in the filter; a batch with no sensor AID makes no request.",
+    "recorded": "Native Spotlight calls are GET /spotlight/combined/vulnerabilities/v1?limit=2500&facet=cve&facet=remediation&facet=evaluation_logic&sort=updated_timestamp.asc with filter suppression_info.is_suppressed:!'true' + status:['open','reopen','closed'] + aid:[sensor AIDs] + updated_timestamp:>=floor; one cursor scroll per aid batch of 8 hosts (default); only vendor-stated sensor AIDs go in the filter; a batch with no sensor AID makes no request."
+  },
+  {
+    "kind": "findings",
+    "key": "NC10",
+    "field": "statement",
+    "prepared": "Each native findings NDJSON line is {aid, chunk, isLastChunk, findingsInChunk, host, findings[]}: host is the Discover record plus device_policies, each finding is the Spotlight record with apps, suppression_info and host_info removed and remediation.entities sorted; at most 2000 findings per line; a host with zero findings still emits one line; findings are deduplicated by id and findings whose aid is not in the batch are dropped.",
+    "recorded": "Each native findings NDJSON line has properties aid, chunk, isLastChunk, findingsInChunk, host, findings: host is the Discover record plus device_policies; each finding is the Spotlight record with apps, suppression_info and host_info removed and remediation.entities sorted; at most 2000 findings per line; a host with zero findings still emits one line; findings are deduplicated by id and findings whose aid is not in the batch are dropped."
+  },
+  {
+    "kind": "findings",
+    "key": "NC11",
+    "field": "statement",
+    "prepared": "Native findings publish one object per aid batch, named findings_{CurrentPage:D6}.json from the host page counter, in frozen-key-list order (staged page, then batch); BatchScopedStorage defaults to false, so objects land flat under the run's storageUrl.",
+    "recorded": "Native findings publish one object per aid batch, named findings_NNNNNN.json from the host page counter (CurrentPage), in frozen-key-list order (staged page, then batch); BatchScopedStorage defaults to false, so objects land flat under the run's storageUrl."
+  },
+  {
+    "kind": "findings",
+    "key": "NC12",
+    "field": "statement",
+    "prepared": "Native hosts in both flows carry a collector-built device_policies envelope {schema_version:1, collection_status, prevention:{assignment, definition_status, definition}|null}, built from POST /devices/entities/devices/v2 (body {\"ids\":[...]}, one call per Discover or staged page, bisected on unattributed refusals) and GET /policy/entities/prevention/v1?ids=..(100 per call); only findings also calls GET /policy/combined/prevention/v1?limit=5000&offset=0.",
+    "recorded": "Native hosts in both flows carry a collector-built device_policies envelope (schema_version 1, collection_status, prevention = assignment + definition_status + definition, or null), built from POST /devices/entities/devices/v2 (JSON body with an ids array, one call per Discover page or staged page, bisected on unattributed refusals) and GET /policy/entities/prevention/v1?ids=.. (100 ids per call); only the findings flow also calls GET /policy/combined/prevention/v1?limit=5000&offset=0."
+  },
+  {
+    "kind": "findings",
+    "key": "NC12",
+    "field": "consequence_if_wrong",
+    "prepared": "The policy join is a native-only enrichment the YAML side must reproduce or the host objects differ.",
+    "recorded": "The policy join is a native-only enrichment the YAML side must reproduce, or the host objects differ."
+  },
+  {
+    "kind": "findings",
+    "key": "NC13",
+    "field": "statement",
+    "prepared": "EnablePreventionPolicyEnrichment defaults to false in the committed dev source; the uncommitted working-tree change sets it to true; when false no policy endpoint is called and every host still gets device_policies {schema_version:1, collection_status:'disabled', prevention:null}.",
+    "recorded": "EnablePreventionPolicyEnrichment defaults to false in the committed dev source; the uncommitted working-tree change sets it to true; when false no policy endpoint is called and every host still gets device_policies with collection_status disabled and prevention null."
+  },
+  {
+    "kind": "findings",
+    "key": "NC15",
+    "field": "statement",
+    "prepared": "Native HTTP resilience: session retry of 3 attempts, exponential with jitter from 2s, server-suggested delays up to 60s slept in-process and longer ones externalized; token bucket 35/50/queue 60; circuit breaker 3 failures, 300s; 5 min timeout; a 404 on an after= URL becomes a cursor-expired condition that re-anchors from the watermark; 401 and 5xx become host-scheduled recoveries.",
+    "recorded": "Native HTTP resilience: session retry of 3 attempts, exponential with jitter from 2s; server-suggested delays up to 60s are slept in-process and longer ones externalized; token bucket 35/50/queue 60; circuit breaker 3 failures, 300s; 5 min timeout; a 404 on an after= URL becomes a cursor-expired condition that re-anchors from the watermark; 401 and 5xx become host-scheduled recoveries."
+  },
+  {
+    "kind": "findings",
+    "key": "NC15",
+    "field": "consequence_if_wrong",
+    "prepared": "Throughput and failure recovery differences between the collectors would be missed.",
+    "recorded": "Throughput and failure-recovery differences between the collectors would be missed."
+  },
+  {
+    "kind": "findings",
+    "key": "NC17",
+    "field": "statement",
+    "prepared": "In native findings a batch is published whole or not at all: a failed or interrupted Spotlight scroll discards the batch's partial accumulators, publishes nothing for it, and the resume replays from the checkpoint's (staged page, batch index) under the same object name.",
+    "recorded": "In native findings a batch is published whole or not at all: a failed or interrupted Spotlight scroll discards the batch's partial accumulators, publishes nothing for it, and the resume replays from the checkpoint's staged-page and batch-index position under the same object name."
+  },
+  {
+    "kind": "findings",
+    "key": "NC20",
+    "field": "statement",
+    "prepared": "Native dry-run issues a single request with limit=1 (assets: Discover; findings: Discover probe) and publishes nothing.",
+    "recorded": "Native dry-run issues a single request with limit=1 (assets: Discover; findings: a Discover probe) and publishes nothing."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE1",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconIdentification.cs:20; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/FalconCollector.cs:45",
+    "recorded": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconIdentification.cs:20; .../FalconCollector/FalconCollector.cs:45"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE2",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfigurationBuilder.cs:128-129,354-359,411-421; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:38",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfigurationBuilder.cs:128-129,354-359,411-421; Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:38"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE2",
+    "field": "summary",
+    "prepared": "baseUrl read from ApiEndpoint/apiEndpoint/baseUrl/Host/Url keys; NormalizeBaseAddress adds https://; SessionSpec Auth = OAuth2(ClientId, ClientSecret, TokenEndpoint=ApiEndpoint+/oauth2/token).",
+    "recorded": "baseUrl read from ApiEndpoint/apiEndpoint/baseUrl/Host/Url keys; NormalizeBaseAddress prepends https://; SessionSpec Auth = OAuth2(ClientId, ClientSecret, TokenEndpoint = ApiEndpoint + /oauth2/token)."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE3",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:25,52; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Job/AdapterTimeDefaults.cs:17-24; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:101; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/SharedFlows/FalconHostFilters.cs:14-36; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:131; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:118-123,253",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:25,52; IntegrationInfra@86de702 src/IntegrationInfra/Job/AdapterTimeDefaults.cs:17-24; Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:101; Collectors/FalconCollector/Flows/SharedFlows/FalconHostFilters.cs:14-36; Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:131; Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:118-123,253"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE3",
+    "field": "summary",
+    "prepared": "ResolveBaseDateUtcOrDefault returns now-365d for MinValue; the normalized date feeds the last_seen gate filter and the Spotlight updated_timestamp floor.",
+    "recorded": "ResolveBaseDateUtcOrDefault returns now-365d for MinValue; the normalized date feeds the Discover last_seen gate filter and the Spotlight updated_timestamp floor."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE4",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:10-23; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:112,332,438-445; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:77; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfigurationBuilder.cs:160-164",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:10-23; Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:112,332,438-445; Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:77; Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfigurationBuilder.cs:160-164"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE5",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:34; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:104-121; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/DateSegments/FalconMonthSegmentBuilder.cs:8-46; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/SharedFlows/FalconHostFilters.cs:38-52; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:782-783",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:34; Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:104-121; Collectors/FalconCollector/Processing/DateSegments/FalconMonthSegmentBuilder.cs:8-46; Collectors/FalconCollector/Flows/SharedFlows/FalconHostFilters.cs:38-52; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:782-783"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE5",
+    "field": "summary",
+    "prepared": "UseMonthSegments = request.BaseDateUtc != MinValue; BuildNewestFirst walks month boundaries backwards; findings spool uses only the gate filter.",
+    "recorded": "UseMonthSegments = request.BaseDateUtc != MinValue; BuildNewestFirst walks month boundaries backwards; the findings spool uses only the gate filter."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE6",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:105; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315-324,479-490; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/NdjsonBatchEmitter.cs:147-156,243-257; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/AdapterOutputDefaults.cs:16-31; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/Ndjson/NdjsonUtf8BatchSession.cs:299-307,420-430,527-560; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/Ndjson/Utf8ResultsStreamWriter.cs:23-24; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/AdapterGlobalDefaults.cs:16-20,44",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:105; Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315-324,479-490; IntegrationInfra@86de702 src/IntegrationInfra/Emission/NdjsonBatchEmitter.cs:147-156,243-257; Emission/AdapterOutputDefaults.cs:16-31; Emission/Ndjson/NdjsonUtf8BatchSession.cs:299-307,420-430,527-560; Emission/Ndjson/Utf8ResultsStreamWriter.cs:23-24; Emission/AdapterGlobalDefaults.cs:16-20,44"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE6",
+    "field": "summary",
+    "prepared": "Rows are re-parsed verbatim, enriched in place, serialized with ToJsonString, published via PublishAssetsUtf8PageAsync; target is assets_NNNNNN.json prefixed with Metadata[storageUrl]; each record is followed by a newline.",
+    "recorded": "Rows are re-parsed verbatim, enriched in place, serialized with ToJsonString and published via PublishAssetsUtf8PageAsync; the target is assets_NNNNNN.json prefixed with Metadata storageUrl; each record is followed by a newline."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE7",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:210-213,298-305; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:144-389; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconStagingPaths.cs:30,33,36,82,159-160,195-197; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:207-266",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:210-213,298-305; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:144-389; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconStagingPaths.cs:30,33,36,82,159-160,195-197; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:207-266"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE7",
+    "field": "summary",
+    "prepared": "ResolveFrozenKeyListAsync spools then Phase 2 enumerates FalconFrozenKeyList into the pump; staging keys are _staging/gen_<hex ticks>/hosts_%06d.json plus manifest.json.",
+    "recorded": "ResolveFrozenKeyListAsync spools, then Phase 2 enumerates FalconFrozenKeyList into the pump; staging keys are _staging/gen_(hex ticks)/hosts_%06d.json plus manifest.json."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE8",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Hosts/AidExtractor.cs:74-118,141-177; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconDiscoverHostScroller.cs:92-100; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:255-258,435-467; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:52-106",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Findings/Hosts/AidExtractor.cs:74-118,141-177; Collectors/FalconCollector/Flows/Findings/Correlated/FalconDiscoverHostScroller.cs:92-100; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:255-258,435-467; Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:52-106"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE8",
+    "field": "summary",
+    "prepared": "ExtractRecordKey precedence; keyless hosts counted and skipped; SpoolKeyClaims.TryClaim collapses repeats and refuses colliding keys; the assets parser keeps every row.",
+    "recorded": "ExtractRecordKey precedence; keyless hosts are counted and skipped; SpoolKeyClaims.TryClaim collapses repeats and refuses colliding keys; the assets parser keeps every row."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE9",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:33-42; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:109-134,228-231,253; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:82,128,134,286-287; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchPump.cs:617-638",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:33-42; Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:109-134,228-231,253; Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:82,128,134,286-287; Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchPump.cs:617-638"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE9",
+    "field": "summary",
+    "prepared": "Base URL with three facets (evaluation_logic dropped when skipEvaluationLogicFacet); baseFilter literal; FindingsApiPageSize 2500; AidBatchSize 8; BuildBatchPlan indexes only ResolveSensorAid hosts.",
+    "recorded": "Base URL with three facets (evaluation_logic dropped when skipEvaluationLogicFacet is set); baseFilter literal; FindingsApiPageSize 2500; AidBatchSize 8; BuildBatchPlan indexes only hosts with a sensor AID."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE10",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconCorrelatedRecord.cs:21,28-42,50-74,76-98; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:187-212,243-249; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:147; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:251",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Findings/Correlated/FalconCorrelatedRecord.cs:21,28-42,50-74,76-98; Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:187-212,243-249; Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:147; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:251"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE10",
+    "field": "summary",
+    "prepared": "Build() writes the six properties; ShapeFinding strips three fields and sorts entities; chunk flush at cap; batch-end flush walks every host; orphan and seen-id skips.",
+    "recorded": "Build() writes the six properties; ShapeFinding strips three fields and sorts entities; chunk flush at the cap; the batch-end flush walks every host; orphan and seen-id skips."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE11",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:322-340; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:166; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:207-266; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Emission/NdjsonBatchEmitter.cs:243-257",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:322-340; Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:166; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:207-266; IntegrationInfra@86de702 src/IntegrationInfra/Emission/NdjsonBatchEmitter.cs:243-257"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE11",
+    "field": "summary",
+    "prepared": "outputPage = progressContext.CurrentPage; PublishFindingsUtf8PageAsync; BatchScopedStorage false; enumeration walks page keys then Chunk(AidBatchSize).",
+    "recorded": "outputPage = progressContext.CurrentPage; PublishFindingsUtf8PageAsync; BatchScopedStorage false; enumeration walks page keys, then Chunk(AidBatchSize)."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE12",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePoliciesEnvelope.cs:86-105,233-238; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:49,55-69,94-105; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:170-224,237-240,632-649; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconPreventionPolicyClient.cs:24,41,86-135; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:595-598,640-654; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Policies/FalconDevicePoliciesEnvelope.cs:86-105,233-238; Collectors/FalconCollector/Processing/Urls/FalconUrls.cs:49,55-69,94-105; Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:170-224,237-240,632-649; Collectors/FalconCollector/Flows/Policies/FalconPreventionPolicyClient.cs:24,41,86-135; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:595-598,640-654; Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE12",
+    "field": "summary",
+    "prepared": "Envelope builder; device POST body writer; definition chunk 100; sweep caller is only RunPolicyStageAsync (Roslyn find_callers).",
+    "recorded": "Envelope builder; device POST body writer; definition chunk of 100; the only production caller of the sweep is FalconHostSpooler.RunPolicyStageAsync (Roslyn find_callers)."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE13",
+    "field": "citation",
+    "prepared": "git diff (working tree vs HEAD) cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:179; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconPolicyEnricher.cs:95-98; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:86-96; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePoliciesEnvelope.cs:55",
+    "recorded": "git diff HEAD cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:179; Collectors/FalconCollector/Flows/Policies/FalconPolicyEnricher.cs:95-98; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconFrozenKeyList.cs:86-96; Collectors/FalconCollector/Flows/Policies/FalconDevicePoliciesEnvelope.cs:55"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE13",
+    "field": "summary",
+    "prepared": "Diff shows '= false' -> '= true'; disabled path attaches Disabled() envelope.",
+    "recorded": "The diff shows the default changed from false to true in the working tree; the disabled path attaches the Disabled() envelope."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE14",
+    "field": "citation",
+    "prepared": "IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Kernel/Json/TopLevelJsonArrayStreamReader.cs:264-306,368-391; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:553-558,757-779",
+    "recorded": "IntegrationInfra@86de702 src/IntegrationInfra/Kernel/Json/TopLevelJsonArrayStreamReader.cs:264-306,368-391; cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:553-558,757-779"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE15",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:41-62; IntegrationInfra@86de702(=pinned 1.2.0-preview.0) src/IntegrationInfra/Conversation/SessionRetryDefaults.cs:13-54; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/SharedFlows/FalconHttpFailureClassifier.cs:30-41; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Resilience/FalconResilienceStrategyFactory.cs:63-120",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/Configuration/FalconCollectorConfiguration.cs:41-62; IntegrationInfra@86de702 src/IntegrationInfra/Conversation/SessionRetryDefaults.cs:13-54; Collectors/FalconCollector/Flows/SharedFlows/FalconHttpFailureClassifier.cs:30-41; Collectors/FalconCollector/Processing/Resilience/FalconResilienceStrategyFactory.cs:63-120"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE15",
+    "field": "summary",
+    "prepared": "Typed defaults; CreateTransient values; cursor-expiry classification; RecoverAndRetry / RequestDeferredRecovery branches.",
+    "recorded": "Typed defaults; CreateTransient values; cursor-expiry classification; RecoverAndRetry and RequestDeferredRecovery branches."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE16",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315,334-380; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:63-84; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:287-291; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Policies/FalconPolicyEnricher.cs:111,124-126",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:315,334-380; Collectors/FalconCollector/Flows/Assets/FalconAssetsPageParser.cs:63-84; Collectors/FalconCollector/Flows/Policies/FalconDevicePolicyClient.cs:287-291; Collectors/FalconCollector/Flows/Policies/FalconPolicyEnricher.cs:111,124-126"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE16",
+    "field": "summary",
+    "prepared": "RecordCount==0 branch returns true (segment done) without checking AfterToken; EnrichAsync precedes PublishAssetsUtf8PageAsync; MustPropagate statuses throw.",
+    "recorded": "The RecordCount == 0 branch returns true (segment done) without checking AfterToken; EnrichAsync runs before PublishAssetsUtf8PageAsync; MustPropagate statuses throw."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE17",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:355-367,381-413,456-474; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsCheckpointWriter.cs:56-93; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchPump.cs:442-475",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:355-367,381-413,456-474; Collectors/FalconCollector/Flows/Findings/FalconFindingsCheckpointWriter.cs:56-93; Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchPump.cs:442-475"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE17",
+    "field": "summary",
+    "prepared": "Publish and checkpoint in one step; OperationCanceled and transport failures rethrow after recording; pump materialises a batch before handing it over.",
+    "recorded": "Publish and checkpoint happen in one step; cancellation and transport failures rethrow after recording; the pump materialises a batch before handing it over."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE18",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:115,271-307,366-376",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:115,271-307,366-376"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE18",
+    "field": "summary",
+    "prepared": "MaxConsecutiveEmptyLivePages = 5; scrollTruncated recorded in SpooledFreeze; the code comment states no caller gates on Freeze.State.",
+    "recorded": "MaxConsecutiveEmptyLivePages = 5; scrollTruncated is recorded in SpooledFreeze; the code comment states no caller gates on Freeze.State."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE19",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/Triggers/FalconPlatformEventRequestParser.cs:22-25,77-81; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:24,51; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:166,782-783; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:112-115",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Processing/Triggers/FalconPlatformEventRequestParser.cs:22-25,77-81; Collectors/FalconCollector/Processing/FalconFlowRunPreparer.cs:24,51; Collectors/FalconCollector/Flows/Findings/TwoPhase/FalconHostSpooler.cs:166,782-783; Collectors/FalconCollector/Flows/Findings/Correlated/FalconSpotlightBatchScroller.cs:112-115"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE19",
+    "field": "summary",
+    "prepared": "Filter extraction; FQLParser().Parse; ParsedFqlFilter only enters BuildLastSeenTimestampGateFilter; Spotlight baseFilter has no user term.",
+    "recorded": "Filter extraction; FQLParser().Parse; ParsedFqlFilter only enters BuildLastSeenTimestampGateFilter; the Spotlight baseFilter has no user term."
+  },
+  {
+    "kind": "evidence",
+    "key": "NE20",
+    "field": "citation",
+    "prepared": "cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:46,77-81; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:156-164; cymulate-integration-adapters(dev) src/Cymulate.Integration.Adapters/Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:126-156",
+    "recorded": "cymulate-integration-adapters(dev) Collectors/FalconCollector/Flows/Assets/FalconAssetsFlow.cs:46,77-81; Collectors/FalconCollector/Flows/Assets/FalconAssetsScrollRunner.cs:156-164; Collectors/FalconCollector/Flows/Findings/FalconFindingsFlow.cs:126-156"
+  },
+  {
+    "kind": "evidence",
+    "key": "NE20",
+    "field": "summary",
+    "prepared": "limit forced to 1; DryRunValidated returns 0; findings returns after FetchPageAsync.",
+    "recorded": "limit is forced to 1; DryRunValidated returns 0; findings returns after FetchPageAsync."
+  }
+]

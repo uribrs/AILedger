@@ -1,0 +1,223 @@
+{
+  "spec": {
+    "schema_version": 1,
+    "id": "axonius-trial",
+    "profile": "verification-preparation",
+    "objective": "Prepare an independent verification checklist for the unchanged Axonius candidate; preserve no-dedup rationale and environment limits.",
+    "non_goals": [
+      "No implementation, launch, ledger mutation, assurance acceptance or workflow changes.",
+      "Do not treat later findings as available at this cutoff."
+    ],
+    "expected_outputs": [
+      "A cited technical checklist or design assessment, with unknowns, omissions encountered and extra reads reported."
+    ],
+    "acceptance_checks": [
+      "Retain material constraints, rejected approaches, corrections and source versions.",
+      "Distinguish reported historical checks from checks actually performed; preserve unknowns and proposed status.",
+      "Identify missing dependencies before a conclusion; measure any additional retrieval."
+    ],
+    "requested_grants": [
+      {
+        "action": "read_context",
+        "scope": "2026-09-23_2014-axonius-parser-fixes"
+      },
+      {
+        "action": "read_source",
+        "scope": "Only pinned source versions; actual access must be authorized separately."
+      }
+    ],
+    "budget": {
+      "maximum_package_bytes": 524288,
+      "maximum_preparation_reads": 1024,
+      "maximum_additional_reads": 8,
+      "maximum_elapsed_minutes": 30,
+      "maximum_cost_usd": 0
+    },
+    "stop_conditions": [
+      "Stop on a missing material source, changed identity, denied access, unresolved scope conflict or exhausted budget.",
+      "Preserve partial output; do not resolve claims, accept decisions, or infer test success."
+    ]
+  },
+  "included_keys": [
+    "TaskGoal:task-goal",
+    "Constraint:K1",
+    "Constraint:K2",
+    "Constraint:K7",
+    "Claim:BC1",
+    "Claim:C1",
+    "Claim:C2",
+    "Claim:C3",
+    "Decision:D1",
+    "Evidence:BE1",
+    "Evidence:BE2",
+    "Evidence:E1",
+    "Evidence:E2",
+    "Evidence:E3",
+    "WorkItem:W1",
+    "UserRequest:UR1",
+    "PromptContract:PC1",
+    "Alternative:ALT1",
+    "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT4",
+    "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C15"
+  ],
+  "omitted": {
+    "Constraint:K3": {
+      "reason": "Constraint:K3 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "Constraint:K4": {
+      "reason": "Constraint:K4 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "Constraint:K5": {
+      "reason": "Constraint:K5 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "Constraint:K6": {
+      "reason": "Constraint:K6 describes prior run dispatch or identifier filing. Current technical constraints and cited source evidence remain included.",
+      "risk": "Dispatch prose can also contain a technical nuance; stopping/retrieval is required if the retained evidence is ambiguous.",
+      "retrieve_when": "Retrieve when a cited requirement depends on this former assignment or the technical scope is unclear."
+    },
+    "ContextBuild:operator": {
+      "reason": "Recorded broad brief is workflow bookkeeping; this package preserves technical inputs separately.",
+      "risk": "An old brief may reveal a missing requirement or procedure; this is not proof of completeness.",
+      "retrieve_when": "Retrieve if a procedure/version discrepancy matters; it cannot override episode instructions."
+    },
+    "InternalRecon:IR1": {
+      "reason": "InternalRecon:IR1 is a broader synthesis/plan; individual claims, evidence, decisions and the current technical contract are retained.",
+      "risk": "Cross-area synthesis or a dependency may be missing from individual records.",
+      "retrieve_when": "Retrieve before a cross-area conclusion or when dependencies cannot be reconstructed from retained citations."
+    },
+    "Lesson:2026-08-27_0817_falcon-policy-plane-restructure:imported:L-85e358c4": {
+      "reason": "Lesson:2026-08-27_0817_falcon-policy-plane-restructure:imported:L-85e358c4 concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-08-30_1247_falcon-unmanaged-assets-never-lost:imported:L-2186c9a2": {
+      "reason": "Lesson:2026-08-30_1247_falcon-unmanaged-assets-never-lost:imported:L-2186c9a2 concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-09-03_1031_thin-ingest-normalizer-prototype:imported:L-1e7de7bb": {
+      "reason": "Lesson:2026-09-03_1031_thin-ingest-normalizer-prototype:imported:L-1e7de7bb concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-09-03_1031_thin-ingest-normalizer-prototype:imported:L-6f6ccb67": {
+      "reason": "Lesson:2026-09-03_1031_thin-ingest-normalizer-prototype:imported:L-6f6ccb67 concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-09-03_1031_thin-ingest-normalizer-prototype:imported:L-88abb13f": {
+      "reason": "Lesson:2026-09-03_1031_thin-ingest-normalizer-prototype:imported:L-88abb13f concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-09-03_1726_mapping-stage-target-rows:imported:L-42014f05": {
+      "reason": "Lesson:2026-09-03_1726_mapping-stage-target-rows:imported:L-42014f05 concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-09-03_1726_mapping-stage-target-rows:imported:L-8780d7a5": {
+      "reason": "Lesson:2026-09-03_1726_mapping-stage-target-rows:imported:L-8780d7a5 concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT3": {
+      "reason": "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT3 concerns an adjacent integration/consumer behavior outside this question; selected task-specific lessons remain included.",
+      "risk": "Prior counterevidence may become relevant if the proposed design touches that behavior.",
+      "retrieve_when": "Retrieve before extending the conclusion to the lesson source integration, consumer or data-shape behavior."
+    },
+    "OrchestrationPlan:OP1": {
+      "reason": "OrchestrationPlan:OP1 is a broader synthesis/plan; individual claims, evidence, decisions and the current technical contract are retained.",
+      "risk": "Cross-area synthesis or a dependency may be missing from individual records.",
+      "retrieve_when": "Retrieve before a cross-area conclusion or when dependencies cannot be reconstructed from retained citations."
+    },
+    "TaskGoal:task-stage": {
+      "reason": "Stage is already identified in the package snapshot; its duplicate body adds no technical requirement.",
+      "risk": "Snapshot stage is an observation, never permission to proceed.",
+      "retrieve_when": "Retrieve if the recorded stage itself is disputed."
+    }
+  },
+  "preservation": [
+    {
+      "category": "decisions",
+      "input_keys": [
+        "Decision:D1"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "alternatives",
+      "input_keys": [
+        "Alternative:ALT1",
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT4"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "constraints",
+      "input_keys": [
+        "Constraint:K1",
+        "Constraint:K2",
+        "Constraint:K7"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "contradictions",
+      "input_keys": [
+        "Claim:BC1",
+        "Claim:C1",
+        "Claim:C2",
+        "Claim:C3"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "lessons",
+      "input_keys": [
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT4",
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C15"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "corrections",
+      "input_keys": [
+        "Claim:BC1",
+        "Claim:C1",
+        "Claim:C2",
+        "Claim:C3",
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT4",
+        "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C15"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "uncertainty",
+      "input_keys": [
+        "Claim:BC1",
+        "Claim:C1",
+        "Claim:C2",
+        "Claim:C3"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    },
+    {
+      "category": "provenance",
+      "input_keys": [
+        "Evidence:BE1",
+        "Evidence:BE2",
+        "Evidence:E1",
+        "Evidence:E2",
+        "Evidence:E3"
+      ],
+      "assessment": "Inspect the cited complete records and their status; selection is curator judgment, not a completeness or truth guarantee."
+    }
+  ],
+  "sources": []
+}

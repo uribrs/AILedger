@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "attempt_id": "55555555555555555555555555555555",
+  "status": "error",
+  "error": {
+    "code": "outcome_unknown",
+    "message": "Append began, but durability could not be confirmed. Retry the same request and binding.",
+    "boundary": "storage",
+    "commit_state": "unknown",
+    "retry": "same_request",
+    "item_path": null,
+    "rule_id": null
+  }
+}
