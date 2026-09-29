@@ -8,6 +8,7 @@ using AILedger.Core.Alternatives;
 using AILedger.Core.ClaimDispositions;
 using AILedger.Core.Artifacts;
 using AILedger.Storage;
+using AILedger.Core.Inspection;
 
 namespace AILedger.Cli.Findings;
 
@@ -16,7 +17,7 @@ namespace AILedger.Cli.Findings;
 public sealed record FindingsHostConfiguration(string TaskWorkspaceRoot, string TaskId, string ActorId,
     string CorrelationId, string DiagnosticsDirectory, string? RunId = null, string? CausationId = null,
     bool AllowRecordFindings = false, bool AllowRunless = false, string? Provider = null,
-    string? ProviderSessionId = null, bool AllowRecordAlternatives = false, bool AllowSubmitArtifact = false, bool AllowRecordClaimDispositions = false)
+    string? ProviderSessionId = null, bool AllowRecordAlternatives = false, bool AllowSubmitArtifact = false, bool AllowRecordClaimDispositions = false, bool AllowInspect = false, string? CognitiveRoot = null)
 {
     internal ClaimDispositionsBinding ClaimDispositionsBinding => new(new(TaskId), new(ActorId),
         RunId is null ? null : new RunId(RunId), CorrelationId,
@@ -63,6 +64,22 @@ public sealed class FindingsMcpHost
     internal async Task<ClaimDispositionsBinding> BindClaimDispositionsAsync(CancellationToken cancellationToken) =>
         (await ReadBindingAsync(cancellationToken).ConfigureAwait(false)).ClaimDispositionsBinding;
 
+    internal async Task<InspectionBinding> BindInspectionAsync(CancellationToken cancellationToken)
+    {
+        var current = await ReadBindingAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ContextArtifact>? artifacts = null;
+        // No agent payload or ambient environment selects the cognitive source.
+        if (current.AllowInspect && current.CognitiveRoot is { } root)
+        {
+            try { artifacts = await new CognitiveArtifactLoader().LoadAsync(root, cancellationToken).ConfigureAwait(false); }
+            catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or JsonException) { }
+        }
+        return new(new(current.TaskId), new(current.ActorId), current.RunId is null ? null : new RunId(current.RunId),
+            current.CorrelationId, current.CausationId is null ? null : new EventId(current.CausationId),
+            current.AllowInspect, current.AllowRunless, current.AllowRecordFindings, current.AllowRecordAlternatives,
+            current.AllowSubmitArtifact, current.AllowRecordClaimDispositions, artifacts);
+    }
+
     private async Task<FindingsHostConfiguration> ReadBindingAsync(CancellationToken cancellationToken)
     {
         var current = await _readConfiguration(cancellationToken).ConfigureAwait(false);
@@ -71,7 +88,8 @@ public sealed class FindingsMcpHost
                 AllowRunless = Configuration.AllowRunless,
                 AllowRecordAlternatives = Configuration.AllowRecordAlternatives,
                 AllowSubmitArtifact = Configuration.AllowSubmitArtifact,
-                AllowRecordClaimDispositions = Configuration.AllowRecordClaimDispositions } != Configuration)
+                AllowRecordClaimDispositions = Configuration.AllowRecordClaimDispositions,
+                AllowInspect = Configuration.AllowInspect } != Configuration)
             throw new InvalidDataException("Host attribution changed; reconnect with the original binding for recovery.");
         return current;
     }
@@ -96,7 +114,7 @@ public sealed class FindingsMcpHost
         StrictJson.Validate(document.RootElement);
         StrictJson.Members(document.RootElement,
             ["task_workspace_root", "task_id", "actor_id", "correlation_id", "diagnostics_directory"],
-            ["run_id", "causation_id", "allow_record_findings", "allow_runless", "provider", "provider_session_id", "allow_record_alternatives", "allow_submit_artifact", "allow_record_claim_dispositions"]);
+            ["run_id", "causation_id", "allow_record_findings", "allow_runless", "provider", "provider_session_id", "allow_record_alternatives", "allow_submit_artifact", "allow_record_claim_dispositions", "allow_inspect", "cognitive_root"]);
         return document.RootElement.Deserialize<FindingsHostConfiguration>(new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,

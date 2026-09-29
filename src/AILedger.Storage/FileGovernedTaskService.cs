@@ -780,42 +780,10 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             return;
         }
 
-        if ((receipt is not null ? 1 : 0) + (alternativesReceipt is not null ? 1 : 0) + (artifactReceipt is not null ? 1 : 0) + (dispositionsReceipt is not null ? 1 : 0) > 1)
-            throw new InvalidOperationException("One operation receipt per group is required.");
         var hasReceipt = receipt is not null || alternativesReceipt is not null || artifactReceipt is not null || dispositionsReceipt is not null;
-        var payload = new StringBuilder();
-        for (var index = 0; index < events.Count; index++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var json = JsonSerializer.Serialize(events[index], _eventJson);
-            if (events.Count == 1 && !hasReceipt)
-            {
-                payload.Append(json).Append('\n');
-                continue;
-            }
-
-            // Unknown JSON properties preserve compatibility with the LedgerEvent model and raw
-            // JSONL consumers while giving replay enough information to withhold a command prefix.
-            payload.Append(json.AsSpan(0, json.Length - 1))
-                .Append(",\"").Append(CommandEventIndexProperty).Append("\":").Append(index)
-                .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
-                .Append(index == 0 && receipt is not null
-                    ? ",\"" + FindingsReceiptEnvelope.PropertyName + "\":" + FindingsReceiptEnvelope.Serialize(receipt)
-                    : string.Empty)
-                .Append(index == 0 && alternativesReceipt is not null
-                    ? ",\"" + AlternativesReceiptEnvelope.PropertyName + "\":" + AlternativesReceiptEnvelope.Serialize(alternativesReceipt)
-                    : string.Empty)
-                .Append(index == 0 && artifactReceipt is not null
-                    ? ",\"" + ArtifactSubmissionReceiptEnvelope.PropertyName + "\":" + ArtifactSubmissionReceiptEnvelope.Serialize(artifactReceipt)
-                    : string.Empty)
-                .Append(index == 0 && dispositionsReceipt is not null
-                    ? ",\"" + ClaimDispositionsReceiptEnvelope.PropertyName + "\":" + ClaimDispositionsReceiptEnvelope.Serialize(dispositionsReceipt)
-                    : string.Empty)
-                .Append("}\n");
-        }
+        var bytes = SerializeAppend(events, receipt, alternativesReceipt, artifactReceipt, dispositionsReceipt, cancellationToken);
 
         var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
-        var bytes = Utf8WithoutBom.GetBytes(payload.ToString());
         if (!File.Exists(eventsPath) && bytes.LongLength > _maximumEventLogBytes)
         {
             throw EventLogWouldExceedByteLimit();
@@ -852,6 +820,47 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         else
             await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
         FlushFindingsStream(stream, hasReceipt);
+    }
+
+    private byte[] SerializeAppend(IReadOnlyList<LedgerEvent> events, FindingsReceipt? receipt = null,
+        AlternativesReceipt? alternativesReceipt = null, ArtifactSubmissionReceipt? artifactReceipt = null,
+        ClaimDispositionsReceipt? dispositionsReceipt = null, CancellationToken cancellationToken = default)
+    {
+        if ((receipt is not null ? 1 : 0) + (alternativesReceipt is not null ? 1 : 0) + (artifactReceipt is not null ? 1 : 0) + (dispositionsReceipt is not null ? 1 : 0) > 1)
+            throw new InvalidOperationException("One operation receipt per group is required.");
+        var hasReceipt = receipt is not null || alternativesReceipt is not null || artifactReceipt is not null || dispositionsReceipt is not null;
+        var payload = new StringBuilder();
+        for (var index = 0; index < events.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var json = JsonSerializer.Serialize(events[index], _eventJson);
+            if (events.Count == 1 && !hasReceipt)
+            {
+                payload.Append(json).Append('\n');
+                continue;
+            }
+
+            // Unknown JSON properties preserve compatibility with the LedgerEvent model and raw
+            // JSONL consumers while giving replay enough information to withhold a command prefix.
+            payload.Append(json.AsSpan(0, json.Length - 1))
+                .Append(",\"").Append(CommandEventIndexProperty).Append("\":").Append(index)
+                .Append(",\"").Append(CommandEventCountProperty).Append("\":").Append(events.Count)
+                .Append(index == 0 && receipt is not null
+                    ? ",\"" + FindingsReceiptEnvelope.PropertyName + "\":" + FindingsReceiptEnvelope.Serialize(receipt)
+                    : string.Empty)
+                .Append(index == 0 && alternativesReceipt is not null
+                    ? ",\"" + AlternativesReceiptEnvelope.PropertyName + "\":" + AlternativesReceiptEnvelope.Serialize(alternativesReceipt)
+                    : string.Empty)
+                .Append(index == 0 && artifactReceipt is not null
+                    ? ",\"" + ArtifactSubmissionReceiptEnvelope.PropertyName + "\":" + ArtifactSubmissionReceiptEnvelope.Serialize(artifactReceipt)
+                    : string.Empty)
+                .Append(index == 0 && dispositionsReceipt is not null
+                    ? ",\"" + ClaimDispositionsReceiptEnvelope.PropertyName + "\":" + ClaimDispositionsReceiptEnvelope.Serialize(dispositionsReceipt)
+                    : string.Empty)
+                .Append("}\n");
+        }
+
+        return Utf8WithoutBom.GetBytes(payload.ToString());
     }
 
     private static async Task<long> RemoveUncommittedTailAsync(string eventsPath)

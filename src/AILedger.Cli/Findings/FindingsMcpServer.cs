@@ -7,6 +7,7 @@ using AILedger.Core.ClaimDispositions;
 using AILedger.Cli.ClaimDispositions;
 using AILedger.Cli.Alternatives;
 using AILedger.Core.Artifacts;
+using AILedger.Core.Inspection;
 using AILedger.Cli.Artifacts;
 
 namespace AILedger.Cli.Findings;
@@ -109,26 +110,39 @@ public sealed partial class FindingsMcpServer
                 if (parameters.ValueKind != JsonValueKind.Undefined) StrictJson.Members(parameters, [], ["_meta"]);
                 await SendAsync(FindingsMcpProtocol.Result(id!.Value, FindingsMcpProtocol.Tools(_host.Configuration.AllowRecordAlternatives && _host.Recorder is IAlternativesRecorder,
                     _host.Configuration.AllowSubmitArtifact && _host.Recorder is IArtifactSubmitter,
-                    _host.Configuration.AllowRecordClaimDispositions && _host.Recorder is IClaimDispositionsRecorder)), connection.Token)
+                    _host.Configuration.AllowRecordClaimDispositions && _host.Recorder is IClaimDispositionsRecorder,
+                    _host.Configuration.AllowInspect && _host.Recorder is ITaskInspector)), connection.Token)
                     .ConfigureAwait(false);
                 return;
             }
             if (method != "tools/call") throw new RpcFailure(-32601, "Method not found.");
             StrictJson.Members(parameters, ["name", "arguments"], ["_meta"]);
             var tool = StrictJson.Text(parameters, "name");
+            attempt.InspectionTool = tool is "inspect_task" or "retrieve_context" or "check_readiness" ? tool : null;
             attempt.IsAlternatives = tool == "record_alternatives";
             attempt.IsArtifactSubmission = tool == "submit_artifact";
             attempt.IsClaimDispositions = tool == "record_claim_dispositions";
-            if (tool is not ("record_findings" or "record_alternatives" or "submit_artifact" or "record_claim_dispositions"))
+            if (tool is not ("record_findings" or "record_alternatives" or "submit_artifact" or "record_claim_dispositions" or "inspect_task" or "retrieve_context" or "check_readiness"))
                 throw new RpcFailure(-32602, "Unknown tool.");
             if (parameters.TryGetProperty("_meta", out var meta)) StrictJson.Validate(meta);
             var key = FindingsMcpProtocol.IdKey(id!.Value);
             if (_pending.ContainsKey(key)) throw new RpcFailure(-32600, "Request id is already in flight.");
-            if (_pending.Count >= 8) throw new RpcFailure(-32000, "Too many in-flight requests; retry the same findings request.");
+            // A client may receive a response before its bounded telemetry tail finishes. That
+            // tail must not consume a request slot and refuse the next sequential retrieval.
+            if (_pending.Count >= 8)
+            {
+                var delivered = _pending.Values.Where(call => call.Attempt.Delivery == "written").ToArray();
+                if (delivered.Length > 0)
+                {
+                    await Task.WhenAny(delivered.Select(call => call.Completion)).ConfigureAwait(false);
+                    ReapCompletedCalls();
+                }
+            }
+            if (_pending.Count >= 8) throw new RpcFailure(-32000, "Too many in-flight requests; retry the same request.");
             var cancellation = CancellationTokenSource.CreateLinkedTokenSource(connection.Token);
             var arguments = parameters.GetProperty("arguments").Clone();
             var completion = CallAsync(id.Value, arguments, attempt, cancellation.Token, connection);
-            _pending.Add(key, new(completion, cancellation));
+            _pending.Add(key, new(completion, cancellation, attempt));
         }
         catch (Exception e) when (e is RpcFailure or JsonException or InvalidOperationException or DecoderFallbackException)
         {
@@ -173,7 +187,11 @@ public sealed partial class FindingsMcpServer
         try
         {
             JsonElement body;
-            if (attempt.IsClaimDispositions)
+            if (attempt.InspectionTool is not null)
+            {
+                body = await InvokeInspectionAsync(arguments, attempt, cancellationToken).ConfigureAwait(false);
+            }
+            else if (attempt.IsClaimDispositions)
             {
                 attempt.ClaimDispositionsResult = await InvokeClaimDispositionsAsync(arguments, attempt, cancellationToken).ConfigureAwait(false);
                 body = ClaimDispositionsResponseWriter.Write(attempt.ClaimDispositionsResult);
@@ -194,7 +212,7 @@ public sealed partial class FindingsMcpServer
                 body = FindingsResponseWriter.Write(attempt.Result);
             }
             var result = new { content = new[] { new { type = "text", text = body.GetRawText() } },
-                structuredContent = body, isError = attempt.Result?.Error is not null || attempt.AlternativesResult?.Error is not null || attempt.ArtifactSubmissionResult?.Error is not null || attempt.ClaimDispositionsResult?.Error is not null };
+                structuredContent = body, isError = attempt.InspectionStatus is "error" or "unknown" || attempt.Result?.Error is not null || attempt.AlternativesResult?.Error is not null || attempt.ArtifactSubmissionResult?.Error is not null || attempt.ClaimDispositionsResult?.Error is not null };
             await SendAsync(FindingsMcpProtocol.Result(id, result), connection.Token).ConfigureAwait(false);
             attempt.Delivery = "written"; // A flush is observed, not acknowledgement by the client.
         }
@@ -279,7 +297,7 @@ public sealed partial class FindingsMcpServer
         finally { _outputGate.Release(); }
     }
 
-    private sealed record PendingCall(Task Completion, CancellationTokenSource Cancellation);
+    private sealed record PendingCall(Task Completion, CancellationTokenSource Cancellation, FindingsTransportAttempt Attempt);
     private sealed class RpcFailure(int code, string message) : Exception(message)
     {
         internal int Code { get; } = code;

@@ -24,6 +24,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../../docs/structured-inspection-v1/check_readiness.schema.json" LogicalName="Inspection.check_readiness" />
+    <EmbeddedResource Include="../../docs/structured-inspection-v1/retrieve_context.schema.json" LogicalName="Inspection.retrieve_context" />
+    <EmbeddedResource Include="../../docs/structured-inspection-v1/inspect_task.schema.json" LogicalName="Inspection.inspect_task" />
     <EmbeddedResource Include="../../docs/structured-claim-dispositions-v1/request.schema.json" LogicalName="ClaimDispositions.RequestSchema" />
     <EmbeddedResource Include="../../docs/structured-claim-dispositions-v1/response.schema.json" LogicalName="ClaimDispositions.ResponseSchema" />
     <EmbeddedResource Include="../../docs/structured-findings-v1/request.schema.json" LogicalName="Findings.RequestSchema" />

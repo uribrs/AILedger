@@ -1,0 +1,714 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "record_findings"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "statement": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "consequence_if_wrong": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "from_lesson": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "key",
+                  "statement"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 32
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "source_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "citation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 16384
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32768
+                  },
+                  "supports": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "finding": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                            }
+                          },
+                          "required": [
+                            "finding"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "claim_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            }
+                          },
+                          "required": [
+                            "claim_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "minItems": 0,
+                    "maxItems": 64
+                  },
+                  "refutes": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "finding": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                            }
+                          },
+                          "required": [
+                            "finding"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "claim_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 256
+                            }
+                          },
+                          "required": [
+                            "claim_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "minItems": 0,
+                    "maxItems": 64
+                  }
+                },
+                "required": [
+                  "key",
+                  "source_type",
+                  "citation",
+                  "summary",
+                  "supports",
+                  "refutes"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            }
+          },
+          "required": [
+            "schema_version",
+            "request_id",
+            "findings",
+            "evidence"
+          ],
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "properties": {
+                "findings": {
+                  "minItems": 1
+                }
+              }
+            },
+            {
+              "properties": {
+                "evidence": {
+                  "minItems": 1
+                }
+              }
+            }
+          ],
+          "title": "AILedger record_findings v1 request",
+          "$comment": "Duplicate property rejection, valid Unicode scalars, nonblank text, total reference/body limits and domain rules are additional application/transport checks; see ../structured-findings-v1.md."
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "record_alternatives"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "alternatives": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "statement": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "from_lesson": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "rejection_rationale": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "replaced_by_decision_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "key",
+                  "statement",
+                  "rejection_rationale"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "schema_version",
+            "request_id",
+            "alternatives"
+          ],
+          "additionalProperties": false,
+          "title": "AILedger record_alternatives v1 request",
+          "$comment": "Duplicate property rejection, valid Unicode scalars, nonblank text, body limits and domain rules are additional application/transport checks; see ../structured-alternatives-v1.md."
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "submit_artifact"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "title": "AILedger submit_artifact v1 request",
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "request_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            },
+            "kind": {
+              "enum": [
+                "verifier-output",
+                "code-review-output"
+              ]
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "content": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 131072
+            },
+            "expected_content_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "supersedes_artifact_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "schema_version",
+            "request_id",
+            "kind",
+            "title",
+            "content"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "record_claim_dispositions"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "dispositions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+                  },
+                  "claim": {
+                    "type": "object",
+                    "properties": {
+                      "claim_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": [
+                      "claim_id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "expected_status": {
+                    "enum": [
+                      "open",
+                      "validated"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "validated",
+                      "rejected"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "evidence": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "evidence_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        }
+                      },
+                      "required": [
+                        "evidence_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 32
+                  }
+                },
+                "required": [
+                  "key",
+                  "claim",
+                  "expected_status",
+                  "status",
+                  "rationale",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "schema_version",
+            "request_id",
+            "dispositions"
+          ],
+          "additionalProperties": false,
+          "title": "AILedger record_claim_dispositions v1 request",
+          "$comment": "Exact IDs, unique keys/claims/evidence, valid Unicode, nonblank rationale, 256 KiB body bound and existing domain rules also apply."
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "prepare_work"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "owner": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            },
+            "claims": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "scope": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "not_split_justification": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "id",
+            "title",
+            "claims",
+            "scope"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "complete_work"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "work_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "work_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "const": "transition_stage"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "enum": [
+                "discovery",
+                "research",
+                "design",
+                "scope",
+                "ready",
+                "execution",
+                "verification",
+                "repair",
+                "review",
+                "learn",
+                "archive"
+              ]
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 8192
+            },
+            "serial_justification": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "stage"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version",
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "action": {
+          "type": "string",
+          "maxLength": 128,
+          "not": {
+            "enum": [
+              "record_findings",
+              "record_alternatives",
+              "submit_artifact",
+              "record_claim_dispositions",
+              "prepare_work",
+              "complete_work",
+              "transition_stage"
+            ]
+          }
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "action",
+        "expected_version"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

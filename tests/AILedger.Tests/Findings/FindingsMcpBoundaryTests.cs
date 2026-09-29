@@ -123,7 +123,7 @@ public sealed class FindingsMcpBoundaryTests
         using var f = new FindingsMcpFixture();
         await f.OpenAsync();
         using var process = await f.StartAsync();
-        await using (await new TaskMutationLock().AcquireAsync(Path.Combine(f.Ledger.Directory, ".mutation.lock"), default))
+        await using (await new TaskMutationLock().AcquireAsync(Path.Combine(f.Ledger.Directory, new AILedger.Core.Contracts.TaskWorkspaceLayout().LockFileName), default))
         {
             for (var id = 2; id <= 10; id++)
                 await process.SendAsync(FindingsMcpFixture.Call(FindingsMcpFixture.Body(), id));

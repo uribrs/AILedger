@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–9 implemented and installed; client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–9 installed; task 10 implemented; client trials pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -440,6 +440,17 @@ before spending a run discovering predictable prerequisites through refusals.
 - Move only justified deterministic bookkeeping to the host. Keep business choices and approvals
   explicit. Do not expose arbitrary CLI execution as a tool or turn readiness into a second rules engine.
 
+**Implementation checkpoint (2026-09-29):** task 10 now provides `inspect_task`,
+`retrieve_context`, and `check_readiness` through the application service and trusted Codex/Claude
+endpoints. Reads reuse role/work/assurance selection, expose bounded omissions and retrieval paths,
+and never refresh briefs or repair projections. Readiness covers the four recording operations,
+work preparation/completion and stage transitions using existing validators; physical candidate
+inspection is explicitly unknown and dispatch/run completion remain named gaps. See the
+[contract and interaction coverage table](../docs/structured-inspection-v1.md) and
+[validation record](../docs/structured-inspection-v1/task-10-validation.md).
+Uri authorized proceeding before the earlier client trials. Implementation, exact installation and
+ordinary-task acceptance remain separate; no client trial or billable episode is claimed.
+
 **Checkpoint D / exit:** install, run a representative task, and account for every residual CLI
 interaction. Missing inputs and blockers are understandable without trial-and-error mutations.
 Uncovered operations get a concrete follow-up scope before being claimed delivered.
@@ -538,7 +549,8 @@ validation remain intact. Task 9 now implements atomic explicit claim dispositio
 [validation](../docs/structured-claim-dispositions-v1/task-9-validation.md) define the supported scope.
 Uri authorized proceeding and installing task 9 before the earlier client trials. Task 9 is now installed as **2.0.172 from 6ebb55a**, with the exact
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
-No task-9 client observation or acceptance is claimed. Tasks 10–14 remain unstarted.
+No task-9 client observation or acceptance is claimed. Task 10 is now implemented under explicit
+advance authorization; its installation checkpoint is recorded separately. Tasks 11–14 remain unstarted.
 
 ## Related work
 

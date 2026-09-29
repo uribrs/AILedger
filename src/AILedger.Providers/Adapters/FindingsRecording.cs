@@ -18,8 +18,8 @@ internal static class FindingsRecording
         var args = string.Join(", ", endpoint.Arguments.Select(RoslynNavigation.Quote));
         arguments.Add("--config");
         arguments.Add("mcp_servers.ailedger={command=" + RoslynNavigation.Quote(endpoint.Command) +
-            ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\",\"record_claim_dispositions\"],required=true," +
-            "default_tools_approval_mode=\"prompt\",tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"},record_claim_dispositions={approval_mode=\"approve\"}}}");
+            ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\",\"record_claim_dispositions\",\"inspect_task\",\"retrieve_context\",\"check_readiness\"],required=true," +
+            "default_tools_approval_mode=\"prompt\",tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"},record_claim_dispositions={approval_mode=\"approve\"},inspect_task={approval_mode=\"approve\"},retrieve_context={approval_mode=\"approve\"},check_readiness={approval_mode=\"approve\"}}}");
     }
 
     internal static object ClaudeServer(ProviderFindingsEndpoint endpoint) =>
@@ -74,7 +74,25 @@ internal static class FindingsRecording
             kernel_refused preserves the original rule and dispositions[index] points to the failing item.
             No prefix is accepted on refusal. Receipt entries show each accepted status change, rationale,
             evidence, event and dependency consequence; a replay describes the original commit, not current state.
-            Formal decision proposal/acceptance, claim supersession, task/context reads and lifecycle
+            Inspect with inspect_task {"schema_version":1,"selection":"relevant","limit":20} before
+            reasoning from stale context. Follow next_offset with expected_version, and each record's
+            retrieve query through retrieve_context for complete typed content. Long JSON records return
+            exact chunks: follow next_offset at the same version, concatenate, verify sha256, then parse.
+            selection=task retrieves unrelated current context but preserves role exclusions; it never
+            unlocks reviewer narratives. A stale_snapshot requires a fresh inspection, not mixed pages.
+            Own recording receipts identify observed commits; uncertain durability still requires the
+            original recording request/key retry. Reads never refresh a governed brief or approve anything.
+            Before a predictable prerequisite matters use check_readiness with schema_version=1,
+            action, expected_version, and proposal equal to the existing recording tool arguments.
+            Supported actions: record_findings, record_alternatives, submit_artifact,
+            record_claim_dispositions, prepare_work, complete_work, transition_stage. Preparation uses
+            {id,title,owner,claims,scope,not_split_justification}; completion uses {work_id}; transition
+            uses {stage,reason,serial_justification}. No waiver is implicit. ready is ledger admission
+            at that observation, never a grant or a guarantee; execute the existing tool/CLI, which
+            revalidates current state. blocked preserves actual prerequisites; unknown means something
+            was uninspected (including physical assurance candidates); unsupported is an explicit gap.
+            Do not attempt mutations just to discover prerequisites or treat fewer refusals as stronger safeguards.
+            Formal decision proposal/acceptance, claim supersession and lifecycle
             operations remain CLI work with their own authority. No automatic closure or retrospective approval.
             Other kinds, external content references, artifact export and workflow operations still use the CLI below;
             operator recording CLI support remains available outside this supplied path.

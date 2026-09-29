@@ -23,6 +23,8 @@ internal sealed class FindingsTransportAttempt
     internal ArtifactSubmissionResult? ArtifactSubmissionResult { get; set; }
     internal bool IsClaimDispositions { get; set; }
     internal ClaimDispositionsResult? ClaimDispositionsResult { get; set; }
+    internal string? InspectionTool { get; set; }
+    internal string? InspectionStatus { get; set; }
     internal bool IsAlternatives { get; set; }
     internal AlternativesResult? AlternativesResult { get; set; }
     private FindingsError? Error => Result?.Error ?? AlternativesResult?.Error ?? ArtifactSubmissionResult?.Error ?? ClaimDispositionsResult?.Error;
@@ -31,7 +33,19 @@ internal sealed class FindingsTransportAttempt
     internal string? Failure { get; set; }
     internal string Delivery { get; set; } = "not_sent";
 
-    internal object Row(FindingsHostConfiguration host, string sessionId) => new
+    internal object Row(FindingsHostConfiguration host, string sessionId) => InspectionTool is not null ? new
+    {
+        schema_version = 1, population = "inspection", operation = InspectionTool,
+        transport_attempt_id = Id, transport_session_id = sessionId, task_id = host.TaskId,
+        actor_id = host.ActorId, run_id = host.RunId, correlation_id = host.CorrelationId,
+        provider = host.Provider, provider_session_id = host.ProviderSessionId,
+        started_at = StartedAt, ended_at = DateTimeOffset.UtcNow,
+        duration_ms = Stopwatch.GetElapsedTime(_started).TotalMilliseconds,
+        application_entered = ApplicationEntered, application_ms = ApplicationMs,
+        status = InspectionStatus, response_delivery = Delivery, transport_failure = Failure,
+        durable_request = false, transaction_id = (string?)null, event_ids = (string[]?)null,
+        provider_usage = (object?)null, collection_status = "collected"
+    } : new
     {
         schema_version = 1, message_kind = MessageKind, transport_attempt_id = Id, transport_session_id = sessionId,
         adapter_identity = KernelVersion.Identity,
@@ -65,7 +79,7 @@ internal sealed class FindingsTransportJournal(FindingsHostConfiguration host, T
             await _gate.WaitAsync(timeout.Token).ConfigureAwait(false);
             acquired = true;
             Directory.CreateDirectory(host.DiagnosticsDirectory);
-            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
+            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.InspectionTool is not null ? "inspection" : attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
             var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(attempt.Row(host, SessionId)) + "\n");
             await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read,
                 4096, FileOptions.Asynchronous);

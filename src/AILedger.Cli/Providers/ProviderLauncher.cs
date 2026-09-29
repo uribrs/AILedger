@@ -153,7 +153,7 @@ internal sealed class ProviderLauncher(
             // the request must carry one number and not two readings of one option.
             launchTimeoutSeconds = PositiveInt(input.Optional("timeout-seconds"), 1800);
             await using var findings = ProviderFindingsSession.Start(service, ledgerRoot, Task(input),
-                SubjectOrActor(input), start.RunId, Cause(input), provider);
+                SubjectOrActor(input), start.RunId, Cause(input), provider, CognitiveArtifactLoader.ResolveRoot(input.Optional("cognitive-root")));
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,

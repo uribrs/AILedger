@@ -11,8 +11,10 @@ namespace AILedger.Tests.Findings;
 
 public sealed class ProviderFindingsLaunchTests
 {
-    [Fact]
-    public async Task ProductionLaunchBindsSubjectAndPreservesOneUsageRecordAndExactManifest()
+    [Theory]
+    [InlineData("codex")]
+    [InlineData("claude")]
+    public async Task ProductionLaunchBindsSubjectAndPreservesOneUsageRecordAndExactManifest(string provider)
     {
         using var f = new FindingsFixture();
         using var work = new TemporaryDirectory();
@@ -23,11 +25,11 @@ public sealed class ProviderFindingsLaunchTests
         await f.ExecuteAsync(new RequestStageTransitionCommand(f.Actor, null, "research", TaskStage.Research,
             WithoutPrerequisitesReason: "Disposable launcher integration fixture"));
         await ContextBrief.BuildAsync(f.Root, f.TaskId.Value);
-        var adapter = new RecordingAdapter();
+        var adapter = new RecordingAdapter(provider);
         using var errors = new StringWriter();
         var app = new CliApplication(TextWriter.Null, errors, _ => f.Service(), _ => adapter, new ContextAssembler());
         var exit = await app.RunAsync(["provider", "launch", "--root", f.Root, "--task", f.TaskId.Value,
-            "--actor", "operator", "--subject", "researcher", "--run", "R1", "--provider", "codex",
+            "--actor", "operator", "--subject", "researcher", "--run", "R1", "--provider", provider,
             "--executable", "/usr/bin/true", "--working-directory", work.Path,
             "--cognitive-root", ContextBrief.CognitiveRoot()], default);
         Assert.True(exit == 0, errors.ToString());
@@ -62,9 +64,9 @@ public sealed class ProviderFindingsLaunchTests
         });
     }
 
-    private sealed class RecordingAdapter : IAgentAdapter
+    private sealed class RecordingAdapter(string provider) : IAgentAdapter
     {
-        public string Provider => "codex";
+        public string Provider => provider;
         internal AgentLaunchRequest? Request { get; private set; }
         public Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken) => Task.FromResult("test");
         public async Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
@@ -74,15 +76,20 @@ public sealed class ProviderFindingsLaunchTests
             // Real subprocess relay and recorder; only the external model response is scripted.
             using var relay = new McpProcess(request.FindingsEndpoint.Arguments.Skip(1).ToArray());
             await ProviderFindingsSessionTests.InitializeAsync(relay);
+            await relay.SendAsync(Inspection.InspectionMcpTests.Call("inspect_task", """{"schema_version":1}""", 20));
+            var inspection = Inspection.InspectionMcpTests.Body(await relay.ReadAsync());
+            Assert.Equal("ok", inspection.GetProperty("status").GetString());
+            Assert.Equal("R1", inspection.GetProperty("snapshot").GetProperty("run_id").GetString());
+            Assert.Equal("researcher", inspection.GetProperty("snapshot").GetProperty("actor_id").GetString());
             await relay.SendAsync(FindingsMcpFixture.Call(FindingsMcpFixture.Body()));
             var first = FindingsMcpFixture.Payload(await relay.ReadAsync());
             Assert.Equal("researcher", first.GetProperty("receipt").GetProperty("actor_id").GetString());
             await relay.SendAsync(FindingsMcpFixture.Call(FindingsMcpFixture.Body(), 3));
             Assert.True(FindingsMcpFixture.Payload(await relay.ReadAsync()).GetProperty("replayed").GetBoolean());
             Assert.Empty(await relay.FinishAsync());
-            return new(request.RunId, "codex", "actual-observed-session", AgentRunStatus.Completed,
+            return new(request.RunId, provider, "actual-observed-session", AgentRunStatus.Completed,
                 DateTimeOffset.UtcNow.AddSeconds(-1), DateTimeOffset.UtcNow, 0, "done",
-                [new(0, "turn.completed", """{"type":"turn.completed","usage":{"input_tokens":31,"output_tokens":19}}""",
+                [new(0, provider == "codex" ? "turn.completed" : "result", provider == "codex" ? """{"type":"turn.completed","usage":{"input_tokens":31,"output_tokens":19}}""" : """{"type":"result","usage":{"input_tokens":31,"output_tokens":19}}""",
                     null, true, false)], "", "test", [], false, null);
         }
     }
