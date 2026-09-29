@@ -24,6 +24,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/inspect_assurance.schema.json" LogicalName="Assurance.inspect_assurance" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/read_assurance.schema.json" LogicalName="Assurance.read_assurance" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/run_assurance_checks.schema.json" LogicalName="Assurance.run_assurance_checks" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/record_assurance.schema.json" LogicalName="Assurance.record_assurance" />
+    <EmbeddedResource Include="../../docs/handoff-assurance-v1/accept_assurance.schema.json" LogicalName="Assurance.accept_assurance" />
     <EmbeddedResource Include="../../docs/structured-inspection-v1/check_readiness.schema.json" LogicalName="Inspection.check_readiness" />
     <EmbeddedResource Include="../../docs/structured-inspection-v1/retrieve_context.schema.json" LogicalName="Inspection.retrieve_context" />
     <EmbeddedResource Include="../../docs/structured-inspection-v1/inspect_task.schema.json" LogicalName="Inspection.inspect_task" />

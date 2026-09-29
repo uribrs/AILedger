@@ -23,18 +23,20 @@ internal sealed class ProviderFindingsSession : IAsyncDisposable
 
     internal ProviderFindingsSession(FindingsHostConfiguration configuration, IFindingsRecorder recorder,
         string command, IReadOnlyList<string> commandPrefix,
-        Func<CancellationToken, Task<FindingsHostConfiguration>>? readConfiguration = null)
+        Func<CancellationToken, Task<FindingsHostConfiguration>>? readConfiguration = null,
+        AILedger.Core.Assurance.IAssuranceService? assurance = null)
     {
-        _host = new(configuration, recorder, readConfiguration ?? (_ => Task.FromResult(configuration)));
+        _host = new(configuration, recorder, readConfiguration ?? (_ => Task.FromResult(configuration)), assurance);
         _listener.Start(8);
         var port = ((IPEndPoint)_listener.LocalEndpoint).Port;
         Endpoint = new(command, commandPrefix.Concat(new[] { "findings", "relay",
-            port.ToString(System.Globalization.CultureInfo.InvariantCulture), Convert.ToHexString(_secret) }).ToArray());
+            port.ToString(System.Globalization.CultureInfo.InvariantCulture), Convert.ToHexString(_secret) }).ToArray(), assurance?.Operations);
         _accept = AcceptAsync();
     }
 
     internal static ProviderFindingsSession Start(IGovernedTaskService service, string ledgerRoot,
-        TaskId task, ActorId subject, RunId run, EventId? cause, string provider, string? cognitiveRoot = null)
+        TaskId task, ActorId subject, RunId run, EventId? cause, string provider, string? cognitiveRoot = null,
+        AILedger.Core.Assurance.IAssuranceService? assurance = null)
     {
         if (service is not IFindingsRecorder recorder || service is not IAlternativesRecorder || service is not IArtifactSubmitter || service is not IClaimDispositionsRecorder)
             throw new InvalidOperationException("Provider recording requires IFindingsRecorder, IAlternativesRecorder, IArtifactSubmitter and IClaimDispositionsRecorder services.");
@@ -46,7 +48,7 @@ internal sealed class ProviderFindingsSession : IAsyncDisposable
         var runtime = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         var muxer = Path.GetFullPath(Path.Combine(runtime, "..", "..", "..",
             OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"));
-        return new(configuration, recorder, muxer, [typeof(CliApplication).Assembly.Location]);
+        return new(configuration, recorder, muxer, [typeof(CliApplication).Assembly.Location], assurance: assurance);
     }
 
     private async Task AcceptAsync()

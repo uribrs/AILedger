@@ -20,6 +20,9 @@ using var termination = OperatingSystem.IsWindows()
 
 try
 {
+    if (args.Length > 0 && args[0] == "assurance")
+        return await AILedger.Cli.Assurance.AssuranceCliCommands.RunAsync(args, cancellation.Token);
+
     if (args.Length > 0 && args[0] == "episode")
         return await AILedger.Cli.Episodes.EpisodeCliCommands.RunAsync(args, cancellation.Token);
 

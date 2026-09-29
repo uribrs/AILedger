@@ -41,7 +41,7 @@ public sealed record AgentLaunchRequest(
     // Trusted host-created stdio relay; contains no task binding or grant configuration.
     ProviderFindingsEndpoint? FindingsEndpoint = null);
 
-public sealed record ProviderFindingsEndpoint(string Command, IReadOnlyList<string> Arguments);
+public sealed record ProviderFindingsEndpoint(string Command, IReadOnlyList<string> Arguments, IReadOnlyList<string>? AssuranceTools = null);
 
 public sealed record ProviderEvent(
     long Sequence,

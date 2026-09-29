@@ -37,10 +37,13 @@ public sealed class FindingsMcpHost
 {
     private readonly Func<CancellationToken, Task<FindingsHostConfiguration>> _readConfiguration;
     internal FindingsHostConfiguration Configuration { get; }
-    internal IFindingsRecorder Recorder { get; }
+    internal IFindingsRecorder? Recorder { get; }
+    internal AILedger.Core.Assurance.IAssuranceService? Assurance { get; }
+    internal bool AssuranceOnly { get; }
 
-    public FindingsMcpHost(FindingsHostConfiguration configuration, IFindingsRecorder recorder,
-        Func<CancellationToken, Task<FindingsHostConfiguration>> readConfiguration)
+    public FindingsMcpHost(FindingsHostConfiguration configuration, IFindingsRecorder? recorder,
+        Func<CancellationToken, Task<FindingsHostConfiguration>> readConfiguration,
+        AILedger.Core.Assurance.IAssuranceService? assurance = null, bool assuranceOnly = false)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         if (!Path.IsPathFullyQualified(configuration.TaskWorkspaceRoot) ||
@@ -48,7 +51,8 @@ public sealed class FindingsMcpHost
             throw new ArgumentException("Host workspace and diagnostics paths must be absolute.");
         _ = new TaskWorkspacePathResolver(configuration.TaskWorkspaceRoot).Resolve(new(configuration.TaskId));
         Configuration = configuration;
-        Recorder = recorder;
+        if (!assuranceOnly && recorder is null) throw new ArgumentNullException(nameof(recorder));
+        Recorder = recorder; Assurance = assurance; AssuranceOnly = assuranceOnly;
         _readConfiguration = readConfiguration;
     }
 

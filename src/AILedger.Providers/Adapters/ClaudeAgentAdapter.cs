@@ -58,6 +58,7 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
                 tools.Add("mcp__ailedger__inspect_task");
                 tools.Add("mcp__ailedger__retrieve_context");
                 tools.Add("mcp__ailedger__check_readiness");
+                tools.AddRange((findings.AssuranceTools ?? []).Select(name => "mcp__ailedger__" + name));
             }
 
             var arguments = new List<string> { "--settings", providerSettings.ToJsonString() };

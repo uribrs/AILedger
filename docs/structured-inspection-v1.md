@@ -166,3 +166,27 @@ brief refresh, dispatch, run/work completion and stage changes). Account for jud
 missing, operator intervention and once-per-run usage separately. Installation is a technical
 checkpoint; observations and acceptance stay pending until that task occurs. No billable trial is
 part of this delivery.
+
+
+## Task-13 interaction coverage update
+
+Task-10 semantics above remain unchanged. The optional task-13 assurance service composes the
+existing inspection admission on governed launches; it does not widen `check_readiness`'s action set.
+All task-13 ordinary-client observations remain **pending**.
+
+| Task-13 interaction | Delivered structured/host path | Remaining CLI or deferred work |
+|---|---|---|
+| Bind actual implementation output | Host captures declared candidate/requirement/source bytes during assurance inspection/read | Operator chooses candidate root, complete scope, implementer and check policy; code changes use existing authorized executor |
+| Inspect candidate, criteria, dependencies, coverage and freshness | `inspect_assurance`; exact receipt retrieval and paginated history | Broad repository/binary capture and semantic dependency discovery deferred |
+| Read independent input and preserve read identity | `read_assurance`; host allocates durable IDs and exact byte receipts | Existing ambient manifest/filesystem isolation limits remain |
+| Execute intended tests and capture environment | `run_assurance_checks`; host uses pinned configured programs on captured files | Operator configures check definitions; full build closures and hermetic external environments outside the bounded slice |
+| Preserve partial/full review, verification and targeted synthesis | `record_assurance`; host links own read/test receipts, computes gaps and supersession | Synthesis objective/grants remain an explicit operator decision; no mandatory new agent |
+| Decide bounded acceptance | Explicit authorized `accept_assurance` with independent evidence and finding dispositions | Governed work completion, decision acceptance, deployment/release remain their existing CLI/authority paths |
+| Discover affected versus unaffected assurance | `inspect_assurance` computes scoped/transitive freshness and current authority | Unavailable files remain unknown; no automatic source repair |
+| Recover lost response/partial inspection | Exact structured retry; inspect original receipt; new checkpoint references predecessor | Hard host-check reconciliation requires explicit operator CLI attestation after stopping the process |
+| Configure/dispatch clients | Existing trusted Codex/Claude relay gains only explicitly supplied assurance tools | `provider launch` flags or local `assurance serve` startup remain operator CLI; task 12 is still read-only/offline |
+| Task, scope, grants, stages, run/work closure | Existing kernel rules unchanged | Existing named task-10 CLI gaps remain; no arbitrary-command tool or workflow removal |
+
+The operator compatibility adapter `assurance <operation> --body-stdin` calls the same typed service.
+Agent use is the supplied tools, not manually formulated CLI equivalents. See the
+[contract](handoff-assurance-v1.md) and [checkpoint-F trial](handoff-assurance-v1/trial.md).
