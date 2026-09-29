@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–11 implemented and installed; client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–12 implemented and installed; client trials pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -346,8 +346,8 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 
 ## Remaining increments — current scope
 
-Tasks 7–11 now have verified, installed implementations; client observations remain separate checkpoints.
-Task 11 installation is verified; its client acceptance remains a separate checkpoint. Task 12 implementation is verified below; installation is a separate checkpoint. Tasks 13–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+Tasks 7–12 now have verified, installed implementations; client observations remain separate checkpoints.
+Task 11 installation is verified; its client acceptance remains a separate checkpoint. Task 12 is implemented and installed; client acceptance remains pending. Tasks 13–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
 ### 7. Record alternatives directly — client trial pending
@@ -511,8 +511,9 @@ task-8 content identity reuse, separate durable submissions, bounded follow-ups 
 recovery. Its first justified client trial is a deterministic package inventory audit, not a model
 research or implementation-assurance trial. See the [contract](../docs/bounded-execution-v1.md),
 [validation](../docs/bounded-execution-v1/validation.md) and [precise trial](../docs/bounded-execution-v1/trial.md).
-Implementation is verified; exact installation is recorded separately. Client acceptance remains
-pending. No real/billable provider, fabricated governed history or task-13 change is included.
+**2.0.178 from 142bab5 is installed**, with matching package/payload/executable identity and
+passing candidate/installed probes; see the [installation receipt](../docs/bounded-execution-v1/installation.md)
+and [retained recovery example](../docs/bounded-execution-v1/examples/recovery.md). Client acceptance remains pending. No real/billable provider, fabricated governed history or task-13 change is included.
 
 **Checkpoint E / exit:** install an explicitly selectable path and let Uri run a bounded research or
 other limited task. Inspect the full experience, including an interruption probe. The existing path
@@ -560,7 +561,7 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoints: tasks 7–11 implemented and installed; all five client trials pending.** Uri explicitly selected task 8 before completing task 7's
+**Current checkpoints: tasks 7–12 implemented and installed; all six client trials pending.** Uri explicitly selected task 8 before completing task 7's
 trial; this does not imply acceptance of either increment. Task 8 supports VerifierOutput and
 CodeReviewOutput only, as described in the [contract](../docs/structured-artifacts-v1.md) and
 [validation](../docs/structured-artifacts-v1/task-8-validation.md). Task 8 was installed as **2.0.170 from 540d6e6**; its
@@ -574,7 +575,7 @@ Uri authorized proceeding and installing task 9 before the earlier client trials
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
 No task-9 client observation or acceptance is claimed. Task 10 is installed as **2.0.174 from dbeafbd**
 under explicit advance authorization; its [installation checkpoint](../docs/structured-inspection-v1/task-10-installation.md)
-is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Task 12 has a verified implementation; installation and client acceptance remain separate. Tasks 13–14 remain unstarted.
+is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Task 12 is implemented and installed as **2.0.178 from 142bab5**, with [separate installation and trial records](../docs/bounded-execution-v1/installation.md); its client acceptance remains pending. Tasks 13–14 remain unstarted.
 
 ## Related work
 

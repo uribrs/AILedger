@@ -1,0 +1,45 @@
+{
+  "identity": "2.0.178  from 142bab5",
+  "cases": [
+    {
+      "case": "inventory-and-lost-response-replay",
+      "outcome": "passed",
+      "execution_id": "60a2e13d6bce98eb6f9d63383c16ab0b2dc98fd4484b658ce5cab61629bc8c67"
+    },
+    {
+      "case": "cancel-and-resume",
+      "outcome": "passed",
+      "execution_id": "ab2eff08a7371e64bff0cecd65b0fd074f291bfa49ae7ab0cfacb43b21486e93"
+    },
+    {
+      "case": "host-kill-and-resume",
+      "outcome": "passed",
+      "execution_id": "67d3fb64a2bb2a96014a088a3e317586d22ca1199d7cb44244c6d2fbb84c069b"
+    },
+    {
+      "case": "elapsed-budget",
+      "outcome": "passed",
+      "execution_id": "cad0dfbec4ab0f815c4ec56f8b63d11f17b15078b2019253baa198fa0c33bf10"
+    },
+    {
+      "case": "provider-failure",
+      "outcome": "passed",
+      "execution_id": "872fd07a902e1c042d30ee237afc85b857610e2dd5e82094a4c57b083a42655a"
+    },
+    {
+      "case": "authorized-retrieval-follow-up",
+      "outcome": "passed",
+      "execution_id": "8a49b59adc3cccdba87f513438516052030db84071a3da5fec412711ded0cacf"
+    },
+    {
+      "case": "sandbox-read-write-network-denials",
+      "outcome": "passed",
+      "execution_id": "2e4d52e9de0d54f7265a379baa56ceda57c746551675364b5b06f97c7930d43a"
+    }
+  ],
+  "source_sha256": "bccd1478110c190c92e9abd9e594058ae1023b8da5b1e19433ce05ce24fa6504",
+  "client_acceptance": "pending",
+  "real_provider_episodes": 0,
+  "usage": "unavailable stays null; scripts are not model usage",
+  "limitation": "Mechanical offline execution and recovery only; no judgment, cost or delivery improvement claimed."
+}

@@ -4,6 +4,9 @@ Implementation and installation are technical checkpoints. Tasks 7–12 client a
 pending. This first narrow trial is a **read-only deterministic package inventory audit**, with
 real process interruption and recovery; it is not a model evaluation.
 
+The verified installed identity is **2.0.178 from 142bab5**; see the
+[installation receipt](installation.md) and [retained recovery example](examples/recovery.md).
+
 From the `codex/structured-findings-contract` worktree, on macOS outside an enclosing sandbox:
 
 ```sh
