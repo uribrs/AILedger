@@ -347,7 +347,7 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 ## Remaining increments — current scope
 
 Tasks 7–10 now have verified, installed implementations; client observations remain separate checkpoints.
-Tasks 11–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+Task 11 implementation is verified; installation and client acceptance are separate checkpoints. Tasks 12–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
 ### 7. Record alternatives directly — client trial pending
@@ -458,7 +458,7 @@ or billable episode is claimed.
 interaction. Missing inputs and blockers are understandable without trial-and-error mutations.
 Uncovered operations get a concrete follow-up scope before being claimed delivered.
 
-### 11. Prepare bounded handoffs
+### 11. Prepare bounded handoffs — implementation verified, client trial pending
 
 **User effect:** the next agent receives the information needed for its objective, including important
 corrections and uncertainty, rather than the accumulated task conversation.
@@ -473,6 +473,15 @@ corrections and uncertainty, rather than the accumulated task conversation.
   These are diagnostic fixtures; also inspect a handoff from Uri's current task.
 - Preserve links to additional sources and measure additional reads. Do not call shorter initial
   text a success if the next agent loses a requirement or must reconstruct everything.
+
+**Implementation checkpoint (2026-09-29):** bounded EpisodeSpec/package/result contracts,
+read-only `handoff index/prepare/retrieve`, explicit selection/omission assessments, task-8 identity
+reuse and task-10 retrieval composition are implemented. Frozen Axonius, Falcon and S3 loss checks
+withhold later findings; a current cursor re-anchor handoff is prepared from read-only source
+snapshots. Both full runners pass 2,204 main and 99 Memory tests; historical measurements match.
+See the [contract](../docs/bounded-handoffs-v1.md), [validation](../docs/bounded-handoffs-v1/validation.md)
+and [precise trial instructions](../docs/bounded-handoffs-v1/trial.md). No agent trial, cognitive
+success, elapsed/cost improvement or task-12 runtime is claimed. Installation is recorded separately.
 
 **Checkpoint / exit:** Uri can inspect and try a focused handoff with its versioned inputs. Necessary
 knowledge survives the handoff checks. YAML is optional only if it improves actual authoring; no
@@ -554,7 +563,7 @@ Uri authorized proceeding and installing task 9 before the earlier client trials
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
 No task-9 client observation or acceptance is claimed. Task 10 is installed as **2.0.174 from dbeafbd**
 under explicit advance authorization; its [installation checkpoint](../docs/structured-inspection-v1/task-10-installation.md)
-is separate from pending ordinary-task acceptance. Tasks 11–14 remain unstarted.
+is separate from pending ordinary-task acceptance. Task 11 implementation is verified with client trial pending; tasks 12–14 remain unstarted.
 
 ## Related work
 

@@ -1,0 +1,87 @@
+{
+  "axonius": {
+    "required_keys": [
+      "Constraint:K2",
+      "Constraint:K7",
+      "Evidence:E3",
+      "Lesson:2026-09-23_1034-axonius-yaml-bundle:rejectedalternative:ALT4"
+    ],
+    "withheld_keys": [
+      "Claim:VC1",
+      "Claim:VC2",
+      "Claim:VC3",
+      "Claim:GC1"
+    ],
+    "checks": [
+      "No parser-side CVE dedup; Exposure Analytics merges rows.",
+      "Preserve candidate digest and 365 passed/13 skipped as historical evidence, plus focused Spark limitation.",
+      "Do not import later reviewer severity finding GC1 or later verifier conclusions."
+    ]
+  },
+  "falcon": {
+    "required_keys": [
+      "Constraint:K1",
+      "Claim:NC13",
+      "Evidence:NE13",
+      "Claim:NC14",
+      "Claim:NC17",
+      "Claim:YC7",
+      "Lesson:2026-09-23_1034-axonius-yaml-bundle:validatedclaim:C8"
+    ],
+    "withheld_keys": [
+      "Claim:LC1",
+      "Claim:LC2",
+      "Claim:LC3",
+      "Claim:LC4"
+    ],
+    "checks": [
+      "Keep shipping-ref lesson and dev/working-tree distinction.",
+      "Keep native 2xx errors observation and unresolved YAML recovery/completeness difference.",
+      "Do not claim the later resolved package/source mapping as known."
+    ]
+  },
+  "s3": {
+    "required_keys": [
+      "Constraint:K1",
+      "Claim:C1",
+      "Claim:C2",
+      "Claim:RC5",
+      "Claim:EI3",
+      "Claim:SC5",
+      "Claim:SC9",
+      "Claim:FTC4",
+      "Claim:TT3",
+      "Alternative:PALT4",
+      "Decision:PD2"
+    ],
+    "withheld_keys": [
+      "Claim:SYC1",
+      "Claim:SYC2",
+      "Claim:SYC3",
+      "Claim:SYC4",
+      "Claim:C6"
+    ],
+    "checks": [
+      "Retain rejected premise and corrected shipping-host identification.",
+      "Keep buffering, write-once, storage root and doc/code contradictions available before synthesis.",
+      "PD2 is proposed; future cursor documentation and synthesis findings remain withheld."
+    ]
+  },
+  "current-reanchor": {
+    "required_keys": [
+      "Constraint:K1",
+      "Constraint:K2",
+      "Constraint:K3",
+      "Claim:C1",
+      "Decision:D1",
+      "Decision:RPD1",
+      "Decision:RPD2",
+      "source:source-design"
+    ],
+    "withheld_keys": [],
+    "checks": [
+      "C1 remains open; RPD1/RPD2 proposed, D1 accepted.",
+      "Include current cross-task dependency versions; do not implement or accept anything."
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "case": "axonius",
+    "task_id": "2026-09-23_2014-axonius-parser-fixes",
+    "cutoff": 58,
+    "cutoff_at": "2026-09-23T20:27:41.000497+00:00",
+    "sha256": "bccd1478110c190c92e9abd9e594058ae1023b8da5b1e19433ce05ce24fa6504",
+    "source": "/Users/user/Dev/Uri/localprojects/AILedger/.ailedger/tasks/2026-09-23_2014-axonius-parser-fixes/events.jsonl",
+    "source_sha256_at_capture": "8d7ed14a44d6012d96c01762b9161f974f8b14342e1430d085df25e1288da575",
+    "source_events_at_capture": 97,
+    "later_events_withheld": 39
+  },
+  {
+    "case": "falcon",
+    "task_id": "2026-09-24_1141-aligning-falconcollector-and-its-yamladapter-counterpart",
+    "cutoff": 78,
+    "cutoff_at": "2026-09-24T12:02:35.45327+00:00",
+    "sha256": "f71e0389302b6ce3a79833702c7d470df1421c2a819bdf6ed1beb27fbd2a65fa",
+    "source": "/Users/user/Dev/Uri/localprojects/AILedger/.ailedger/tasks/2026-09-24_1141-aligning-falconcollector-and-its-yamladapter-counterpart/events.jsonl",
+    "source_sha256_at_capture": "8bc571c86a6c451da6de7a96287d36d94d6c91d538910d4f5c00343286e3786b",
+    "source_events_at_capture": 278,
+    "later_events_withheld": 200
+  },
+  {
+    "case": "s3",
+    "task_id": "2026-09-27_0827-yaml-engine-to-leverage-s3-read-and-write",
+    "cutoff": 219,
+    "cutoff_at": "2026-09-27T11:59:53.157984+00:00",
+    "sha256": "895ce3e6d970c290f0294d7df8b1fcffd643a4f3a37caef2b0972accc2023984",
+    "source": "/Users/user/Dev/Uri/localprojects/AILedger/.ailedger/tasks/2026-09-27_0827-yaml-engine-to-leverage-s3-read-and-write/events.jsonl",
+    "source_sha256_at_capture": "a4bb0fd1cdb77f9f8b8aad815ac4d478800828bf1a9d894e0256b3a99d86b6c4",
+    "source_events_at_capture": 404,
+    "later_events_withheld": 185
+  },
+  {
+    "case": "current-reanchor",
+    "task_id": "2026-09-28_0732-yaml-engine-cursor-reanchor",
+    "cutoff": 39,
+    "cutoff_at": "2026-09-28T07:43:17.544067+00:00",
+    "sha256": "b1188add1cc059da981f689176f43d701b7da748fd1e0b542bb27881888f81b5",
+    "source": "/Users/user/Dev/Uri/localprojects/AILedger/.ailedger/tasks/2026-09-28_0732-yaml-engine-cursor-reanchor/events.jsonl",
+    "source_sha256_at_capture": "b1188add1cc059da981f689176f43d701b7da748fd1e0b542bb27881888f81b5",
+    "source_events_at_capture": 39,
+    "later_events_withheld": 0
+  }
+]

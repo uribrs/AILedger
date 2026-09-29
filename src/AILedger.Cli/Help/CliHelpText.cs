@@ -83,6 +83,9 @@ internal static class CliHelpText
                            New assurance output inherits its run's full membership when work flags
                            are omitted. Supplied work flags assert exactly that set. Legacy output
                            still requires --work; task-wide kinds must not use work flags.
+        handoff index --task <id> --actor <id> [--run <id>] [--selection task|relevant]
+        handoff retrieve --task <id> --actor <id> [--run <id>] --body-stdin
+        handoff prepare --task <id> --actor <id> [--run <id>] --body-stdin
         artifact show      --task ID --id ID [--json]
         artifact list      --task ID [--work ID [--also-work ID ...]] [--kind KIND]
                            Work selection intersects original coverage. Metadata retains historical
