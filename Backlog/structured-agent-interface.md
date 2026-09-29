@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–10 implemented and installed; client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–11 implemented and installed; client trials pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -346,8 +346,8 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 
 ## Remaining increments — current scope
 
-Tasks 7–10 now have verified, installed implementations; client observations remain separate checkpoints.
-Task 11 implementation is verified; installation and client acceptance are separate checkpoints. Tasks 12–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+Tasks 7–11 now have verified, installed implementations; client observations remain separate checkpoints.
+Task 11 installation is verified; its client acceptance remains a separate checkpoint. Tasks 12–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
 ### 7. Record alternatives directly — client trial pending
@@ -458,7 +458,7 @@ or billable episode is claimed.
 interaction. Missing inputs and blockers are understandable without trial-and-error mutations.
 Uncovered operations get a concrete follow-up scope before being claimed delivered.
 
-### 11. Prepare bounded handoffs — implementation verified, client trial pending
+### 11. Prepare bounded handoffs — installed, client trial pending
 
 **User effect:** the next agent receives the information needed for its objective, including important
 corrections and uncertainty, rather than the accumulated task conversation.
@@ -481,7 +481,9 @@ withhold later findings; a current cursor re-anchor handoff is prepared from rea
 snapshots. Both full runners pass 2,204 main and 99 Memory tests; historical measurements match.
 See the [contract](../docs/bounded-handoffs-v1.md), [validation](../docs/bounded-handoffs-v1/validation.md)
 and [precise trial instructions](../docs/bounded-handoffs-v1/trial.md). No agent trial, cognitive
-success, elapsed/cost improvement or task-12 runtime is claimed. Installation is recorded separately.
+success, elapsed/cost improvement or task-12 runtime is claimed. **2.0.176 from 4a0f117 is installed**,
+with exact package/payload/executable identity and passing candidate/installed probes; see the
+[installation receipt and current-task example](../docs/bounded-handoffs-v1/installation.md). Client acceptance remains pending.
 
 **Checkpoint / exit:** Uri can inspect and try a focused handoff with its versioned inputs. Necessary
 knowledge survives the handoff checks. YAML is optional only if it improves actual authoring; no
@@ -549,7 +551,7 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoints: tasks 7–10 implemented and installed; all four client trials pending.** Uri explicitly selected task 8 before completing task 7's
+**Current checkpoints: tasks 7–11 implemented and installed; all five client trials pending.** Uri explicitly selected task 8 before completing task 7's
 trial; this does not imply acceptance of either increment. Task 8 supports VerifierOutput and
 CodeReviewOutput only, as described in the [contract](../docs/structured-artifacts-v1.md) and
 [validation](../docs/structured-artifacts-v1/task-8-validation.md). Task 8 was installed as **2.0.170 from 540d6e6**; its
@@ -563,7 +565,7 @@ Uri authorized proceeding and installing task 9 before the earlier client trials
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
 No task-9 client observation or acceptance is claimed. Task 10 is installed as **2.0.174 from dbeafbd**
 under explicit advance authorization; its [installation checkpoint](../docs/structured-inspection-v1/task-10-installation.md)
-is separate from pending ordinary-task acceptance. Task 11 implementation is verified with client trial pending; tasks 12–14 remain unstarted.
+is separate from pending ordinary-task acceptance. Task 11 is implemented and installed as **2.0.176 from 4a0f117**, with [separate installation and trial records](../docs/bounded-handoffs-v1/installation.md); its client trial is pending. Tasks 12–14 remain unstarted.
 
 ## Related work
 

@@ -1,5 +1,7 @@
 # Uri's task-11 trial
 
+Installed version: **2.0.176 from 4a0f117**. See the [installation receipt](installation.md) and
+[prepared current-task example](examples/current-reanchor-handoff.md).
 Implementation and installation do not accept this task or tasks 7–10. No agent trial has run.
 This is a read-only handoff trial; implementation and the task-12 runtime remain out of scope.
 
