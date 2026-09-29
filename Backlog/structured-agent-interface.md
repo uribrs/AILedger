@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–9 installed; task 10 implemented; client trials pending. Kind: feature.**
+**Backlog ID: 63. Priority: 1. Status: partial — tasks 1–6 accepted; tasks 7–10 implemented and installed; client trials pending. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be
@@ -346,8 +346,8 @@ tasks 7–8 in historical delivery records describe the earlier numbering, not t
 
 ## Remaining increments — current scope
 
-Task 7 now has a verified, installed implementation; client observation remains a separate checkpoint.
-Tasks 8–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
+Tasks 7–10 now have verified, installed implementations; client observations remain separate checkpoints.
+Tasks 11–14 remain planned, unstarted work packages. The [task-7 handoff](../docs/handoffs/structured-agent-interface-task-7.md) provides the
 next implementation request. Later increments are refined using the preceding real-task results.
 
 ### 7. Record alternatives directly — client trial pending
@@ -448,8 +448,11 @@ work preparation/completion and stage transitions using existing validators; phy
 inspection is explicitly unknown and dispatch/run completion remain named gaps. See the
 [contract and interaction coverage table](../docs/structured-inspection-v1.md) and
 [validation record](../docs/structured-inspection-v1/task-10-validation.md).
-Uri authorized proceeding before the earlier client trials. Implementation, exact installation and
-ordinary-task acceptance remain separate; no client trial or billable episode is claimed.
+Uri authorized proceeding before the earlier client trials. **2.0.174 from dbeafbd is installed**,
+with matching package/executable identity and passing disposable probes; see the
+[installation receipt](../docs/structured-inspection-v1/task-10-installation.md).
+Implementation, installation and ordinary-task acceptance remain separate; no client trial
+or billable episode is claimed.
 
 **Checkpoint D / exit:** install, run a representative task, and account for every residual CLI
 interaction. Missing inputs and blockers are understandable without trial-and-error mutations.
@@ -537,7 +540,7 @@ Tasks 1–6 are accepted and complete. Their contracts, test results, installati
 remain recorded in the linked validation documents. The later clarification broadens the forward
 roadmap; it does not reopen or rewrite the accepted pilot.
 
-**Current checkpoints: tasks 7–9 implemented and installed; all three client trials pending.** Uri explicitly selected task 8 before completing task 7's
+**Current checkpoints: tasks 7–10 implemented and installed; all four client trials pending.** Uri explicitly selected task 8 before completing task 7's
 trial; this does not imply acceptance of either increment. Task 8 supports VerifierOutput and
 CodeReviewOutput only, as described in the [contract](../docs/structured-artifacts-v1.md) and
 [validation](../docs/structured-artifacts-v1/task-8-validation.md). Task 8 was installed as **2.0.170 from 540d6e6**; its
@@ -549,8 +552,9 @@ validation remain intact. Task 9 now implements atomic explicit claim dispositio
 [validation](../docs/structured-claim-dispositions-v1/task-9-validation.md) define the supported scope.
 Uri authorized proceeding and installing task 9 before the earlier client trials. Task 9 is now installed as **2.0.172 from 6ebb55a**, with the exact
 [installation receipt](../docs/structured-claim-dispositions-v1/task-9-installation.md).
-No task-9 client observation or acceptance is claimed. Task 10 is now implemented under explicit
-advance authorization; its installation checkpoint is recorded separately. Tasks 11–14 remain unstarted.
+No task-9 client observation or acceptance is claimed. Task 10 is installed as **2.0.174 from dbeafbd**
+under explicit advance authorization; its [installation checkpoint](../docs/structured-inspection-v1/task-10-installation.md)
+is separate from pending ordinary-task acceptance. Tasks 11–14 remain unstarted.
 
 ## Related work
 
