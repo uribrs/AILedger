@@ -1,6 +1,6 @@
 ---
 name: contract-driven-execution
-version: 1.6.1
+version: 1.6.2
 description: Direct-path executor for non-trivial work that has a finalized prompt contract. Performs the implementation, refactoring, research-driven coding, or agent-workflow execution against the current PromptContract artifact and records findings in the governed task. Typically invoked by `task-orchestrator` on the direct execution path.
 ---
 
@@ -68,7 +68,7 @@ Treat `prompt_contract.md` as the execution contract.
 - Do not override constraints or decisions.
 - Do not work directly from vague instructions when a task contract exists.
 - Keep changes scoped to the contract goal.
-- When execution produces evidence that moves an assumption, record it with actor `executor` and the citation that moved it — the test name, log line, correlation ID, or `file:line`. This is the cheapest moment to capture it; the verifier can only mark NEVER-TESTED for evidence nobody wrote down. In a governed task, record the claim with `ailedger claim add` and the citation with `ailedger evidence add`; `executor` names the cognition, while `--actor` uses the active actor id.
+- When execution produces evidence that moves an assumption, record it with actor `executor` and the citation that moved it — the test name, log line, correlation ID, or `file:line`. This is the cheapest moment to capture it; the verifier can only mark NEVER-TESTED for evidence nobody wrote down. In a governed task, batch related claims and directional evidence through supplied `record_findings` and retain the host ID mappings. When unavailable, use authorized `ailedger claim add` and `ailedger evidence add`. `executor` names the cognition; the trusted binding (or CLI `--actor`) must identify the actual active actor.
 - Work with existing user changes; do not revert unrelated edits.
 
 This skill does not run a verifier or code-reviewer pass. The coordinator dispatches those after the orchestrator reconciles this skill's results.
@@ -94,7 +94,7 @@ Missing shared contracts or conceptual seams return BLOCKED to the orchestrator 
 ### 4. Update State After Execution
 
 After execution, update `execution_notes.md` with what changed, what was validated, commands run,
-and any residual risks. Record new truth through the CLI: `claim add` and `evidence add` for findings;
+and any residual risks. Record new truth through the kernel: `record_findings` when supplied, else `claim add` and `evidence add`;
 surface stable decisions or constraints to an actor holding `ProposeDecision` or `ManageConstraints`
 rather than editing their projections. Raise a governed escalation when a blocker meets the task's
 escalation rules.

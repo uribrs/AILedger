@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-version: 1.2.3
+version: 1.2.4
 description: Independent senior-engineer code review focused on implementation quality, runtime behavior, concurrency, data structures, algorithmic complexity, idiomatic usage, maintainability, and proportional risk. Always invoked in isolation — must not be given the user request, prompt contract, orchestration plan, or verifier output. Dispatched by `workflow-coordinator` after the verifier pass on code-bearing work.
 ---
 
@@ -64,7 +64,12 @@ Optional input (when running inside a workflow):
 
 - `taskPath` — governed task directory supplied by the kernel.
 
-When `taskPath` is provided, write the review output to:
+When supplied, use `submit_artifact` with kind `code-review-output` (CodeReviewOutput) and the complete review content
+while the producer run is active. Preserve every required section and table. Keep the host-assigned
+artifact ID and receipt; the host binds the producer, membership and candidate. Do not duplicate the
+submission through CLI or obtain verifier conclusions to prepare it.
+
+For authorized CLI fallback when the endpoint is unavailable and `taskPath` is provided, write to:
 
 ```text
 <taskPath>/review/code-reviewer-N.md
@@ -72,7 +77,7 @@ When `taskPath` is provided, write the review output to:
 
 Where `N` is the next available numeric suffix (1 for the first review, 2 for a re-review after repairs, and so on). Never overwrite an existing `code-reviewer-N.md`; always increment.
 
-File the completed review while its producer run is active:
+CLI fallback filing, while the producer run is active:
 
 ```bash
 ailedger artifact record --task TASK --actor ACTOR --run RUN \
@@ -88,7 +93,13 @@ add `--work WORK` and use `--supersedes ARTIFACT-ID` when revising. File before 
 close your own run or work item. Include neutral coverage/candidate identity and findings in the
 review without obtaining the paired verifier's verdict or body.
 
-When `taskPath` is not provided, return the review inline using the same structure.
+When neither a supplied submission endpoint nor `taskPath` is provided, return the review inline
+using the same structure.
+
+Here, “new assurance” means the governed frozen `--candidate` flow. Default task-13 assurance tools
+do not widen this skill's context allow-list or replace the required CodeReviewOutput. If a task-13
+profile requires context forbidden to this reviewer, report the conflict for an authorized host
+configuration; do not fetch task narrative or change identities to satisfy it.
 
 ## Scope Boundary
 

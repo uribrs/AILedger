@@ -1,6 +1,6 @@
 ---
 name: technical-researcher
-version: 1.4.0
+version: 1.4.1
 description: Research external technical targets and produce decision-support recommendations grounded in official docs, official-adjacent artifacts, and community evidence. Use when investigation of a product, API, platform, tool, integration, library, SDK, service, or protocol is required for integration design, implementation planning, bug investigation, capability verification, migration analysis, or compatibility analysis. Typically invoked by `task-orchestrator` to resolve an OPEN external-behavior claim in the governed task.
 ---
 
@@ -34,8 +34,8 @@ If the file already exists, update it in place rather than creating a duplicate.
 
 After writing the research file:
 
-- Record each finding with `ailedger claim add` and its underlying source with `ailedger evidence add --supports CLAIM` or `--refutes CLAIM`. A pointer to your own research file is not by itself a citation; the underlying vendor URL or source `file:line` is.
-- When the evidence settles `triggeringAssumptionId`, report the evidence id and direction to the caller. The researcher cannot resolve the claim; ask an operator or lead holding `ResolveClaim` to run `ailedger claim resolve --status validated|rejected --evidence EVIDENCE-ID`.
+- Use supplied `record_findings` to batch related open claims and directional evidence, keeping host ID mappings. When unavailable, use authorized `ailedger claim add` and `ailedger evidence add --supports CLAIM` or `--refutes CLAIM`. A pointer to your own research file is not by itself a citation; the underlying vendor URL or source `file:line` is.
+- When the evidence settles `triggeringAssumptionId`, report the evidence id and direction to the caller. The researcher cannot resolve the claim; ask an operator or lead holding `ResolveClaim` to use supplied `record_claim_dispositions`, or authorized CLI `ailedger claim resolve --status validated|rejected --evidence EVIDENCE-ID` when unavailable.
 - The research document remains the run's supporting output; the claims and evidence are its governed findings.
 - Surface a stable rule that affects future execution to a lead or operator for `ailedger decision propose`; a researcher does not hand-edit the decision projection.
 
@@ -62,7 +62,7 @@ completed. Consult from your own run, while the task is in Research, at two poin
 - Use the tags a lesson about this subject would carry: the target system and the task classification.
 - Every served lesson joins the task. Evaluate each against the question and the findings. A lesson
   is prior evidence to re-establish, not a source; record an applicable one with
-  `ailedger claim add --from-lesson LESSON-ID` and cite the underlying source as usual. Say in the
+  `record_findings` with `from_lesson` (authorized CLI fallback: `ailedger claim add --from-lesson LESSON-ID`) and cite the underlying source as usual. Say in the
   research file why the others do not apply.
 - A result with no lessons (`"lessons": []`) is a valid consultation. Record it in the research file
   as it is.

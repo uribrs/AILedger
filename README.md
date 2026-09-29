@@ -1,10 +1,10 @@
 # AILedger 2.0
 
-AILedger 2.0 v0.1 is a local, governed task kernel for coordinating AI-assisted work. It preserves the existing AILedger skill methodology as a verified cognitive snapshot, while moving durable truth, authority, lifecycle, causal invalidation, context isolation, and provider-run bookkeeping into deterministic .NET mechanisms.
+AILedger 2.0 is a local, governed task kernel for coordinating AI-assisted work. It preserves the existing AILedger skill methodology as a verified cognitive snapshot, while moving durable truth, authority, lifecycle, causal invalidation, context isolation, and provider-run bookkeeping into deterministic .NET mechanisms.
 
 The operator remains the authority. Codex and Claude provide cognition through provider adapters; neither provider owns task truth or may silently expand its role. The append-only task event log is authoritative, and generated JSON/Markdown files make the current state easy for tools and people to inspect. Closing a task mints durable lessons from governed findings; later tasks recall those lessons into their own opening history and context.
 
-This release is an explicit CLI, not an autonomous dispatcher. An operator invokes each context build, provider launch, resume, and lifecycle transition. It does not automatically wake Codex or Claude when an event is appended.
+The operator CLI and trusted provider-supplied structured tools share the governed kernel. An operator invokes each context build, provider launch, resume, and lifecycle transition. It does not automatically wake Codex or Claude when an event is appended.
 
 ## Quick start
 
@@ -15,8 +15,8 @@ Requirements:
 - Nothing else. The kernel is one dotnet global tool and depends on no external service.
 
 Guarded C# navigation for governed Codex and Claude runs uses Roslyn CodeLens MCP 2.18.1 and .NET 10.
-See [setup and fallback behavior](docs/roslyn-navigation.md); other-language navigation and
-Claude currently use CLI tools.
+See [setup and fallback behavior](docs/roslyn-navigation.md); other-language navigation uses
+authorized CLI tools.
 
 The semantic memory index at `src/AILedger.Memory` is **dormant and optional**. Activating it would
 add a local Ollama service and a 669 MB embedding model, and `ollama pull` currently fails on this
@@ -28,9 +28,9 @@ machine is not an archaeology exercise.
 Build and test:
 
 ```bash
-dotnet restore AILedger.sln
-dotnet build AILedger.sln --no-restore
-dotnet test AILedger.sln --no-restore
+dotnet restore AILedger.sln --artifacts-path /tmp/ailedger-build
+dotnet build AILedger.sln --artifacts-path /tmp/ailedger-build --no-restore
+dotnet test AILedger.sln --artifacts-path /tmp/ailedger-build --no-restore
 ```
 
 Run the CLI from the repository root:
@@ -54,9 +54,13 @@ dotnet run --project src/AILedger.Cli -- actor attach \
 dotnet run --project src/AILedger.Cli -- status --task demo-1
 ```
 
-By default task workspaces are written under the platform-local application-data directory at `AILedger/tasks`. Use `--root PATH` on every invocation to select another root. The Ledger root and every provider-writable directory must be fully disjoint; neither may contain the other.
+By default, the CLI walks upward to find a `.ailedger` directory, using its `tasks` directory and the adjacent `<home>/lessons` store. Without a discovered home it falls back to platform-local application data under `AILedger`. Explicit `--root PATH` and `--lesson-root PATH` override those locations. Provider scopes inside the authoritative ledger root are refused; a workspace containing the ledger is supported for self-hosting.
 
-v0.1 is a cooperative single-user tool: actor IDs are audited attribution, not authenticated identities against other processes running as the same OS account. Each local task is capped at 1,000 events and a 16 MiB event log while persistence uses atomic full-history replacement and replay. See the architecture and operator guides for the exact trust and scaling boundaries.
+The kernel is a cooperative single-user tool: actor IDs are audited attribution, not authenticated identities against other processes running as the same OS account. Each local task is capped at 10,000 events and a 64 MiB event log while persistence uses atomic full-history replacement and replay. See the architecture and operator guides for the exact trust and scaling boundaries.
+
+## Agent interactions
+
+Trusted launches supply seven structured recording and inspection tools. Use the [interaction guide](docs/operator-guide.md#structured-agent-interactions) for tool selection, retries and CLI fallbacks. The bounded [task-13 assurance path](docs/handoff-assurance-v1.md) is the default for supported implementation work and adds five explicitly granted tools; acceptance is separate from governed completion. The [coverage map](docs/structured-inspection-v1.md) identifies remaining CLI dependencies. Task 12 remains opt-in, offline and read-only.
 
 ## Project shape
 
@@ -67,11 +71,11 @@ v0.1 is a cooperative single-user tool: actor IDs are audited attribution, not a
 - `src/AILedger.Cli/` — explicit operator command surface
 - `tests/AILedger.Tests/` — core, storage, provider, CLI, concurrency, and two-lead behavior
 
-The original design dossiers remain at the repository root as design inputs. The implemented v0.1 behavior is documented here and in:
+The original design dossiers remain at the repository root as design inputs. The implemented behavior is documented here and in:
 
 - [Architecture and governance](docs/architecture.md)
 - [Operator guide and CLI reference](docs/operator-guide.md)
 
 ## Verification status
 
-The recorded implementation run reports 155 automated tests passing. After child-environment isolation was introduced, authenticated, non-destructive new-session and exact-session-resume smoke tests passed on 2026-09-05 with Codex CLI `0.150.0-alpha.8` (`CR4`/`CR5`) and Claude Code `2.1.261` (`CL8`/`CL9`). Other CLI versions remain guarded by runtime capability probes rather than assumed compatible.
+Task 13 delivery recorded 2,285 main tests and 99 memory tests passing in the repository runner, plus installed scripted assurance/inspection/artifact/episode probes and frozen measurement checks. See the [validation record](docs/handoff-assurance-v1/validation.md). Tasks 7–13 client trials remain pending; scripted verification does not establish improved judgment, delivery time or cost. After child-environment isolation was introduced, authenticated, non-destructive new-session and exact-session-resume smoke tests passed on 2026-09-05 with Codex CLI `0.150.0-alpha.8` (`CR4`/`CR5`) and Claude Code `2.1.261` (`CL8`/`CL9`). Other CLI versions remain guarded by runtime capability probes rather than assumed compatible.

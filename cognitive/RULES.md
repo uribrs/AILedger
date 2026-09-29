@@ -1,8 +1,8 @@
 # RULES.md
 > Operator rules for all AI assistants working with this user.
 > These rules override default model behavior. They apply before any skill, task, or tool.
-> Last updated: 2026-09-20
-> version: 1.3.0
+> Last updated: 2026-09-29
+> version: 1.3.1
 
 ---
 
@@ -117,6 +117,47 @@ Report the refusal text and stop.
 **Do not deviate mid-flight.** Governance that binds only while it is convenient is not governance.
 If the process seems wrong, report that; it is up to the operator to decide — see the waiver rule. It
 is never a licence to step outside it.
+
+### Structured tools supersede the CLI examples
+
+A launched run may be supplied AILedger's structured tools. When a tool is supplied, use it for the
+operation it covers. The corresponding CLI examples in skills are authorized fallbacks. Artifact
+submission covers only VerifierOutput and CodeReviewOutput; other artifact kinds stay on the CLI.
+
+| Operation | Tool |
+|---|---|
+| `claim add` (including `--from-lesson`) + `evidence add` | `record_findings` (`from_lesson`) |
+| `alternative record` | `record_alternatives` |
+| `claim resolve` to validated/rejected | `record_claim_dispositions` (needs ResolveClaim) |
+| `artifact record` for VerifierOutput / CodeReviewOutput | `submit_artifact` |
+| inspect current state, fetch omitted records, check a prerequisite | `inspect_task`, `retrieve_context`, `check_readiness` |
+
+- Batch related operations within the supplied limits. The host assigns durable IDs; use request-local
+  keys and keep receipt mappings. Do not delay a claim you are about to rely on to fill a batch.
+- After an unknown outcome, retry the exact body, `request_id` and trusted binding. Never repeat it
+  through the CLI or choose a new key to bypass uncertainty.
+- Reads do not build or refresh a governed brief: use `context build`. Follow versioned retrieval
+  cursors and re-inspect stale snapshots. Use readiness checks when prerequisites are uncertain,
+  not before every routine call; `ready` is not authorization and `unknown` is not a pass.
+- Use the CLI for covered operations only when the tool is unavailable and your authority permits
+  the operation, or for explicit operator/debug use. A refused
+  tool call is a refusal, not a missing tool.
+- Other artifact kinds, work preparation, brief building, dispatch, decisions, escalations, stage
+  transitions and completion stay on the CLI.
+- Assurance tools (`inspect_assurance`, `read_assurance`, `run_assurance_checks`,
+  `record_assurance`, `accept_assurance`) exist only when the host configured assurance for your
+  principal. Task 13 is the default assurance flow for supported work, not a separate opt-in.
+  Arrange its trusted configuration as part of assurance preparation. Missing tools or unsupported
+  scope must be reported as an unresolved assurance gap, not silently skipped. Acceptance through
+  them does not complete a work item. See
+  `docs/handoff-assurance-v1.md`.
+- Task-13 reports use exact host bindings and captured input identities. Record partial checkpoints,
+  missing coverage and unknown outcomes honestly; retain current-session read/check receipts and
+  supersede your own reports without erasing unresolved findings. Changes to relied-on inputs or
+  authority require reassessing applicability. Acceptance is an explicit authorized decision on
+  applicable independent evidence, never inferred from a passing process or a historical receipt.
+- Task 13 does not widen a role's context: the governed code review remains isolated. Task-13
+  recording does not replace required governed VerifierOutput or CodeReviewOutput artifacts.
 
 ### Repeated failure is a signal, not a queue
 

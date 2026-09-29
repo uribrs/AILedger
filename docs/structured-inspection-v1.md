@@ -170,9 +170,10 @@ part of this delivery.
 
 ## Task-13 interaction coverage update
 
-Task-10 semantics above remain unchanged. The optional task-13 assurance service composes the
+Task-10 semantics above remain unchanged. The default task-13 assurance flow for supported work composes the
 existing inspection admission on governed launches; it does not widen `check_readiness`'s action set.
-All task-13 ordinary-client observations remain **pending**.
+The trusted host still requires explicit configuration and scoped grants; missing configuration
+is an unresolved gap. All task-13 ordinary-client observations remain **pending**.
 
 | Task-13 interaction | Delivered structured/host path | Remaining CLI or deferred work |
 |---|---|---|

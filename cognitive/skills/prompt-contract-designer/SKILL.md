@@ -1,7 +1,7 @@
 ---
 
 name: prompt-contract-designer
-version: 1.5.2
+version: 1.5.3
 description: Convert rough user tasks into structured execution contracts, enforcing explicit constraints, assumptions, success criteria, and handoff rules before implementation. Consumes recalled lessons from the governed context and records them as unverified claims. Records claims as OPEN only — validation requires evidence this skill cannot hold.
 
 ---
@@ -60,7 +60,7 @@ Before creating or updating a contract:
 Before writing the contract, check the recalled lessons in the context manifest. Task-open tags and
 the kernel's recall rules have already selected, head-filtered, ordered, and bounded this set.
 
-For each relevant lesson, add an OPEN claim with `ailedger claim add --from-lesson LESSON-ID`.
+For each relevant lesson, add an OPEN claim through supplied `record_findings` with `from_lesson`; when unavailable, use authorized CLI `ailedger claim add --from-lesson LESSON-ID`.
 When a recalled lesson carries a runnable verification command, ask the operator to use
 `ailedger lesson recheck`; only the operator can approve and run stored commands.
 
@@ -110,7 +110,7 @@ A transition out of OPEN is invalid without **both**:
 This skill runs before anything executes. It holds no evidence, so it **must not write VALIDATED or REJECTED**. Every assumption it records is OPEN.
 
 Belief held at planning time is not validation. When the plan depends on an unverified belief, use
-that belief as an OPEN claim's statement and record its consequence with `claim add --consequence`:
+that belief as an OPEN claim's statement and record its `consequence` through supplied `record_findings` (authorized CLI fallback: `claim add --consequence`):
 
 - `Proceeding on unverified: <belief>. If wrong: <consequence>.`
 
@@ -180,7 +180,7 @@ ailedger artifact record --task TASK --actor ACTOR --run RUN --id ARTIFACT-ID \
 ```
 
 A revision uses a new artifact id and `--supersedes ARTIFACT-ID`. Record OPEN assumptions with
-`claim add`; propose stable planning decisions with `decision propose`.
+`record_findings` when supplied (otherwise authorized `claim add`); propose stable planning decisions with `decision propose`.
 
 ---
 

@@ -290,3 +290,31 @@ live task permanently unreadable. If a new rule keys on a field that older event
 is safe by construction; otherwise it does not belong in the validator.
 
 Run `dotnet test` before reporting work done.
+
+## Structured tools in a launched run
+
+A run started by `provider launch` may be supplied AILedger's structured tools. In Claude they are
+named `mcp__ailedger__<tool>`. An outer session like this one does not have them; it uses the CLI
+shown above.
+
+When a tool is supplied, it replaces the CLI command it covers:
+
+- `record_findings` for `claim add` and `evidence add`, including `--from-lesson` (`from_lesson`)
+- `record_alternatives` for `alternative record`
+- `record_claim_dispositions` for validated/rejected claim judgments, with the same ResolveClaim requirement; supersession remains CLI
+- `submit_artifact` for VerifierOutput and CodeReviewOutput
+- `inspect_task`, `retrieve_context` and `check_readiness` to read state and check a prerequisite
+
+The host assigns durable IDs, so the prefixes in *Identifiers when more than one agent is writing* apply only to CLI writes. After an
+unknown outcome, retry the exact body and `request_id`; never repeat the write through the CLI. A
+refused tool call is a refusal, not a missing tool. `cognitive/RULES.md` states this in full under
+*Structured tools supersede the CLI examples*.
+
+Handoff assurance (task 13) is the default for supported implementation work. Prepare its trusted
+host configuration as part of normal assurance, through
+`provider launch --assurance-authority FILE --assurance-store DIR` or `ailedger assurance serve`.
+Its tools are `inspect_assurance`, `read_assurance`, `run_assurance_checks`, `record_assurance` and
+`accept_assurance`, each granted by role. Assurance acceptance does not complete a work item.
+Missing host configuration or unsupported scope is an unresolved assurance gap, not permission to
+silently skip it. Existing governed completion and blind-review isolation remain authoritative.
+`docs/handoff-assurance-v1.md` is the contract.

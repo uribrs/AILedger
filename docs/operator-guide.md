@@ -5,9 +5,9 @@
 Install the .NET 8 SDK, then from the repository root run:
 
 ```bash
-dotnet restore AILedger.sln
-dotnet build AILedger.sln --no-restore
-dotnet test AILedger.sln --no-restore
+dotnet restore AILedger.sln --artifacts-path /tmp/ailedger-build
+dotnet build AILedger.sln --artifacts-path /tmp/ailedger-build --no-restore
+dotnet test AILedger.sln --artifacts-path /tmp/ailedger-build --no-restore
 ```
 
 Use the CLI through the project:
@@ -16,11 +16,11 @@ Use the CLI through the project:
 dotnet run --project src/AILedger.Cli -- --help
 ```
 
-Examples below omit `--root`. Its default is the platform-local application-data directory under `AILedger/tasks`; when using another root, pass the same `--root PATH` to every command. Keep that root fully disjoint from every provider work scope: neither may contain the other.
+By default, the CLI walks upward to find a `.ailedger` directory, using its `tasks` directory and the adjacent `<home>/lessons` store. Without a discovered home it falls back to platform-local application data under `AILedger`. Explicit `--root PATH` and `--lesson-root PATH` override those locations. Provider scopes inside the authoritative ledger root are refused; a workspace containing the ledger is supported for self-hosting. Examples below use the operator CLI; keep explicit root overrides consistent across commands.
 
 ## Cognitive snapshot and manifest verification
 
-`cognitive/manifest.json` identifies the source repository commit and SHA-256 of every copied skill and governing-rules artifact. `context build`, `provider launch`, and `provider resume` load that manifest and verify every Markdown artifact before use. A missing file, a path escaping the cognitive root, or a hash mismatch fails closed.
+`cognitive/manifest.json` identifies the source repository path, generation time and SHA-256 of every copied skill and governing-rules artifact. `context build`, `provider launch`, and `provider resume` load that manifest and verify every Markdown artifact before use. A missing file, a path escaping the cognitive root, or a hash mismatch fails closed.
 
 The CLI discovers `cognitive/` by walking upward from the current directory or executable directory. Override it with `--cognitive-root PATH` or `AILEDGER_COGNITIVE_ROOT`.
 
@@ -37,6 +37,43 @@ jq -r '.files[] | [.path, .sha256] | @tsv' cognitive/manifest.json \
 ```
 
 Treat snapshot edits as versioned methodology changes: edit deliberately, update the manifest hash inventory and provenance, and run the full test suite. Do not quietly patch copied skill text to make a context build pass.
+
+## Structured agent interactions
+
+Trusted provider launches supply the following tools with host-bound task, actor, run and grants.
+An outer coordinating session does not automatically receive them. Use actual advertised names
+and schemas (Claude commonly prefixes them with `mcp__ailedger__`).
+
+| Operation | Preferred tool |
+|---|---|
+| Batch related open claims and directional evidence, including lesson provenance | `record_findings` |
+| Batch rejected approaches | `record_alternatives` |
+| Explicit authorized claim judgments | `record_claim_dispositions` |
+| Complete VerifierOutput or CodeReviewOutput content and metadata | `submit_artifact` |
+| Relevant current state | `inspect_task` |
+| Omitted records, chunks and own receipts | `retrieve_context` |
+| Uncertain supported prerequisites | `check_readiness` |
+
+Keep host-assigned durable IDs and request-local key mappings. Preserve the original body,
+`request_id` and trusted binding for an uncertain retry; never duplicate it through CLI or a new key.
+A refusal is authoritative, not an unavailable endpoint. For covered operations, CLI fallback needs
+an unavailable endpoint and actual authority, or explicit operator/debug use. Other artifact kinds,
+task/work preparation, decisions, escalations, context building, dispatch, stages and completion
+retain their authorized CLI paths. The examples below illustrate those operator/compatibility paths.
+
+Inspection does not replace `context build`. Follow returned versioned retrieval cursors and
+re-inspect stale snapshots. Check readiness when prerequisites are uncertain, not before every
+routine call. A ready result reserves nothing and grants no authority; unknown is not a pass.
+
+Task 13 is the default assurance flow for supported implementation work: `inspect_assurance`, `read_assurance`,
+`run_assurance_checks`, `record_assurance` and `accept_assurance`, restricted by principal grants.
+Use a fresh governed `provider launch` with both `--assurance-authority FILE` and
+`--assurance-store DIR`, or an explicitly authorized external `assurance serve` host. Resume is
+unsupported for this assurance path. Prepare the trusted host configuration during normal
+assurance setup; missing configuration or unsupported scope remains an explicit unresolved gap. Read the [assurance contract](handoff-assurance-v1.md) for bounded
+UTF-8 inputs, immutable bindings, partial checkpoints, independent evidence, freshness and recovery.
+Acceptance does not complete work or authorize publication. Existing blind code-review context
+rules still apply; task-13 tools do not widen them. Task 12 remains offline and read-only.
 
 ## Governed task example
 
@@ -97,7 +134,16 @@ dotnet run --project src/AILedger.Cli -- history --task task-123
 
 ## Command reference
 
-The implemented command surface is:
+The core command examples are below. Use `ailedger --help`, `ailedger episode --help` and
+`ailedger assurance --help` for the current full surface. Retrospective reporting also accepts
+`--findings`, `--alternatives`, `--artifacts`, `--dispositions` and each matching
+`--NAME-telemetry DIRECTORY` option; these are opt-in sections and preserve historical default
+outputs. Missing observations are not zero cost or evidence of improved judgment.
+
+```text
+retrospective build --task ID [--artifacts --artifacts-telemetry DIRECTORY]
+                    [--dispositions --dispositions-telemetry DIRECTORY]
+```
 
 ```text
 task open          --task ID --actor ID --title TEXT --goal TEXT

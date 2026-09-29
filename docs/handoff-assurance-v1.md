@@ -1,11 +1,38 @@
 # Handoff assurance v1 — task 13
 
-Task 13 adds an explicitly selected assurance boundary for **actual externally produced, bounded
-UTF-8 candidates**. It does not execute implementation. Existing governed implementation/provider
+Task 13 is the default assurance boundary for supported implementation work, using **actual externally produced,
+bounded UTF-8 candidates**. It does not execute implementation. Existing governed implementation/provider
 launches and their authorization, stages, completion and assurance rules remain intact. Task 12
 still executes only offline read-only episodes. Neither path gains waived or invented histories.
 Tasks 1–6 remain accepted. Tasks 7–13 client trials remain pending; implementation, installation
 and Uri's acceptance are separate checkpoints. No billable provider was used in development.
+
+## Default operating policy
+
+As of 2026-09-29, task 13 is the standard candidate assurance flow; a separate opt-in is no longer
+required. This supersedes earlier opt-in guidance. Client-trial status remains pending: adopting
+the default does not claim trials passed.
+
+Task 13 is the default assurance flow for supported implementation work; no separate opt-in is
+needed. Before assurance dispatch, the authorized coordinator/operator arranges the trusted host
+policy and store, complete declared candidate/requirement/source inputs, configured check IDs and
+independent principals. Use a fresh `provider launch` with `--assurance-authority FILE` and
+`--assurance-store DIR`, or the authorized external `assurance serve` entry point. Tools remain
+explicitly granted by the host; a policy default neither creates authority nor supplies missing tools.
+
+The current slice supports bounded UTF-8 input closures (32 paths and 64 KiB per area), not arbitrary
+repository builds. Missing configuration or unsupported scope is an assurance gap to resolve before
+claiming task-13 acceptance. Do not silently revert to a legacy flow, omit material inputs, invent
+receipts or weaken isolation. Preserve governed verifier/reviewer outputs and completion gates as
+well as explicit task-13 acceptance. Requirements-aware task-13 review must use an authorized
+context that permits requirements; it cannot repurpose a blind code reviewer by widening its brief.
+Route any incompatibility to an authorized host/profile decision and retain the unresolved gap.
+
+Existing CLI launches without assurance flags remain a compatibility mechanism and still expose
+seven tools. They do not automatically satisfy the default assurance policy. Host configuration
+is explicit because identities, resource grants, candidate inputs and check authority cannot be
+safely inferred from an untrusted request. No runtime grant or stage gate is weakened by this
+guidance change. Task 12 remains opt-in and offline/read-only.
 
 ## Supported integration
 
@@ -30,7 +57,7 @@ Two trusted entry points are supported:
   existing task-10 inspector's live run/BuildContext admission and the current compatible role:
   CodeReviewer→review, Verifier→verification, Operator→acceptance, and
   Operator/PlanningLead/ImplementationLead→synthesis. Assurance requires a fresh provider launch;
-  provider resume is refused for this optional path. Existing launches without the options still
+  provider resume is refused for this assurance path. Existing launches without the options still
   expose exactly their original seven tools. This does not waive existing dispatch prerequisites.
 * `ailedger assurance serve --authority FILE --store DIR --principal ID --session ID` is a local
   operator-configured MCP entry point for independent external clients or a human's local tool
@@ -185,4 +212,4 @@ by emitting new operation names; use the explicitly configured task-13 host inst
 See [client trial](handoff-assurance-v1/trial.md), [validation](handoff-assurance-v1/validation.md)
 and [installation and retained examples](handoff-assurance-v1/installation.md).
 
-For optional governed launches, every principal-visible input (including dependency inputs) must also remain inside the provider’s existing resource-directory grants and outside the authoritative ledger. Canonical path checks run with live admission on every call; an assurance policy cannot expand those grants.
+For governed launches with task-13 assurance, every principal-visible input (including dependency inputs) must also remain inside the provider’s existing resource-directory grants and outside the authoritative ledger. Canonical path checks run with live admission on every call; an assurance policy cannot expand those grants.

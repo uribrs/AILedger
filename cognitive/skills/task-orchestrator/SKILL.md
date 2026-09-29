@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.8.0
+version: 1.8.1
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
@@ -37,9 +37,9 @@ For a pre-Design recon-only run, follow Internal Recon and return to the launche
 10. Do not dispatch implementation until the coordinator permits the existing execution continuation. This handoff adds neither user approval nor a mandatory new provider run.
 11. If permitted and `direct`: invoke `contract-driven-execution` with `taskPath`.
 12. If permitted and `decompose`: freeze the shared surface first, then fan workers out over disjoint file sets; synthesize in the main thread.
-13. Return declared subject associations and reconciled readiness facts to the coordinator for verifier dispatch. The verifier writes and files `review/verifier-N.md` against the contract and produced artifacts.
+13. Return declared subject associations and reconciled readiness facts to the coordinator for verifier dispatch. The verifier submits VerifierOutput against the contract and produced artifacts, retaining the required report structure.
 14. Repair verifier issues or record unresolved request-coverage gaps explicitly.
-15. Return verifier finding dispositions to the coordinator for paired code-reviewer dispatch on code-bearing work with **minimal context only** (see the Code-Reviewer Run section). The reviewer writes and files `review/code-reviewer-N.md`.
+15. Return verifier finding dispositions to the coordinator for paired code-reviewer dispatch on code-bearing work with **minimal context only** (see the Code-Reviewer Run section). The reviewer submits CodeReviewOutput.
 16. Repair material code-review findings or record accepted technical risks explicitly.
 17. Append final notes to `execution_notes.md`.
 18. After the technical repair and assurance cycle has settled, build and file the closeout synthesis.
@@ -66,7 +66,7 @@ Before choosing an execution path, `orchestration_plan.md` must contain the Prob
 
 - **Contract sufficiency:** `sufficient`, or `blocked — <missing information>`. A blocked classification stops planning and returns to the coordinator.
 - **Classes:** zero to three normalized, ledger-compatible tags. Inspect existing ledger tags first; reuse an exact or clear semantic match, otherwise mint a lowercase slug. The vocabulary is open. `No class applies` is valid with a concrete reason.
-- **Classified prior art:** inspect recalled lessons in the manifest using the chosen classes. Do not duplicate claims the designer already added. Add only newly relevant beliefs as OPEN claims with `ailedger claim add --from-lesson LESSON-ID`, then cite their claim ids in the plan. Known failure modes are design inputs, not assumptions.
+- **Classified prior art:** inspect recalled lessons in the manifest using the chosen classes. Do not duplicate claims the designer already added. Add only newly relevant beliefs as OPEN claims through supplied `record_findings` with `from_lesson` (authorized CLI fallback: `ailedger claim add --from-lesson LESSON-ID`), then cite their claim ids in the plan. Known failure modes are design inputs, not assumptions.
 - **Recon correction:** confirm, reject, or refine the provisional classes after internal recon. Classification is revisable whenever later evidence changes the task's shape.
 - **New or changed artifacts:** list every artifact this plan introduces, or whose behavior it changes — exception type, DTO, config key, branch, retry or resilience policy, persisted state, wrapper, or a change in what an existing interface does. For each, trace it one hop into the code that already exists:
 
@@ -117,7 +117,7 @@ When research is required:
 - Name one non-duplicate topic in the plan.
 - Have the operator launch `technical-researcher` with `taskPath`, a filesystem-safe `<topic-slug>`, and the exact question plus the decision it can change. Keep the source trigger separate: `assumption:<id>` or `classification:<tag>`.
 - The researcher writes to `research/<topic-slug>.md` and records claims and evidence through the kernel. Assumption-triggered work produces evidence supporting or refuting the triggering claim; classification-triggered work answers the decision question and is cited from the plan.
-- After assumption-triggered research records directional evidence, have an operator or lead holding `ResolveClaim` run `ailedger claim resolve --status validated|rejected --evidence EVIDENCE-ID`. The researcher supplies the evidence id and direction but cannot resolve the claim.
+- After assumption-triggered research records directional evidence, have an operator or lead holding `ResolveClaim` use supplied `record_claim_dispositions`, or authorized CLI `ailedger claim resolve --status validated|rejected --evidence EVIDENCE-ID` when unavailable. The researcher supplies the evidence id and direction but cannot resolve the claim.
 
 When research is not required, record a one-line rationale in `orchestration_plan.md` under Research Decisions.
 
@@ -177,9 +177,10 @@ ailedger lesson consult --task TASK --actor LEAD --run RECON-RUN --purpose recon
 - Use the tags a lesson about this ground would carry: the classes and subsystems the recon covers.
   Selection is any-tag overlap, so a lesson tagged outside your tags is not served.
 - Every served lesson joins the task and can be cited in it. Evaluate each against the current
-  findings. Record an applicable one with `ailedger claim add --from-lesson LESSON-ID` (or
-  `--from-lesson` on a decision or alternative). Say in the report why the others do not apply.
-- `claim add --from-lesson` changes the claim digest like any claim change. Consult again after it,
+  findings. Record applicable claims through supplied `record_findings` with `from_lesson`, or alternatives
+  through supplied `record_alternatives` with `from_lesson`. Authorized CLI fallbacks use
+  `--from-lesson`; decisions remain on the CLI. Say in the report why the others do not apply.
+- Recording a lesson-derived claim changes the claim digest like any claim change. Consult again after it,
   then generate the template. A consultation by another run, or before the last claim change, does
   not count.
 - A result with no lessons (`"lessons": []`) is a valid consultation and satisfies the check. State
@@ -821,7 +822,7 @@ Use the checklist in [orchestration-rubric.md](./references/orchestration-rubric
 
 ### Assumption Disposition — Required Section
 
-Every `verifier-N.md` must use the kernel-required assumption disposition table and contain one row
+Every VerifierOutput report must use the kernel-required assumption disposition table and contain one row
 per assumption in the manifest, not merely the claims on which the work item depends.
 
 Rules:
@@ -831,13 +832,13 @@ Rules:
 - An assumption still OPEN at this point is a verifier finding, ranked with the rest. It feeds the normal repair cycle: either produce the evidence, or record it as NEVER-TESTED with the resulting risk stated.
 - A REJECTED assumption must record what contradicted it, and what must not be re-assumed without new evidence.
 - Also record **decision drift**: for each decision in the manifest, whether it landed as decided, changed during execution (with the reason), or was abandoned.
-- Record new findings with `ailedger claim add` and their supporting or refuting citations with `ailedger evidence add`. Do not edit the assumption projection.
+- Record related new findings and directional citations through supplied `record_findings`; when unavailable, use authorized `ailedger claim add` and `ailedger evidence add`. Do not edit the assumption projection.
 
 Silence is the dominant failure mode here. An assumption nobody revisited looks identical to one that held, and NEVER-TESTED exists to make that distinction impossible to skip.
 
 ### Attention Item Disposition — Required Section
 
-Place this section **after** the Assumption Disposition table. Every `verifier-N.md` must contain exactly one row for every R-id in the plan's Attention Items table:
+Place this section **after** the Assumption Disposition table. Every VerifierOutput report must contain exactly one row for every R-id in the plan's Attention Items table:
 
 Use the attention disposition table required by `artifact record`. The kernel owns the columns,
 R-prefixed ids, allowed disposition vocabulary, and required evidence cells.
@@ -846,9 +847,12 @@ R-prefixed ids, allowed disposition vocabulary, and required evidence cells.
 
 `unresolved` is a verifier finding and prevents a clean pass; it may be repaired in a later verifier cycle. A reusable `not-applicable` result is lesson-bearing. Reusable handled or accepted risks enter the ledger only through the existing decision-drift path.
 
-The verifier writes its output to `review/verifier-N.md`, where `N` increments on each repair cycle (`verifier-1.md`, `verifier-2.md`, ...). Existing files are not overwritten. The disposition table is rebuilt each cycle, so drift is recorded per cycle rather than as a single post-mortem.
+When supplied, use `submit_artifact` with kind `verifier-output` (VerifierOutput) and the complete report content,
+including all required tables, while the producer run is active. Keep the host-assigned artifact ID
+and receipt; do not create a second CLI submission. The host binds producer, work membership and
+candidate. For authorized CLI fallback when the endpoint is unavailable, write `review/verifier-N.md`, where `N` increments on each repair cycle (`verifier-1.md`, `verifier-2.md`, ...). Existing files are not overwritten. The disposition table is rebuilt each cycle, so drift is recorded per cycle rather than as a single post-mortem.
 
-File each completed review while its verifier run is active:
+CLI fallback filing, while the verifier run is active:
 
 ```bash
 ailedger artifact record --task TASK --actor ACTOR --run RUN \
@@ -867,10 +871,32 @@ item; a missing current plan is a filing blocker, not grounds to waive it.
 
 If the verifier finds issues:
 
-- Return findings to the orchestrator for repair planning and the coordinator convergence check. Workers perform authorized repairs; the coordinator dispatches fresh verification afterward, producing a new `verifier-N.md`. The verifier does not implement its own repairs.
+- Return findings to the orchestrator for repair planning and the coordinator convergence check. Workers perform authorized repairs; the coordinator dispatches fresh verification afterward, producing a new VerifierOutput report. The verifier does not implement its own repairs.
 - Otherwise state the unresolved gaps explicitly in the final response.
 
 Do not suppress verifier findings just to keep the flow tidy.
+
+### Default handoff assurance
+
+Task 13 is the default assurance flow for supported implementation work; no separate opt-in is
+needed. Before assurance dispatch, the authorized coordinator/operator arranges the trusted host
+policy and store, complete declared candidate/requirement/source inputs, configured check IDs and
+independent principals. Use a fresh `provider launch` with `--assurance-authority FILE` and
+`--assurance-store DIR`, or the authorized external `assurance serve` entry point. Tools remain
+explicitly granted by the host; a policy default neither creates authority nor supplies missing tools.
+
+The current slice supports bounded UTF-8 input closures (32 paths and 64 KiB per area), not arbitrary
+repository builds. Missing configuration or unsupported scope is an assurance gap to resolve before
+claiming task-13 acceptance. Do not silently revert to a legacy flow, omit material inputs, invent
+receipts or weaken isolation. Preserve governed verifier/reviewer outputs and completion gates as
+well as explicit task-13 acceptance. Requirements-aware task-13 review must use an authorized
+context that permits requirements; it cannot repurpose a blind code reviewer by widening its brief.
+Route any incompatibility to an authorized host/profile decision and retain the unresolved gap.
+
+Assess complete input/dependency coverage and meaningful configured checks during planning. Preserve
+partial reports, unknown outcomes and contradictions through the structured assurance tools; after
+changes, reassess affected areas and obtain new applicable independent evidence before acceptance.
+Targeted synthesis remains driven by actual disagreement, not a mandatory extra stage.
 
 ## Code-Reviewer Run
 
@@ -903,8 +929,9 @@ allow-list in `code-reviewer`.
 
 ### Output
 
-The reviewer writes `review/code-reviewer-N.md` (increment `N` on each repair cycle; never overwrite)
-and files it as `CodeReviewOutput` from its active work-scoped run.
+The reviewer submits the complete report through supplied `submit_artifact` with kind `code-review-output` (CodeReviewOutput)
+from its active work-scoped run. Authorized CLI fallback writes `review/code-reviewer-N.md`
+(increment `N` on each repair cycle; never overwrite) and files it with `artifact record`.
 
 ### Repairs
 

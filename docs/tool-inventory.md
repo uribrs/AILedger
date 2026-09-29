@@ -26,6 +26,22 @@ and decisions still belong in the task's normal evidence record.
 
 ## Confirmed capabilities
 
+### AILedger recording, inspection and assurance
+
+- **Location/context:** `ailedger` operator CLI and the `ailedger` MCP endpoint supplied to trusted
+  Codex/Claude provider launches. An outer coordinator does not automatically receive MCP tools.
+- **Use:** the [interaction guide](operator-guide.md#structured-agent-interactions) maps the seven
+  recording/inspection tools and five scoped task-13 tools. Task 13 is the default assurance flow
+  for supported work; configure its trusted authority/store as part of normal assurance preparation.
+- **Check:** inspect the actual session's advertised tools and grants. CLI presence alone does not
+  establish a host binding. `ailedger version` identifies the installed build; use the retained
+  [task-13 installation probes](handoff-assurance-v1/installation.md) as historical evidence.
+- **Boundary:** capability refusals remain authoritative. Bounded UTF-8 scope, independent principals,
+  current read/check receipts and explicit acceptance remain required. Missing setup is a gap;
+  governance is not waived. Client-trial acceptance remains pending.
+- **Evidence:** task-13 scripted installed probes verified the transport, calls and recovery on
+  2026-09-29; no live model episode or measured judgment improvement is inferred.
+
 ### Java and Spark
 
 - **Location:** host Homebrew OpenJDK, not Docker:

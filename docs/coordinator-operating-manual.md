@@ -20,6 +20,9 @@ quoted refusal continues beyond what is shown.
 
 ---
 
+Interaction routing refreshed on 2026-09-29. The source commit above remains the historical
+anchor for unchanged guard citations; this refresh does not re-certify every cited line.
+
 ## Quick reference
 
 ### 1. How to behave, and where your authority ends
@@ -57,12 +60,26 @@ Three kinds of authority are separate (judgment):
 | `work complete` | Worker run, verifier run (other provider, after the work), and for a scoped item or any item with new assurance a current CodeReviewOutput. No active run, no open escalation. |
 | `lesson mark` | Stage is Learn. Actor is operator or lead. |
 | Archive | No active run, no open challenge, at least one lesson mark that mints a lesson. |
-| a new id | Ids are unique per kind per task. Read `status` for taken ids. Use your own prefix (policy, `CLAUDE.md` "Identifiers"). |
+| a new id | Supplied structured recording tools allocate durable IDs; retain receipt mappings. For remaining CLI operations, inspect taken IDs and use your own prefix (policy, `CLAUDE.md` "Identifiers"). |
 
 `ailedger preflight batch` checks a planned set of launches against one snapshot without starting
 them. It reserves nothing and does not promise a later launch will pass.
 
 ### 3. Reading and tools
+
+- Prefer the seven supplied structured tools for covered operations; see the
+  [interaction guide](operator-guide.md#structured-agent-interactions). CLI examples here describe
+  operator and authorized fallback paths. `submit_artifact` covers only VerifierOutput and
+  CodeReviewOutput; it preserves the same producer, stage and content requirements.
+- Inspection is not a governed brief. Use `context build` to obtain or refresh one; use readiness
+  checks for uncertain prerequisites rather than adding a check before every routine call.
+- Retain host ID mappings and retry uncertain writes with the original body/key/binding. A refusal
+  does not authorize a CLI retry, new identity, waiver or replacement endpoint.
+- Default [task-13 assurance](handoff-assurance-v1.md) uses explicitly scoped additional tools.
+  Arrange trusted host configuration during normal assurance preparation; missing configuration or
+  unsupported scope is an explicit gap, not a reason to skip it silently.
+  It is separate from the governed frozen `--candidate` flow below and does not replace its
+  independent verifier/reviewer outputs or completion rules.
 
 - Consult the [tool and environment inventory](tool-inventory.md) before locating or installing a
   needed capability; follow its discovery and update instructions for missing or stale entries (guidance).

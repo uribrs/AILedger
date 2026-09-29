@@ -264,19 +264,18 @@ is safe by construction; otherwise it does not belong in the validator.
 
 Run `dotnet test` before reporting work done.
 
-## Structured recording in supplied provider sessions
+## Structured interactions in supplied provider sessions
 
-When the host supplies `ailedger.record_findings` and `ailedger.record_alternatives`, use
-those tools directly for authored observations and rejected approaches. They supersede
-shell examples for those recording operations; the operator CLI remains available.
-Do not allocate durable IDs or ask another actor to transcribe your alternative merely
-because your existing assignment lacks `RecordAlternative`. New default researcher,
-worker, verifier and code-reviewer assignments include that narrow capability. Existing
-assignments retain their recorded grants: a missing grant requires an explicit operator
-assignment change preserving the intended capabilities, never self-expansion or an
-automatic reassignment. Recording grants no resolution, acceptance, scope or approval.
+Follow `cognitive/RULES.md` and the served role skills for current interaction mechanics. Prefer
+supplied `record_findings`, `record_alternatives`, `record_claim_dispositions`, `submit_artifact`,
+`inspect_task`, `retrieve_context` and `check_readiness` for supported operations. The older CLI and
+manual-ID examples above are authorized fallback/operator paths; retain host-assigned ID mappings
+for structured writes. Claim supersession and unsupported artifact kinds remain CLI operations.
+Retry uncertain writes with the original body/key/binding; a refusal is not unavailability.
+Inspection does not replace `context build`; check readiness when prerequisites are uncertain.
 
-Keep original request bodies/keys and returned mappings. After a lost response or
-`outcome_unknown`, retry the exact request on its original trusted binding. Changed
-content under a committed key conflicts. See `docs/structured-alternatives-v1.md` for
-bounds, text normalization, link validation, recovery and measurement limits.
+Task 13 is the default assurance flow for supported implementation work. Arrange trusted host
+configuration during normal assurance preparation; use only actually supplied scoped grants.
+Missing configuration or unsupported scope is an unresolved gap, not permission to silently skip
+assurance. Preserve independent evidence, explicit acceptance, blind-review isolation and governed
+completion gates. See `docs/handoff-assurance-v1.md`; task 12 remains opt-in and offline/read-only.

@@ -519,7 +519,7 @@ and [retained recovery example](../docs/bounded-execution-v1/examples/recovery.m
 other limited task. Inspect the full experience, including an interruption probe. The existing path
 remains usable. Do not present this limited trial as full assurance for a code change.
 
-### 13. Preserve assurance across handoffs — installed, client trial pending
+### 13. Preserve assurance across handoffs — installed, default for supported work, client trial pending
 
 **User effect:** useful independent checks and dependency corrections survive the smaller execution
 model without requiring every task to traverse the same ceremonial route.
@@ -544,6 +544,10 @@ spend, global configuration change or task-14 implementation is included. See th
 [checkpoint-F trial](../docs/handoff-assurance-v1/trial.md). **2.0.180 from d338d3b is installed**; see the
 [installation receipt and retained example](../docs/handoff-assurance-v1/installation.md).
 Client acceptance remains a separate pending checkpoint.
+
+**Operating policy (2026-09-29):** task 13 is now the default assurance flow for supported work,
+without a separate opt-in. Trusted host configuration, supported input bounds, independent evidence
+and explicit acceptance remain required. This changes adoption policy, not the pending trial result.
 
 **Checkpoint F / exit:** install the verified assurance slice; Uri runs a bounded implementation task
 through it. Inspect actual findings, candidate freshness, repairs, preserved knowledge and human

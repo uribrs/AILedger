@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.9.0
+version: 1.9.1
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -27,6 +27,27 @@ The coordinator's job is bounded to six things:
 6. Report closeout eligibility and, only when requested, route plan-then-apply retention.
 
 If you find yourself making planning judgments inside this skill, stop. Move the judgment to the skill that owns it.
+
+## Default assurance preparation
+
+Task 13 is the default assurance flow for supported implementation work; no separate opt-in is
+needed. Before assurance dispatch, the authorized coordinator/operator arranges the trusted host
+policy and store, complete declared candidate/requirement/source inputs, configured check IDs and
+independent principals. Use a fresh `provider launch` with `--assurance-authority FILE` and
+`--assurance-store DIR`, or the authorized external `assurance serve` entry point. Tools remain
+explicitly granted by the host; a policy default neither creates authority nor supplies missing tools.
+
+The current slice supports bounded UTF-8 input closures (32 paths and 64 KiB per area), not arbitrary
+repository builds. Missing configuration or unsupported scope is an assurance gap to resolve before
+claiming task-13 acceptance. Do not silently revert to a legacy flow, omit material inputs, invent
+receipts or weaken isolation. Preserve governed verifier/reviewer outputs and completion gates as
+well as explicit task-13 acceptance. Requirements-aware task-13 review must use an authorized
+context that permits requirements; it cannot repurpose a blind code reviewer by widening its brief.
+Route any incompatibility to an authorized host/profile decision and retain the unresolved gap.
+
+The orchestrator identifies complete inputs, criteria, check relevance and scope limits; the
+coordinator routes that declared plan through authorized host setup. Preserve configured independent
+principals and explicit acceptance; do not treat setup as a request for another feature opt-in.
 
 ## The Pipeline
 
@@ -202,7 +223,10 @@ replace this accounting. The orchestrator judges the evidence; the coordinator c
 
 Through the authorized operator, dispatch a fresh verifier with explicit membership and candidate. After its completed applicable output, unchanged-byte comparison and orchestrator finding disposition, dispatch a fresh isolated reviewer for code-bearing work with identical membership/provenance/candidate and the exact paired verifier run ID. Use the CLI forms in `task-orchestrator`; never supply task narrative or findings as reviewer framing. Complete selected source artifacts, including comments, remain review evidence under the code-reviewer source-as-data boundary. Child runs do not acquire dispatch authority from this skill.
 
-After dispatch, use `ailedger status` and `ailedger artifact list` to confirm a completed verifier
+After dispatch, use supplied `inspect_task` and `retrieve_context` for covered state and missing
+records; use authorized `ailedger status` and `ailedger artifact list` when unavailable or when the
+needed inspection is unsupported. These reads do not replace `context build`. Use `check_readiness`
+when a supported prerequisite is uncertain, not before every routine action. Confirm a completed verifier
 run and applicable current VerifierOutput exist for every selected member, followed by a completed
 paired code-reviewer run and applicable CodeReviewOutput when work is code-bearing. One covering
 pair can satisfy several members; do not require a separate pair per item. Confirm the recorded

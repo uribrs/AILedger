@@ -5,11 +5,16 @@ internal static class CliHelpText
     public const string Text = """
         AILedger 2.0 governed task CLI
 
-        Global options: --root PATH        (default: platform local application data/AILedger/tasks)
-                        --lesson-root PATH (default: platform local application data/AILedger/lessons)
+        Global options: --root PATH        (default: discovered home/.ailedger/tasks)
+                        --lesson-root PATH (default: discovered home/lessons)
+        Home discovery walks upward for .ailedger; otherwise defaults use platform local
+        application data/AILedger/tasks and /lessons.
         Every governed mutation requires an explicit --actor ID. Repeat list options once per value.
         Experimental offline episodes use a separate trusted host binding and store:
         episode --help      run/resume/inspect/reconcile; read-only, no model spend or acceptance
+        assurance --help    scoped MCP serve and interrupted-check reconciliation;
+                           immutable inputs, independent evidence and explicit acceptance.
+                           Assurance acceptance does not complete governed work.
 
         version            (no options)   what this build was made from
         task open          --task ID --actor ID --title TEXT --goal TEXT [--tag TAG]
@@ -19,6 +24,7 @@ internal static class CliHelpText
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
         retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY] [--alternatives] [--alternatives-telemetry DIRECTORY]
+                           [--artifacts] [--artifacts-telemetry DIRECTORY] [--dispositions] [--dispositions-telemetry DIRECTORY]
                            (what governance did on one task and what it cost)
                            Counts, durations and the causal chains the log can join, with no score,
                            grade or overall number anywhere, and a notMeasured list naming what this
@@ -192,13 +198,24 @@ internal static class CliHelpText
                           --coordinator-session ID --cause EVENT-ID
                           --also-work ID (repeatable) --candidate SHA256 --verifier-run ID
                           --max-context-bytes N (default 262144; required context must fit)
+                          --assurance-authority FILE --assurance-store DIR (both; fresh launch only)
 
         Context prioritizes selected work and its dependencies, omits obsolete claims/decisions unless
         still required, and preserves role isolation. The byte budget may omit background lessons/marks;
         the manifest reports omissions. Required records, instructions and referenced lessons are never
         truncated. Narrow --work or explicitly raise the limit when required context alone is too large.
 
-        Assurance selection uses --work A --also-work B --candidate SHA256. Every member is explicit;
+        Trusted launches supply record_findings, record_alternatives, record_claim_dispositions,
+        submit_artifact (VerifierOutput/CodeReviewOutput), inspect_task, retrieve_context and
+        check_readiness. Prefer supplied tools for covered operations; retain host ID mappings and
+        retry uncertain writes with the original body/key/binding. Refusal is not unavailability.
+        CLI remains for unsupported operations and authorized fallback/operator/debug use.
+        Inspection does not replace context build; check readiness when prerequisites are uncertain.
+        Default task-13 assurance for supported work requires explicit trusted host setup;
+        missing configuration or unsupported scope is an assurance gap. Scoped grants add inspect_assurance, read_assurance, run_assurance_checks,
+        record_assurance and accept_assurance according to the configured principal.
+
+        Governed frozen assurance selection uses --work A --also-work B --candidate SHA256. Every member is explicit;
         duplicates and --also-work without --work are refused. Repeated --work retains last-value
         behavior. --candidate also opts a singleton into frozen assurance. Only verifier/reviewer
         roles may use it. A reviewer requires --verifier-run naming a completed verifier over the
