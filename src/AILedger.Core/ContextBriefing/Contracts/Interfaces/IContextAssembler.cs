@@ -18,6 +18,12 @@ public interface IContextAssembler
         IReadOnlyList<ContextArtifact> availableArtifacts,
         DateTimeOffset assembledAt);
 
+    ContextManifest BuildForLaunch(
+        GovernedTaskState state,
+        StartRunCommand launch,
+        IReadOnlyList<ContextArtifact> availableArtifacts,
+        DateTimeOffset assembledAt);
+
     // The skills this role would be served now, in manifest order. The gate needs them without
     // building a whole manifest, and deriving them from the same filter and the same ordering is
     // what keeps a freshness check from refusing a brief that is in fact current.

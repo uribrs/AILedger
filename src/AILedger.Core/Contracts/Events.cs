@@ -30,6 +30,7 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(WorkItemInvalidated), "work.invalidated")]
 [JsonDerivedType(typeof(RunStarted), "run.started")]
 [JsonDerivedType(typeof(RunCompleted), "run.completed")]
+[JsonDerivedType(typeof(ProducerOutcomeDeclared), "run.outcome-declared")]
 [JsonDerivedType(typeof(StagePrerequisitesWaived), "stage.prerequisites-waived")]
 [JsonDerivedType(typeof(StageTransitioned), "stage.transitioned")]
 [JsonDerivedType(typeof(EscalationRaised), "escalation.raised")]

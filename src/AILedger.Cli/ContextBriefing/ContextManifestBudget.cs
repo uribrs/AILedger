@@ -24,7 +24,8 @@ internal static class ContextManifestBudget
         throw new CliUsageException("--max-context-bytes must be a positive integer.");
     }
 
-    internal static ContextManifest Apply(ContextManifest manifest, int maximumBytes, JsonSerializerOptions json)
+    internal static ContextManifest Apply(ContextManifest manifest, int maximumBytes, JsonSerializerOptions json,
+        bool prospectiveLaunch = false)
     {
         if (maximumBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maximumBytes));
         var referenced = manifest.Artifacts
@@ -45,8 +46,20 @@ internal static class ContextManifestBudget
             };
         }
 
-        int Bytes(ContextManifest value) =>
-            JsonSerializer.SerializeToUtf8Bytes(value, json).Length + Encoding.UTF8.GetByteCount(Environment.NewLine);
+        int Bytes(ContextManifest value)
+        {
+            // Reserve only metadata that grows at run start. Required content uses the real
+            // assembly and work activation projection. This sizing copy is never delivered.
+            if (prospectiveLaunch)
+                value = value with
+                {
+                    TaskVersion = long.MaxValue,
+                    AssembledAt = new DateTimeOffset(9999, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999),
+                    NextActionContract = value.NextActionContract is { } contract
+                        ? contract with { ObservedTaskVersion = long.MaxValue } : null
+                };
+            return JsonSerializer.SerializeToUtf8Bytes(value, json).Length + Encoding.UTF8.GetByteCount(Environment.NewLine);
+        }
 
         var full = Keep(background.Length);
         if (Bytes(full) <= maximumBytes) return full;

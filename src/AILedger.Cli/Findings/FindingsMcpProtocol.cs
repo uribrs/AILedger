@@ -22,10 +22,11 @@ internal static class FindingsMcpProtocol
             serverInfo = new { name = "ailedger-findings", version = "1.0.0" } };
     }
 
-    internal static object Tools(bool alternatives = false, bool artifacts = false, bool dispositions = false, bool inspection = false, IReadOnlyList<string>? assurance = null, bool includeFindings = true)
+    internal static object Tools(bool alternatives = false, bool artifacts = false, bool dispositions = false, bool inspection = false, IReadOnlyList<string>? assurance = null, bool includeFindings = true, bool producerOutcome = false)
     {
         var tools = new List<object>();
         if (includeFindings) tools.Add(FindingsTool());
+        if (producerOutcome) tools.Add(ProducerOutcomeTool());
         if (assurance is not null) tools.AddRange(assurance.Select(AILedger.Cli.Assurance.AssuranceTools.Describe));
         if (alternatives) tools.Add(AlternativesTool());
         if (dispositions) tools.Add(DispositionsTool());
@@ -39,6 +40,16 @@ internal static class FindingsMcpProtocol
                     annotations = new { readOnlyHint = true, destructiveHint = false, idempotentHint = true, openWorldHint = false } });
         return new { tools };
     }
+
+    private static object ProducerOutcomeTool() => new
+    {
+        name = "declare_producer_outcome",
+        description = "Worker/Researcher only: declare reported-complete, blocked or partial with existing own evidence IDs. One immutable declaration per host-bound run; retry identical arguments. Self-report only; never closes or accepts work.",
+        inputSchema = JsonSerializer.Deserialize<JsonElement>("""
+            {"type":"object","additionalProperties":false,"required":["outcome","output_evidence_ids","blocker_evidence_ids"],"properties":{"outcome":{"type":"string","enum":["reported-complete","blocked","partial"]},"output_evidence_ids":{"type":"array","maxItems":16,"items":{"type":"string","minLength":1,"maxLength":256}},"blocker_evidence_ids":{"type":"array","maxItems":16,"items":{"type":"string","minLength":1,"maxLength":256}}}}
+            """),
+        annotations = new { readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = false }
+    };
 
     private static object ArtifactTool() => new
     {

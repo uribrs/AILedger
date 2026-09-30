@@ -164,6 +164,10 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             throw counted;
         }
 
+        // The new per-run declaration has an exact, authorized retry path. Handle it under
+        // the same lease without weakening the nonempty-event rule for other commands.
+        if (command is DeclareProducerOutcomeCommand && outcome.Events.Count == 0 &&
+            ReferenceEquals(outcome.State, currentState)) return outcome;
         ValidateOutcome(taskId, currentState, outcome);
         if (outcome.State.Version > _maximumEventsPerTask)
         {

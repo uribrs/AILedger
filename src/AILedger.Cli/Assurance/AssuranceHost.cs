@@ -8,6 +8,41 @@ namespace AILedger.Cli.Assurance;
 
 public static class AssuranceHost
 {
+    public static async Task<AssurancePolicy> PrepareAsync(string authorityPath, string storePath,
+        string principal, string governedRole, IEnumerable<string> grantedRoots, string ledgerRoot, CancellationToken token)
+    {
+        var roots = grantedRoots.ToArray();
+        EnsureProtectedPaths(authorityPath, storePath, roots.Append(ledgerRoot));
+        EnsureStorePath(storePath);
+        var policy = await new FilePolicy(authorityPath).ReadAsync(token).ConfigureAwait(false);
+        AssuranceValidation.Policy(policy);
+        var grant = AssuranceConfiguration.Principal(policy, principal);
+        AssuranceConfiguration.EnsureEnabled(grant);
+        EnsureGovernedRole(grant.Role, governedRole);
+        EnsureGovernedContext(governedRole, AssuranceConfiguration.Areas(policy, principal));
+        EnsureInputGrants(AssuranceConfiguration.InputPaths(policy, principal), roots, ledgerRoot);
+        await AssuranceConfiguration.ValidateInputsAsync(policy, principal, token).ConfigureAwait(false);
+        return policy;
+    }
+
+    public static void EnsureGovernedContext(string role, IReadOnlyList<AssuranceArea> areas)
+    {
+        if (role != "CodeReviewer") return;
+        throw new AssuranceRefusal("incompatible_context",
+            "The configured requirements-aware assurance profile is incompatible with blind CodeReviewer context " +
+            $"(areas: {string.Join(", ", areas.Select(a => a.Id))}; checks: {string.Join(", ", areas.SelectMany(a => a.Criteria).Select(c => c.CheckId).Distinct())}). " +
+            "Use an independently authorized requirements-aware context for this profile and keep the governed code review isolated. " +
+            "Do not supply requirements, plans, coordinator contracts or verifier narratives through assurance inputs, or silently omit required assurance.");
+    }
+
+    private static void EnsureStorePath(string store)
+    {
+        // A missing directory can be created by execution; an existing file in its ancestry cannot.
+        for (var entry = new DirectoryInfo(store); entry is not null; entry = entry.Parent)
+            if (File.Exists(entry.FullName))
+                throw new ArgumentException("Assurance store must name a directory with directory ancestors.");
+    }
+
     public static async Task<AssuranceService> OpenAsync(string authorityPath, string storePath,
         AssuranceSession session, Func<CancellationToken, Task>? authorizeSession, CancellationToken token)
     {

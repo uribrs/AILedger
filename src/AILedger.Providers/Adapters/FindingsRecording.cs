@@ -8,6 +8,7 @@ internal static class FindingsRecording
     internal const string ClaudeAlternativesTool = "mcp__ailedger__record_alternatives";
 
     internal const string ClaudeClaimDispositionsTool = "mcp__ailedger__record_claim_dispositions";
+    internal const string ClaudeProducerOutcomeTool = "mcp__ailedger__declare_producer_outcome";
     internal const string ClaudeArtifactTool = "mcp__ailedger__submit_artifact";
 
     // CLI overrides have precedence over writable user/project files. There is no host binding
@@ -17,8 +18,9 @@ internal static class FindingsRecording
         if (endpoint is null) return;
         ValidateAssuranceTools(endpoint);
         var args = string.Join(", ", endpoint.Arguments.Select(RoslynNavigation.Quote));
-        var extraNames = string.Concat((endpoint.AssuranceTools ?? []).Select(name => ",\"" + name + "\""));
-        var extraGrants = string.Concat((endpoint.AssuranceTools ?? []).Select(name => "," + name + "={approval_mode=\"approve\"}"));
+        var extraTools = (endpoint.AssuranceTools ?? []).Concat(endpoint.AllowProducerOutcome ? new[] { "declare_producer_outcome" } : []);
+        var extraNames = string.Concat(extraTools.Select(name => ",\"" + name + "\""));
+        var extraGrants = string.Concat(extraTools.Select(name => "," + name + "={approval_mode=\"approve\"}"));
         arguments.Add("--config");
         arguments.Add("mcp_servers.ailedger={command=" + RoslynNavigation.Quote(endpoint.Command) +
             ",args=[" + args + "],enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\",\"record_claim_dispositions\",\"inspect_task\",\"retrieve_context\",\"check_readiness\"" + extraNames + "],required=true," +
@@ -43,7 +45,7 @@ internal static class FindingsRecording
         if (request.FindingsEndpoint is null)
             return $"  {command} claim add --task {request.TaskId} --actor {request.ActorId} --id ID --statement TEXT\n" +
                 $"  {command} evidence add --task {request.TaskId} --actor {request.ActorId} --id ID --source-type TYPE --citation TEXT --summary TEXT [--supports CLAIM] [--refutes CLAIM]";
-        return AssuranceGuidance(request.FindingsEndpoint) + """
+        return ProducerOutcomeGuidance(request.FindingsEndpoint) + AssuranceGuidance(request.FindingsEndpoint) + """
             Record claims and evidence with the supplied ailedger record_findings MCP tool directly.
             This recording guidance supersedes claim/evidence shell examples in the manifest's skills.
             Do not shell-translate prose or allocate durable claim/evidence IDs. Example tool arguments:
@@ -111,6 +113,18 @@ internal static class FindingsRecording
             operator recording CLI support remains available outside this supplied path.
             """;
     }
+    private static string ProducerOutcomeGuidance(ProviderFindingsEndpoint endpoint) => !endpoint.AllowProducerOutcome ? "" : """
+            Workers and Researchers: before returning, use declare_producer_outcome on this supplied session.
+            First record output/blocker evidence with record_findings and retain the resulting evidence IDs.
+            Arguments: {"outcome":"blocked","output_evidence_ids":[],"blocker_evidence_ids":["existing-evidence-id"]}.
+            Outcomes are reported-complete, blocked or partial. Use 1–16 existing own evidence references;
+            blocked needs blocker evidence, reported-complete needs output evidence and no blockers.
+            This is one immutable declaration per host-bound run: retry the identical body after uncertainty.
+            No task/actor/run override is accepted. Historical or absent declarations remain unknown.
+            A declaration is self-report, not independent acceptance; never close your own run or work item.
+            Verifiers and reviewers continue to submit their existing governed reports instead.
+            """ + Environment.NewLine;
+
     private static string AssuranceGuidance(ProviderFindingsEndpoint endpoint) => endpoint.AssuranceTools is null ? "" : """
         This host also supplies explicitly scoped handoff assurance tools. Use inspect_assurance to
         discover exact input identities, missing coverage and prior checkpoints. Use read_assurance for

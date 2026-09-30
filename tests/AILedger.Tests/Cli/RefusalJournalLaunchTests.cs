@@ -89,11 +89,12 @@ public sealed class RefusalJournalLaunchTests
         Assert.Equal("provider launch", Assert.Single(ReadJournal(root.Path)).Command);
     }
 
-    // Contract test 6. The other half of the launch site: a refusal raised while the manifest is
-    // built, which is after run.start. Only the cleanup command reaches the service, so without this
-    // row the refusal itself is invisible and the log shows nothing but a run that failed.
-    [Fact]
-    public async Task ARefusalWhileBriefingAppendsOneRowAndStillClosesTheRunFailed()
+    // Known capability failures now refuse during preparation; revocation after preparation
+    // still exercises post-start briefing, refusal journaling and failed-run cleanup.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ARefusalWhileBriefingRecordsItsActualBoundary(bool revokeDuringProbe)
     {
         using var root = new TemporaryDirectory();
         using var providerRoot = new TemporaryDirectory();
@@ -101,13 +102,18 @@ public sealed class RefusalJournalLaunchTests
         var adapter = new CapturingAdapter();
         var application = Application(adapter);
         await OpenTaskWithAWorkerAsync(application, root.Path);
-        // A worker that cannot build context. The manifest is filtered by the subject's role, so the
-        // capability the subject lacks is refused where the brief is assembled — after the run has
-        // started and inside the block that closes it.
-        await application.RunAsync(
+        async Task Revoke() => Assert.Equal(0, await application.RunAsync(
             ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
              "--target", "briefless", "--role", "worker", "--capability", "AddClaim"],
-            CancellationToken.None);
+            CancellationToken.None));
+        if (revokeDuringProbe)
+        {
+            Assert.Equal(0, await application.RunAsync(
+                ["actor", "attach", "--root", root.Path, "--task", "T1", "--actor", "operator",
+                 "--target", "briefless", "--role", "worker"], CancellationToken.None));
+            adapter.OnProbe = Revoke;
+        }
+        else await Revoke();
         var versionBeforeTheAttempt =
             (await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None))!.Version;
 
@@ -119,7 +125,6 @@ public sealed class RefusalJournalLaunchTests
             CancellationToken.None);
 
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
-        var run = state!.Runs[new RunId("R1")];
         var row = Assert.Single(ReadJournal(root.Path));
         Assert.Equal(1, exit);
         Assert.Null(adapter.Request);
@@ -127,13 +132,20 @@ public sealed class RefusalJournalLaunchTests
         Assert.Equal("provider launch", row.Command);
         Assert.Equal("provider-launch", row.Site);
         Assert.Equal("Actor 'briefless' lacks capability 'BuildContext'.", row.Message);
-        // The existing handling proceeds unchanged: the run this launch started is still closed.
-        Assert.Equal(AgentRunStatus.Failed, run.Status);
-        // The version the refused attempt was made against, which here is after run.started — one
-        // event — and before the completion that closed it. That is the difference from site 2a, and
-        // asserting it is what stops the two sites from silently sharing one stale number.
-        Assert.Equal(versionBeforeTheAttempt + 1, row.TaskVersion);
-        Assert.True(row.TaskVersion < state.Version);
+        Assert.Equal(revokeDuringProbe ? 1 : 0, adapter.Probes);
+        if (revokeDuringProbe)
+        {
+            Assert.Equal(AgentRunStatus.Failed, state!.Runs[new RunId("R1")].Status);
+            // One role reassignment, then run.started, precede the actual refusal.
+            Assert.Equal(versionBeforeTheAttempt + 2, row.TaskVersion);
+            Assert.Equal(row.TaskVersion + 1, state.Version);
+        }
+        else
+        {
+            Assert.Empty(state!.Runs);
+            Assert.Equal(versionBeforeTheAttempt, row.TaskVersion);
+            Assert.Equal(versionBeforeTheAttempt, state.Version);
+        }
     }
 
     // Open the task and attach one non-operator actor that owns nothing. That is all an
@@ -207,11 +219,17 @@ public sealed class RefusalJournalLaunchTests
     private sealed class CapturingAdapter : IAgentAdapter
     {
         public AgentLaunchRequest? Request { get; private set; }
+        public Func<Task>? OnProbe { get; set; }
+        public int Probes { get; private set; }
 
         public string Provider => "codex";
 
-        public Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken) =>
-            Task.FromResult("test");
+        public async Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken)
+        {
+            Probes++;
+            if (OnProbe is not null) await OnProbe();
+            return "test";
+        }
 
         public Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
         {

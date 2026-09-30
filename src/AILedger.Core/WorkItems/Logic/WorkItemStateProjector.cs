@@ -49,9 +49,12 @@ internal static class WorkItemStateProjector
         return state with { WorkItems = Set(state.WorkItems, abandoned.WorkItemId, workItem) };
     }
 
-    internal static GovernedTaskState ActivateForRun(GovernedTaskState state, AgentRun run)
+    internal static GovernedTaskState ActivateForRun(GovernedTaskState state, AgentRun run) =>
+        ActivateForWork(state, WorkCoverage.Effective(run.WorkItemId, run.Assurance));
+
+    internal static GovernedTaskState ActivateForWork(GovernedTaskState state, IReadOnlyList<WorkItemId> members)
     {
-        foreach (var member in WorkCoverage.Effective(run.WorkItemId, run.Assurance))
+        foreach (var member in members)
             state = UpdateStatus(state, member, WorkItemStatus.Active);
         return state;
     }

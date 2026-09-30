@@ -22,16 +22,13 @@ public sealed partial class AssuranceService : IAssuranceService
     private readonly string _policyHash;
     public string Role => Principal(_initial).Role;
     public AssuranceSession Session => _session;
-    public IReadOnlyList<string> AuthorizedInputPaths()
+    public IReadOnlyList<string> AuthorizedInputPaths() => AssuranceConfiguration.InputPaths(_initial, _session.Principal);
+    public IReadOnlyList<AssuranceArea> ConfiguredAreas => AssuranceConfiguration.Areas(_initial, _session.Principal);
+
+    public async Task ValidateConfigurationAsync(CancellationToken token)
     {
-        var selected = new HashSet<string>(Principal(_initial).Areas, StringComparer.Ordinal);
-        var pending = new Queue<string>(selected);
-        while (pending.TryDequeue(out var id))
-            foreach (var dependency in _initial.Areas.Single(area => area.Id == id).DependsOnAreas)
-                if (selected.Add(dependency)) pending.Enqueue(dependency);
-        return _initial.Areas.Where(area => selected.Contains(area.Id))
-            .SelectMany(area => area.CandidatePaths.Concat(area.RequirementPaths).Concat(area.SourcePaths))
-            .Distinct(StringComparer.Ordinal).Select(path => Path.Combine(_initial.CandidateRoot, path)).ToArray();
+        var current = await AuthorizeAsync(token).ConfigureAwait(false);
+        await AssuranceConfiguration.ValidateInputsAsync(current, _session.Principal, token).ConfigureAwait(false);
     }
     public IReadOnlyList<string> Operations { get; }
 
@@ -97,22 +94,18 @@ public sealed partial class AssuranceService : IAssuranceService
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or OperationCanceledException) { }
     }
-    private AssurancePrincipal Principal(AssurancePolicy policy) => policy.Principals.SingleOrDefault(p => p.Id == _session.Principal)
-        ?? throw new AssuranceRefusal("authorization_denied", "Actual host principal has no assurance grant.");
+    private AssurancePrincipal Principal(AssurancePolicy policy) => AssuranceConfiguration.Principal(policy, _session.Principal);
     private async Task<AssurancePolicy> AuthorizeAsync(CancellationToken token)
     {
         await _authorizeSession(token).ConfigureAwait(false);
         var current = await _source.ReadAsync(token).ConfigureAwait(false); Policy(current);
         Require(PolicyIdentity(current) == _policyHash, "authority_changed", "Policy identity changed; restore the original policy for recovery or open a new host session for the new policy.");
         var principal = Principal(current);
-        Require(principal.Enabled && principal.ExpiresAt > DateTimeOffset.UtcNow, "authorization_denied", "The actual principal's grant is revoked or expired.");
+        AssuranceConfiguration.EnsureEnabled(principal);
         return current;
     }
-    private void Scope(AssurancePolicy policy, string area)
-    {
-        Text(area, "area_id", 128);
-        Require(Principal(policy).Areas.Contains(area), "authorization_denied", "The actual principal is not granted this area.");
-    }
+    private void Scope(AssurancePolicy policy, string area) =>
+        AssuranceConfiguration.EnsureAreaGranted(policy, _session.Principal, area);
     private async Task<AssuranceSnapshot> CurrentAsync(AssurancePolicy policy, string area, string? expected, CancellationToken token)
     {
         Scope(policy, area);

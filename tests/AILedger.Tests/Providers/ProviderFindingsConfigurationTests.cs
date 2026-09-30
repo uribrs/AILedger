@@ -9,13 +9,15 @@ namespace AILedger.Tests.Providers;
 public sealed class ProviderFindingsConfigurationTests
 {
     [Theory]
-    [InlineData("claude", false, false)]
-    [InlineData("claude", true, false)]
-    [InlineData("codex", false, false)]
-    [InlineData("codex", true, false)]
-    [InlineData("claude", false, true)]
-    [InlineData("codex", false, true)]
-    public async Task InlineEndpointAndExactToolGrantDoNotDependOnNavigation(string provider, bool navigation, bool resume)
+    [InlineData("claude", false, false, false)]
+    [InlineData("claude", true, false, false)]
+    [InlineData("codex", false, false, false)]
+    [InlineData("codex", true, false, false)]
+    [InlineData("claude", false, true, false)]
+    [InlineData("codex", false, true, false)]
+    [InlineData("claude", false, false, true)]
+    [InlineData("codex", false, false, true)]
+    public async Task InlineEndpointAndExactToolGrantDoNotDependOnNavigation(string provider, bool navigation, bool resume, bool producerOutcome)
     {
         using var directory = new TemporaryDirectory();
         Directory.CreateDirectory(Path.Combine(directory.Path, ".git"));
@@ -24,7 +26,7 @@ public sealed class ProviderFindingsConfigurationTests
         {
             WorkingDirectory = directory.Path,
             NavigationHostAssembly = navigation ? typeof(CliApplication).Assembly.Location : null,
-            FindingsEndpoint = new("/trusted/dotnet", ["/trusted/host.dll", "findings", "relay", "12345", new string('A', 64)])
+            FindingsEndpoint = new("/trusted/dotnet", ["/trusted/host.dll", "findings", "relay", "12345", new string('A', 64)], AllowProducerOutcome: producerOutcome)
         };
         var runner = new ScriptedProcessRunner().Enqueue(0, ["test-version"]);
         if (provider == "codex")
@@ -39,8 +41,8 @@ public sealed class ProviderFindingsConfigurationTests
             {
                 var config = ProviderProtocolTests.ValueAfter(invocation.Arguments, "--config");
                 Assert.StartsWith("mcp_servers.ailedger=", config);
-                Assert.Contains("enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\",\"record_claim_dispositions\",\"inspect_task\",\"retrieve_context\",\"check_readiness\"]", config);
-                Assert.Contains("tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"},record_claim_dispositions={approval_mode=\"approve\"},inspect_task={approval_mode=\"approve\"},retrieve_context={approval_mode=\"approve\"},check_readiness={approval_mode=\"approve\"}}", config);
+                Assert.Contains("enabled_tools=[\"record_findings\",\"record_alternatives\",\"submit_artifact\",\"record_claim_dispositions\",\"inspect_task\",\"retrieve_context\",\"check_readiness\"" + (producerOutcome ? ",\"declare_producer_outcome\"" : "") + "]", config);
+                Assert.Contains("tools={record_findings={approval_mode=\"approve\"},record_alternatives={approval_mode=\"approve\"},submit_artifact={approval_mode=\"approve\"},record_claim_dispositions={approval_mode=\"approve\"},inspect_task={approval_mode=\"approve\"},retrieve_context={approval_mode=\"approve\"},check_readiness={approval_mode=\"approve\"}" + (producerOutcome ? ",declare_producer_outcome={approval_mode=\"approve\"}" : "") + "}", config);
                 Assert.Contains("required=true", config);
                 Assert.DoesNotContain("mcp_servers.ailedger", File.ReadAllText(Path.Combine(invocation.Environment["CODEX_HOME"], "config.toml")));
                 briefing = invocation.StandardInput;
@@ -71,6 +73,8 @@ public sealed class ProviderFindingsConfigurationTests
             Assert.DoesNotContain("alternative record --task", briefing);
             Assert.Contains("record_alternatives", briefing);
             Assert.Contains("record_claim_dispositions", briefing);
+            if (producerOutcome) Assert.Contains("declare_producer_outcome", briefing);
+            else Assert.DoesNotContain("declare_producer_outcome", briefing);
             Assert.Contains("judgment is correct", briefing);
             Assert.Contains("submit_artifact", briefing);
             Assert.Contains("inspect_task", briefing);

@@ -66,6 +66,9 @@ internal static class TaskTransitionValidator
             case RunStarted started:
                 RunEventValidator.ValidateStarted(Require(state), @event, started.Run);
                 break;
+            case ProducerOutcomeDeclared declared:
+                ProducerOutcomeRules.ValidateEvent(Require(state), @event.ActorId, declared);
+                break;
             case RunCompleted completed:
                 RunEventValidator.ValidateCompleted(Require(state), @event, completed);
                 break;

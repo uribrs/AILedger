@@ -1,0 +1,95 @@
+{
+  "installed_at_utc": "2026-09-30T10:20:21.532049+00:00",
+  "authorization": "User explicitly requested installation after engineering completion; observation remains user-owned.",
+  "identity": "2.0.186-dirty  from 1ba8aa0",
+  "source_commit": "1ba8aa0147d1bb61a80c56f249f839ff3b91cae1",
+  "source_tree": "dirty; includes untracked phases 1\u20134 files",
+  "source_inventory": "/tmp/ailedger-phase4-candidate/source-sha256.json",
+  "source_inventory_sha256": "2162b3c3d01a90024643ffaaee1ca74b8793588b4f6b0ca45ae4c78df9732dff",
+  "package": "/tmp/ailedger-phase4-install/package/AILedger.Cli.2.0.186-dirty.nupkg",
+  "package_sha256": "a88d71c35322dce65d3ffb84dba818a20a6a6bf1397ed57f3b94936eebbedf21",
+  "installed_package": "/Users/user/.dotnet/tools/.store/ailedger.cli/2.0.186-dirty/ailedger.cli/2.0.186-dirty/ailedger.cli.2.0.186-dirty.nupkg",
+  "installed_files_sha256": {
+    "tools/net8.0/any/AILedger.Cli.deps.json": "62d040ef20d73f53fe43b1e3053c3e486bff0258cf47cb6019f2c704254fed90",
+    "tools/net8.0/any/AILedger.Cli.dll": "178ea81986cd718cba0bad561b64a1dd85cf03ec99ed2251c6abfa84703f813b",
+    "tools/net8.0/any/AILedger.Cli.pdb": "4eb4ea1548457f4657ea3a99206f8d973eaeff2819658b4de6a25c9805a63202",
+    "tools/net8.0/any/AILedger.Cli.runtimeconfig.json": "97c9700542b659150b230c3578b29530fd76ab01ec66a92cd16945e0245713df",
+    "tools/net8.0/any/AILedger.Core.dll": "2a538ef49a105e40c1c2da609bcc3b2022e2e974a4a02f62b8c617a5f0c7df00",
+    "tools/net8.0/any/AILedger.Core.pdb": "a9641debbfa43cf365e9ae91f9761c8bc239017bdf9573346764a46c26b0194a",
+    "tools/net8.0/any/AILedger.Providers.dll": "2af77a66bc3fd0f813ddf74738e1225a80f1eaf036c649a7c7037cbb4934f2d5",
+    "tools/net8.0/any/AILedger.Providers.pdb": "7d5cac12523b18ae3225dd063f0e8e34657f3e31b037f0f0b38d0480dbfe6822",
+    "tools/net8.0/any/AILedger.Storage.dll": "cb367ca1338a3a8fb8eb9c847d7fb91be16ae8dba737d24b5a39d75877eaf88b",
+    "tools/net8.0/any/AILedger.Storage.pdb": "f301cba01c5c8d90a27a7564f95588ec8a27344617d4a4ad02b72b9b8cdec756",
+    "tools/net8.0/any/DotnetToolSettings.xml": "ccfb937d1dcebd6f525b4a2f430f76d4bf1cd67f342abf25c222c1d45f53fc1c"
+  },
+  "build_log": "/tmp/ailedger-phase4-install-pack.log",
+  "install_log": "/tmp/ailedger-phase4-install/install.log",
+  "install_command": [
+    "dotnet",
+    "tool",
+    "update",
+    "--global",
+    "AILedger.Cli",
+    "--version",
+    "2.0.186-dirty",
+    "--source",
+    "/tmp/ailedger-phase4-install/package",
+    "--no-http-cache"
+  ],
+  "rollback_package": "/Users/user/.local/share/ailedger/rollback/ailedger.cli.2.0.185.nupkg",
+  "rollback_command": [
+    "dotnet",
+    "tool",
+    "update",
+    "--global",
+    "AILedger.Cli",
+    "--version",
+    "2.0.185",
+    "--allow-downgrade",
+    "--source",
+    "/Users/user/.local/share/ailedger/rollback"
+  ],
+  "smoke_checks": [
+    {
+      "identity": "2.0.186-dirty  from 1ba8aa0",
+      "result": "passed",
+      "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-phase4-candidate-6qxi4126",
+      "checks": [
+        "initial contract and authoring shape",
+        "exact context/stage observed versions",
+        "required overflow before run/probe/model"
+      ],
+      "real_provider_invocations": 0
+    },
+    {
+      "identity": "2.0.186-dirty  from 1ba8aa0",
+      "result": "passed",
+      "fixture": "/var/folders/v3/pncbbv7x45jgp4bnd81fjnl80000gn/T/ailedger-phase4-installed-plbsnka4",
+      "checks": [
+        "initial contract and authoring shape",
+        "exact context/stage observed versions",
+        "required overflow before run/probe/model"
+      ],
+      "real_provider_invocations": 0
+    }
+  ],
+  "cognitive_sha256": {
+    "cognitive/RULES.md": "203da86b982c137d45ef5ea5a1aa0eb79589b6ccd621a49235d6df9fce98477c",
+    "cognitive/skills/code-reviewer/SKILL.md": "dd70ccb78a99bb10d6d5710bf57534f9df5196b7f5bcdc9d19bb2e74fbed19af",
+    "cognitive/skills/code-reviewer/references/csharp-lenses.md": "2384264001413add711de04094d92ec249da3c7e03540054e7b8ede43d7ec579",
+    "cognitive/skills/contract-driven-execution/SKILL.md": "3857d93a51f4678693b81983a97b7c84f4939f4786266ebad03ae39a65807efa",
+    "cognitive/skills/prompt-contract-designer/SKILL.md": "a0ee0c1e9ff33a27f87ff99fddf49355963fb7e70a6387bc471d77932fc8356d",
+    "cognitive/skills/task-orchestrator/SKILL.md": "689d3a73fbf9ee7a95d9eb43bc96c5c8b6408b84e72ca0c92f8ecac6c470c07d",
+    "cognitive/skills/task-orchestrator/references/orchestration-rubric.md": "4b28c8bec0c5f8cb7e9eecae578bd5f29c8e5cd978eb16d89516b7b9c2215808",
+    "cognitive/skills/technical-researcher/SKILL.md": "5db8e247a01358a9932c9e40b1e1a29ac38df1fd7c49a4d9166d83f81ca0ef6e",
+    "cognitive/skills/technical-researcher/references/output-contract.md": "176c17d69f951c12439a6acf7dd3f777d03d867c923393eff73d8600593d0180",
+    "cognitive/skills/technical-researcher/references/research-standards.md": "a9ac35989bdf18ee2528451e336183f2dfcf8028c836482cb042ae8b1c017ca7",
+    "cognitive/skills/technical-researcher/references/task-emphasis.md": "97d6b70c2f3379233c7a99e5199356c66b307262d18ef80e0ab222eed74450e6",
+    "cognitive/skills/workflow-coordinator/SKILL.md": "c67ad89f2873a60d56455ccf622107d06f0040fe658ba870e39cedd7c13a8ce9"
+  },
+  "global_skill_changes": false,
+  "global_skill_update_required": false,
+  "observation": "pending; owned by Uri",
+  "real_provider_invocations": 0,
+  "rollback_package_sha256": "7604eaa73c0a3299e07f9334e2687d849f68f6a377d3773f4ff36db075e0b1d2"
+}

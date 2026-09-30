@@ -19,6 +19,7 @@ internal sealed class FindingsTransportAttempt
     internal bool ApplicationEntered { get; set; }
     internal double? ApplicationMs { get; set; }
     internal FindingsResult? Result { get; set; }
+    internal bool IsProducerOutcome { get; set; }
     internal bool IsArtifactSubmission { get; set; }
     internal ArtifactSubmissionResult? ArtifactSubmissionResult { get; set; }
     internal bool IsClaimDispositions { get; set; }
@@ -35,7 +36,12 @@ internal sealed class FindingsTransportAttempt
     internal string? Failure { get; set; }
     internal string Delivery { get; set; } = "not_sent";
 
-    internal object Row(FindingsHostConfiguration host, string sessionId) => AssuranceTool is not null ? new
+    internal object Row(FindingsHostConfiguration host, string sessionId) => IsProducerOutcome ? new
+    {
+        schema_version = 1, population = "producer_outcome", operation = "declare_producer_outcome",
+        transport_attempt_id = Id, actor_id = host.ActorId, run_id = host.RunId,
+        status = InspectionStatus, response_delivery = Delivery, transport_failure = Failure
+    } : AssuranceTool is not null ? new
     {
         schema_version = 1, population = "assurance", operation = AssuranceTool, transport_attempt_id = Id,
         application_attempt_id = ApplicationAttemptId, actor_id = host.ActorId, run_id = host.RunId,
@@ -90,7 +96,7 @@ internal sealed class FindingsTransportJournal(FindingsHostConfiguration host, T
             await _gate.WaitAsync(timeout.Token).ConfigureAwait(false);
             acquired = true;
             Directory.CreateDirectory(host.DiagnosticsDirectory);
-            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.AssuranceTool is not null ? "assurance" : attempt.InspectionTool is not null ? "inspection" : attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
+            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.IsProducerOutcome ? "producer_outcome" : attempt.AssuranceTool is not null ? "assurance" : attempt.InspectionTool is not null ? "inspection" : attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
             var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(attempt.Row(host, SessionId)) + "\n");
             await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read,
                 4096, FileOptions.Asynchronous);

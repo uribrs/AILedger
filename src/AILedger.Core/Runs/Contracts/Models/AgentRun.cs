@@ -160,7 +160,8 @@ public sealed record AgentRun(
     // already on disk carries none, and a replay rule keyed on a field older events lack has twice
     // made a live task permanently unreadable here.
     bool? EndedAtTheLaunchTimeout = null,
-    AssuranceBinding? Assurance = null)
+    AssuranceBinding? Assurance = null,
+    ProducerOutcome? ProducerOutcome = null)
 {
     /// <summary>
     /// The <see cref="Provider"/> value declaring that no provider process runs for this run. A run

@@ -156,9 +156,9 @@ public sealed class ArtifactRecordTests
     {
         var task = new TestTask();
         var run = task.StartArtifactProducer(task.OperatorId, RoleKind.Operator, "RP");
-        task.Apply(ArtifactCommands.Record(task, task.OperatorId, "A1", GovernedArtifactKind.OrchestrationPlan, "One", producerRun: run));
-        task.Apply(ArtifactCommands.Record(task, task.OperatorId, "A2", GovernedArtifactKind.OrchestrationPlan, "Two", producerRun: run, supersedes: "A1"));
-        task.Apply(ArtifactCommands.Record(task, task.OperatorId, "A3", GovernedArtifactKind.OrchestrationPlan, "Three", producerRun: run, supersedes: "A2"));
+        task.Apply(ArtifactCommands.Record(task, task.OperatorId, "A1", GovernedArtifactKind.OrchestrationPlan, "One\n" + ArtifactCommands.PlanBody, producerRun: run));
+        task.Apply(ArtifactCommands.Record(task, task.OperatorId, "A2", GovernedArtifactKind.OrchestrationPlan, "Two\n" + ArtifactCommands.PlanBody, producerRun: run, supersedes: "A1"));
+        task.Apply(ArtifactCommands.Record(task, task.OperatorId, "A3", GovernedArtifactKind.OrchestrationPlan, "Three\n" + ArtifactCommands.PlanBody, producerRun: run, supersedes: "A2"));
 
         var superseded = task.State.Artifacts.Values
             .Where(artifact => artifact.SupersedesArtifactId is { } predecessor &&

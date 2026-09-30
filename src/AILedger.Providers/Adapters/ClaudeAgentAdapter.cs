@@ -54,6 +54,7 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
                 tools.Add(FindingsRecording.ClaudeTool);
                 tools.Add(FindingsRecording.ClaudeAlternativesTool);
                 tools.Add(FindingsRecording.ClaudeArtifactTool);
+                if (request.FindingsEndpoint.AllowProducerOutcome) tools.Add(FindingsRecording.ClaudeProducerOutcomeTool);
                 tools.Add(FindingsRecording.ClaudeClaimDispositionsTool);
                 tools.Add("mcp__ailedger__inspect_task");
                 tools.Add("mcp__ailedger__retrieve_context");

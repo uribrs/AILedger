@@ -111,7 +111,7 @@ public sealed partial class FindingsMcpServer
                 await SendAsync(FindingsMcpProtocol.Result(id!.Value, FindingsMcpProtocol.Tools(_host.Configuration.AllowRecordAlternatives && _host.Recorder is IAlternativesRecorder,
                     _host.Configuration.AllowSubmitArtifact && _host.Recorder is IArtifactSubmitter,
                     _host.Configuration.AllowRecordClaimDispositions && _host.Recorder is IClaimDispositionsRecorder,
-                    _host.Configuration.AllowInspect && _host.Recorder is ITaskInspector, _host.Assurance?.Operations, !_host.AssuranceOnly)), connection.Token)
+                    _host.Configuration.AllowInspect && _host.Recorder is ITaskInspector, _host.Assurance?.Operations, !_host.AssuranceOnly, _host.Configuration.AllowDeclareProducerOutcome && _host.Recorder is AILedger.Core.Contracts.IGovernedTaskService)), connection.Token)
                     .ConfigureAwait(false);
                 return;
             }
@@ -121,10 +121,11 @@ public sealed partial class FindingsMcpServer
             attempt.AssuranceTool = AILedger.Core.Assurance.AssuranceValidation.Tools.Contains(tool) ? tool : null;
             if (_host.AssuranceOnly && attempt.AssuranceTool is null) throw new RpcFailure(-32602, "Unknown tool on assurance-only host.");
             attempt.InspectionTool = tool is "inspect_task" or "retrieve_context" or "check_readiness" ? tool : null;
+            attempt.IsProducerOutcome = tool == "declare_producer_outcome";
             attempt.IsAlternatives = tool == "record_alternatives";
             attempt.IsArtifactSubmission = tool == "submit_artifact";
             attempt.IsClaimDispositions = tool == "record_claim_dispositions";
-            if (attempt.AssuranceTool is null && tool is not ("record_findings" or "record_alternatives" or "submit_artifact" or "record_claim_dispositions" or "inspect_task" or "retrieve_context" or "check_readiness"))
+            if (attempt.AssuranceTool is null && tool is not ("declare_producer_outcome" or "record_findings" or "record_alternatives" or "submit_artifact" or "record_claim_dispositions" or "inspect_task" or "retrieve_context" or "check_readiness"))
                 throw new RpcFailure(-32602, "Unknown tool.");
             if (parameters.TryGetProperty("_meta", out var meta)) StrictJson.Validate(meta);
             var key = FindingsMcpProtocol.IdKey(id!.Value);
@@ -189,7 +190,11 @@ public sealed partial class FindingsMcpServer
         try
         {
             JsonElement body;
-            if (attempt.AssuranceTool is not null)
+            if (attempt.IsProducerOutcome)
+            {
+                body = await InvokeProducerOutcomeAsync(arguments, attempt, cancellationToken).ConfigureAwait(false);
+            }
+            else if (attempt.AssuranceTool is not null)
             {
                 body = await InvokeAssuranceAsync(arguments, attempt, cancellationToken).ConfigureAwait(false);
             }

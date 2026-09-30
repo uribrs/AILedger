@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.8.1
+version: 1.8.2
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
@@ -416,7 +416,9 @@ After filing, return the plan to `workflow-coordinator` for its mechanical compl
 start direct or decomposed implementation before it permits the existing execution continuation;
 this is not a new user-approval gate or a requirement for another provider run.
 
-The four gate sections below are structurally required for every newly recorded OrchestrationPlan.
+The four gate sections below are required by this workflow guidance for every new OrchestrationPlan.
+Current executable admission enforces the shared attention-table contract, not these four schemas.
+Use the preceding coordinator contract for that exact shape; do not mistake admission for completeness.
 They may appear in any order, but each exact level-two heading must occur once outside fenced code.
 A section ends at the next level-one or level-two heading outside fenced code, and its table must be
 inside that section. Header names are exact after trimming and case-insensitive comparison; every
@@ -432,13 +434,13 @@ separator cell matches `:?-{3,}:?`.
 - **Proposed Change Walkthrough:** header `layer | evidence or reasoned non-applicability | planned
   result`. Include exactly one row for each required key: `producer`, `persistence`, `material
   consumers`, and `failure paths`. Every cell is non-empty. The evidence cell is either a non-empty
-  citation or `n/a: <non-empty reason>`; admission checks presence and shape, not truth.
+  citation or `n/a: <non-empty reason>`; the coordinator checks this guidance for completeness, not truth.
 - **Consequential Assumptions and Recon Stop:** header `id | assumption | evidence | disposition |
   consequence | handling | owner`. Include at least one row with a unique id. `id`, `assumption`,
   `evidence`, and `disposition` are always non-empty. Allowed dispositions are `validated`,
   `rejected`, `not-applicable`, and `bounded`. A `bounded` row requires consequence, handling, and
   owner values other than `n/a`, `none`, or `-`. The other terminal dispositions may use `n/a`.
-  `blocked` is not terminal and is refused.
+  `blocked` is not terminal for this workflow completeness check.
 
 When no consequential assumptions remain, use exactly one assumptions row with id `none`, assumption
 `No consequential assumptions remain`, a non-empty evidence or rationale, disposition

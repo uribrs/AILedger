@@ -37,6 +37,8 @@ internal static class ArtifactEventValidator
             artifact.WorkItemId,
             artifact.ArtifactId,
             artifact.SupersedesArtifactId);
+        // Plan filing tightened after this event kind existed. Do not apply its new producer
+        // check here; verifier consumption still diagnoses an unusable historical plan.
         ArtifactDocumentRules.Validate(state, artifact.Kind, artifact.WorkItemId, artifact.Content,
             artifact.Assurance is null ? null : WorkCoverage.Effective(artifact.WorkItemId, artifact.Assurance));
         ValidateProvenance(@event, artifact.Provenance, "artifact.record");

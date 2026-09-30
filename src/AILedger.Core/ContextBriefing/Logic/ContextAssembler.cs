@@ -2,6 +2,7 @@ using AILedger.Core.ContextBriefing;
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
 using AILedger.Core.Runs;
+using AILedger.Core.WorkItems;
 
 namespace AILedger.Core.Application;
 
@@ -63,6 +64,23 @@ public sealed class ContextAssembler : IContextAssembler
             run.Assurance?.WorkItemIds, run.Assurance);
     }
 
+    public ContextManifest BuildForLaunch(
+        GovernedTaskState state,
+        StartRunCommand launch,
+        IReadOnlyList<ContextArtifact> availableArtifacts,
+        DateTimeOffset assembledAt)
+    {
+        // An explicit prospective launch is distinct from a public context refresh. Admission
+        // validates it without inventing a run, including disjoint concurrent reviewer launches.
+        ProviderLaunchPreflight.EnsurePermitted(state, launch);
+        var assignment = GetAssignment(state, launch.SubjectActorId ?? launch.ActorId);
+        EnsureCanBuildContext(assignment);
+        var projected = WorkItemStateProjector.ActivateForWork(state,
+            WorkCoverage.Effective(launch.WorkItemId, launch.Assurance));
+        return Assemble(projected, assignment, launch.WorkItemId, availableArtifacts, assembledAt,
+            launch.Assurance?.WorkItemIds, launch.Assurance);
+    }
+
     private static ContextManifest Assemble(
         GovernedTaskState state,
         RoleAssignment assignment,
@@ -117,7 +135,8 @@ public sealed class ContextAssembler : IContextAssembler
             assembledAt,
             coveredWorkItemIds is null && assurance is null ? null : members.ToArray(),
             assurance is null ? null : AssuranceRules.Copy(assurance),
-            isolatedReviewer ? selected.Select(item => new ReviewWorkItem(item.Id, item.ResourceScope.ToArray(), item.BaseRef)).ToArray() : null);
+            isolatedReviewer ? selected.Select(item => new ReviewWorkItem(item.Id, item.ResourceScope.ToArray(), item.BaseRef)).ToArray() : null,
+            NextActionContract: NextActionContracts.Observe(state, assignment.ActorId, selectedWork: workItemId));
     }
 
     public IReadOnlyList<ContextSkill> SkillsServed(

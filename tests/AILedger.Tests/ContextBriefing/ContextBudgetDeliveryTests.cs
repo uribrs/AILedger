@@ -69,7 +69,8 @@ public sealed class ContextBudgetDeliveryTests
         Assert.Contains("Required context", error.ToString());
         Assert.Empty(capture.Requests);
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
-        Assert.Equal(AgentRunStatus.Failed, state!.Runs[new RunId("R1")].Status);
+        if (command == "launch") Assert.Empty(state!.Runs);
+        else Assert.Equal(AgentRunStatus.Failed, state!.Runs[new RunId("R1")].Status);
 
         var success = await application.RunAsync([.. launch, "--run", "R2"], CancellationToken.None);
         Assert.True(success == 0, error.ToString());

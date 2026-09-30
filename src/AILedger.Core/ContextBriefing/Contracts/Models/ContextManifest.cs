@@ -14,4 +14,5 @@ public sealed record ContextManifest(
     IReadOnlyList<WorkItemId>? CoveredWorkItemIds = null,
     AssuranceBinding? Assurance = null,
     IReadOnlyList<ReviewWorkItem>? ReviewWorkItems = null,
-    ContextBudgetReport? Budget = null);
+    ContextBudgetReport? Budget = null,
+    AILedger.Core.ContextBriefing.NextActionContract? NextActionContract = null);

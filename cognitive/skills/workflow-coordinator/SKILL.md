@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.9.1
+version: 1.9.2
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -27,6 +27,33 @@ The coordinator's job is bounded to six things:
 6. Report closeout eligibility and, only when requested, route plan-then-apply retention.
 
 If you find yourself making planning judgments inside this skill, stop. Move the judgment to the skill that owns it.
+
+## Consume the preceding next-action contract
+
+Ordinary coordinator context and completed provider-launch, artifact-record and stage-transition
+responses carry `nextActionContract`. Read it before preparing the next dispatch. It contains the
+imminent authoring shape, observed task version, requirements with satisfied/missing/unknown status,
+source authority and available work/producer/candidate/verifier bindings. A delivered observation
+is not authority, technical acceptance, a reservation or a freshness guarantee; execution rechecks.
+Plan attention columns come from `OrchestrationPlanDocuments`, which also validates new filings.
+
+Keep provider process result, recorded run termination, required output presence and attributed
+outcome separate. Worker/Researcher `reported-complete`, `blocked` and `partial` declarations are
+self-report with existing evidence references. Missing and historical declarations remain unknown.
+Verifier disposition counts are authored findings, not a favorable verdict. Reconcile findings and
+select the exposed repair/replanning branch explicitly. Do not infer success from Completed, filed
+Markdown, free-text BLOCKED, an empty diff or zero writes.
+
+Host configuration, candidate bytes, independent task-13 reports/acceptance, required brief size and
+review-profile compatibility remain uninspected in the task packet. Ordinary fresh launch now prepares
+the required brief and configured assurance inputs/grants before run start and version probing,
+and rechecks mutable setup at use. Compatible briefs include configured area/check discovery IDs.
+The current requirements-aware assurance profile is refused for blind CodeReviewer context: use an
+independently authorized compatible context, without widening blind review or silently skipping
+required assurance. Preparation is not acceptance or guaranteed readiness. Keep coordinator packets,
+requirements, plans and verifier narratives out of every supplied blind reviewer channel.
+Resume, fan-out, reconnect and direct launches skipping coordinator context have no delivery-order
+claim. An explicitly incomplete oversized packet is not a complete binding observation.
 
 ## Default assurance preparation
 
@@ -189,8 +216,9 @@ part of this check. Require the served table shapes and confirm:
   A bounded row has a non-placeholder consequence, handling, and owner. `blocked` is not terminal.
   The exact sole no-assumptions row defined by `task-orchestrator` is allowed.
 
-New artifact admission enforces this deterministic shape. Treat an admission refusal or any missing
-current artifact as a failed completeness check: return it to the orchestrator and name the structural
+These four sections are workflow requirements; current artifact admission does not enforce their
+schemas. The shared attention-table shape is enforced for new plan filings. Treat an admission
+refusal or any missing current artifact as a failed completeness check: return it to the orchestrator and name the structural
 omission. This boundary does not adjudicate whether a citation is correct, repeat the orchestrator's
 analysis, require section ordering, require invented content, or add another provider run. When the
 check passes, permit the orchestrator's existing execution continuation; this is not a new user

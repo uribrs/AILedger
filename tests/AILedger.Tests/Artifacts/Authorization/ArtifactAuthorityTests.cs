@@ -43,7 +43,7 @@ public sealed class ArtifactAuthorityTests
             var task = new TestTask();
             var run = task.StartArtifactProducer(actor, role, $"R-{actor}");
             task.Apply(ArtifactCommands.Record(
-                task, actor, "A1", kind, $"By the {role}", producerRun: run));
+                task, actor, "A1", kind, $"By the {role}\n" + (kind == GovernedArtifactKind.OrchestrationPlan ? ArtifactCommands.PlanBody : ""), producerRun: run));
 
             Assert.Equal(actor, task.State.Artifacts[new ArtifactId("A1")].Provenance.ActorId);
             Assert.Equal(run, task.State.Artifacts[new ArtifactId("A1")].ProducerRunId);

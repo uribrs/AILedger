@@ -15,6 +15,10 @@ internal static class RunEventValidator
         RequireId(run.Id.Value, nameof(run.Id));
         RequireText(run.Provider, nameof(run.Provider));
         RequireDefined(run.Status, nameof(run.Status));
+        // New-field boundary only: old starts deserialize null. Declarations require their own
+        // owner-authorized event, never an assertion smuggled into run.started.
+        if (run.ProducerOutcome is not null)
+            throw new GovernanceException("A started run cannot already carry a producer outcome.");
         // Checked only when present, because null is the legitimate shape of every run recorded
         // before SubjectRole existed. An undefined member is a different matter: it reaches state
         // and renders as its raw number, so a forged role has to fail here.

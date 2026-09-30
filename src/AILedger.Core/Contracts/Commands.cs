@@ -15,6 +15,7 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(AddWorkItemCommand), "work.add")]
 [JsonDerivedType(typeof(StartRunCommand), "run.start")]
 [JsonDerivedType(typeof(CompleteRunCommand), "run.complete")]
+[JsonDerivedType(typeof(DeclareProducerOutcomeCommand), "run.declare-outcome")]
 [JsonDerivedType(typeof(RequestStageTransitionCommand), "stage.transition")]
 [JsonDerivedType(typeof(RaiseEscalationCommand), "escalation.raise")]
 [JsonDerivedType(typeof(ResolveEscalationCommand), "escalation.resolve")]

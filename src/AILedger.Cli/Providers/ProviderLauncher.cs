@@ -91,6 +91,17 @@ internal sealed partial class ProviderLauncher(
             // costs nothing and is journalled below like every other launch refusal.
             await VerificationLaunchPreflight.EnsureAsync(
                 grants.WorkingDirectory, _verificationHost(), cancellationToken).ConfigureAwait(false);
+
+            if (mode == AgentLaunchMode.New)
+            {
+                var preview = CreateStartRun(input, provider, sessionId, null, "preflight", servedNow)
+                    with { Assurance = assurance };
+                ProviderLaunchPreflight.EnsurePermitted(launchState, preview);
+                var discovery = await PrepareAssuranceAsync(service, input, launchState, grants, ledgerRoot,
+                    cancellationToken).ConfigureAwait(false);
+                await _contextCommands.PrepareLaunchAsync(launchState, input, preview, discovery,
+                    cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (GovernanceException refusal)
         {
@@ -140,11 +151,12 @@ internal sealed partial class ProviderLauncher(
         AgentRunResult result;
         try
         {
+            var assuranceService = await OpenAssuranceAsync(service, input, start.RunId, provider, grants, ledgerRoot, cancellationToken).ConfigureAwait(false);
             // The manifest is filtered by the subject's role, not the dispatcher's. An operator who
             // dispatches a code reviewer must not hand it an operator's view of the task.
             var manifest = await _contextCommands.CreateAsync(
                 service, input, SubjectOrActor(input), cancellationToken,
-                start.RunId).ConfigureAwait(false);
+                start.RunId, AssuranceDiscovery(assuranceService?.ConfiguredAreas)).ConfigureAwait(false);
             // Over the exact bytes handed to the child, not a re-serialisation of the manifest: the
             // hash names the brief one run received, so a manifest kept outside the ledger can be
             // matched to the run that read it. It is not a comparison between two runs — the
@@ -154,9 +166,9 @@ internal sealed partial class ProviderLauncher(
             // Parsed before the request rather than inside its constructor, because the record and
             // the request must carry one number and not two readings of one option.
             launchTimeoutSeconds = PositiveInt(input.Optional("timeout-seconds"), 1800);
-            var assuranceService = await OpenAssuranceAsync(service, input, start.RunId, provider, grants, ledgerRoot, cancellationToken).ConfigureAwait(false);
+            await ValidateAssuranceAtUseAsync(assuranceService, cancellationToken).ConfigureAwait(false);
             await using var findings = ProviderFindingsSession.Start(service, ledgerRoot, Task(input),
-                SubjectOrActor(input), start.RunId, Cause(input), provider, CognitiveArtifactLoader.ResolveRoot(input.Optional("cognitive-root")), assuranceService);
+                SubjectOrActor(input), start.RunId, Cause(input), provider, CognitiveArtifactLoader.ResolveRoot(input.Optional("cognitive-root")), assuranceService, manifest.Role);
             var request = new AgentLaunchRequest(
                 start.RunId, Task(input), SubjectOrActor(input), start.WorkItemId, mode, provider,
                 executable,
@@ -249,6 +261,8 @@ internal sealed partial class ProviderLauncher(
                     new AggregateException(launchException, cleanupException));
             }
 
+            await executor.WriteProviderReturnAsync(service, Task(input), Actor(input), start.RunId, null,
+                mode != AgentLaunchMode.Resume).ConfigureAwait(false);
             throw;
         }
 
@@ -333,7 +347,8 @@ internal sealed partial class ProviderLauncher(
             completionFailure = exception;
         }
 
-        await executor.WriteJsonAsync(result).ConfigureAwait(false);
+        await executor.WriteProviderReturnAsync(service, Task(input), Actor(input), start.RunId, result,
+            mode != AgentLaunchMode.Resume).ConfigureAwait(false);
         if (completionFailure is not null)
         {
             throw new IOException(

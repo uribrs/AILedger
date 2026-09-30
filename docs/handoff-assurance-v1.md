@@ -28,6 +28,14 @@ well as explicit task-13 acceptance. Requirements-aware task-13 review must use 
 context that permits requirements; it cannot repurpose a blind code reviewer by widening its brief.
 Route any incompatibility to an authorized host/profile decision and retain the unresolved gap.
 
+Ordinary fresh launches now prepare configured authority/store paths, enabled principal and role,
+input closure and actual provider grants before version probing or `run.started`. Requirements-aware
+profiles are refused for blind CodeReviewer sessions before launch; their required inputs cannot
+be filtered away or delivered through an alternative channel. Compatible briefs carry the actual
+configured area/check IDs for discovery. Active-run authorization, current policy identity and input
+capture remain checked at use. Preparation does not establish acceptance or future readiness.
+See [item 64 Phase 3](contract-delivery-phase-3.md) for the exact ordinary-launch boundary.
+
 Existing CLI launches without assurance flags remain a compatibility mechanism and still expose
 seven tools. They do not automatically satisfy the default assurance policy. Host configuration
 is explicit because identities, resource grants, candidate inputs and check authority cannot be
@@ -55,8 +63,10 @@ Two trusted entry points are supported:
   `--assurance-store /absolute/store`. The parent owns the service and authenticated relay.
   Actor/run/provider come from the real launch, never tool payloads. Every operation rechecks the
   existing task-10 inspector's live run/BuildContext admission and the current compatible role:
-  CodeReviewer→review, Verifier→verification, Operator→acceptance, and
+  Verifier→verification, Operator→acceptance, and
   Operator/PlanningLead/ImplementationLead→synthesis. Assurance requires a fresh provider launch;
+  the role mapping CodeReviewer→review alone is insufficient: the current profile requires
+  requirements, so its supplied context is incompatible with blind governed review.
   provider resume is refused for this assurance path. Existing launches without the options still
   expose exactly their original seven tools. This does not waive existing dispatch prerequisites.
 * `ailedger assurance serve --authority FILE --store DIR --principal ID --session ID` is a local

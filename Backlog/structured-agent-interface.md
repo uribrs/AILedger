@@ -1,6 +1,6 @@
 # Structured agent work with install-and-try increments
 
-**Backlog ID: 63. Priority: 1. Status: partial — implementation through task 13 done, installed and merged; tasks 1–6 accepted; tasks 7–13 client trials pending; task 14 unstarted. Kind: feature.**
+**Backlog ID: 63. Priority: 2, after [item 64](deliver-contracts-before-dispatch.md). Status: partial — implementation through task 13 done, installed and merged; tasks 1–6 accepted; tasks 7–13 client trials pending; task 14 unstarted. Kind: feature.**
 
 Created 2026-09-28 from the investigation and interface-design discussion. Respecified after Uri
 clarified that the CLI is not the intended agent interface and that usable increments should be

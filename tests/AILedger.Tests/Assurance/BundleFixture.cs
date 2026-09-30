@@ -36,7 +36,7 @@ internal sealed class BundleFixture : IDisposable
         App = new CliApplication(Output, Error, CliApplicationTestSupport.Service, _ => Adapter, new ContextAssembler());
     }
 
-    public static async Task<BundleFixture> CreateAsync(bool multipleScopes = false, bool dependencies = false, bool verifierOwnsA = false, string? fileScope = null, string workerBProvider = "codex")
+    public static async Task<BundleFixture> CreateAsync(bool multipleScopes = false, bool dependencies = false, bool verifierOwnsA = false, string? fileScope = null, string workerBProvider = "codex", string workerProvider = "codex")
     {
         var f = new BundleFixture();
         await f.Ok("task", "open", "--title", "TASK_SENTINEL", "--goal", "GOAL_SENTINEL");
@@ -72,7 +72,7 @@ internal sealed class BundleFixture : IDisposable
             await f.Ok(["work", "add", "--id", member, "--title", member + "_TITLE_SENTINEL", "--owner", member == "A" && verifierOwnsA ? "verifier" : member == "B" ? "other" : "worker", "--scope", scope, .. more, .. dependency]);
         }
         await CliStageFixture.ToExecutionAsync(f.App, f.Root);
-        foreach (var member in new[] { "A", "B", "C", "D" }) await f.Work(member, "W" + member, member == "B" ? workerBProvider : "codex");
+        foreach (var member in new[] { "A", "B", "C", "D" }) await f.Work(member, "W" + member, member == "B" ? workerBProvider : workerProvider);
         await CliStageFixture.ToVerificationAsync(f.App, f.Root);
         f.Error.GetStringBuilder().Clear();
         f.Output.GetStringBuilder().Clear();
@@ -147,7 +147,13 @@ internal sealed class BundleFixture : IDisposable
         public bool FileOutput { get; set; } = true;
         public Func<AgentLaunchRequest, Task>? BeforeResult { get; set; }
         public Func<AgentRunResult, AgentRunResult>? ChangeResult { get; set; }
-        public Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken) { Probes++; return Task.FromResult("fixture-version"); }
+        public Func<Task>? OnProbe { get; set; }
+        public async Task<string> ProbeVersionAsync(string executablePath, CancellationToken cancellationToken)
+        {
+            Probes++;
+            if (OnProbe is not null) await OnProbe();
+            return "fixture-version";
+        }
         public async Task<AgentRunResult> RunAsync(AgentLaunchRequest request, CancellationToken cancellationToken)
         {
             Requests.Add(request);

@@ -69,6 +69,7 @@ public sealed class AuthorizationPolicy
         RaiseChallengeCommand => [Capability.RaiseChallenge],
         DisposeChallengeCommand => [Capability.DisposeChallenge],
         AddWorkItemCommand => [Capability.ManageWork, Capability.ManageScope],
+        DeclareProducerOutcomeCommand => [Capability.AddEvidence],
         StartRunCommand or CompleteRunCommand => [Capability.ManageRuns],
         // The same capability dispatching a run needs, and deliberately not a new one. A session is
         // the bracket around dispatching, so the seats that may dispatch — operator, planning lead,

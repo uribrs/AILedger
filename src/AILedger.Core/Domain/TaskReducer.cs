@@ -48,6 +48,7 @@ public sealed class TaskReducer : ITaskReducer
                 started,
                 ContextStateProjector.JoinWaiver(
                     Require(state), @event, ContextBriefWaiver.ProviderLaunchKind, started.Run.Id.Value)),
+            ProducerOutcomeDeclared declared => RunStateProjector.Declare(Require(state), declared),
             RunCompleted completed => RunStateProjector.Complete(Require(state), completed),
             StagePrerequisitesWaived waived =>
                 StageStateProjector.RecordPrerequisiteWaiver(Require(state), @event, waived),

@@ -32,6 +32,9 @@ internal static class RunStateProjector
         };
     }
 
+    internal static GovernedTaskState Declare(GovernedTaskState state, ProducerOutcomeDeclared declared) =>
+        state with { Runs = Set(state.Runs, declared.RunId, state.Runs[declared.RunId] with { ProducerOutcome = declared.Declaration }) };
+
     private static IReadOnlyDictionary<TKey, TValue> Set<TKey, TValue>(
         IReadOnlyDictionary<TKey, TValue> source,
         TKey key,

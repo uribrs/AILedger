@@ -1,6 +1,6 @@
 ---
 name: contract-driven-execution
-version: 1.6.2
+version: 1.6.3
 description: Direct-path executor for non-trivial work that has a finalized prompt contract. Performs the implementation, refactoring, research-driven coding, or agent-workflow execution against the current PromptContract artifact and records findings in the governed task. Typically invoked by `task-orchestrator` on the direct execution path.
 ---
 
@@ -124,3 +124,20 @@ In the final response back to the orchestrator, report:
 - The path of `execution_notes.md` for the orchestrator to inspect.
 
 Do not run a verifier-style pass here. The coordinator dispatches verifier and code-reviewer after orchestrator reconciliation.
+
+## Declare the producer return
+
+Before your active Worker/Researcher session returns, use supplied `declare_producer_outcome`.
+First record output or blocker evidence through `record_findings`; retain its assigned evidence IDs.
+The exact body is `{"outcome":"blocked","output_evidence_ids":[],"blocker_evidence_ids":["E-ID"]}`.
+`outcome` is `reported-complete`, `blocked` or `partial`. Supply 1–16 unique existing own evidence
+references in total. Blocked needs blocker evidence; reported-complete needs output evidence and
+no blockers. Evidence can cite the supporting output/report and actual validation or limitations.
+
+The host binds actor/run; do not supply another identity. This is one immutable declaration per run:
+retry the identical arguments after uncertainty, including when the first response was lost.
+Conflicting content is refused. Declare when ready to return, not at every progress checkpoint.
+This records self-report only: it never closes your run/work item, resolves claims or accepts work.
+Missing historical declarations stay unknown. If the tool is unavailable, report that limit in your
+ordinary return; do not invent a declaration or impersonate the launcher. Existing report, consultation,
+claim/evidence, escalation and independent-assurance obligations continue to apply.

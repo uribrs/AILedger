@@ -57,6 +57,8 @@ internal static class HistoricalLedgerProjector
                 Require(state), invalidated.WorkItemId, invalidated.Status,
                 RequireWorkItem(state, invalidated.WorkItemId).BlockReason),
             RunStarted started => StartRun(Require(state), started.Run),
+            ProducerOutcomeDeclared declared => Require(state) with { Runs = Set(Require(state).Runs, declared.RunId,
+                Require(state).Runs[declared.RunId] with { ProducerOutcome = declared.Declaration }) },
             RunCompleted completed => CompleteRun(Require(state), completed),
             StagePrerequisitesWaived => Require(state),
             // The context gate's two events are audit records: they prove a brief was served, or

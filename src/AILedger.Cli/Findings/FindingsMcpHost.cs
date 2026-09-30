@@ -17,7 +17,7 @@ namespace AILedger.Cli.Findings;
 public sealed record FindingsHostConfiguration(string TaskWorkspaceRoot, string TaskId, string ActorId,
     string CorrelationId, string DiagnosticsDirectory, string? RunId = null, string? CausationId = null,
     bool AllowRecordFindings = false, bool AllowRunless = false, string? Provider = null,
-    string? ProviderSessionId = null, bool AllowRecordAlternatives = false, bool AllowSubmitArtifact = false, bool AllowRecordClaimDispositions = false, bool AllowInspect = false, string? CognitiveRoot = null)
+    string? ProviderSessionId = null, bool AllowRecordAlternatives = false, bool AllowSubmitArtifact = false, bool AllowRecordClaimDispositions = false, bool AllowInspect = false, string? CognitiveRoot = null, bool AllowDeclareProducerOutcome = false)
 {
     internal ClaimDispositionsBinding ClaimDispositionsBinding => new(new(TaskId), new(ActorId),
         RunId is null ? null : new RunId(RunId), CorrelationId,
@@ -84,6 +84,8 @@ public sealed class FindingsMcpHost
             current.AllowSubmitArtifact, current.AllowRecordClaimDispositions, artifacts);
     }
 
+    internal Task<FindingsHostConfiguration> BindProducerOutcomeAsync(CancellationToken token) => ReadBindingAsync(token);
+
     private async Task<FindingsHostConfiguration> ReadBindingAsync(CancellationToken cancellationToken)
     {
         var current = await _readConfiguration(cancellationToken).ConfigureAwait(false);
@@ -93,7 +95,8 @@ public sealed class FindingsMcpHost
                 AllowRecordAlternatives = Configuration.AllowRecordAlternatives,
                 AllowSubmitArtifact = Configuration.AllowSubmitArtifact,
                 AllowRecordClaimDispositions = Configuration.AllowRecordClaimDispositions,
-                AllowInspect = Configuration.AllowInspect } != Configuration)
+                AllowInspect = Configuration.AllowInspect,
+                AllowDeclareProducerOutcome = Configuration.AllowDeclareProducerOutcome } != Configuration)
             throw new InvalidDataException("Host attribution changed; reconnect with the original binding for recovery.");
         return current;
     }
@@ -118,7 +121,7 @@ public sealed class FindingsMcpHost
         StrictJson.Validate(document.RootElement);
         StrictJson.Members(document.RootElement,
             ["task_workspace_root", "task_id", "actor_id", "correlation_id", "diagnostics_directory"],
-            ["run_id", "causation_id", "allow_record_findings", "allow_runless", "provider", "provider_session_id", "allow_record_alternatives", "allow_submit_artifact", "allow_record_claim_dispositions", "allow_inspect", "cognitive_root"]);
+            ["run_id", "causation_id", "allow_record_findings", "allow_runless", "provider", "provider_session_id", "allow_record_alternatives", "allow_submit_artifact", "allow_record_claim_dispositions", "allow_inspect", "cognitive_root", "allow_declare_producer_outcome"]);
         return document.RootElement.Deserialize<FindingsHostConfiguration>(new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,

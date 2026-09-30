@@ -78,6 +78,9 @@ public sealed partial class BundleAssuranceTests
         public ContextManifest BuildForRun(GovernedTaskState state, ActorId actorId, RunId runId,
             IReadOnlyList<ContextArtifact> availableArtifacts, DateTimeOffset assembledAt) =>
             throw new IOException("injected manifest failure");
+        public ContextManifest BuildForLaunch(GovernedTaskState state, StartRunCommand launch,
+            IReadOnlyList<ContextArtifact> availableArtifacts, DateTimeOffset assembledAt) =>
+            _inner.BuildForLaunch(state, launch, availableArtifacts, assembledAt);
         public IReadOnlyList<ContextSkill> SkillsServed(RoleKind role, IReadOnlyList<ContextArtifact> availableArtifacts) =>
             _inner.SkillsServed(role, availableArtifacts);
     }

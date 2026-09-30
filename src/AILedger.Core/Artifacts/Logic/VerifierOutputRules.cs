@@ -14,7 +14,7 @@ internal static class VerifierOutputRules
     internal static void Validate(GovernedTaskState state, IReadOnlyList<WorkItemId> members, string content)
     {
         var claims = members.SelectMany(member => Get(state.WorkItems, member, "work item").DependsOnClaims).Distinct();
-        var assumptions = MarkdownTableReader.Read(content, ["id", "status", "name", "citation", "actor"]);
+        var assumptions = MarkdownTableReader.Read(content, VerifierOutputDocuments.AssumptionColumns);
         MarkdownTableReader.EnsureUnique(
             assumptions.Select(row => row[0]).ToArray(),
             "Verifier assumption disposition IDs",
@@ -41,22 +41,11 @@ internal static class VerifierOutputRules
             throw new GovernanceException("A verifier output requires a current orchestration plan.");
         }
 
-        var attentionIds = plan.Content.Contains("No material attention items", StringComparison.OrdinalIgnoreCase)
-            ? Array.Empty<string>()
-            : MarkdownTableReader.Read(
-                    plan.Content,
-                    ["id", "name", "failure mode", "causal path and impact", "planned handling", "source"])
-                .Select(row => row[0])
-                .Where(IsAttentionId)
-                .ToArray();
-        MarkdownTableReader.EnsureUnique(
-            attentionIds,
-            "Orchestration-plan attention item IDs",
-            StringComparer.Ordinal);
+        var attentionIds = OrchestrationPlanDocuments.ReadAttentionIdsForVerification(plan);
 
         var dispositions = MarkdownTableReader.Read(
             content,
-            ["id", "final disposition", "name", "evidence"]);
+            VerifierOutputDocuments.AttentionColumns);
         MarkdownTableReader.EnsureUnique(
             dispositions.Select(row => row[0]).ToArray(),
             "Verifier attention disposition IDs",
@@ -75,15 +64,4 @@ internal static class VerifierOutputRules
         }
     }
 
-    private static bool IsAttentionId(string value)
-    {
-        if (value.Length < 2 || value[0] != 'R')
-        {
-            return false;
-        }
-
-        var digitCount = value.Skip(1).TakeWhile(char.IsDigit).Count();
-        return digitCount > 0 && (digitCount == value.Length - 1 ||
-            digitCount == value.Length - 2 && char.IsLetter(value[^1]));
-    }
 }

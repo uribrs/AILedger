@@ -61,6 +61,13 @@ internal static class ArtifactRules
 
         ArtifactDocumentRules.Validate(state, command.Kind, command.WorkItemId, command.Content);
 
+        // Prospective filing rule only. ArtifactDocumentRules is also used during replay, where
+        // formerly legal plans must remain readable even when their attention table is malformed.
+        if (command.Kind == GovernedArtifactKind.OrchestrationPlan)
+        {
+            _ = OrchestrationPlanDocuments.ReadAttentionIds(command.ArtifactId, command.Content);
+        }
+
         if (command.Kind == GovernedArtifactKind.InternalRecon)
         {
             InternalReconRules.EnsureConsulted(state, command.ProducerRunId);

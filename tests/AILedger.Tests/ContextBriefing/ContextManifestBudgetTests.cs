@@ -87,6 +87,24 @@ public sealed class ContextManifestBudgetTests
         Assert.Null(JsonSerializer.Deserialize<ContextManifest>(Serialize(original), Json)!.Budget);
     }
 
+    [Fact]
+    public void ProspectiveSizingReservesGrowingMetadataWithoutDeliveringInventedObservations()
+    {
+        var original = Manifest([new(ContextArtifactKind.Rules, "rules", "required", [])]) with
+        {
+            TaskVersion = 9,
+            NextActionContract = AILedger.Core.ContextBriefing.NextActionContracts.Unavailable(9)
+        };
+        var current = ContextManifestBudget.Apply(original, 2000, Json);
+        var exactCurrent = Bytes(current);
+        Assert.Throws<CliUsageException>(() => ContextManifestBudget.Apply(original, exactCurrent, Json, prospectiveLaunch: true));
+        var prepared = ContextManifestBudget.Apply(original, 2000, Json, prospectiveLaunch: true);
+        Assert.Equal(9, prepared.TaskVersion);
+        Assert.Equal(9, prepared.NextActionContract!.ObservedTaskVersion);
+        Assert.Equal(original.AssembledAt, prepared.AssembledAt);
+        Assert.Equal(original.Artifacts, prepared.Artifacts);
+    }
+
     private static ContextManifest Manifest(IReadOnlyList<ContextArtifact> artifacts) =>
         new(1, new TaskId("T1"), new ActorId("worker"), RoleKind.Worker, null, 0, [], artifacts, [], DateTimeOffset.UnixEpoch);
 
