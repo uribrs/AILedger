@@ -8,7 +8,7 @@ mechanical success, frozen historical check or successful installation.
 
 Use a real small change Uri wants, for example correcting a one-file UTF-8 formatter with a small
 executable test script and written expected outputs. Keep the complete candidate/requirements/source
-closure within 32 paths and 64 KiB per area. Declare an independent area and one dependent consumer
+closure within 32 paths and 256 KiB per area (128 KiB per input). Declare an independent area and one dependent consumer
 only if they exist in that actual task. Do not invent work or omit required build inputs to fit.
 A full .NET repository build, binary candidate or unresolved external test environment exceeds this
 slice unless it can genuinely be reduced to the supported captured input closure.

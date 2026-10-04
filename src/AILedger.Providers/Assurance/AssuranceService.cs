@@ -163,6 +163,10 @@ public sealed partial class AssuranceService : IAssuranceService
     }
     private static T Payload<T>(AssuranceEntry entry) where T : class => entry.Payload.Deserialize<T>(HandoffJson.Options)
         ?? throw new InvalidDataException("Missing assurance payload.");
+    // A committed payload names inputs by path and digest. Content is returned only where a read asked for it,
+    // so one area's bytes are not repeated in every receipt and a read stays inside the payload cap.
+    private static AssuranceSnapshot Identity(AssuranceSnapshot snapshot) =>
+        snapshot with { Inputs = snapshot.Inputs.Select(i => i with { Content = "" }).ToArray() };
     private static AssuranceSnapshot Snapshot(AssuranceEntry entry) => entry.Payload.GetProperty("snapshot").Deserialize<AssuranceSnapshot>(HandoffJson.Options)
         ?? throw new InvalidDataException("Missing assurance snapshot.");
 }

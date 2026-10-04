@@ -13,7 +13,7 @@ public sealed partial class AssuranceService
         Require(AILedger.Core.Artifacts.ArtifactSubmissionIdentity.IsHash(request.ExpectedBinding), "invalid_request", "expected_binding must be the exact SHA-256 returned by inspection.");
         var snapshot = await CurrentAsync(policy, request.AreaId, request.ExpectedBinding, token).ConfigureAwait(false);
         ValidateAcceptance(request, snapshot, policy, entries, _session.Principal);
-        return await CommitAsync("accept_assurance", request.RequestId, request, new AssuranceAcceptance(snapshot, request), snapshot, attempt, token).ConfigureAwait(false);
+        return await CommitAsync("accept_assurance", request.RequestId, request, new AssuranceAcceptance(Identity(snapshot), request), snapshot, attempt, token).ConfigureAwait(false);
     }
 
     private void ValidateAcceptance(AcceptAssuranceRequest request, AssuranceSnapshot snapshot, AssurancePolicy policy,

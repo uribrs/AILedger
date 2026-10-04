@@ -25,7 +25,7 @@
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "689d3a73fbf9ee7a95d9eb43bc96c5c8b6408b84e72ca0c92f8ecac6c470c07d"
+      "sha256": "9c413dac9603b3d50a1cf665881411578c94094095220a74eb4af925a38e58e6"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
@@ -49,7 +49,7 @@
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "c67ad89f2873a60d56455ccf622107d06f0040fe658ba870e39cedd7c13a8ce9"
+      "sha256": "2f24ce7ef1e56e45f89322e9cfe6a1855b33dfa6a2859fe2d92255ecf7bcbd44"
     }
   ]
 }

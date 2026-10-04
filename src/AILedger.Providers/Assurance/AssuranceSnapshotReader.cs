@@ -8,6 +8,9 @@ namespace AILedger.Providers.Assurance;
 // Paths locate bytes; only the captured bytes and transitive dependency digests identify a candidate.
 internal static class AssuranceSnapshotReader
 {
+    internal const int MaximumAreaBytes = 256 * 1024;
+    internal const int MaximumInputBytes = 128 * 1024;
+
     internal static async Task<AssuranceSnapshot> CaptureAsync(AssurancePolicy policy, string areaId, CancellationToken token)
     {
         var snapshots = new Dictionary<string, AssuranceSnapshot>(StringComparer.Ordinal);
@@ -25,7 +28,7 @@ internal static class AssuranceSnapshotReader
         foreach (var (kind, paths) in new[] { ("candidate", area.CandidatePaths), ("requirement", area.RequirementPaths), ("source", area.SourcePaths) })
             foreach (var path in paths.Order(StringComparer.Ordinal))
                 inputs.Add(await ReadAsync(policy.CandidateRoot, kind, path, token).ConfigureAwait(false));
-        Require(inputs.Sum(i => i.Bytes) <= 64 * 1024, "capacity_exceeded", "One area is limited to 64 KiB of exact UTF-8 inputs. Split the bounded scope explicitly.");
+        Require(inputs.Sum(i => i.Bytes) <= MaximumAreaBytes, "capacity_exceeded", "One area is limited to 256 KiB of exact UTF-8 inputs. Split the bounded scope explicitly.");
         var dependencies = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var dependency in area.DependsOnAreas.Order(StringComparer.Ordinal))
             dependencies.Add(dependency, (await CaptureAreaAsync(policy, dependency, snapshots, visiting, token).ConfigureAwait(false)).BindingSha256);
@@ -48,10 +51,10 @@ internal static class AssuranceSnapshotReader
              current = current is FileInfo file ? file.Directory : ((DirectoryInfo)current).Parent)
             Require(current.LinkTarget is null || current.FullName is "/tmp" or "/var", "source_unavailable", "Resolve symlinked input roots and paths before binding assurance.");
         await using var stream = new FileStream(absolute, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
-        Require(stream.Length <= 64 * 1024, "capacity_exceeded", "An input exceeds 64 KiB.");
-        var buffer = new byte[64 * 1024 + 1];
+        Require(stream.Length <= MaximumInputBytes, "capacity_exceeded", "An input exceeds 128 KiB.");
+        var buffer = new byte[MaximumInputBytes + 1];
         var length = await stream.ReadAtLeastAsync(buffer, buffer.Length, false, token).ConfigureAwait(false);
-        Require(length <= 64 * 1024, "capacity_exceeded", "An input grew beyond 64 KiB.");
+        Require(length <= MaximumInputBytes, "capacity_exceeded", "An input grew beyond 128 KiB.");
         var content = new UTF8Encoding(false, true).GetString(buffer, 0, length);
         return new(kind, path, ArtifactSubmissionIdentity.ContentHash(content), length, content);
     }

@@ -14,7 +14,7 @@ public sealed partial class AssuranceService
         var snapshot = await CurrentAsync(policy, request.AreaId, request.ExpectedBinding, token).ConfigureAwait(false);
         Unique(request.Paths, "paths"); Require(request.Paths.Count > 0, "invalid_request", "Select at least one input path.");
         Require(request.Paths.All(p => snapshot.Inputs.Any(i => i.Path == p)), "invalid_reference", "Only the exact paths in this area may be read.");
-        var read = new AssuranceRead(snapshot, snapshot.Inputs.Where(i => request.Paths.Contains(i.Path)).ToArray());
+        var read = new AssuranceRead(Identity(snapshot), snapshot.Inputs.Where(i => request.Paths.Contains(i.Path)).ToArray());
         return await CommitAsync("read_assurance", request.RequestId, request, read, snapshot, attempt, token).ConfigureAwait(false);
     }
 
@@ -30,7 +30,7 @@ public sealed partial class AssuranceService
         var previous = entries.LastOrDefault(e => e.Receipt.Operation == "record_assurance" &&
             e.Receipt.Principal == _session.Principal && Snapshot(e).AreaId == request.AreaId);
         Require(previous?.Receipt.Id == request.Supersedes, "stale_checkpoint", "Name your latest report receipt in supersedes, or null for the first checkpoint.");
-        var report = new AssuranceReport(snapshot, request,
+        var report = new AssuranceReport(Identity(snapshot), request,
             snapshot.Inputs.Select(i => i.Path).Except(request.InspectedPaths, StringComparer.Ordinal).ToArray(), Principal(policy).Role);
         return await CommitAsync("record_assurance", request.RequestId, request, report, snapshot, attempt, token).ConfigureAwait(false);
     }

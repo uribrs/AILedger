@@ -887,7 +887,7 @@ independent principals. Use a fresh `provider launch` with `--assurance-authorit
 `--assurance-store DIR`, or the authorized external `assurance serve` entry point. Tools remain
 explicitly granted by the host; a policy default neither creates authority nor supplies missing tools.
 
-The current slice supports bounded UTF-8 input closures (32 paths and 64 KiB per area), not arbitrary
+The current slice supports bounded UTF-8 input closures (32 paths and 256 KiB per area, 128 KiB per input), not arbitrary
 repository builds. Missing configuration or unsupported scope is an assurance gap to resolve before
 claiming task-13 acceptance. Do not silently revert to a legacy flow, omit material inputs, invent
 receipts or weaken isolation. Preserve governed verifier/reviewer outputs and completion gates as

@@ -31,7 +31,7 @@ public sealed partial class AssuranceService
             (Principal(policy).Role is "acceptance" or "synthesis" || r.GetProperty("principal").GetString() == _session.Principal))
             .Select(r => r.GetProperty("request_id").GetString()!).ToArray();
         var page = visible.AsEnumerable().Reverse().Skip(request.Offset).Take(16).Select(e => Applicability(e, snapshot, policy, entries, false)).ToArray();
-        var inspection = new AssuranceInspection(snapshot with { Inputs = snapshot.Inputs.Select(i => i with { Content = "" }).ToArray() }, page,
+        var inspection = new AssuranceInspection(Identity(snapshot), page,
             snapshot.Inputs.Select(i => i.Path).Where(p => !inspected.Contains(p)).ToArray(),
             snapshot.Criteria.Select(c => c.Id).Where(c => !verified.Contains(c)).ToArray(),
             CurrentFindings(visible, snapshot, policy).SelectMany(FindingIds).Where(id => !disposed.Contains(id)).ToArray(), accepted ? "accepted" : "not_accepted",

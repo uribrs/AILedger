@@ -20,7 +20,7 @@ independent principals. Use a fresh `provider launch` with `--assurance-authorit
 `--assurance-store DIR`, or the authorized external `assurance serve` entry point. Tools remain
 explicitly granted by the host; a policy default neither creates authority nor supplies missing tools.
 
-The current slice supports bounded UTF-8 input closures (32 paths and 64 KiB per area), not arbitrary
+The current slice supports bounded UTF-8 input closures (32 paths and 256 KiB per area, 128 KiB per input), not arbitrary
 repository builds. Missing configuration or unsupported scope is an assurance gap to resolve before
 claiming task-13 acceptance. Do not silently revert to a legacy flow, omit material inputs, invent
 receipts or weaken isolation. Preserve governed verifier/reviewer outputs and completion gates as
@@ -95,12 +95,14 @@ principal's granted scope. All inputs must be canonical relative non-symlink UTF
 
 The policy declares what the bounded candidate contains. It does not discover undeclared code,
 resources or environmental dependencies. The client must inspect this selection before relying on
-assurance. This first slice has at most eight areas, 32 total paths per area, 64 KiB exact bytes per
-area, 32 criteria/principals/check definitions, 1–8 checks per batch and eight check batches per case.
+assurance. This first slice has at most eight areas, 32 total paths per area, 256 KiB exact bytes per
+area and 128 KiB per input, 32 criteria/principals/check definitions, 1–8 checks per batch and eight check batches per case.
 A check timeout is 1–300 seconds; a batch's total configured timeouts cannot exceed 300 seconds.
 Use a narrowly scoped change whose complete relevant inputs fit. Binaries, symlinks and larger
 repository build closures are unsupported; split the task deliberately rather than omit material
 inputs to satisfy a bound. External build caches/system runtime dependencies are not hermetic.
+A committed payload carries at most 256 KiB. Receipts name inputs by path and digest and carry
+content only for the paths a read selected, so read a large area in several calls of selected paths.
 
 Paths locate bytes; they are never identities. SHA-256 over ordered path/content-digest/byte-count
 inventories establishes the candidate. Requirements additionally bind the typed criteria. A binding

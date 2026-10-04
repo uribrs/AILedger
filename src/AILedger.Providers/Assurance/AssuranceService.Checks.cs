@@ -50,7 +50,7 @@ public sealed partial class AssuranceService
         foreach (var id in request.CheckIds.Except(results.Select(r => r.CheckId), StringComparer.Ordinal))
             results.Add(new(id, "not_checked", null, "", "", null, RuntimeInformation.OSDescription, "", [], DateTimeOffset.UtcNow, null, "A preceding check did not succeed."));
         return await CommitAsync("run_assurance_checks", request.RequestId, request,
-            new AssuranceTestBatch(snapshot, results), snapshot, attempt, CancellationToken.None).ConfigureAwait(false);
+            new AssuranceTestBatch(Identity(snapshot), results), snapshot, attempt, CancellationToken.None).ConfigureAwait(false);
     }
 
     private static async Task<List<AssuranceInput>> MaterializeAsync(AssurancePolicy policy, AssuranceSnapshot snapshot,

@@ -2,6 +2,7 @@ using System.Text.Json;
 using AILedger.Cli.Findings;
 using AILedger.Core.Assurance;
 using AILedger.Core.Episodes;
+using AILedger.Core.Handoffs;
 using AILedger.Tests.Findings;
 using AILedger.Tests.Inspection;
 
@@ -97,5 +98,26 @@ public sealed class AssuranceBoundaryTests
         Assert.Single(results.Select(r => r.Receipt!.Id).Distinct());
         f.Policy = f.Policy with { Implementer = "other-implementer" };
         Assert.Equal("authority_changed", (await f.CallAsync("reviewer", "read_assurance", request)).Error?.Code);
+    }
+
+    [Fact]
+    public async Task AnAreaHolds256KiBAndAnInput128KiBAndAReadCarriesOnlyTheContentItAskedFor()
+    {
+        using var f = await AssuranceFixture.CreateAsync();
+        var large = new string('x', 100 * 1024);
+        await File.WriteAllTextAsync(Path.Combine(f.Root, "a.cs"), large);
+        await File.WriteAllTextAsync(Path.Combine(f.Root, "a.txt"), large);
+        var binding = (await f.InspectAsync("reviewer")).Snapshot.BindingSha256;
+        var read = await f.CallAsync("reviewer", "read_assurance", new ReadAssuranceRequest(1, "large", "a", binding, ["a.cs"]));
+        Assert.Null(read.Error);
+        var payload = read.Data!.Value.Deserialize<AssuranceRead>(HandoffJson.Options)!;
+        Assert.Equal(large, Assert.Single(payload.Inputs).Content);
+        Assert.All(payload.Snapshot.Inputs, i => Assert.Equal("", i.Content));
+
+        await File.WriteAllTextAsync(Path.Combine(f.Root, "a.source"), large);
+        Assert.Equal("capacity_exceeded", (await f.CallAsync("reviewer", "inspect_assurance", new InspectAssuranceRequest(1, "a"))).Error?.Code);
+        await File.WriteAllTextAsync(Path.Combine(f.Root, "a.source"), "Supported runtime contract v1.\n");
+        await File.WriteAllTextAsync(Path.Combine(f.Root, "a.cs"), new string('x', 128 * 1024 + 1));
+        Assert.Equal("capacity_exceeded", (await f.CallAsync("reviewer", "inspect_assurance", new InspectAssuranceRequest(1, "a"))).Error?.Code);
     }
 }
