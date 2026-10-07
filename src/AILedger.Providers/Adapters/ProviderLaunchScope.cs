@@ -12,15 +12,17 @@ public sealed class ProviderLaunchScope : IDisposable
     private readonly string? _temporaryDirectory;
 
     public ProviderLaunchScope(IReadOnlyDictionary<string, string> environment, string? temporaryDirectory,
-        IReadOnlyList<string>? arguments = null)
+        IReadOnlyList<string>? arguments = null, IReadOnlyList<string>? readOnlyPaths = null)
     {
         Environment = environment;
         _temporaryDirectory = temporaryDirectory;
         Arguments = arguments ?? [];
+        ReadOnlyPaths = readOnlyPaths ?? (temporaryDirectory is null ? [] : Directory.GetFiles(temporaryDirectory));
     }
 
     public IReadOnlyDictionary<string, string> Environment { get; }
     public IReadOnlyList<string> Arguments { get; }
+    internal IReadOnlyList<string> ReadOnlyPaths { get; }
     internal string? TemporaryDirectory => _temporaryDirectory;
 
     public void Dispose()

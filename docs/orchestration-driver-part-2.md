@@ -100,7 +100,8 @@ No additional credential copying/forwarding is introduced.
 
 The default-deny profile permits ordinary file reads outside hidden authority, process execution,
 forking, self-signals, limited system services and outbound TCP/UDP needed for provider transport.
-It does not grant arbitrary process inspection/tracing, signalling other processes, Unix sockets,
+It also permits the exact `/private/var/run/mDNSResponder` socket required for macOS DNS resolution.
+It does not grant arbitrary process inspection/tracing, signalling other processes, other Unix sockets,
 Apple events or external service launch. It is **not** a general network/data-exfiltration sandbox.
 Any reachable privileged host endpoint must authenticate its own callers; an unauthenticated local
 broker that executes commands as the owner is outside the supported deployment boundary.

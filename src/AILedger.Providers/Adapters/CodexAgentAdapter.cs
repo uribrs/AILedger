@@ -90,6 +90,9 @@ public sealed class CodexAgentAdapter : AgentAdapterBase
             }
 
             File.WriteAllText(Path.Combine(governedHome, "config.toml"), configuration);
+            // Hook discovery starts an app-server, which creates mutable runtime state
+            // (installation_id and SQLite files). Protect our configuration, not that state.
+            var configurationFiles = Directory.GetFiles(governedHome);
             if (guardCommand is not null)
             {
                 await trustHook(request.ExecutablePath, governedHome, request.WorkingDirectory, guardCommand,
@@ -98,7 +101,7 @@ public sealed class CodexAgentAdapter : AgentAdapterBase
 
             return new ProviderLaunchScope(
                 new Dictionary<string, string>(StringComparer.Ordinal) { ["CODEX_HOME"] = governedHome },
-                governedHome);
+                governedHome, readOnlyPaths: configurationFiles);
         }
         catch
         {

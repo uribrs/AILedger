@@ -90,7 +90,7 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             isolation = isolation with
             {
                 WritableDirectories = isolation.WritableDirectories.Append(runtimeDirectory).ToArray(),
-                ReadOnlyPaths = isolation.ReadOnlyPaths.Concat(Directory.GetFiles(runtimeDirectory)).ToArray()
+                ReadOnlyPaths = isolation.ReadOnlyPaths.Concat(launchScope.ReadOnlyPaths).ToArray()
             };
 
         var invocation = new ProcessInvocation(

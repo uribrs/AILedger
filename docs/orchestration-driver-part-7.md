@@ -5,8 +5,9 @@
 This candidate extends the existing process runner, adapters, shared dispatch/completion, durable
 coordination and retrospective owners. It preserves the Parts 1–6 work in the main checkout on
 `codex/orchestration-review`. Development used the user's explicit direct-work exemption: no
-new development ledger, governed development dispatch, live-ledger mutation, installation, commit,
-branch change or publication. The installed `2.0.189-dirty` supervisor remains unchanged.
+new development ledger, governed development dispatch or live-ledger mutation. The user subsequently
+authorized committing, pushing and installing the branch; Parts 1–7 shipped as `2.0.191` from
+`3a41b22`. The startup correction below follows that installation and the next real launch report.
 
 Implemented behavior and repeatable fixture coverage are distinct from live adoption. The bounded
 single-member lifecycle can reach archive after independent verification, blind review, separate
@@ -96,6 +97,39 @@ proved to be either original child's cause. Its own message does not distinguish
 network connectivity or organization-policy availability. There was no unconfined retry or
 credential/grant alteration. Provider token usage and USD cost were absent and remain **unknown**,
 not zero. No provider model returned a successful result. No full Part 7 orchestration was launched.
+
+### Follow-up: macOS startup compatibility
+
+The subsequent task `2026-10-07_2126-yaml-falcon-cursor-strategies` retained both failed recon
+results: Codex `XRA1` exited 1 during in-process app-server initialization; Claude `XRA2` exited 1
+with the mandatory managed-settings error. Both had zero protocol events. The new stderr retention
+worked, but that did not make provider startup compatible.
+
+Read-only macOS denial logs for 2026-10-07 21:28:37–21:29:18 UTC identify product confinement
+defects, rather than establishing the reported outer shell sandbox as the sole cause:
+
+- Codex was denied writes to its temporary home's `installation_id` and `state_5.sqlite-shm`.
+  Hook-trust discovery starts an app-server before execution, creating those runtime files. The
+  adapter then incorrectly marked every existing home file read-only. It now captures the generated
+  configuration paths before discovery, so runtime state stays writable and configuration stays
+  protected. Both a configuration symlink's target and its directory entry are protected, preventing
+  replacement of the linked credential path without copying credentials.
+- Both providers were denied access to `/private/var/run/mDNSResponder`. Permitting outbound TCP/UDP
+  does not permit this macOS DNS socket. The profile now permits that exact resolver socket; arbitrary
+  local sockets remain denied. The same unauthenticated HTTPS probe against `api.anthropic.com` failed
+  DNS resolution under installed `2.0.191` (curl exit 6) and reached HTTP 404 under the corrected
+  product profile (curl exit 0). No token or model request was used.
+
+Validation: 23 targeted tests and a broader 238-test provider/assurance-boundary selection passed,
+with no skips. New real-process regressions exercise runtime write/locking, configuration protection,
+credential-link replacement denial, resolver access and denial of an unrelated listening host socket.
+The initial new socket fixture exceeded macOS's path-length limit; shortening its name fixed the
+fixture without changing the product boundary. A separate `claude auth status --json` probe inside
+the corrected profile returned exit 0, `loggedIn: true` and empty stderr; credentials stayed protected
+and were not printed. These checks do not establish authenticated model execution or managed-settings
+loading during a model run. No recon was retried, no live task was changed and no outer
+sandbox permission rule was added. An outer host that refuses nested sandbox creation remains a
+separate prerequisite; this correction does not grant permission to bypass that refusal.
 
 ## Recovery behavior
 
@@ -212,9 +246,10 @@ When launch fails:
    alone do not validate authentication, organization settings, MCP handshake or governed interaction.
 3. For `sandbox_apply` failure, the current outer sandbox cannot establish the nested product profile.
    Use an authorized compatible host; do not disable product confinement or broaden grants. For the
-   observed Claude managed-settings error, resolve authentication/connectivity/organization policy
-   through the appropriate operator/admin path. The error is not evidence that one specific remedy
-   will work. No authentication or organization-policy change was performed in this task.
+   observed Claude managed-settings error, first use a build with the DNS correction above and
+   distinguish product confinement from outer-host restrictions. Authentication and organization-policy
+   failures may still require the operator/admin path. No authentication or organization-policy change
+   was performed in this task.
 4. Do not restart an uncertain execution. Establish process-tree/check termination first, close an
    orphan through its existing trusted path if needed, record actual `process-termination` evidence,
    then use `orchestrate reconcile-stopped` with the original run/evidence identities. Failure status

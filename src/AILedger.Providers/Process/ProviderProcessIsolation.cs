@@ -26,7 +26,10 @@ public static class ProviderProcessIsolation
         };
         var writable = isolation.WritableDirectories.Append(scratch).Select(Canonical).Distinct().ToArray();
         var hidden = isolation.HiddenPaths.Select(Canonical).Distinct().ToArray();
-        var readOnly = isolation.ReadOnlyPaths.Select(Canonical).Concat(hidden).Distinct().ToArray();
+        // Protect both the target and the directory entry of a configuration symlink.
+        // Otherwise its target stays read-only but the child can replace the link itself.
+        var readOnly = isolation.ReadOnlyPaths.SelectMany(path => new[] { Canonical(path), CanonicalEntry(path) })
+            .Concat(hidden).Distinct().ToArray();
         return invocation with
         {
             ExecutablePath = "/usr/bin/sandbox-exec",
@@ -45,6 +48,8 @@ public static class ProviderProcessIsolation
             "(allow sysctl-read)(allow mach-lookup (global-name \"com.apple.system.logger\") " +
             "(global-name \"com.apple.trustd.agent\") (global-name \"com.apple.SecurityServer\"))" +
             "(allow network-outbound (remote tcp))(allow network-outbound (remote udp))" +
+            // macOS resolves hostnames through this local socket, even for outbound HTTPS.
+            "(allow network-outbound (literal \"/private/var/run/mDNSResponder\"))" +
             "(allow file-read* (require-all (require-not (regex #\"(^|/)\\.ailedger(/|$)\"))" +
             Exclusions(hidden, ancestors: false) + "))";
         profile += "(allow file-write* (require-all (require-any " +
@@ -66,4 +71,10 @@ public static class ProviderProcessIsolation
     private static string Subpath(string path) => "(subpath " + Quote(path) + ")";
     private static string Quote(string text) => JsonSerializer.Serialize(text);
     private static string Canonical(string path) => RoslynSolutionPaths.Canonicalize(path);
+    private static string CanonicalEntry(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var parent = Path.GetDirectoryName(fullPath);
+        return parent is null ? fullPath : Path.Combine(Canonical(parent), Path.GetFileName(fullPath));
+    }
 }
