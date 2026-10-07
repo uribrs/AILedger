@@ -98,6 +98,9 @@ internal sealed class RoslynStdioBackend : IAsyncDisposable
                 UseShellExecute = false, CreateNoWindow = true
             }
         };
+        // PhysicalFileProvider's native watcher needs the macOS FSEvents service, which
+        // provider confinement does not expose. Polling keeps startup and reload in scope.
+        process.StartInfo.Environment["DOTNET_USE_POLLING_FILE_WATCHER"] = "1";
         try
         {
             process.Start();
@@ -186,6 +189,19 @@ internal sealed class RoslynStdioBackend : IAsyncDisposable
 
     private async Task StopCoreAsync()
     {
+        // A stdio server's normal shutdown is EOF. In a confined provider, process-tree
+        // inspection/termination may be denied even though the backend can exit cleanly.
+        try
+        {
+            process.StandardInput.Close();
+            using var graceful = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await process.WaitForExitAsync(graceful.Token).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException or OperationCanceledException)
+        {
+            // Failed or unresponsive backends still go through bounded cleanup below.
+        }
+
         // An exited backend may leave a descendant holding stderr open. Bound both the
         // reap and I/O cleanup instead of waiting indefinitely for that descendant's EOF.
         await drainCancellation.CancelAsync();

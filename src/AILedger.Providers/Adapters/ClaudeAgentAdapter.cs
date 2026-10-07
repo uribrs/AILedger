@@ -69,7 +69,8 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
                 arguments.AddRange(["--mcp-config", JsonSerializer.Serialize(new { mcpServers = servers }),
                     "--allowedTools", string.Join(",", tools)]);
             }
-            return new ProviderLaunchScope(environment, directory, arguments);
+            return new ProviderLaunchScope(environment, directory, arguments,
+                RoslynNavigation.ProtectedPaths(request, directory));
         }
         catch
         {

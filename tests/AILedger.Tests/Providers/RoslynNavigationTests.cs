@@ -58,6 +58,7 @@ public sealed class RoslynNavigationTests
                 Assert.Contains(repository, settings.AllowedDirectories);
                 Assert.Contains($"enabled_tools = {JsonSerializer.Serialize(RoslynNavigation.Tools)}", config, StringComparison.Ordinal);
                 Assert.Contains("required = false", config, StringComparison.Ordinal);
+                Assert.Contains("mcp_optional_startup_grace_ms = 30000", config, StringComparison.Ordinal);
                 Assert.Contains("default_tools_approval_mode = \"approve\"", config, StringComparison.Ordinal);
                 Assert.DoesNotContain("rename_symbol", config, StringComparison.Ordinal);
                 Assert.Contains("load_solution", config, StringComparison.Ordinal);
@@ -111,6 +112,7 @@ public sealed class RoslynNavigationTests
             NavigationDirectories = [root.Path],
             NavigationHostAssembly = typeof(CliApplication).Assembly.Location,
             Environment = new Dictionary<string, string> { [RoslynNavigation.ExecutableVariable] = executable },
+            Isolation = new([project], [], []),
             Assurance = role == "worker" ? null : new AssuranceBinding(1, [new WorkItemId("W1")],
                 [new(new WorkItemId("W1"), new RunId("WORK1"))], new string('a', 64),
                 reviewer ? new RunId("VERIFY1") : null)
@@ -132,6 +134,8 @@ public sealed class RoslynNavigationTests
         runner.Enqueue(invocation =>
         {
             Assert.Equal(project, invocation.WorkingDirectory);
+            if (!missingExecutable)
+                Assert.Contains(Path.GetDirectoryName(executable)!, invocation.Isolation!.ReadOnlyPaths);
             Assert.DoesNotContain("--add-dir", invocation.Arguments);
             Assert.DoesNotContain(root.Path, invocation.Arguments);
             string settingsPath;

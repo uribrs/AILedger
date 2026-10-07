@@ -3,6 +3,7 @@ using System.Text.Json;
 using AILedger.Cli;
 using AILedger.Core.Contracts;
 using AILedger.Providers.Adapters;
+using AILedger.Providers.Navigation;
 using AILedger.Providers.Process;
 using AILedger.Tests.Support;
 
@@ -10,6 +11,60 @@ namespace AILedger.Tests.Providers;
 
 public sealed class ProviderStartupIsolationTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task NavigationBridgeCanStartOutsideHiddenLedgerDirectories(bool legacyLocation)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        using var work = new TemporaryDirectory();
+        var toolDirectory = Directory.CreateDirectory(Path.Combine(work.Path,
+            legacyLocation ? ".ailedger" : ".local", "tools", "roslyn")).FullName;
+        var executable = Path.Combine(toolDirectory, "backend");
+        await File.WriteAllTextAsync(executable, """
+            #!/usr/bin/python3
+            import sys, json, os
+            assert os.environ.get('DOTNET_USE_POLLING_FILE_WATCHER') == '1'
+            for line in sys.stdin:
+                request = json.loads(line)
+                if 'id' not in request: continue
+                result = {'protocolVersion':'2024-11-05','capabilities':{'tools':{}},
+                          'serverInfo':{'name':'fixture','version':'1'}}
+                if request['method'] == 'tools/list':
+                    result = {'tools':[{'name':'list_solutions','description':'List loaded solutions',
+                                        'inputSchema':{'type':'object'}}]}
+                print(json.dumps({'jsonrpc':'2.0','id':request['id'],'result':result}), flush=True)
+            """ + "\n");
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var settingsPath = Path.Combine(work.Path, "navigation.json");
+        var ledger = Path.Combine(work.Path, ".ailedger", "tasks");
+        var settings = new RoslynNavigationSettings(executable, [work.Path], ledger,
+            Path.Combine(work.Path, "failures"));
+        await File.WriteAllTextAsync(settingsPath, JsonSerializer.Serialize(settings));
+        var input = """
+            {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}
+            {"jsonrpc":"2.0","method":"notifications/initialized"}
+            {"jsonrpc":"2.0","id":2,"method":"tools/list"}
+            """ + "\n";
+        var cli = typeof(CliApplication).Assembly.Location;
+        var dotnet = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(object).Assembly.Location)!, "../../..", "dotnet"));
+        var result = await ProviderIsolationTests.RunAsync(new(dotnet, work.Path,
+            [cli, "navigation", "serve", settingsPath], input, new Dictionary<string, string>(),
+            TimeSpan.FromSeconds(20), new([work.Path], [ledger], [settingsPath, toolDirectory, Path.GetDirectoryName(cli)!])));
+        if (legacyLocation)
+        {
+            Assert.Equal(1, result.Exit);
+            Assert.Contains("configured Roslyn executable is unavailable", result.Error);
+        }
+        else
+        {
+            Assert.True(result.Exit == 0, result.Error);
+            var response = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Last();
+            using var listed = JsonDocument.Parse(response);
+            Assert.Equal("list_solutions", listed.RootElement.GetProperty("result").GetProperty("tools")[0].GetProperty("name").GetString());
+        }
+    }
+
     [Fact]
     public async Task HookDiscoveryRuntimeStaysWritableWhileConfigurationAndAuthLinkStayProtected()
     {

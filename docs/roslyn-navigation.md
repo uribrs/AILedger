@@ -1,7 +1,10 @@
 # Guarded C# navigation
 
 Run `sh scripts/install-roslyn.sh` to install Roslyn CodeLens MCP **2.18.1** into
-`~/.ailedger/tools/roslyn/2.18.1`. The tool requires .NET 10. Run `sh scripts/install.sh`
+`~/.local/share/ailedger/tools/roslyn/2.18.1`. The old `~/.ailedger/tools` location is hidden
+by provider confinement; rerun the installer to install at the new path. A symlink back to the old
+location cannot fix this because sandbox checks resolve the target. The tool requires .NET 10.
+Run `sh scripts/install.sh`
 after building adapter changes so the installed AILedger uses them. Wait for active provider
 runs to finish before replacing the installed tool.
 
@@ -28,7 +31,11 @@ search, definitions/references/callers, overloads, member source, test discovery
 are exposed. Refactoring, code execution tools and analyzer trust are excluded, including
 direct calls to unlisted tools. These tools are preapproved; other approvals are unchanged.
 
-Roslyn evaluates MSBuild outside the provider sandbox. Navigation directories bound solution
+Roslyn inherits AILedger's outer process confinement. Its installation directory is read-only.
+The bridge enables .NET's polling file watcher so startup does not depend on the unavailable
+macOS FSEvents service. Normal shutdown closes stdin and allows a bounded graceful exit before
+the existing forced-cleanup path; a failure to stop is still reported.
+Navigation directories bound solution
 selection, **not** transitive project/package reads or MSBuild side effects. Use trusted
 repositories. This is not an enforced read-only filesystem capability. Existing provider
 sandbox and reviewer memory/narrative isolation settings remain in place.
@@ -68,6 +75,15 @@ bypass is used. Claude merges the hook into its explicit launch settings and ret
 MCP allowlist. Both providers need compatible hook support. Validated versions are Codex CLI
 `0.155.0-alpha.9.2` and Claude Code `2.1.280`; unsupported Codex hook metadata fails preflight.
 
+Rejected hook discovery includes a bounded, redacted response structure and response digest in
+the refusal. Matching generated fields are identified; unexpected command bodies and free-form
+errors are represented by length and digest, not persisted as potentially credential-bearing text.
+The exact-match trust checks remain unchanged. A missing Roslyn tool in the model session does not
+by itself establish failed configuration: Codex receives the server in its temporary `config.toml`,
+not in its argument vector. The server remains optional for the recorded startup-fallback path,
+but Codex now allows up to 30 seconds of startup grace so a healthy bridge is ready before the
+first model turn, matching its existing startup timeout.
+
 Hooks are workflow guardrails, **not a tamperproof shell sandbox**. Arbitrary programs can hide
 searches; Codex does not invoke `PreToolUse` again for interactive `write_stdin`; provider-managed
 policy can affect hook execution. Agents must not bypass the guard through scripts or interactive
@@ -76,7 +92,39 @@ contracts: [Codex hooks](https://learn.chatgpt.com/docs/hooks) and
 [Claude hooks](https://code.claude.com/docs/en/hooks).
 
 Startup allows 30 seconds; tool calls allow 60 seconds. The bridge stops waiting on a stalled
-backend after 55 seconds and kills its child on connection close. No indexing or download occurs
+backend after 55 seconds and attempts bounded cleanup on connection close. No indexing or download occurs
 until a solution is selected. Standalone projects without a solution need a solution before
 semantic navigation. This change affects governed launches, not existing interactive sessions,
 and does not change kernel stages or reconfigure runs already in progress.
+
+## Native confinement compatibility investigation
+
+The 2026-10-08 follow-up reproduced a real launch failure: XRA3's macOS sandbox denied metadata
+access to the old Roslyn executable under `~/.ailedger/tools`. The default path and installer now
+use the application-tools directory above; the blanket ledger-directory protection remains intact.
+The real relocated backend also stalled on denied FSEvents service lookups until polling was enabled.
+The bridge now initializes, lists all eleven allowed tools, queries empty solution state and shuts
+down under production confinement with exit 0 and no stderr (approximately 0.31 seconds through
+the empty-solution query). This establishes startup, **not successful C# project navigation**.
+
+A subsequent temporary .NET 10 solution probe reached `load_solution` and failed. Roslyn's MSBuild
+helper attempted to create `/private/tmp/<guid>`, which is outside the confined scratch directory.
+Upstream [NamedPipeUtil](https://source.dot.net/vbc/src/roslyn/src/Compilers/Shared/NamedPipeUtil.cs.html)
+hardcodes `/tmp` on Unix, so changing `TMPDIR` cannot relocate this endpoint. Loading timed out,
+the bridge recorded a bounded fallback, and cleanup reported failure. The probe's remaining Roslyn
+process was identified by its recorded PID/start time and terminated by the diagnostic host.
+No live task was relaunched and no general `/tmp` or Unix-socket permission was added. Native
+solution loading remains an unresolved compatibility boundary; do not describe this repair as
+successful end-to-end recon or recommend another live recon merely because startup passes.
+
+XRA4's exact hook-discovery response was not retained by the installed version, so its rejection
+cannot be attributed to either the executable override or the additional directory. A model-free
+probe of actual adapter preparation, with all four additional directories and fake authentication,
+passed the unchanged trust checks. New rejections retain the redacted diagnostic described above.
+
+Validation: 241 provider/assurance-boundary tests passed, with no skips. Real confined fixtures cover
+the hidden legacy path versus readable tool installation, polling configuration, graceful EOF
+shutdown and existing timeout/error cleanup. Hook tests cover changed/extra/untrusted hooks and
+bounded diagnostics that do not reveal command/error secrets. These fixture results do not erase
+the real MSBuild socket failure above. The polling behavior is documented by
+[Microsoft's File Providers guidance](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/file-providers?view=aspnetcore-10.0).

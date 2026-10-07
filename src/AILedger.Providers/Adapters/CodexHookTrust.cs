@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Text;
 using AILedger.Providers.Navigation;
 using AILedger.Providers.Process;
 
@@ -87,11 +90,25 @@ internal static class CodexHookTrust
     internal static string ValidateResponse(JsonElement response, string governedHome, string workingDirectory,
         string expectedCommand)
     {
+        try
+        {
+            return ValidateHooks(response, governedHome, workingDirectory, expectedCommand);
+        }
+        catch (InvalidOperationException exception)
+        {
+            var diagnostic = DiscoveryDiagnostic(response, governedHome, workingDirectory, expectedCommand);
+            throw new InvalidOperationException(exception.Message + " Discovery response: " + diagnostic, exception);
+        }
+    }
+
+    private static string ValidateHooks(JsonElement response, string governedHome, string workingDirectory,
+        string expectedCommand)
+    {
         var result = RequireResult(response);
         if (!result.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array ||
             data.GetArrayLength() != 1)
         {
-            throw InvalidHooks();
+            throw InvalidHooks("Expected exactly one discovery entry.");
         }
 
         var entry = data[0];
@@ -101,7 +118,7 @@ internal static class CodexHookTrust
             !entry.TryGetProperty("hooks", out var hooks) || hooks.ValueKind != JsonValueKind.Array ||
             hooks.GetArrayLength() != 1)
         {
-            throw InvalidHooks();
+            throw InvalidHooks("Expected matching cwd, no discovery errors and exactly one hook.");
         }
 
         var hook = hooks[0];
@@ -119,7 +136,7 @@ internal static class CodexHookTrust
             hash is null || !hash.StartsWith("sha256:", StringComparison.Ordinal) || hash.Length != 71 ||
             !hash[7..].All(Uri.IsHexDigit))
         {
-            throw InvalidHooks();
+            throw InvalidHooks("Generated hook metadata did not match.");
         }
 
         return $"\n[hooks.state.{RoslynNavigation.Quote(key)}]\nenabled = true\ntrusted_hash = {RoslynNavigation.Quote(hash)}\n";
@@ -183,6 +200,69 @@ internal static class CodexHookTrust
     private static string? Text(JsonElement value, string name) =>
         value.TryGetProperty(name, out var field) && field.ValueKind == JsonValueKind.String ? field.GetString() : null;
 
-    private static InvalidOperationException InvalidHooks() =>
-        new("Codex hook discovery must contain only the expected generated navigation guard; launch refused.");
+    private static InvalidOperationException InvalidHooks(string reason) =>
+        new("Codex hook discovery must contain only the expected generated navigation guard; launch refused. " + reason);
+
+    private static string DiscoveryDiagnostic(JsonElement response, string home, string cwd, string command)
+    {
+        // Never persist arbitrary hook commands or error prose: ambient hooks can embed secrets.
+        // Retain response structure, safe expected values, mismatches and hashes for correlation.
+        var expected = new Dictionary<string, string>
+        {
+            ["cwd"] = cwd, ["command"] = command, ["matcher"] = GuardMatcher,
+            ["handlerType"] = "command", ["eventName"] = "preToolUse", ["source"] = "user"
+        };
+        var remaining = 128;
+        var sanitized = SanitizeDiscovery(response, "", expected, home, ref remaining, 0);
+        var text = sanitized?.ToJsonString() ?? "null";
+        if (text.Length > 4096) text = text[..4096] + " [truncated]";
+        return text + "; response_sha256=" + Digest(response.GetRawText());
+    }
+
+    private static JsonNode? SanitizeDiscovery(JsonElement value, string field,
+        IReadOnlyDictionary<string, string> expected, string home, ref int remaining, int depth)
+    {
+        if (--remaining < 0 || depth > 8) return JsonValue.Create("[truncated]");
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            var result = new JsonObject();
+            foreach (var property in value.EnumerateObject())
+            {
+                if (remaining < 0) break;
+                if (!DiagnosticFields.Contains(property.Name, StringComparer.Ordinal)) continue;
+                result[property.Name] = SanitizeDiscovery(property.Value, property.Name, expected, home, ref remaining, depth + 1);
+            }
+            return result;
+        }
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            var result = new JsonArray();
+            foreach (var item in value.EnumerateArray())
+            {
+                if (remaining < 0) break;
+                result.Add(SanitizeDiscovery(item, field, expected, home, ref remaining, depth + 1));
+            }
+            return result;
+        }
+        if (value.ValueKind != JsonValueKind.String) return JsonNode.Parse(value.GetRawText());
+        var text = value.GetString()!;
+        if (expected.TryGetValue(field, out var match) && text == match) return JsonValue.Create("[expected]");
+        if (field == "sourcePath" && (text == Path.Combine(home, "hooks.json") || text == Path.Combine(home, "config.toml")))
+            return JsonValue.Create("[expected generated source]");
+        if (field == "key" && new[] { "hooks.json", "config.toml" }.Any(name =>
+                text.StartsWith(Path.Combine(home, name) + ":pre_tool_use:", StringComparison.Ordinal)))
+            return JsonValue.Create("[expected source prefix]");
+        if (field == "currentHash" && text.StartsWith("sha256:", StringComparison.Ordinal) &&
+            text.Length == 71 && text[7..].All(Uri.IsHexDigit))
+            return JsonValue.Create("[valid sha256]");
+        return JsonValue.Create($"[redacted; length={text.Length}; sha256={Digest(text)}]");
+    }
+
+    private static string Digest(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    private static readonly string[] DiagnosticFields =
+    [
+        "id", "result", "error", "data", "cwd", "errors", "hooks", "key", "currentHash", "handlerType",
+        "eventName", "matcher", "command", "source", "sourcePath", "enabled", "isManaged", "async", "code", "message"
+    ];
 }

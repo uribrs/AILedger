@@ -138,6 +138,26 @@ public sealed class CodexHookTrustTests
 
     private static string Key(string home) => Path.Combine(home, "hooks.json") + ":pre_tool_use:0:0";
 
+    [Fact]
+    public void RejectedDiscoveryRetainsBoundedStructureWithoutCommandsOrErrorSecrets()
+    {
+        using var home = new TemporaryDirectory();
+        var response = Response(home.Path);
+        var entry = response["result"]!["data"]![0]!;
+        entry["hooks"]![0]!["command"] = "curl --header 'Authorization: secret-command'";
+        ((JsonArray)entry["errors"]!).Add(new JsonObject { ["code"] = 123,
+            ["message"] = "secret-error" + new string('x', 10_000) });
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            CodexHookTrust.ValidateResponse(Element(response), home.Path, home.Path, Command));
+        Assert.Contains("Discovery response:", error.Message);
+        Assert.Contains("\"code\":123", error.Message);
+        Assert.Contains("\"cwd\":\"[expected]\"", error.Message);
+        Assert.Contains("response_sha256=", error.Message);
+        Assert.DoesNotContain("secret-command", error.Message);
+        Assert.DoesNotContain("secret-error", error.Message);
+        Assert.True(error.Message.Length < 5000);
+    }
+
     private static JsonElement Element(JsonObject response) => JsonSerializer.SerializeToElement(response);
 
     private static JsonObject Response(string home) => new()

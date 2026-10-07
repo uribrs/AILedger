@@ -92,7 +92,7 @@ public sealed class CodexAgentAdapter : AgentAdapterBase
             File.WriteAllText(Path.Combine(governedHome, "config.toml"), configuration);
             // Hook discovery starts an app-server, which creates mutable runtime state
             // (installation_id and SQLite files). Protect our configuration, not that state.
-            var configurationFiles = Directory.GetFiles(governedHome);
+            var configurationFiles = RoslynNavigation.ProtectedPaths(request, governedHome);
             if (guardCommand is not null)
             {
                 await trustHook(request.ExecutablePath, governedHome, request.WorkingDirectory, guardCommand,

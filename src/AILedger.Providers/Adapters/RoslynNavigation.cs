@@ -45,9 +45,7 @@ internal static class RoslynNavigation
 
     internal static string? CreateSettingsFile(AgentLaunchRequest request, string launchDirectory)
     {
-        var executable = request.Environment.TryGetValue(ExecutableVariable, out var configured)
-            ? configured
-            : Environment.GetEnvironmentVariable(ExecutableVariable) ?? DefaultExecutable;
+        var executable = ResolveExecutable(request);
         if (request.NavigationHostAssembly is not { } host || !Path.IsPathFullyQualified(host) || !File.Exists(host))
         {
             return null;
@@ -79,12 +77,27 @@ internal static class RoslynNavigation
 
     private static string DefaultExecutable => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".ailedger", "tools", "roslyn", Version,
+        ".local", "share", "ailedger", "tools", "roslyn", Version,
         OperatingSystem.IsWindows() ? "roslyn-codelens-mcp.exe" : "roslyn-codelens-mcp");
+
+    private static string ResolveExecutable(AgentLaunchRequest request) =>
+        request.Environment.TryGetValue(ExecutableVariable, out var configured)
+            ? configured
+            : Environment.GetEnvironmentVariable(ExecutableVariable) ?? DefaultExecutable;
+
+    internal static IReadOnlyList<string> ProtectedPaths(AgentLaunchRequest request, string launchDirectory)
+    {
+        var paths = Directory.GetFiles(launchDirectory).ToList();
+        var executable = ResolveExecutable(request);
+        // The tool installation is host code, even when a broad source grant contains it.
+        if (Path.IsPathFullyQualified(executable) && File.Exists(executable))
+            paths.Add(Path.GetDirectoryName(executable)!);
+        return paths;
+    }
 
     internal static string Configuration(string host, string settingsPath, string workingDirectory) => $"""
 
-        mcp_optional_startup_grace_ms = 0
+        mcp_optional_startup_grace_ms = 30000
 
         [mcp_servers.roslyn]
         command = "dotnet"
