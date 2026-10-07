@@ -149,7 +149,8 @@ public sealed class RoslynNavigationTests
                 Assert.Contains("default_tools_approval_mode = \"approve\"", configuration, StringComparison.Ordinal);
                 Assert.Contains("required = false", configuration, StringComparison.Ordinal);
                 Assert.Equal(project, ProviderProtocolTests.ValueAfter(invocation.Arguments, "--cd"));
-                Assert.Equal("workspace-write", ProviderProtocolTests.ValueAfter(invocation.Arguments, "--sandbox"));
+                Assert.Equal("danger-full-access", ProviderProtocolTests.ValueAfter(invocation.Arguments, "--sandbox"));
+                Assert.Equal(new[] { project, scratchDirectory }, invocation.Isolation!.WritableDirectories);
                 Assert.Equal(reviewer, invocation.Arguments.Contains("project_doc_max_bytes=0"));
                 settingsPath = Path.Combine(scratchDirectory, "roslyn-navigation.json");
                 brief = invocation.StandardInput;

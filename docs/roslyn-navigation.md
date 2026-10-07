@@ -128,3 +128,9 @@ shutdown and existing timeout/error cleanup. Hook tests cover changed/extra/untr
 bounded diagnostics that do not reveal command/error secrets. These fixture results do not erase
 the real MSBuild socket failure above. The polling behavior is documented by
 [Microsoft's File Providers guidance](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/file-providers?view=aspnetcore-10.0).
+
+The subsequent [isolated container trial](roslyn-container-trial.md) completed a real governed
+recon and producer-owned InternalRecon filing against a disposable adapters snapshot. It also
+repaired nested Codex shell sandboxing and the missing live recon-template operation. The container
+worker remains experimental; it is not selected by the installer or ordinary provider launches,
+and it does not resolve the native MSBuild socket failure described above.

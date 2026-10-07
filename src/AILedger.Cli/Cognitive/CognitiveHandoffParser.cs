@@ -20,6 +20,7 @@ internal static class CognitiveHandoffParser
         return new(id, kind switch
         {
             "governing_artifact" => Artifact(op),
+            "recon_template" => ReconTemplate(op),
             "lesson_consultation" => Lesson(op),
             "routing_assessment" => Assessment(op),
             "escalation" => Escalation(op),
@@ -30,6 +31,11 @@ internal static class CognitiveHandoffParser
             "closeout_synthesis" => Closeout(op),
             _ => throw new NotSupportedException("Unsupported cognitive operation.")
         });
+    }
+    private static CognitiveHostOperation ReconTemplate(JsonElement op)
+    {
+        StrictJson.Members(op, ["kind"]);
+        return new ReconTemplateHandoff();
     }
     private static CognitiveHostOperation Artifact(JsonElement op)
     {

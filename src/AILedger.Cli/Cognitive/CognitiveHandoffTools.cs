@@ -6,7 +6,7 @@ internal static class CognitiveHandoffTools
     internal static object Describe() => new
     {
         name = "cognitive_handoff",
-        description = "Live host-bound cognitive operations. File governing artifacts before returning. Routing assessments are evidence-backed judgments, never acceptance. No caller identities or approval fields. Exact key/body retries on this session return its receipt; uncertain writes require the original key/body/binding for durable reconciliation. Enum values use snake_case.",
+        description = "Live host-bound cognitive operations. File governing artifacts before returning. For InternalRecon, after findings and claim changes, call recon_template (read-only, fresh on each call), classify every assessment as internal/external and fill report. Consult recon lessons against that same claim set, then submit the completed strict JSON serialized as the governing_artifact markdown string; plain Markdown is not an InternalRecon document. The host never classifies claims for you. Routing assessments are judgments, never acceptance. No caller identities or approval fields. Exact mutation key/body retries return their receipt; uncertain writes require the original key/body/binding. Enum values use snake_case.",
         inputSchema = Schema(),
         annotations = new { readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = false }
     };
@@ -16,6 +16,7 @@ internal static class CognitiveHandoffTools
         properties = new { request_id = Text(128), operation = new { oneOf = Operations() } }
     };
     private static object[] Operations() => [
+        Operation("recon_template", new()),
         Operation("governing_artifact", new() { ["artifact_kind"] = Values("internal_recon", "prompt_contract", "orchestration_plan"), ["title"] = Text(), ["markdown"] = Text(100000), ["supersedes"] = Text(256) }, "supersedes"),
         Operation("lesson_consultation", new() { ["purpose"] = Values("recon", "research", "reconsideration"), ["question"] = Text(), ["tags"] = Strings(), ["claims"] = Strings() }),
         Operation("routing_assessment", new() { ["work"] = Values("discovery", "recon", "research", "design", "scope", "implementation", "verification", "review", "repair", "closeout", "findings"), ["disposition"] = Values("proceed", "repair", "replan", "blocked"), ["rationale"] = Text(), ["evidence_ids"] = Strings() }),

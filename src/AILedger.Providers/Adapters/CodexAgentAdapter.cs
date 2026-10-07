@@ -127,7 +127,11 @@ public sealed class CodexAgentAdapter : AgentAdapterBase
 
     protected override IReadOnlyList<string> BuildArguments(AgentLaunchRequest request, ref string? sessionId)
     {
-        var arguments = new List<string> { "exec", "--strict-config", "--sandbox", "workspace-write", "--cd", request.WorkingDirectory };
+        // The kernel's outer sandbox already confines every descendant. A second
+        // sandbox-exec inside it fails sandbox_apply before even a read-only shell runs.
+        // Retain Codex's own sandbox when a caller supplies no outer isolation.
+        var sandbox = request.Isolation is null ? "workspace-write" : "danger-full-access";
+        var arguments = new List<string> { "exec", "--strict-config", "--sandbox", sandbox, "--cd", request.WorkingDirectory };
         AddOptionalGlobalArguments(arguments, request);
         FindingsRecording.AddCodexArguments(arguments, request.FindingsEndpoint);
 

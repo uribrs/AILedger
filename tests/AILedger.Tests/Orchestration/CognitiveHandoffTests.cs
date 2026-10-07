@@ -13,6 +13,59 @@ namespace AILedger.Tests.Orchestration;
 
 public sealed class CognitiveHandoffTests
 {
+    [Fact]
+    public async Task ReconTemplateIsFreshReadOnlyAndSupportsProducerOwnedFiling()
+    {
+        using var f = await CognitiveFixture.OpenAsync(TaskStage.Research);
+        await using var session = await f.Session();
+        using var relay = await CognitiveRelay.OpenAsync(session.Endpoint);
+        var version = (await f.Ledger.StateAsync()).Version;
+        var first = await relay.HandoffAsync(new { kind = "recon_template" }, "template");
+        Assert.Equal("observed", first.GetProperty("status").GetString());
+        Assert.Empty(first.GetProperty("eventIds").EnumerateArray());
+        Assert.Equal(version, (await f.Ledger.StateAsync()).Version);
+        var oldHash = first.GetProperty("reconTemplate").GetProperty("claimSetHash").GetString();
+
+        await f.Ledger.ExecuteAsync(new AddClaimCommand(f.Lead, null, f.Run.Value,
+            new("new-claim"), "New source observation", "Recon must classify it"));
+        var currentVersion = (await f.Ledger.StateAsync()).Version;
+        var current = await relay.HandoffAsync(new { kind = "recon_template" }, "template");
+        Assert.Equal(currentVersion, (await f.Ledger.StateAsync()).Version);
+        var template = current.GetProperty("reconTemplate");
+        Assert.NotEqual(oldHash, template.GetProperty("claimSetHash").GetString());
+        var row = Assert.Single(template.GetProperty("assessments").EnumerateArray());
+        Assert.Equal("new-claim", row.GetProperty("claimId").GetString());
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("domain").ValueKind);
+        AssertRecorded(await relay.HandoffAsync(new { kind = "lesson_consultation", purpose = "recon",
+            question = "Current lessons?", tags = new[] { "routing" }, claims = Array.Empty<string>() }));
+        var document = JsonSerializer.Deserialize<InternalReconDocument>(template)! with
+        {
+            Assessments = [new("new-claim", "internal")], Report = "Source inspected by this producer."
+        };
+        AssertRecorded(await relay.HandoffAsync(new { kind = "governing_artifact", artifact_kind = "internal_recon",
+            title = "Complete recon", markdown = JsonSerializer.Serialize(document) }));
+        Assert.Equal(f.Run, Assert.Single((await f.Ledger.StateAsync()).Artifacts.Values).ProducerRunId);
+        await relay.FinishAsync();
+    }
+
+    [Theory]
+    [InlineData("stage")] [InlineData("closed")] [InlineData("role")] [InlineData("spoof")]
+    public async Task ReconTemplateRefusesIneligibleOrSpoofedRequestsWithoutMutation(string reason)
+    {
+        using var f = await CognitiveFixture.OpenAsync(reason == "stage" ? TaskStage.Scope : TaskStage.Research);
+        await using var session = await f.Session();
+        using var relay = await CognitiveRelay.OpenAsync(session.Endpoint);
+        if (reason == "closed")
+            await f.Ledger.ExecuteAsync(new CompleteRunCommand(f.Ledger.Actor, null, "end", f.Run, AgentRunStatus.Completed, "fixture"));
+        if (reason == "role")
+            await f.Ledger.ExecuteAsync(new AssignRoleCommand(f.Ledger.Actor, null, "revoke", f.Lead, RoleKind.CodeReviewer, [Capability.BuildContext]));
+        var before = (await f.Ledger.StateAsync()).Version;
+        object operation = reason == "spoof" ? new { kind = "recon_template", task_id = "other" } : new { kind = "recon_template" };
+        Assert.Equal("refused", (await relay.HandoffAsync(operation)).GetProperty("status").GetString());
+        Assert.Equal(before, (await f.Ledger.StateAsync()).Version);
+        await relay.FinishAsync();
+    }
+
     [Theory]
     [InlineData("internal_recon", TaskStage.Research)]
     [InlineData("prompt_contract", TaskStage.Design)]

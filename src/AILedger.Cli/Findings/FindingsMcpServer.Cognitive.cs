@@ -25,7 +25,7 @@ public sealed partial class FindingsMcpServer
         { result = new(HostHandoffStatus.Refused, id, [], Diagnostic: error.Message); }
         catch (Exception error) when (error is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         { result = new(HostHandoffStatus.Unknown, id, [], Diagnostic: "Binding or recording unavailable; preserve original request."); }
-        attempt.InspectionStatus = result.Status == HostHandoffStatus.Recorded ? "ok" : result.Status == HostHandoffStatus.Unknown ? "unknown" : "error";
+        attempt.InspectionStatus = result.Status is HostHandoffStatus.Recorded or HostHandoffStatus.Observed ? "ok" : result.Status == HostHandoffStatus.Unknown ? "unknown" : "error";
         return JsonSerializer.SerializeToElement(result, LedgerJson.CreateOptions());
     }
 }
