@@ -271,10 +271,9 @@ public sealed class WorkItemCliTests
         Assert.Equal(WorkItemStatus.Completed, state!.WorkItems[new WorkItemId("W1")].Status);
     }
 
-    // The path the pipeline is meant to take, driven end to end: an operator completes the worker,
-    // verifier, and reviewer passes in order, and only then does work completion go through.
+    // Completed independent runs remain necessary; explicit applicable acceptance is also required.
     [Fact]
-    public async Task AReviewerRunRecordedThroughTheCliUnlocksCompletion()
+    public async Task AReviewerRunRecordedThroughTheCliStillRequiresExplicitAcceptance()
     {
         using var root = new TemporaryDirectory();
         using var scopeRoot = new TemporaryDirectory();
@@ -333,11 +332,11 @@ public sealed class WorkItemCliTests
             ["work", "complete", .. common, "--id", "W1"], CancellationToken.None);
 
         var state = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
-        Assert.Equal(0, completeExit);
-        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(1, completeExit);
+        Assert.Contains("Explicit applicable task-13 acceptance", error.ToString());
         Assert.Equal(RoleKind.Verifier, state!.Runs[new RunId("RV")].SubjectRole);
         Assert.Equal(RoleKind.CodeReviewer, state.Runs[new RunId("RCR")].SubjectRole);
-        Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId("W1")].Status);
+        Assert.Equal(WorkItemStatus.Paused, state.WorkItems[new WorkItemId("W1")].Status);
     }
 
     // Accepted decision D1: an area may be a single file, so two agents can hold two files in one

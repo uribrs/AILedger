@@ -88,6 +88,18 @@ internal sealed class TestTask
         return outcome;
     }
 
+    // Explicit historical replay fixture. First assert that TODAY's command requires acceptance;
+    // then arrange the legal pre-6A event for tests of later lifecycle rules. Never a production bypass.
+    public void RequireAcceptanceThenReplayHistoricalCompletion(WorkItemId work)
+    {
+        var refusal = Assert.Throws<GovernanceException>(() => Apply(new CompleteWorkItemCommand(OperatorId, null, NextCorrelation(), work)));
+        Assert.Contains("Explicit applicable task-13 acceptance", refusal.Message);
+        var historical = new LedgerEvent(1, new EventId(Guid.NewGuid().ToString("N")), TaskId, OperatorId,
+            Epoch.AddMinutes(_commandNumber), null, "historical-completion", new WorkItemCompleted(work));
+        State = new TaskReducer().Apply(State, historical);
+        _events.Add(historical);
+    }
+
     // The two skills the operator's own role is defined by, which is what the cognitive layer
     // serves the seat that decomposes the work. The hashes stand in for the content: nothing in the
     // kernel reads a skill's text, only whether the digest still matches what the caller found.

@@ -121,6 +121,13 @@ public sealed class AssuranceOperationTests
         reports[0] = next.Response.Receipt!.Id;
         Assert.Equal("unresolved_disagreement", (await f.AcceptAsync(reports)).Error?.Code);
         var finding = review.Response.Receipt.Id + ":F1";
+        var synthesis = await f.ReportAsync("synthesizer");
+        var judgment = synthesis.Request with { RequestId = "evidenced-judgment", Supersedes = synthesis.Response.Receipt!.Id,
+            FindingJudgments = [new(1, finding, "not_applicable", "Captured requirements resolve the ambiguity", ["behavior"], [],
+                [new("source_trace", synthesis.Request.ReadReceipts[0], "a.txt", "Return one, without changing other behavior.")])] };
+        var adjudicated = await f.CallAsync("synthesizer", "record_assurance", judgment);
+        Assert.Null(adjudicated.Error);
+        reports = reports.Append(adjudicated.Receipt!.Id).ToArray();
         var accepted = await f.AcceptAsync(reports, [new(finding, "not_applicable", "Independent captured requirements and observations disambiguate the concern", reports)]);
         Assert.Null(accepted.Error);
         Assert.Empty((await f.InspectAsync()).UnresolvedFindings);

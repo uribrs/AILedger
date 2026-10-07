@@ -1,15 +1,12 @@
 using System.Text.Json;
-using AILedger.Cli.Routing;
 using AILedger.Core.Application;
 using AILedger.Core.Contracts;
 using AILedger.Providers.Adapters;
 using AILedger.Storage;
-using static AILedger.Cli.Routing.CliInput;
 
-namespace AILedger.Cli.Providers;
+namespace AILedger.Cli.Dispatch;
 
 internal sealed class ProviderRunRecorder(
-    TextWriter _error,
     JsonSerializerOptions _json)
 {
     private const int TerminalPersistenceAttempts = 3;
@@ -17,9 +14,9 @@ internal sealed class ProviderRunRecorder(
     private static readonly TimeSpan TerminalPersistenceRetryDelay = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan FirstLedgerWriteReadDeadline = TimeSpan.FromSeconds(15);
 
-    public async Task CompleteAsync(
+    public async Task<CommandOutcome> CompleteAsync(
         IGovernedTaskService service,
-        CommandLine input,
+        ProviderDispatchRequest input,
         RunId runId,
         string? sessionId,
         AgentRunStatus status,
@@ -46,27 +43,34 @@ internal sealed class ProviderRunRecorder(
         // result has to say so by passing null rather than by leaving an argument off.
         bool? endedAtTheLaunchTimeout,
         string? manifestHash = null,
-        int? manifestArtifactCount = null)
+        int? manifestArtifactCount = null,
+        Func<CompleteRunCommand, Task>? beforeCommit = null)
     {
         using var completion = new CancellationTokenSource(TerminalPersistenceDeadline);
         var command = new CompleteRunCommand(
-            Actor(input), causationId, Correlation(input), runId, status, sessionId, launchToken,
+            input.ActorId, causationId, input.Correlation, runId, status, sessionId, launchToken,
             manifestHash, manifestArtifactCount,
             cost.Turns, cost.OutputTokens, millisecondsToFirstLedgerWrite, servedModel,
             cost.TokensInUncached, cost.TokensInCacheWrite, cost.TokensInCacheRead,
             truncatedLines, launchTimeoutSeconds, terminalFailureReason, endedAtTheLaunchTimeout);
 
+        if (beforeCommit is not null) await beforeCommit(command).ConfigureAwait(false);
+        var uncertain = false;
         for (var attempt = 1; ; attempt++)
         {
             try
             {
-                await service.ExecuteAsync(Task(input), command, completion.Token).ConfigureAwait(false);
-                return;
+                return await service.ExecuteAsync(input.TaskId, command, completion.Token).ConfigureAwait(false);
             }
             catch (IOException) when (attempt < TerminalPersistenceAttempts && !completion.IsCancellationRequested)
             {
+                uncertain = true;
                 await System.Threading.Tasks.Task.Delay(
                     TerminalPersistenceRetryDelay, completion.Token).ConfigureAwait(false);
+            }
+            catch (Exception error) when (uncertain)
+            {
+                throw new IOException("A completion attempt was not acknowledged; a later attempt cannot resolve its outcome.", error);
             }
         }
     }
@@ -82,14 +86,14 @@ internal sealed class ProviderRunRecorder(
     // fresh id per invocation, so this measurement goes absent rather than wrong.
     public async Task<long?> MeasureFirstLedgerWriteAsync(
         IGovernedTaskService service,
-        CommandLine input,
+        ProviderDispatchRequest input,
         RunId runId,
         DateTimeOffset runStartedAt)
     {
         // The launcher's own events would carry the same correlation as the child's, and its
         // run.started is always the earlier of the two. The field would then report how fast this
         // process wrote its own record, which measures the coordinator and not the agent (ALT5).
-        if (string.Equals(Correlation(input), runId.Value, StringComparison.Ordinal))
+        if (string.Equals(input.Correlation, runId.Value, StringComparison.Ordinal))
         {
             return null;
         }
@@ -101,7 +105,7 @@ internal sealed class ProviderRunRecorder(
         try
         {
             DateTimeOffset? firstWrite = null;
-            await foreach (var @event in service.GetHistoryAsync(Task(input), read.Token).ConfigureAwait(false))
+            await foreach (var @event in service.GetHistoryAsync(input.TaskId, read.Token).ConfigureAwait(false))
             {
                 // Only what was written after the run was recorded. A correlation id is whatever its
                 // caller passed and has no uniqueness relation to a run id, so an earlier command can
@@ -188,23 +192,25 @@ internal sealed class ProviderRunRecorder(
     // (C3, E4, D6). Not in the event log itself: replay byte-compares what it reads and would then
     // have to accept every shape any provider version ever emitted (ALT2). Nothing replays this file.
     //
-    // Best effort, and said out loud. The run has already ended and its stream also went to standard
-    // output, so failing to keep a copy must not turn a finished run into a failed launch; but the
-    // operator is told which path could not be written rather than left to discover the gap.
-    public async Task WriteResultAsync(string ledgerRoot, TaskId taskId, AgentRunResult result)
+    // Best effort, with a typed receipt. The returned dispatch result keeps the stream even when
+    // retention fails. The CLI presents the diagnostic; a direct caller can inspect it without prose routing.
+    public async Task<ResultRetentionReceipt> WriteResultAsync(string ledgerRoot, TaskId taskId, AgentRunResult result, IGovernedTaskService? service = null)
     {
         if (!IsSafeFileName(result.RunId.Value))
         {
-            await _error.WriteLineAsync(
-                $"Run '{result.RunId}' has an identifier that is not a safe file name; " +
-                "its provider result was not kept beside the log.").ConfigureAwait(false);
-            return;
+            return new(ResultRetentionStatus.Failed, Diagnostic:
+                $"Run '{result.RunId}' has an identifier that is not a safe file name; its provider result was not kept beside the log.");
         }
 
         var path = Path.Combine(
             new TaskWorkspacePathResolver(ledgerRoot).Resolve(taskId), "runs", result.RunId.Value + ".json");
         try
         {
+            if (service is FileGovernedTaskService file)
+            {
+                path = await file.RetainProviderResultAsync(taskId, result, CancellationToken.None).ConfigureAwait(false);
+                return new(ResultRetentionStatus.Retained, path);
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             // CancellationToken.None deliberately, as the completion beside it is: a launch that was
             // cancelled is exactly the run whose stream is worth reading, and passing the launch's
@@ -214,10 +220,10 @@ internal sealed class ProviderRunRecorder(
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            await _error.WriteLineAsync(
-                $"Provider result for run '{result.RunId}' could not be written to '{path}': {exception.Message}")
-                .ConfigureAwait(false);
+            return new(ResultRetentionStatus.Failed, path,
+                $"Provider result for run '{result.RunId}' could not be written to '{path}': {exception.Message}");
         }
+        return new(ResultRetentionStatus.Retained, path);
     }
 
     // A run id becomes a path segment here. No launch can reach this check any more: Run(input)

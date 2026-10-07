@@ -15,14 +15,20 @@ internal static class AssuranceCliCommands
         {
             if (args.Length < 2 || args.Contains("--help"))
             {
-                await Console.Out.WriteLineAsync("assurance serve|inspect_assurance|read_assurance|run_assurance_checks|record_assurance|accept_assurance|reconcile --authority FILE --store DIR --principal ID --session ID [--body-stdin] [--request-id ID --check-principal ID --confirm-provider-stopped]\nLocal trusted operator setup only; no model launch, implementation execution or kernel completion. Protect authority and store from provider writes.");
+                await Console.Out.WriteLineAsync("assurance serve|inspect_assurance|read_assurance|run_assurance_checks|record_assurance|accept_assurance|reconcile --authority FILE --store DIR --principal ID --session ID [--governed-root DIR] [--body-stdin] [--request-id ID --check-principal ID --confirm-provider-stopped]\nLocal trusted operator setup only; no model launch, implementation execution or kernel completion. Protect authority and store from provider writes.");
                 return 0;
             }
             var options = ParseOptions(args.Skip(2).ToArray());
             string Required(string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException("Missing --" + name);
             var store = Required("store");
             var session = new AssuranceSession(Required("principal"), Required("session"), "external-client", null);
-            var service = await AssuranceHost.OpenAsync(Required("authority"), store, session, null, token).ConfigureAwait(false);
+            AILedger.Storage.FileGovernedTaskService? governed = null;
+            if (options.GetValueOrDefault("governed-root") is { } root)
+            {
+                var reducer = new AILedger.Core.Domain.TaskReducer();
+                governed = new(root, new AILedger.Core.Application.CommandHandler(reducer, new AILedger.Core.Domain.AuthorizationPolicy()), reducer);
+            }
+            var service = await AssuranceHost.OpenAsync(Required("authority"), store, session, null, token, governed).ConfigureAwait(false);
             if (args[1] == "serve")
             {
                 var host = new FindingsMcpHost(new(store, "assurance", session.Principal, session.SessionId,
@@ -53,7 +59,7 @@ internal static class AssuranceCliCommands
     private static Dictionary<string, string> ParseOptions(string[] args)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        var values = new[] { "authority", "store", "principal", "session", "request-id", "check-principal" };
+        var values = new[] { "authority", "store", "principal", "session", "request-id", "check-principal", "governed-root" };
         for (var i = 0; i < args.Length; i++)
         {
             if (!args[i].StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException("Expected named operator option.");

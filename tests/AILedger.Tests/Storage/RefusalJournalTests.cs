@@ -34,6 +34,7 @@ public sealed class RefusalJournalTests
         // Verbatim, not a category derived from it: a derived category is a second, looser model of
         // what the gate requires, which is the defect recorded twice in TaskDebt.
         Assert.Equal(refusal.Message, row.Message);
+        Assert.Equal(refusal.Kind.ToString(), row.Cause);
         Assert.Equal(
             "Work item 'W1' has no completed verifier run and cannot be completed. " +
             "An operator may complete it without one by recording why.",
@@ -59,7 +60,7 @@ public sealed class RefusalJournalTests
             service, taskId, new CompleteWorkItemCommand(actor, null, "c5", new WorkItemId("W1"))));
 
         Assert.Equal(
-            ["recordedAt", "actorId", "command", "site", "taskVersion", "message", "kernelIdentity"],
+            ["recordedAt", "actorId", "command", "site", "taskVersion", "message", "kernelIdentity", "cause"],
             FieldNamesOfFirstRow(root.Path, taskId));
     }
 
@@ -74,6 +75,7 @@ public sealed class RefusalJournalTests
 
         Assert.NotNull(row);
         Assert.Null(row.KernelIdentity);
+        Assert.Null(row.Cause);
     }
 
     [Fact]
@@ -248,7 +250,8 @@ public sealed class RefusalJournalTests
                 element.GetProperty("site").GetString()!,
                 element.GetProperty("taskVersion").GetInt64(),
                 element.GetProperty("message").GetString()!,
-                element.GetProperty("kernelIdentity").Deserialize<KernelBuildIdentity>(LedgerJson.CreateOptions())!);
+                element.GetProperty("kernelIdentity").Deserialize<KernelBuildIdentity>(LedgerJson.CreateOptions())!,
+                element.GetProperty("cause").GetString());
         }).ToArray();
     }
 
@@ -274,5 +277,6 @@ public sealed class RefusalJournalTests
         string Site,
         long TaskVersion,
         string Message,
-        KernelBuildIdentity KernelIdentity);
+        KernelBuildIdentity KernelIdentity,
+        string? Cause);
 }

@@ -74,7 +74,11 @@ public sealed partial class BundleAssuranceTests
         {
             await f.Verify("VB", "B");
             await f.Review("RB", "VB", "B");
-            await f.Ok("work", "complete", "--id", "B");
+            var prior = await f.State();
+            var historical = new LedgerEvent(1, new($"{prior.TaskId.Value}:{prior.Version + 1:D10}"), prior.TaskId, new("operator"),
+                DateTimeOffset.UtcNow, null, "historical-fixture", new WorkItemCompleted(new("B")));
+            await System.IO.File.AppendAllTextAsync(Path.Combine(f.Root, "T1", "events.jsonl"),
+                JsonSerializer.Serialize(historical, LedgerJson.CreateOptions()) + "\n");
             await CliStageFixture.BackAsync(f.App, f.Root, TaskStage.Repair);
             await CliStageFixture.BackAsync(f.App, f.Root, TaskStage.Verification);
         }

@@ -153,11 +153,15 @@ relevance, genuine inspection and declared dependency completeness require indep
 ## Contradictions, freshness and targeted synthesis
 
 Findings have local keys and durable `<report-id>:<key>` identities, kinds defect/contradiction/ambiguity,
-paths and explicit contradictory finding references. Superseding a checkpoint never erases an
-unresolved finding on the same candidate. Acceptance requires an attributable disposition for every
-current-candidate finding. The supported disposition is `not_applicable`, with explicit rationale
-and applicable independent report evidence. Actual defects require repair and new assurance; there
-is no missing-test waiver, implicit risk approval or override that turns fail/unknown into pass.
+paths, optional affected requirement IDs/uncertainties and explicit contradictory finding references.
+Supersession and candidate changes never erase an unresolved original finding. Acceptance requires an
+attributable disposition for every original finding. Independent scoped synthesis records schema-1
+`finding_judgments` with current affected requirements, uncertainty and either exact own-read
+`source_trace` evidence or an independently observed `reproduction` receipt. `upheld` remains blocking;
+`refuted`, `not_applicable` or `repaired` may support explicit acceptance, with repair additionally
+requiring a changed physical candidate and fresh evidence. The implementer and original finding producer
+cannot adjudicate their own finding/repair. Conflicting or uncertain current adjudications block acceptance.
+There is no residual-risk authorization, missing-test waiver or override that turns fail/unknown into pass.
 Another current incomplete/failed/uncertain inspector cannot be ignored by selecting convenient
 reports. Preserve the disagreement, perform targeted reinspection/synthesis and let the authorized
 acceptor decide only when the evidence prerequisites are satisfied.
@@ -175,6 +179,17 @@ requirement, source or explicit transitive dependency change marks the affected 
 receipts remain retrievable. Unrelated candidate areas retain their assurance. Observations are
 not filesystem reservations; external mutation immediately after a check is detected on the next
 operation. Disappearance/unreadability is unavailable, never an empty successful snapshot.
+
+The optional governed bridge binds this evidence to actual task/work/working-run provenance, current
+governing context and authority. Changed basis requires fresh verification and explicit acceptance.
+The optional schema-1 `repair_impact` permits independently assessed reuse of an unaffected, complete
+requirements-aware review; it never transfers checks, verifier runs or acceptance. Current own-session
+reads of affected/dependency inputs and unchanged physical, governing, policy and authority applicability
+are mandatory. Case/store/member association is pinned to prevent resetting findings or check budgets.
+See [Part 6C+D](orchestration-driver-part-6-cd.md) for the current reuse contract, lease timing,
+positive process reconciliation and completion/closeout restart. See
+[Part 6A+B](orchestration-driver-part-6-ab.md) for the separate requirements-aware review context,
+`--governed-root`, explicit acceptance and completion admission, supported setup and remaining limits.
 
 ## Interruption, durability and recovery
 
@@ -208,10 +223,17 @@ exact test executable/arguments and environment authority appropriate for the se
 
 ## Measurement and compatibility
 
+[Orchestration Part 7](orchestration-driver-part-7.md) documents the assembled behavioral checks,
+read-only adoption observations and startup troubleshooting. A planning-ready role/profile setup
+without protected assurance policy/store, complete inputs and configured checks remains insufficient
+for implementation; naming an acceptance principal neither configures assurance nor accepts work.
+
 Assurance transport rows use `assurance-transport-*`; application attempts occupy a domain-separated
 journal in the existing store. Both retain attempt/request/receipt/host-session correlation; missing
 provider usage stays null. They are not mixed into historical findings/retrospective populations.
-No historical event, baseline, grant default, claim dependency or kernel assurance rule changes.
+The standalone task-13 slice changes no historical event, baseline, grant default or claim dependency.
+The optional governed bridge adds current command-time acceptance/recovery gates; historical legal
+events without its optional fields remain replayable. See the Part 6 delivery records for those changes.
 Existing task-8 artifact recording and task-10 inspection remain independently usable.
 
 Task-11 handoffs can carry the exact exported assurance receipt JSON as an explicitly pinned source,

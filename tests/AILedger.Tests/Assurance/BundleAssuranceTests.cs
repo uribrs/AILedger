@@ -8,6 +8,8 @@ using AILedger.Core.Domain;
 using AILedger.Storage;
 using AILedger.Providers.Adapters;
 using AILedger.Tests.Cli;
+using AILedger.Tests.Findings;
+using AILedger.Tests.Artifacts.Submission;
 using AILedger.Tests.Support;
 using static AILedger.Tests.Cli.CliApplicationTestSupport;
 
@@ -17,14 +19,15 @@ namespace AILedger.Tests.Assurance;
 public sealed partial class BundleAssuranceTests
 {
     [Fact]
-    public async Task RelatedBundleFilesClosesAndCompletesEveryMember()
+    public async Task RelatedBundleFilesCloseRunsButStillRequireAcceptanceForEveryMember()
     {
         using var f = await BundleFixture.CreateAsync();
         await f.Verify("VAB", "B", "A");
         await f.Review("RAB", "VAB", "A", "B");
-        foreach (var id in new[] { "A", "B" }) await f.Ok("work", "complete", "--id", id);
+        foreach (var id in new[] { "A", "B" }) Assert.Equal(1, await f.Run("work", "complete", "--id", id));
+        Assert.Contains("Explicit applicable task-13 acceptance", f.Error.ToString());
         var state = await f.State();
-        Assert.All(new[] { "A", "B" }, id => Assert.Equal(WorkItemStatus.Completed, state.WorkItems[new WorkItemId(id)].Status));
+        Assert.All(new[] { "A", "B" }, id => Assert.Equal(WorkItemStatus.Paused, state.WorkItems[new WorkItemId(id)].Status));
         Assert.Equal(2, f.Adapter.Requests.Count);
         foreach (var request in f.Adapter.Requests)
         {
@@ -47,7 +50,8 @@ public sealed partial class BundleAssuranceTests
         var request = Assert.Single(f.Adapter.Requests);
         Assert.Equal(Path.Combine(f.Repository, "A"), request.WorkingDirectory);
         Assert.Contains(Path.Combine(f.Repository, "A-second"), request.AdditionalDirectories);
-        Assert.Contains(f.Root, request.AdditionalDirectories);
+        Assert.DoesNotContain(f.Root, request.AdditionalDirectories);
+        Assert.Contains(f.Root, request.Isolation!.HiddenPaths);
         Assert.DoesNotContain(f.Repository, request.AdditionalDirectories);
         Assert.DoesNotContain(Path.Combine(f.Repository, "B"), request.AdditionalDirectories);
     }
@@ -335,7 +339,8 @@ public sealed partial class BundleAssuranceTests
                 Assert.DoesNotContain("A_TITLE_SENTINEL", request.StandardInput, StringComparison.Ordinal);
                 Assert.DoesNotContain("B_TITLE_SENTINEL", request.StandardInput, StringComparison.Ordinal);
                 Assert.Equal(Path.Combine(f.Repository, "D"), request.WorkingDirectory);
-                Assert.Equal(new[] { f.Root }, request.AdditionalDirectories);
+                Assert.Empty(request.AdditionalDirectories);
+                Assert.Contains(f.Root, request.Isolation!.HiddenPaths);
             }
             else
             {
@@ -348,8 +353,9 @@ public sealed partial class BundleAssuranceTests
                 Assert.Equal(JsonSerializer.Serialize(state.Runs[request.RunId].Assurance, ManifestJson),
                     JsonSerializer.Serialize(manifest.Assurance, ManifestJson));
                 Assert.Equal(Path.Combine(f.Repository, "A"), request.WorkingDirectory);
-                Assert.Equal(new[] { f.Root, Path.Combine(f.Repository, "B") }.Order(StringComparer.Ordinal),
+                Assert.Equal(new[] { Path.Combine(f.Repository, "B") }.Order(StringComparer.Ordinal),
                     request.AdditionalDirectories.Order(StringComparer.Ordinal));
+                Assert.Contains(f.Root, request.Isolation!.HiddenPaths);
             }
             if (request.RunId.Value == outer)
             {
@@ -467,10 +473,11 @@ public sealed partial class BundleAssuranceTests
     }
 
     [Fact]
-    public async Task InheritedCoverageAndGeneratedFilingAreExact()
+    public async Task InheritedCoverageAndBoundToolFilingAreExact()
     {
         using var f = await BundleFixture.CreateAsync();
         f.Adapter.FileOutput = false;
+        string? submittedArtifact = null;
         f.Adapter.BeforeResult = async request =>
         {
             Assert.Equal(1, await f.File("verifier", "VAB", "BAD", "verifier-output", "--work", "A"));
@@ -484,19 +491,24 @@ public sealed partial class BundleAssuranceTests
                 .Enqueue(0, ["{\"type\":\"thread.started\",\"thread_id\":\"filing-session\"}", "{\"type\":\"turn.completed\"}"]);
             await new CodexAgentAdapter(process, (_, _, _, _, _) => Task.CompletedTask)
                 .RunAsync(request with { Provider = "codex" }, CancellationToken.None);
-            var line = Assert.Single(process.Invocations.Last().StandardInput.Split('\n').Where(l => l.StartsWith("  " + request.LedgerCommandLine, StringComparison.Ordinal) && l.Contains(" artifact record ", StringComparison.Ordinal)));
-            var command = line[(line.IndexOf("artifact record", StringComparison.Ordinal))..];
-            command = command[..command.IndexOf(" < FILE", StringComparison.Ordinal)]
-                .Replace("--id ID", "--id OUT-VAB", StringComparison.Ordinal)
-                .Replace("--title TEXT", "--title fixture", StringComparison.Ordinal);
-            Assert.DoesNotContain("--work", command, StringComparison.Ordinal);
-            using var input = new StandardInput(ArtifactCommands.VerifierBody);
-            Assert.Equal(0, await f.App.RunAsync([.. command.Split(' ', StringSplitOptions.RemoveEmptyEntries), "--root", f.Root], CancellationToken.None));
+            var briefing = process.Invocations.Last().StandardInput[..^request.StandardInput.Length];
+            Assert.Contains("submit_artifact", briefing);
+            Assert.DoesNotContain(" artifact record ", briefing);
+            using var relay = new McpProcess(request.FindingsEndpoint!.Arguments.Skip(1).ToArray());
+            await ProviderFindingsSessionTests.InitializeAsync(relay);
+            var body = JsonSerializer.Serialize(new { schema_version = 1, request_id = "bundle-output",
+                kind = "verifier-output", title = "fixture", content = ArtifactCommands.VerifierBody });
+            await relay.SendAsync(ArtifactSubmissionProviderTests.Call(body));
+            var result = ArtifactSubmissionProviderTests.Payload(await relay.ReadAsync());
+            Assert.Equal("committed", result.GetProperty("status").GetString());
+            submittedArtifact = result.GetProperty("receipt").GetProperty("artifact").GetProperty("artifact_id").GetString();
+            Assert.Empty(await relay.FinishAsync());
         };
         await f.Verify("VAB", "A", "B");
         var state = await f.State();
         Assert.DoesNotContain(new ArtifactId("BAD"), state.Artifacts.Keys);
-        Assert.Equal(new[] { "A", "B" }, state.Artifacts[new ArtifactId("OUT-VAB")].Assurance!.WorkItemIds.Select(i => i.Value));
+        Assert.NotNull(submittedArtifact);
+        Assert.Equal(new[] { "A", "B" }, state.Artifacts[new ArtifactId(submittedArtifact)].Assurance!.WorkItemIds.Select(i => i.Value));
     }
 
     [Theory]

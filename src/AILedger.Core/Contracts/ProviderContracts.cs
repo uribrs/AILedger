@@ -20,8 +20,8 @@ public sealed record AgentLaunchRequest(
     string Provider,
     string ExecutablePath,
     string WorkingDirectory,
-    // The agent has to reach the CLI to record truth, so it must be told where the ledger lives
-    // and how to invoke the CLI from its own working directory, which is not the Ledger repository.
+    // Legacy invocation metadata. Confined launches record through the bound endpoint below;
+    // these paths/strings do not grant filesystem access or CLI authority.
     string LedgerRoot,
     string LedgerCommandLine,
     string StandardInput,
@@ -39,9 +39,16 @@ public sealed record AgentLaunchRequest(
     // Repository roots for semantic navigation only. Never forwarded as provider write grants.
     IReadOnlyList<string>? NavigationDirectories = null,
     // Trusted host-created stdio relay; contains no task binding or grant configuration.
-    ProviderFindingsEndpoint? FindingsEndpoint = null);
+    ProviderFindingsEndpoint? FindingsEndpoint = null,
+    // Trusted launch metadata. Never supplied by model output or persisted as task authority.
+    ProviderIsolation? Isolation = null);
 
-public sealed record ProviderFindingsEndpoint(string Command, IReadOnlyList<string> Arguments, IReadOnlyList<string>? AssuranceTools = null, bool AllowProducerOutcome = false);
+public sealed record ProviderIsolation(
+    IReadOnlyList<string> WritableDirectories,
+    IReadOnlyList<string> HiddenPaths,
+    IReadOnlyList<string> ReadOnlyPaths);
+
+public sealed record ProviderFindingsEndpoint(string Command, IReadOnlyList<string> Arguments, IReadOnlyList<string>? AssuranceTools = null, bool AllowProducerOutcome = false, bool AllowCognitiveHandoffs = false);
 
 public sealed record ProviderEvent(
     long Sequence,
@@ -92,7 +99,17 @@ public sealed record AgentRunResult(
     // Everywhere else it is false, which is a statement and not a default: the adapter watched the
     // run end some other way. A launch whose adapter never returned at all produces no result to
     // read this from, and the run record's own field is null there (AgentRun.EndedAtTheLaunchTimeout).
-    bool EndedAtTheLaunchTimeout = false);
+    bool EndedAtTheLaunchTimeout = false,
+    ProviderProcessFailure? ProcessFailure = null);
+
+// Observations from the process owner, never an operator process-tree stop attestation.
+// Null on historical results and runners that did not observe this boundary.
+public enum ProviderProcessFailureKind { InputWrite, Cleanup }
+public sealed record ProviderProcessFailure(
+    ProviderProcessFailureKind Kind, string Diagnostic, int? ObservedExitCode,
+    bool? ExitedBeforeCleanup, bool CleanupConfirmed, bool OutputComplete,
+    string? CleanupDiagnostic = null, string? DrainDiagnostic = null,
+    bool CallerCancelled = false, bool LaunchTimedOut = false);
 
 public sealed record ProcessInvocation(
     string ExecutablePath,
@@ -100,7 +117,8 @@ public sealed record ProcessInvocation(
     IReadOnlyList<string> Arguments,
     string StandardInput,
     IReadOnlyDictionary<string, string> Environment,
-    TimeSpan Timeout);
+    TimeSpan Timeout,
+    ProviderIsolation? Isolation = null);
 
 // Nullable and trailing so a process runner that counts nothing still constructs one. Null is
 // "nobody counted"; zero is "counted, and no line was cut".
@@ -108,7 +126,8 @@ public sealed record ProcessExit(
     int ExitCode,
     DateTimeOffset StartedAt,
     DateTimeOffset EndedAt,
-    int? TruncatedLines = null);
+    int? TruncatedLines = null,
+    ProviderProcessFailure? Failure = null);
 
 /// <summary>
 /// A running count of the provider lines a drain has had to cut, readable while the drain is still

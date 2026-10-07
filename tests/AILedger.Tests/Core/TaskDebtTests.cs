@@ -400,8 +400,7 @@ public sealed class TaskDebtTests
         Assert.Equal(0, debt.WorkItemsAwaitingCodeReview);
         // Researcher is work to the gate, so the item is finished rather than stuck.
         Assert.Equal(0, debt.WorkItemsRunByNoWorkingRole);
-        task.Apply(new CompleteWorkItemCommand(
-            task.OperatorId, null, task.NextCorrelation(), work, null));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(work);
     }
 
     // A run recorded before SubjectRole existed never told the kernel who worked, so it cannot

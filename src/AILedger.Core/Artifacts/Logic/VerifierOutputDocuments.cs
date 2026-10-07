@@ -6,7 +6,7 @@ public static class VerifierOutputDocuments
 {
     public static IReadOnlyList<string> AssumptionColumns { get; } = Array.AsReadOnly<string>(["id", "status", "name", "citation", "actor"]);
     public static IReadOnlyList<string> AttentionColumns { get; } = Array.AsReadOnly<string>(["id", "final disposition", "name", "evidence"]);
-    internal static VerifierDispositionObservation Observe(GovernedArtifact artifact) => new(
+    public static VerifierDispositionObservation Observe(GovernedArtifact artifact) => new(
         artifact.ArtifactId.Value, artifact.ProducerRunId!.Value.Value,
         Counts(artifact.Content, AssumptionColumns, ["VALIDATED", "REJECTED", "NEVER-TESTED"]),
         Counts(artifact.Content, AttentionColumns, ["handled", "accepted-risk", "not-applicable", "unresolved"]));

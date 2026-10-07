@@ -185,8 +185,9 @@ public sealed class ProviderGrantCliTests
         var canonicalRepository = Path.GetDirectoryName(Path.GetDirectoryName(scope));
         Assert.Equal(scope, request.WorkingDirectory);
         Assert.Equal(canonicalRepository, Assert.Single(request.NavigationDirectories!));
-        Assert.Equal(ProviderGrantResolver.ResolveExistingScope(request.LedgerRoot),
-            Assert.Single(request.AdditionalDirectories));
+        Assert.Empty(request.AdditionalDirectories);
+        Assert.NotNull(request.Isolation);
+        Assert.Contains(request.LedgerRoot, request.Isolation.HiddenPaths);
         Assert.DoesNotContain(canonicalRepository!, request.AdditionalDirectories);
         Assert.Equal(typeof(CliApplication).Assembly.Location, request.NavigationHostAssembly);
     }

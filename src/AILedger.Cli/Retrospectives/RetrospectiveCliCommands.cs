@@ -17,7 +17,7 @@ internal sealed class RetrospectiveCliCommands(
         yield return new CliCommandRegistration(
             ["retrospective build"],
             CliCommandOptions.Set(
-                "root", "task", "actor", "coordinator-session", "coordinator-transcript", "findings", "findings-telemetry", "alternatives", "alternatives-telemetry", "artifacts", "artifacts-telemetry", "dispositions", "dispositions-telemetry"),
+                "root", "task", "actor", "coordinator-session", "coordinator-transcript", "findings", "findings-telemetry", "alternatives", "alternatives-telemetry", "artifacts", "artifacts-telemetry", "dispositions", "dispositions-telemetry", "orchestration"),
             isReadOnly: true,
             BuildAsync);
         yield return new CliCommandRegistration(
@@ -43,6 +43,12 @@ internal sealed class RetrospectiveCliCommands(
             state, input.Optional("coordinator-session"), input.Optional("coordinator-transcript"),
             harnessTranscriptRoot(), cancellationToken).ConfigureAwait(false);
         var report = TaskRetrospective.Build(state, history, refusals, coordinatorUsage);
+        if (input.Flag("orchestration"))
+        {
+            if (invocation.Service is not FileGovernedTaskService files)
+                throw new CliUsageException("Orchestration measurement requires the existing file-backed journals.");
+            report = report with { Orchestration = await OrchestrationMeasurement.BuildAsync(files, state, history, refusals, cancellationToken).ConfigureAwait(false) };
+        }
         if (input.Flag("findings") || input.Optional("findings-telemetry") is not null)
         {
             if (invocation.Service is not FileGovernedTaskService files)
@@ -129,7 +135,7 @@ internal sealed class RetrospectiveCliCommands(
                 {
                     refusals.Add(new RetrospectiveRefusal(
                         record.ActorId, record.Command, record.Site, record.Message,
-                        record.KernelIdentity));
+                        record.KernelIdentity, record.Cause));
                 }
                 else
                 {

@@ -699,7 +699,8 @@ public sealed record RetrospectiveRefusal(
     string Command,
     string Site,
     string Message = "",
-    KernelBuildIdentity? KernelIdentity = null);
+    KernelBuildIdentity? KernelIdentity = null,
+    string? Cause = null);
 
 // What the caller found when it went looking for the journal, which is three states and not two
 // (RC1). A null journal is no file at all. A journal with UnreadableRows above zero is a file whose
@@ -863,6 +864,8 @@ public sealed record TaskRetrospectiveReport(
     // envelope field existed appear under the explicit `not recorded` identity.
     IReadOnlyList<RetrospectiveKernelIdentityPartition> KernelIdentityPartitions)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OrchestrationAdoptionReport? Orchestration { get; init; }
     // Opt-in extension: absent from historical/default serialization, including frozen reports.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AILedger.Core.Findings.FindingsMeasurementReport? Findings { get; init; }

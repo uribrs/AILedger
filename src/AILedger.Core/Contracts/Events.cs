@@ -13,7 +13,8 @@ public sealed record LedgerEvent(
     LedgerEventData Data,
     // Optional and trailing so event histories written before executable identity was recorded
     // continue to deserialize, and existing construction sites remain source-compatible.
-    KernelBuildIdentity? KernelIdentity = null);
+    KernelBuildIdentity? KernelIdentity = null,
+    AILedger.Core.Authority.HostRequestIdentity? HostRequest = null);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "eventType")]
 [JsonDerivedType(typeof(TaskOpened), "task.opened")]
@@ -30,6 +31,8 @@ public sealed record LedgerEvent(
 [JsonDerivedType(typeof(WorkItemInvalidated), "work.invalidated")]
 [JsonDerivedType(typeof(RunStarted), "run.started")]
 [JsonDerivedType(typeof(RunCompleted), "run.completed")]
+[JsonDerivedType(typeof(PreparationSelected), "run.preparation-selected")]
+[JsonDerivedType(typeof(RoutingAssessmentRecorded), "run.routing-assessment-recorded")]
 [JsonDerivedType(typeof(ProducerOutcomeDeclared), "run.outcome-declared")]
 [JsonDerivedType(typeof(StagePrerequisitesWaived), "stage.prerequisites-waived")]
 [JsonDerivedType(typeof(StageTransitioned), "stage.transitioned")]

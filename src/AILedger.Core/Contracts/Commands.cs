@@ -15,6 +15,8 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(AddWorkItemCommand), "work.add")]
 [JsonDerivedType(typeof(StartRunCommand), "run.start")]
 [JsonDerivedType(typeof(CompleteRunCommand), "run.complete")]
+[JsonDerivedType(typeof(SelectPreparationCommand), "run.select-preparation")]
+[JsonDerivedType(typeof(RecordRoutingAssessmentCommand), "run.record-routing-assessment")]
 [JsonDerivedType(typeof(DeclareProducerOutcomeCommand), "run.declare-outcome")]
 [JsonDerivedType(typeof(RequestStageTransitionCommand), "stage.transition")]
 [JsonDerivedType(typeof(RaiseEscalationCommand), "escalation.raise")]
@@ -32,4 +34,8 @@ namespace AILedger.Core.Contracts;
 [JsonDerivedType(typeof(StartCoordinatorSessionCommand), "session.start")]
 [JsonDerivedType(typeof(CompleteCoordinatorSessionCommand), "session.complete")]
 [JsonDerivedType(typeof(ConsultLessonsCommand), "lesson.consult")]
-public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId);
+public abstract record LedgerCommand(ActorId ActorId, EventId? CausationId, string CorrelationId)
+{
+    public long? ExpectedVersion { get; init; }
+    public AILedger.Core.Authority.HostRequestIdentity? HostRequest { get; init; }
+}

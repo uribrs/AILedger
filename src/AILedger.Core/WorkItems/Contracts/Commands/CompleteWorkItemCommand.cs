@@ -7,4 +7,8 @@ public sealed record CompleteWorkItemCommand(
     WorkItemId WorkItemId,
     // Why this item is being completed with no verifier run behind it. Only an operator may pass
     // it, and passing it puts the waiver in the log rather than leaving it unrecorded.
-    string? WithoutVerificationReason = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    string? WithoutVerificationReason = null) : LedgerCommand(ActorId, CausationId, CorrelationId)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public AILedger.Core.Assurance.WorkCompletionAdmission? Admission { get; init; }
+}

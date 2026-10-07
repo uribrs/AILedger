@@ -7,4 +7,9 @@ public sealed record Evidence(
     string Summary,
     IReadOnlyList<ClaimId> Supports,
     IReadOnlyList<ClaimId> Refutes,
-    Provenance Provenance);
+    Provenance Provenance)
+{
+    // Optional attribution minted at command admission, not inferred from a later role assignment.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? TrustedTerminationVersion { get; init; }
+}

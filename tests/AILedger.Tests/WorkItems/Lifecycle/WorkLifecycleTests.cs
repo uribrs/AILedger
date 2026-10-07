@@ -37,7 +37,7 @@ public sealed class WorkLifecycleTests
 
         task.RecordVerifierPass(workItemId);
         task.RecordCodeReviewerPass(workItemId);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 
@@ -55,7 +55,7 @@ public sealed class WorkLifecycleTests
         task.Apply(new ResolveEscalationCommand(
             task.OperatorId, null, task.NextCorrelation(), new EscalationId("X1"), EscalationStatus.Resolved, "a"));
         task.RecordRequiredRuns(workItemId);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
 
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
@@ -125,7 +125,7 @@ public sealed class WorkLifecycleTests
         task.Apply(new CompleteRunCommand(task.OperatorId, null, task.NextCorrelation(), new RunId("R1"), AgentRunStatus.Completed, "s1"));
         task.RecordVerifierPass(workItemId);
         task.RecordCodeReviewerPass(workItemId);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 

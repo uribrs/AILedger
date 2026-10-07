@@ -175,8 +175,8 @@ public sealed class RefusalRepetitionTests
     // The counter goes below every line the rule itself printed, and the claim-resolution refusal is
     // the one rule that prints any: increment 1 appends two diagnostic lines naming what each record
     // points at. They are about this refusal; the counter is about the actor, which is why it is
-    // last. ProviderLauncher matches a run-output refusal with Contains and with StartsWith, and both
-    // survive a line appended at the end and neither would survive one inserted above.
+    // last. Dispatch now routes required-output failures by a typed fact; human diagnostics retain
+    // their established order independently of that classification.
     [Fact]
     public async Task TheCounterIsPrintedBelowTheDiagnosticLinesTheRuleItselfAdds()
     {

@@ -29,8 +29,10 @@ public sealed partial class BundleAssuranceTests
         Assert.Equal(0, await f.File("verifier", "VREAL", "OUT-VREAL", "verifier-output"));
         await f.Ok("run", "complete", "--run", "VREAL", "--status", "completed", "--session", "new-manual-session");
         await f.Review("RREAL", "VREAL", "A", "B");
-        await f.Ok("work", "complete", "--id", "A");
-        await f.Ok("work", "complete", "--id", "B");
+        Assert.Equal(1, await f.Run("work", "complete", "--id", "A"));
+        Assert.Contains("Explicit applicable task-13 acceptance", f.Error.ToString());
+        Assert.Equal(1, await f.Run("work", "complete", "--id", "B"));
+        Assert.Contains("Explicit applicable task-13 acceptance", f.Error.ToString());
     }
 
     [Fact]
@@ -94,8 +96,9 @@ public sealed partial class BundleAssuranceTests
         await CliStageFixture.ToVerificationAsync(f.App, f.Root);
         Assert.Equal(1, await f.Run("work", "complete", "--id", "A"));
         Assert.Contains("verif", f.Error.ToString(), StringComparison.OrdinalIgnoreCase);
-        await f.Ok("work", "complete", "--id", "B");
-        Assert.Equal(WorkItemStatus.Completed, (await f.State()).WorkItems[new WorkItemId("B")].Status);
+        Assert.Equal(1, await f.Run("work", "complete", "--id", "B"));
+        Assert.Contains("Explicit applicable task-13 acceptance", f.Error.ToString());
+        Assert.Equal(WorkItemStatus.Paused, (await f.State()).WorkItems[new WorkItemId("B")].Status);
     }
 
     // R5 (legacy-replay-boundary): real persisted fixture history, modified only in-memory to

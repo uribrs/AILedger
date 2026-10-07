@@ -20,38 +20,6 @@ internal sealed class ContextBriefingCliCommands(
         isReadOnly: false,
         BuildAsync);
 
-    public async Task<ContextManifest> CreateAsync(
-        IGovernedTaskService service,
-        CommandLine input,
-        ActorId actorId,
-        CancellationToken cancellationToken,
-        RunId runId,
-        ContextArtifact? assuranceDiscovery = null)
-    {
-        var maximumBytes = ContextManifestBudget.ReadMaximumBytes(input);
-        var state = await service.GetStateAsync(Task(input), cancellationToken).ConfigureAwait(false)
-            ?? throw new CliUsageException($"Task '{Task(input)}' was not found.");
-        var artifacts = await LoadLaunchArtifactsAsync(input, assuranceDiscovery, cancellationToken).ConfigureAwait(false);
-        var manifest = contextAssembler.BuildForRun(state, actorId, runId, artifacts, DateTimeOffset.UtcNow);
-        return ContextManifestBudget.Apply(manifest, maximumBytes, json);
-    }
-
-    public async Task PrepareLaunchAsync(GovernedTaskState state, CommandLine input,
-        StartRunCommand launch, ContextArtifact? assuranceDiscovery, CancellationToken cancellationToken)
-    {
-        var artifacts = await LoadLaunchArtifactsAsync(input, assuranceDiscovery, cancellationToken).ConfigureAwait(false);
-        var manifest = contextAssembler.BuildForLaunch(state, launch, artifacts, DateTimeOffset.UtcNow);
-        _ = ContextManifestBudget.Apply(manifest, ContextManifestBudget.ReadMaximumBytes(input), json,
-            prospectiveLaunch: true);
-    }
-
-    private async Task<IReadOnlyList<ContextArtifact>> LoadLaunchArtifactsAsync(CommandLine input,
-        ContextArtifact? assuranceDiscovery, CancellationToken cancellationToken)
-    {
-        var artifacts = await artifactLoader.LoadAsync(input.Optional("cognitive-root"), cancellationToken).ConfigureAwait(false);
-        return assuranceDiscovery is null ? artifacts : [.. artifacts, assuranceDiscovery];
-    }
-
     public async Task<IReadOnlyList<ContextSkill>?> CurrentSkillsAsync(
         GovernedTaskState state,
         CommandLine input,

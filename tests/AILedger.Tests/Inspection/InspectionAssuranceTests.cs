@@ -63,7 +63,9 @@ public sealed class InspectionAssuranceTests
         var b = new InspectionBinding(new("T1"), new("operator"), null, "inspect", AllowInspect: true, AllowRunless: true);
         var query = new ReadinessQuery(1, "complete_work", (await f.State()).Version, WorkId: "A");
         var service = (ITaskInspector)f.Service;
-        Assert.Equal("unknown", (await service.CheckReadinessAsync(b, query, default)).Status);
+        var missingAcceptance = await service.CheckReadinessAsync(b, query, default);
+        Assert.Equal("blocked", missingAcceptance.Status);
+        Assert.Contains("Explicit applicable task-13 acceptance", missingAcceptance.Diagnostic!.Reason);
         await f.Ok("evidence", "add", "--id", "REFUTE", "--source-type", "fixture", "--citation", "fixture.cs:1", "--summary", "Changed input", "--refutes", "CA");
         await f.Ok("claim", "resolve", "--id", "CA", "--status", "rejected", "--evidence", "REFUTE");
         Assert.Equal("stale_snapshot", (await service.CheckReadinessAsync(b, query, default)).Diagnostic!.Code);

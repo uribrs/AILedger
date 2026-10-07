@@ -10,6 +10,26 @@ namespace AILedger.Tests.HandoffAssurance;
 
 public sealed class AssuranceBoundaryTests
 {
+    [Fact]
+    public async Task RevokedProviderBindingAlsoStopsSeparatelyGrantedAssuranceTools()
+    {
+        using var f = await AssuranceFixture.CreateAsync();
+        using var ledger = new FindingsMcpFixture();
+        await ledger.OpenAsync();
+        var revoked = false;
+        await using var host = new ProviderFindingsSession(ledger.Configuration, ledger.Ledger.Service(), "unused", [],
+            _ => revoked ? throw new AILedger.Core.Domain.GovernanceException("Provider host binding expired or was revoked.")
+                : Task.FromResult(ledger.Configuration), f.Sessions["reviewer"]);
+        using var client = new McpProcess(host.Endpoint.Arguments);
+        await ProviderFindingsSessionTests.InitializeAsync(client);
+        await client.SendAsync(InspectionMcpTests.Call("inspect_assurance", """{"schema_version":1,"area_id":"a"}""", 2));
+        Assert.Equal("ok", InspectionMcpTests.Body(await client.ReadAsync()).GetProperty("status").GetString());
+        revoked = true;
+        await client.SendAsync(InspectionMcpTests.Call("inspect_assurance", """{"schema_version":1,"area_id":"a"}""", 3));
+        Assert.Equal("authorization_denied", InspectionMcpTests.Body(await client.ReadAsync()).GetProperty("error").GetProperty("code").GetString());
+        Assert.Empty(await client.FinishAsync());
+    }
+
     [Theory]
     [InlineData("reviewer", 3)] [InlineData("verifier", 4)] [InlineData("operator", 2)]
     public async Task ActualStdioClientDiscoversScopedToolsCallsThemAndCannotSpoofIdentity(string principal, int toolCount)

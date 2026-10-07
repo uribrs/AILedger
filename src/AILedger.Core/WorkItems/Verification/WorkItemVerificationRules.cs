@@ -32,7 +32,7 @@ internal static class WorkItemVerificationRules
             DidWork(run) &&
             run.SubjectRole is RoleKind.Verifier);
 
-    private static AgentRun? LatestCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
+    internal static AgentRun? LatestCompletedWorkingRun(GovernedTaskState state, WorkItemId workItemId) =>
         state.Runs.Values
             .Where(run => run.WorkItemId == workItemId && DidWorkUnderAWorkingRole(run))
             .OrderByDescending(run => run.EndedAt)

@@ -30,7 +30,10 @@ internal static class EvidenceRules
             command.Summary.Trim(),
             command.Supports.ToArray(),
             command.Refutes.ToArray(),
-            new Provenance(command.ActorId, now, "evidence.add"));
+            new Provenance(command.ActorId, now, "evidence.add"))
+        {
+            TrustedTerminationVersion = command.SourceType.Trim() == "process-termination" && state.Roles[command.ActorId].Role == RoleKind.Operator ? 1 : null
+        };
         return [new EvidenceAdded(evidence)];
     }
 

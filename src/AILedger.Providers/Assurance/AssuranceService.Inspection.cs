@@ -25,8 +25,8 @@ public sealed partial class AssuranceService
         var verified = currentReports.Where(e => Payload<AssuranceReport>(e).Role == "verification")
             .SelectMany(e => Payload<AssuranceReport>(e).Report.Checks.Where(c => c.Status == "pass").Select(c => c.CriterionId)).ToHashSet(StringComparer.Ordinal);
         var acceptances = visible.Where(e => e.Receipt.Operation == "accept_assurance" && Reasons(e, snapshot, policy, entries).Count == 0).ToArray();
-        var accepted = acceptances.Length > 0;
-        var disposed = acceptances.SelectMany(e => Payload<AssuranceAcceptance>(e).Decision.Dispositions.Select(d => d.FindingId)).ToHashSet(StringComparer.Ordinal);
+        var accepted = acceptances.Length > 0 && !PendingChecks(records, entries).Any();
+        var disposed = (accepted ? acceptances : []).SelectMany(e => Payload<AssuranceAcceptance>(e).Decision.Dispositions.Select(d => d.FindingId)).ToHashSet(StringComparer.Ordinal);
         var pending = PendingChecks(records, entries).Where(r => r.GetProperty("area_id").GetString() == request.AreaId &&
             (Principal(policy).Role is "acceptance" or "synthesis" || r.GetProperty("principal").GetString() == _session.Principal))
             .Select(r => r.GetProperty("request_id").GetString()!).ToArray();
@@ -53,6 +53,7 @@ public sealed partial class AssuranceService
     private List<string> Reasons(AssuranceEntry entry, AssuranceSnapshot snapshot, AssurancePolicy policy, List<AssuranceEntry> entries)
     {
         var old = Snapshot(entry); var reasons = new List<string>();
+        if (IsImpactInvalidated(entry.Receipt.Id, snapshot, policy, entries)) reasons.Add("independent impact assessment invalidates this evidence");
         if (entry.Receipt.ScopePolicySha256 != ScopePolicyIdentity(policy, snapshot.AreaId)) reasons.Add("assurance scope policy changed");
         var principal = policy.Principals.SingleOrDefault(p => p.Id == entry.Receipt.Principal);
         if (principal is null || !principal.Enabled || principal.ExpiresAt <= DateTimeOffset.UtcNow) reasons.Add("producer authority revoked or expired");
@@ -60,9 +61,10 @@ public sealed partial class AssuranceService
         foreach (var input in old.Inputs)
             if (!snapshot.Inputs.Any(i => i.Kind == input.Kind && i.Path == input.Path && i.Sha256 == input.Sha256)) reasons.Add(input.Kind + " changed: " + input.Path);
         if (old.RequirementSha256 != snapshot.RequirementSha256 && !reasons.Any(r => r.StartsWith("requirement", StringComparison.Ordinal))) reasons.Add("requirement criteria changed");
+        var reused = HasCurrentReuse(entry, snapshot, policy, entries);
         foreach (var dependency in old.Dependencies)
-            if (!snapshot.Dependencies.TryGetValue(dependency.Key, out var digest) || digest != dependency.Value) reasons.Add("relied-on area changed: " + dependency.Key);
-        if (old.BindingSha256 != snapshot.BindingSha256 && reasons.Count == 0) reasons.Add("candidate binding changed");
+            if (!reused && (!snapshot.Dependencies.TryGetValue(dependency.Key, out var digest) || digest != dependency.Value)) reasons.Add("relied-on area changed: " + dependency.Key);
+        if (!reused && old.BindingSha256 != snapshot.BindingSha256 && reasons.Count == 0) reasons.Add("candidate binding changed");
         if (entry.Receipt.Operation == "accept_assurance" && reasons.Count == 0)
         {
             var decision = Payload<AssuranceAcceptance>(entry).Decision;
@@ -71,13 +73,18 @@ public sealed partial class AssuranceService
         }
         return reasons;
     }
-    private IEnumerable<AssuranceEntry> CurrentReports(IEnumerable<AssuranceEntry> entries, AssuranceSnapshot snapshot, AssurancePolicy policy) =>
-        entries.Where(e => e.Receipt.Operation == "record_assurance" && Snapshot(e).BindingSha256 == snapshot.BindingSha256 &&
+    private IEnumerable<AssuranceEntry> CurrentReports(IEnumerable<AssuranceEntry> source, AssuranceSnapshot snapshot, AssurancePolicy policy)
+    {
+        var entries = source.ToList();
+        return entries.Where(e => e.Receipt.Operation == "record_assurance" && !IsImpactInvalidated(e.Receipt.Id, snapshot, policy, entries) &&
+            !Payload<AssuranceReport>(e).Report.ReadReceipts.Concat(Payload<AssuranceReport>(e).Report.Checks.SelectMany(c => c.TestReceipts))
+                .Any(id => IsImpactInvalidated(id, snapshot, policy, entries)) && (Snapshot(e).BindingSha256 == snapshot.BindingSha256 || HasCurrentReuse(e, snapshot, policy, entries)) &&
             e.Receipt.ScopePolicySha256 == ScopePolicyIdentity(policy, snapshot.AreaId) && policy.Principals.Any(p => p.Id == e.Receipt.Principal && p.Enabled && p.ExpiresAt > DateTimeOffset.UtcNow && p.Areas.Contains(snapshot.AreaId) && p.Role == Payload<AssuranceReport>(e).Role))
             .GroupBy(e => e.Receipt.Principal, StringComparer.Ordinal).Select(g => g.Last());
-    // Supersession never deletes an unresolved defect/contradiction on the same candidate.
+    }
+    // Supersession and changed candidates never delete an unresolved original finding.
     private IEnumerable<AssuranceEntry> CurrentFindings(IEnumerable<AssuranceEntry> entries, AssuranceSnapshot snapshot, AssurancePolicy policy) =>
-        entries.Where(e => e.Receipt.Operation == "record_assurance" && Snapshot(e).BindingSha256 == snapshot.BindingSha256);
+        entries.Where(e => e.Receipt.Operation == "record_assurance" && Snapshot(e).AreaId == snapshot.AreaId);
     private IReadOnlyList<JsonElement> CheckAttempts(IReadOnlyList<EpisodeRecord> records, List<AssuranceEntry> entries, string area, string role) =>
         records.Where(r => r.Kind == "assurance_check_started" && r.Data.GetProperty("area_id").GetString() == area &&
             (role is "acceptance" or "synthesis" || r.Data.GetProperty("principal").GetString() == _session.Principal))

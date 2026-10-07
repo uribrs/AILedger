@@ -38,6 +38,31 @@ public sealed class LessonRecallTests
     }
 
     [Fact]
+    public async Task OwnedBoundProducerCanConsultArchivedSiblingWithoutExpandingMutationScope()
+    {
+        using var root = new TemporaryDirectory();
+        var service = Service(root.Path);
+        var actor = new ActorId("operator"); var source = new TaskId("source"); var target = new TaskId("target");
+        await ArchiveAlternativeAsync(service, source, actor);
+        await service.ExecuteAsync(target, new OpenTaskCommand(actor, null, "open", target, "Target", "Recall"), default);
+        var lead = new ActorId("lead"); var run = new RunId("recon");
+        await service.ExecuteAsync(target, new AssignRoleCommand(actor, null, "assign", lead, RoleKind.PlanningLead,
+            [Capability.BuildContext, Capability.RecordArtifact, Capability.AddEvidence]), default);
+        await service.ExecuteAsync(target, new AddClaimCommand(actor, null, "claim", new("C1"), "Research premise", null), default);
+        await service.ExecuteAsync(target, new RequestStageTransitionCommand(actor, null, "research", TaskStage.Research), default);
+        await service.ExecuteAsync(target, new StartRunCommand(actor, null, "run", run, null, "codex", null, SubjectActorId: lead), default);
+        var state = (await service.GetStateAsync(target, default))!;
+        var lease = await service.AcquireCoordinationAsync(target, "driver", TimeSpan.FromMinutes(1), default);
+        var bound = service.BindCoordination(lease).BindAgentSession(new(target, state.Roles[lead], run, "codex", DateTimeOffset.UtcNow.AddMinutes(1)));
+        var result = await bound.ExecuteAsync(target, new ConsultLessonsCommand(lead, null, run.Value, run,
+            LessonConsultationPurpose.Recon, "Relevant evidence", ["state", "isolation"], []), default);
+        Assert.NotEmpty(Assert.Single(result.State.LessonConsultations).ServedLessonIds);
+        await Assert.ThrowsAsync<GovernanceException>(() => bound.ExecuteAsync(source,
+            new AddClaimCommand(lead, null, run.Value, new("foreign"), "Forbidden", null), default));
+        Assert.Equal(TaskStage.Archive, (await service.GetStateAsync(source, default))!.Stage);
+    }
+
+    [Fact]
     public async Task OpeningTaskRecallsLessonsMintedByArchivedSibling()
     {
         using var root = new TemporaryDirectory();

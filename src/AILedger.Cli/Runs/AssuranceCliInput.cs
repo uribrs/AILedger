@@ -29,42 +29,7 @@ internal static class AssuranceCliInput
             input.Optional("verifier-run") is { } pair ? new RunId(pair) : null,
             input.Many("also-work").Count > 0);
 
-    public static AssuranceBinding? Binding(
-        GovernedTaskState state,
-        WorkItemId? anchor,
-        IReadOnlyList<WorkItemId>? coverage,
-        string? candidate,
-        RunId? verifierRun,
-        bool explicitCoverage = false)
-    {
-        if (candidate is null)
-        {
-            if (explicitCoverage || verifierRun is not null)
-            {
-                throw new CliUsageException(
-                    "Assurance coverage: additional members and '--verifier-run' require '--candidate'.");
-            }
-
-            return null;
-        }
-
-        if (anchor is null)
-        {
-            throw new CliUsageException("Assurance coverage: '--candidate' requires '--work'.");
-        }
-
-        var members = WorkCoverage.Normalize(anchor, coverage ?? [anchor.Value]);
-        // Missing/tied provenance is deliberately not refused here: Core owns the full admission
-        // order, including capability, stage, authority, briefing and member state before readiness.
-        var versions = members.SelectMany(member => state.Runs.Values
-            .Where(run => run.WorkItemId == member && run.Status == AgentRunStatus.Completed
-                && !string.Equals(run.Provider, AgentRun.NoProvider, StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(run.ProviderSessionId)
-                && run.SubjectRole is RoleKind.Worker or RoleKind.Researcher)
-            .OrderByDescending(run => run.EndedAt)
-            .ThenBy(run => run.Id.Value, StringComparer.Ordinal)
-            .Take(1)
-            .Select(run => new AssuranceWorkVersion(member, run.Id))).ToArray();
-        return new AssuranceBinding(1, members, versions, candidate, verifierRun);
-    }
+    public static AssuranceBinding? Binding(GovernedTaskState state, WorkItemId? anchor,
+        IReadOnlyList<WorkItemId>? coverage, string? candidate, RunId? verifierRun, bool explicitCoverage = false) =>
+        AILedger.Cli.Dispatch.DispatchAssuranceInput.Binding(state, anchor, coverage, candidate, verifierRun, explicitCoverage);
 }

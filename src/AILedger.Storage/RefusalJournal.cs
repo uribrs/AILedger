@@ -6,7 +6,7 @@ using AILedger.Core.Contracts;
 namespace AILedger.Storage;
 
 // Which boundary refused, not how bad the refusal was. There is deliberately no severity, code or
-// category here: a value derived from a refusal message is a second, looser model of what the gate
+// category inferred from prose here: a value derived from a refusal message is a second, looser model of what the gate
 // actually requires, and this repository has already paid for one of those in TaskDebt.
 public static class RefusalSite
 {
@@ -29,7 +29,8 @@ public sealed record RefusalRecord(
     string Message,
     // Optional and trailing so journals written before executable identity was recorded remain
     // readable, and existing construction sites remain source-compatible.
-    KernelBuildIdentity? KernelIdentity = null);
+    KernelBuildIdentity? KernelIdentity = null,
+    string? Cause = null);
 
 // How many rows this task's journal already holds for one rule and one actor, and how many rows it
 // could not read while counting. Occurrences is a floor whenever UnreadableRows is above zero, and

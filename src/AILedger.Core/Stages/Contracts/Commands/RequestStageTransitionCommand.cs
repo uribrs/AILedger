@@ -21,4 +21,11 @@ public sealed record RequestStageTransitionCommand(
     // cannot bind a string to it or an AlternativeId to either string: the compiler refuses both
     // directions, so no positional call can put this value in a reason's slot or a reason's text in
     // this one. A third nullable string would have widened the hazard; a distinct type closes it.
-    AlternativeId? SerialJustification = null) : LedgerCommand(ActorId, CausationId, CorrelationId);
+    AlternativeId? SerialJustification = null) : LedgerCommand(ActorId, CausationId, CorrelationId)
+{
+    // Used by the driver for both normal and recovered completion -> Learn. Storage refreshes
+    // admission under its mutation lock; the selected member is never completed again.
+    public WorkItemId? CompletedWorkItemId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public AILedger.Core.Assurance.WorkCompletionAdmission? CompletionAdmission { get; init; }
+}

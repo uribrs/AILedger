@@ -46,7 +46,7 @@ public sealed partial class FileGovernedTaskService
             if (lease is not null && attempt.Command is { } command)
                 await _refusalJournal.TryAppendAsync(directory!, new RefusalRecord(DateTimeOffset.UtcNow,
                     command.ActorId, command.GetType().Name, RefusalSite.Service, attempt.OriginalVersion,
-                    e.Message, _kernelIdentity)).ConfigureAwait(false);
+                    e.Message, _kernelIdentity, e.Kind.ToString())).ConfigureAwait(false);
             result = attempt.Fail("kernel_refused", e.Message, "kernel", itemPath: attempt.ItemPath);
         }
         catch (Exception e) when (e is InvalidDataException or JsonException)

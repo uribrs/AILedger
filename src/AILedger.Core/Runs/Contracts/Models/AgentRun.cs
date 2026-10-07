@@ -161,7 +161,8 @@ public sealed record AgentRun(
     // made a live task permanently unreadable here.
     bool? EndedAtTheLaunchTimeout = null,
     AssuranceBinding? Assurance = null,
-    ProducerOutcome? ProducerOutcome = null)
+    ProducerOutcome? ProducerOutcome = null,
+    RoutingAssessment? RoutingAssessment = null, PreparationSelection? PreparationSelection = null)
 {
     /// <summary>
     /// The <see cref="Provider"/> value declaring that no provider process runs for this run. A run

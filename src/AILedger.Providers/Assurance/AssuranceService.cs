@@ -18,6 +18,8 @@ public sealed partial class AssuranceService : IAssuranceService
     private readonly AssuranceSession _session;
     private readonly IProcessRunner _runner;
     private readonly Func<CancellationToken, Task> _authorizeSession;
+    private readonly IGovernedAssuranceContext? _governedContext;
+    private readonly AsyncLocal<IGovernedAssuranceLease?> _governedLease = new();
     private readonly string _id;
     private readonly string _policyHash;
     public string Role => Principal(_initial).Role;
@@ -33,12 +35,14 @@ public sealed partial class AssuranceService : IAssuranceService
     public IReadOnlyList<string> Operations { get; }
 
     public AssuranceService(IEpisodeStore store, IAssurancePolicySource source, AssurancePolicy policy,
-        AssuranceSession session, IProcessRunner runner, Func<CancellationToken, Task>? authorizeSession = null)
+        AssuranceSession session, IProcessRunner runner, Func<CancellationToken, Task>? authorizeSession = null,
+        IGovernedAssuranceContext? governedContext = null)
     {
         Policy(policy); Text(session.Principal, "principal", 128); Text(session.SessionId, "session_id", 128);
         Text(session.Provider, "provider", 128);
         _store = store; _source = source; _initial = policy; _session = session; _runner = runner;
         _authorizeSession = authorizeSession ?? (_ => Task.CompletedTask);
+        _governedContext = governedContext;
         _policyHash = PolicyIdentity(policy); _id = Hash(new { Namespace = "assurance-v1", policy.CaseId });
         var principal = Principal(policy);
         Operations = principal.Role == "acceptance" ? ["inspect_assurance", "accept_assurance"] :
@@ -52,6 +56,10 @@ public sealed partial class AssuranceService : IAssuranceService
         try
         {
             Require(Operations.Contains(operation), "authorization_denied", "This host session has no grant for that operation.");
+            await _authorizeSession(token).ConfigureAwait(false);
+            Require(_initial.Governed is null || _governedContext is not null, "missing_governed_host", "Governed policy requires an associated trusted ledger host.");
+            await using var governed = _governedContext is null ? null : await _governedContext.AcquireAsync(_initial, _session, token).ConfigureAwait(false);
+            _governedLease.Value = governed;
             await using var lease = await _store.AcquireAsync(_id, token).ConfigureAwait(false);
             var policy = await AuthorizeAsync(token).ConfigureAwait(false);
             var records = await _store.ReadAsync(_id, token).ConfigureAwait(false);
@@ -68,6 +76,8 @@ public sealed partial class AssuranceService : IAssuranceService
             await ObserveAsync(attempt, operation, request, result.Status, result.Receipt?.Id).ConfigureAwait(false);
             return result;
         }
+        catch (AILedger.Core.Domain.GovernanceException e)
+        { return await FailureAsync(attempt, operation, request, "governed_admission", e.Message, "Resolve the owning governed prerequisite.", "not_committed").ConfigureAwait(false); }
         catch (AssuranceRefusal e) { return await FailureAsync(attempt, operation, request, e.Code, e.Message, e.Recovery, "not_committed").ConfigureAwait(false); }
         catch (Exception e) when (e is ArgumentException or JsonException or InvalidOperationException or NullReferenceException)
         { return await FailureAsync(attempt, operation, request, "invalid_request", e.Message, "Use the advertised typed request; inspect current IDs and coverage.", "unknown").ConfigureAwait(false); }
@@ -97,7 +107,8 @@ public sealed partial class AssuranceService : IAssuranceService
     private AssurancePrincipal Principal(AssurancePolicy policy) => AssuranceConfiguration.Principal(policy, _session.Principal);
     private async Task<AssurancePolicy> AuthorizeAsync(CancellationToken token)
     {
-        await _authorizeSession(token).ConfigureAwait(false);
+        if (_governedLease.Value is { } governed) await governed.RevalidateAsync(token).ConfigureAwait(false);
+        else await _authorizeSession(token).ConfigureAwait(false);
         var current = await _source.ReadAsync(token).ConfigureAwait(false); Policy(current);
         Require(PolicyIdentity(current) == _policyHash, "authority_changed", "Policy identity changed; restore the original policy for recovery or open a new host session for the new policy.");
         var principal = Principal(current);
@@ -111,9 +122,25 @@ public sealed partial class AssuranceService : IAssuranceService
         Scope(policy, area);
         CheckDependencyScope(policy, area, new HashSet<string>(StringComparer.Ordinal));
         var snapshot = await AssuranceSnapshotReader.CaptureAsync(policy, area, token).ConfigureAwait(false);
+        if (policy.Governed is { } scope)
+        {
+            var state = _governedLease.Value?.State ?? throw new AssuranceRefusal("missing_governed_host", "No live governed association.");
+            var candidate = await AssuranceConfiguration.CapturePolicyBindingIdentityAsync(policy, token).ConfigureAwait(false);
+            var basis = GovernedAssuranceRules.Capture(state, scope, candidate);
+            basis = basis with { AuthoritySha256 = Hash(new { basis.AuthoritySha256, Policy = PolicyIdentity(policy) }) };
+            snapshot = BindGovernedSnapshot(snapshot, basis);
+        }
         if (expected is not null) Require(snapshot.BindingSha256 == expected, "stale_candidate", "Candidate, requirements or a relied-on source/dependency changed. Inspect the current binding and reassess affected assurance.");
         return snapshot;
     }
+    private static AssuranceSnapshot BindGovernedSnapshot(AssuranceSnapshot snapshot, GovernedAssuranceBasis basis) => snapshot with
+    {
+        PhysicalBindingSha256 = snapshot.BindingSha256,
+        Governed = basis, BindingSha256 = Hash(new { snapshot.BindingSha256, Governed = basis }),
+        Dependencies = snapshot.Dependencies.ToDictionary(d => d.Key,
+            d => Hash(new { BindingSha256 = d.Value, Governed = basis }), StringComparer.Ordinal)
+    };
+
     private void CheckDependencyScope(AssurancePolicy policy, string area, HashSet<string> visited)
     {
         if (!visited.Add(area)) return;
@@ -149,6 +176,13 @@ public sealed partial class AssuranceService : IAssuranceService
     {
         var current = await AuthorizeAsync(token).ConfigureAwait(false);
         await CurrentAsync(current, snapshot.AreaId, snapshot.BindingSha256, token).ConfigureAwait(false);
+        if (payload is AssuranceAcceptance acceptance)
+        {
+            var records = await _store.ReadAsync(_id, token).ConfigureAwait(false);
+            var entries = Entries(records);
+            Require(!PendingChecks(records, entries).Any(), "incomplete_assurance", "Interrupted checks remain unresolved.");
+            ValidateAcceptance(acceptance.Decision, snapshot, current, entries, _session.Principal);
+        }
         var content = Json(payload);
         var json = EpisodeExecutionValidation.Serialize(content);
         Require(System.Text.Encoding.UTF8.GetByteCount(json) <= 256 * 1024, "capacity_exceeded", "Assurance payload exceeds 256 KiB; narrow the area or report. Nothing was silently truncated.");

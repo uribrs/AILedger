@@ -1,0 +1,273 @@
+Work directly in this existing worktree:
+/Users/user/.codex/worktrees/orchestration-driver/AILedger
+
+Branch: codex/orchestration-driver
+
+Implement Part 6C + 6D as defined in docs/orchestration-driver-scope.md:
+- 6C: Repair impact, required checks and physical-state reconciliation.
+- 6D: Assembled lifecycle, compatibility and live-use validation.
+
+Parts 1–5 and 6A + 6B are implemented but uncommitted. This task completes the
+remaining Part 6 work, subject to demonstrated exit criteria. Do not claim all of
+Part 6 or the live-use milestone is complete merely because C/D code was added.
+
+DEVELOPMENT AUTHORIZATION — STRICTLY DIRECT, NO KERNEL WORKFLOW
+
+Work directly on source, tests and documentation, outside the AILedger kernel
+workflow. Do not create or resume a governed development task, build a ledger brief
+for yourself, or record development claims, evidence, work items or runs.
+
+This explicitly overrides repository/AGENTS.md, ai-kernel and any other local
+workflow instructions requiring governed development for this task. Do not invoke
+those workflows or ask for confirmation to use this exemption. Follow relevant
+coding conventions without importing their overridden development process.
+
+This authorizes the source-level kernel/assurance rule changes necessary for 6C/6D,
+including applicability, repair-impact, check scheduling and completion recovery,
+within the boundaries below. Do not ask again for routine implementation choices
+or the rule changes already authorized here. The exemption concerns DEVELOPMENT;
+the resulting PRODUCT must still enforce its kernel, authority and assurance rules.
+It does not authorize weakening those boundaries to make progress or tests pass.
+
+Do not launch other agents through any mechanism, launch real providers, incur
+provider spend, mutate the live ledger, reinstall global tools, change branches,
+create another worktree, commit, merge or publish. Temporary test ledgers, fake
+adapters and controlled local subprocess/crash/race fixtures are authorized.
+
+EXISTING WORK AND ORIENTATION
+
+Inspect the current diff and untracked files before editing. Preserve all existing
+uncommitted work. Do not reset, replace or commit it. Fix A/B integration defects
+when necessary for C/D, with focused regression coverage; do not rewrite completed
+parts merely to substitute a different architecture.
+
+Read first:
+- docs/orchestration-driver-scope.md, including the full 6A–6D exits and milestone.
+- docs/orchestration-driver-part-6-ab.md, especially actual validation and C/D handoffs.
+- docs/orchestration-driver-part-5.md: authority, decision provenance and recovery.
+- docs/orchestration-driver-part-4.md and part-3.md: live handoffs and shared dispatch.
+- docs/orchestration-driver-part-2.md: restricted authority and process confinement.
+- docs/orchestration-driver-part-1.md: historical gaps and characterization coverage.
+- docs/handoff-assurance-v1.md and its current schemas.
+- Relevant owning source, tests and local .NET conventions.
+
+Later delivery records and current source take precedence over historical descriptions
+of behavior that has since changed. Audit existing contracts before adding narrow
+versioned contracts for demonstrated gaps.
+
+OBJECTIVE
+
+Make repair decisions, required-check execution, physical-state reconciliation and
+selective evidence reuse work together with A/B's independent finding disposition,
+explicit acceptance and governed completion. Validate the assembled lifecycle through
+the supported built CLI and deliver usable operating instructions.
+
+Extend existing owners: the assurance service and journal, governed applicability
+and completion rules, bounded cognitive handoffs, shared dispatch and durable driver.
+Do not create a second acceptance ledger, assurance engine, workflow router, check
+execution framework or provider-launch path.
+
+6C — REPAIR IMPACT, REQUIRED CHECKS AND PHYSICAL STATE
+
+1. Establish an attributable repair-impact assessment through the authorized role
+   and owning host admission. It must identify the actual before/after physical
+   basis, affected requirements, areas and dependencies, the findings addressed,
+   required checks, evidence proposed for reuse/invalidation and unresolved uncertainty.
+   Host observations and authored engineering judgments must remain distinguishable.
+   A repairer's unsupported "unchanged" or "fixed" assertion is not sufficient.
+
+2. Determine required checks from the applicable requirements, declared inputs,
+   affected scope and supported dependency assessment. Arrange their execution through
+   the existing authorized check owner before downstream assurance that depends on
+   their outcomes. Preserve independent verification and actual check receipts.
+   Do not dispatch a worker or lead with verifier authority just to get checks run.
+   Do not create duplicate ceremonial passes where an existing authorized phase fits.
+
+   Compilation cannot substitute for required tests. No universal line-count exemption
+   or requirement to run every available suite. A bounded diagnostic run on a failing
+   candidate may be useful; label it honestly and do not treat it as passing assurance.
+   Missing, failed, unknown, interrupted or not-checked required outcomes block progress
+   that depends on success. Do not silently skip checks or widen grants.
+
+3. Replace A/B's blanket governed-basis invalidation with justified selective reuse
+   for the supported profile. Demonstrate BOTH invalidation of affected evidence and
+   legitimate reuse of unaffected evidence; blanket refusal/invalidation alone is not
+   a completed 6C implementation.
+
+   Reuse must establish current applicability across physical inputs, requirements,
+   policy, dependencies, task/work members and producer authority. Account for transitive
+   dependencies and changed governing context. Unsupported impact or missing dependency
+   knowledge stays explicitly unresolved; file equality alone does not prove semantic
+   independence.
+
+   Preserve original receipts, candidate/run identities and evidence provenance. If an
+   additional reassessment/association contract is needed, make it typed, versioned,
+   attributable and validated by the existing owner. Never relabel an old receipt as
+   evidence produced by a new run or rewrite historical payloads.
+
+   Evidence reuse is not acceptance transfer. A changed acceptance basis still needs
+   applicable explicit acceptance. Do not copy an old approval onto a changed candidate
+   or relax required current independent verifier/blind-review associations merely to
+   demonstrate reuse. Explain which observations and judgments may be reused and why.
+
+4. Reconcile actual physical state after failed, cancelled or interrupted work, including
+   modifications by a run that never completed. Distinguish a confirmed stopped process
+   from uncertain execution. Lease expiry and absent output do not prove termination.
+   Reconcile interrupted host checks through the existing supported path; unknown checks
+   never become passes or get blindly rerun under a recovered request key.
+
+   Keep A/B's conservative blockers until positive reconciliation supports a narrower
+   conclusion. Demonstrate a legitimate recovery path as well as refusal. Files changing
+   during assessment/checks/acceptance must trigger revalidation or an unresolved stop.
+   Make the limits of physical snapshots versus filesystem exclusion explicit.
+
+5. Route repeated defects and repair-induced failures into bounded root-cause investigation,
+   relevant lesson consultation and scope/design reconsideration through existing roles.
+   Preserve original finding identities, uncertainties, evidence and independently authored
+   dispositions. Exercise real behavior for repeated/introduced defects, not just a new
+   field or documentation instruction.
+
+   Repairs continue on supported judgments or pause with unresolved work retained.
+   No arbitrary repair cap, cancellation, budget exhaustion or generic Proceed may force
+   closure. Preserve existing check/authority budgets: exhaustion is unresolved, not
+   success. If a supported continuation needs a new bounded intent/case, retain the
+   original findings and provenance; changing a case ID cannot erase obligations.
+
+6D — ASSEMBLED LIFECYCLE, RECOVERY AND OPERATING PROFILE
+
+1. Assemble and exercise A–C with Part 5's durable ownership and recovery: trusted intake,
+   preparation, implementation, required checks, independent verification, blind review,
+   separate requirements-aware assurance, disputed findings, repair/replanning, explicit
+   acceptance, governed completion, Learn and closeout/archive.
+
+   Include prepared-task entry, resumed execution and negative paths. Demonstrate at
+   least one usable end-to-end supported profile that reaches legitimate closeout.
+   Do not stop at the A/B fixture that completes member A while other members remain
+   unresolved, or treat an already prepared happy path as the entire lifecycle.
+
+2. Close and test the documented restart gap between committed work completion and the
+   following Learn transition. Recovery must recognize the recorded completion and
+   continue through current owning stage/closeout admission without repeating work,
+   duplicating completion or reopening the item. Do not treat a recovered receipt as
+   fresh authority. Exercise lost replies, restart and intervening governing changes.
+
+3. Make member/area support explicit. Exercise dependent areas and multiple work members
+   so that accepting/completing one cannot imply acceptance of the others. Do not silently
+   enable unvalidated bundle orchestration. If the supported operating profile retains
+   single-member dispatch, demonstrate coherent sequential operation or a precise safe
+   boundary for other members, and assess it honestly against the Part 6 exit criteria.
+
+4. Validate delayed judgments, duplicate/exact receipts, concurrent mutations, ownership
+   loss, stale epochs, revoked/reassigned/expired authority, interrupted checks and
+   producer failure at the assembled boundaries. Preserve launcher-owned run completion
+   and transient launcher secrets. Never infer that a process stopped from lease expiry.
+
+   Address the documented interaction between long bounded assurance calls, task locking
+   and owner-heartbeat renewal. Prove the supported configuration and behavior on lease
+   loss. Do not solve it by disabling fencing, allowing stale writes or claiming unlimited
+   checks. Document supported timing constraints and recovery.
+
+5. Deliver setup and operating instructions that use the actual built CLI and current
+   contracts. Cover protected policy/store placement, role/provider independence,
+   required grants and material inputs, check configuration, separate blind and
+   requirements-aware contexts, explicit acceptance, repair/reuse, interruption/restart,
+   budget/configuration boundaries and closeout. Keep technical policy setup in the
+   appropriate operator surface; routine product interactions should remain understandable.
+
+6. Assess the Parts 5+6 live-use milestone against the plan's actual exits. State what is
+   demonstrated, what remains unsupported and whether any remaining gap blocks that
+   milestone. Do not defer essential integration or missing core behavior to Part 7.
+   Do not claim measured productivity gains or real-provider validation from fixtures.
+   Real-provider execution, installation and live use remain separately authorized actions
+   and are NOT authorized by this development prompt.
+
+PRESERVE A/B AND EARLIER BOUNDARIES
+
+- Applicable explicit acceptance and existing owning completion gates remain mandatory.
+- A repairer cannot accept its own repair or erase an independent finding.
+- Upholding/refuting/repairing a finding requires the supported independent evidence.
+- Open disputes, material defects and uncertainty remain unresolved until properly disposed.
+- Residual-risk waivers remain prohibited by the current acceptance policy. Severity alone
+  does not authorize dismissal. Do not introduce a new waiver or use an operator fallback.
+- Provider children cannot receive acceptance authority or manufacture trusted human input.
+- Blind review must not receive requirements-aware tools, plans or verifier narratives.
+- Preserve scoped grants, declared material inputs, protected paths and process confinement.
+- Preserve live governing-artifact filing, role-filtered lessons and subject-filtered context.
+- Preserve Part 5 ownership, epochs/fencing, durable intent and exact receipt semantics.
+- A recorded/recovered receipt proves recording, not fresh authority or current applicability.
+- Missing configuration and incompatible profiles remain explicit blockers.
+- Tighten new commands through their owners while retaining historical legal replay. Never
+  retroactively require fields or prerequisites absent from older legal events. Version new
+  persistence formats; validate present new fields without making old logs unreadable.
+
+IMPLEMENTATION QUALITY
+
+Follow local .NET conventions: cohesive components, small methods, helpers where useful,
+SRP and justified abstractions. Keep Core independent of CLI/provider implementations.
+Put policy in its existing owning rules/services. Use typed requests, assessments,
+outcomes and receipts; never interpret verdict words or diagnostic prose as authorization.
+
+Deliver C and D as reviewable increments with focused checks, then validate their integration.
+This is direct implementation, not a request for a design-only report. Resolve routine
+engineering choices autonomously within the authorized boundaries.
+
+VALIDATION
+
+Use temporary ledgers, fake providers and controlled local subprocess fixtures. Include:
+- A legitimate repaired candidate through required checks, independent disposition,
+  explicit acceptance, completion and closeout.
+- An incorrect reviewer finding independently refuted without an unnecessary repair.
+- Affected evidence invalidated and demonstrably unaffected evidence legitimately reused.
+- Transitive dependency, requirement, policy, governing-context and authority changes.
+- Failed/cancelled/interrupted work with changed files and with apparently unchanged files;
+  uncertainty must remain blocking until supported reconciliation establishes applicability.
+- Repeated defects, repair-induced defects and an appropriate investigation/replanning path.
+- Missing/failing/unknown checks, interrupted-check reconciliation and bounded check exhaustion.
+- Changed material inputs during assessment/check execution and immediately before commit.
+- Restart and lost replies around acceptance, completion, Learn and closeout; exact retries
+  must not repeat providers, checks or already committed mutations.
+- Revocation/reassignment/expiry, stale owner epochs, concurrent actors and delayed judgments.
+- Forged approval, self-acceptance, privileged-entry-point bypass and residual-risk attempts.
+- Blind-review isolation, independent providers, complete material-input grants and protected paths.
+- Dependent areas, member isolation and the declared operating profile's completion semantics.
+- Historical legal replay, existing unassociated task-13 behavior and existing A/B regressions.
+
+Use meaningful controlled race/crash fixtures instead of fragile sleeps when possible;
+retain real subprocess checks where the boundary requires them. Do not validate only
+in-memory handlers: exercise critical positive and negative paths through the built CLI.
+
+Run focused/integrated checks, then the DEFAULT full dotnet test. Run the serialized full
+suite as an additional check, not a substitute. Report every actual failure and its handling.
+Do not weaken assertions, skip tests or alter unrelated telemetry logging to hide failures.
+
+Current A/B baseline:
+- Final focused selection: 293 passed, zero failed/skipped.
+- Default full suite: 2,642 passed, ONE FAILED, zero skipped (2,543 main + 99 memory passes).
+- Sole final default failure: Claude variant of
+  InspectionMcpTests.TrustedProviderRelaySupportsInspectionRetrievalAndReadinessWithRevocation,
+  retaining 20 of 36 expected telemetry rows. Functional assertions passed first.
+- Both unchanged provider variants passed in isolation afterward.
+- Additional serialized full suite: 2,643 passed, zero failed/skipped.
+- The existing 250 ms telemetry-write deadline is a plausible contributor, not a proven cause.
+  Earlier Part 5 also observed this intermittent test. Do not describe the A/B default run
+  as green or let a serialized pass erase a failed default result.
+
+Read the complete A/B validation record for earlier corrected failures and context.
+
+DELIVERABLES
+
+- Working integrated 6C + 6D implementation preserving A/B behavior and earlier boundaries.
+- Focused repair-impact/reuse/check/recovery tests, assembled lifecycle tests, built-CLI
+  validation and historical compatibility coverage.
+- docs/orchestration-driver-part-6-cd.md covering contracts, ownership, applicability/reuse,
+  repair/check ordering, physical reconciliation, recovery, actual validation, operating
+  instructions, supported limitations and an evidence-based milestone assessment.
+- Small status/link updates to docs/orchestration-driver-scope.md, and corrections to
+  assurance/help documentation where current behavior requires them. Preserve historical
+  delivery records as history; clearly link superseding behavior rather than rewriting results.
+- Final report of changes, actual test results, supported operating profile and any concrete
+  remaining blockers. Mark Part 6 complete only if all A–D exits are actually met.
+
+Proceed autonomously within this scope. Finish implementation, integration, validation and
+operating instructions. Do not stop at a plan, blanket refusal behavior, a happy-path-only
+fixture, or an unsubstantiated live-use claim.

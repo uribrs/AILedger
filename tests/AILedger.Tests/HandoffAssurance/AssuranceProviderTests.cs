@@ -11,6 +11,46 @@ namespace AILedger.Tests.HandoffAssurance;
 public sealed class AssuranceProviderTests
 {
     [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task OperatorNamedProviderCannotReceiveAcceptanceAuthority(bool routine)
+    {
+        using var policy = await AssuranceFixture.CreateAsync();
+        using var ledger = new AILedger.Tests.Findings.FindingsFixture();
+        using var protectedRoot = new TemporaryDirectory();
+        await ledger.OpenAsync();
+        await ContextBrief.BuildAsync(ledger.Root, ledger.TaskId.Value);
+        var path = Path.Combine(protectedRoot.Path, "authority.json");
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(policy.Policy, AILedger.Core.Handoffs.HandoffJson.Options));
+        using var error = new StringWriter();
+        var app = new AILedger.Cli.CliApplication(TextWriter.Null, error, _ => ledger.Service(),
+            _ => throw new InvalidOperationException("Refusal must precede adapter construction"), new AILedger.Core.Application.ContextAssembler());
+        if (routine)
+        {
+            var service = AILedger.Cli.Dispatch.ProviderDispatchHost.CreateRoutine(ledger.Service(),
+                new(await ledger.StateAsync(), ledger.Actor, DateTimeOffset.UtcNow.AddHours(1)),
+                new(ledger.Root, Path.Combine(ledger.Root, "lessons"))
+                {
+                    CognitiveRoot = ContextBrief.CognitiveRoot(), Executable = "/usr/bin/true",
+                    AssuranceAuthority = path, AssuranceStore = Path.Combine(protectedRoot.Path, "store")
+                }, _ => throw new InvalidOperationException("Refusal must precede adapter construction"),
+                new AILedger.Core.Application.ContextAssembler());
+            var result = await service.LaunchAsync(new(ledger.TaskId, ledger.Actor, new("R1"), "codex")
+                { WorkingDirectory = policy.Root }, default);
+            Assert.Equal(AILedger.Cli.Dispatch.DispatchFailureKind.Refused, result.Failure!.Kind);
+            Assert.Contains("Acceptance belongs", result.Failure.Diagnostic);
+        }
+        else
+        {
+        Assert.Equal(1, await app.RunAsync(["provider", "launch", "--root", ledger.Root, "--task", ledger.TaskId.Value,
+            "--actor", "operator", "--run", "R1", "--provider", "codex", "--working-directory", policy.Root,
+            "--executable", "/usr/bin/true", "--cognitive-root", ContextBrief.CognitiveRoot(),
+            "--assurance-authority", path, "--assurance-store", Path.Combine(protectedRoot.Path, "store")], default));
+        Assert.Contains("Acceptance belongs", error.ToString());
+        }
+        Assert.Empty((await ledger.StateAsync()).Runs);
+    }
+
+    [Theory]
     [InlineData("claude")] [InlineData("codex")]
     public async Task ActualAdaptersGrantOnlyExplicitHostToolsAndSupplyAssuranceGuidance(string provider)
     {

@@ -6,6 +6,7 @@ using AILedger.Core.Findings;
 using AILedger.Core.Alternatives;
 using AILedger.Core.ClaimDispositions;
 using AILedger.Core.Artifacts;
+using AILedger.Core.Authority;
 
 namespace AILedger.Cli.Findings;
 
@@ -19,36 +20,51 @@ internal sealed class ProviderFindingsSession : IAsyncDisposable
     private readonly byte[] _secret = RandomNumberGenerator.GetBytes(32);
     private readonly FindingsMcpHost _host;
     private readonly Task _accept;
+    internal IReadOnlyList<AILedger.Cli.Dispatch.HostHandoffReceipt> CognitiveReceipts => _host.Cognitive?.Receipts ?? [];
+    internal bool CognitiveHandoffUnknown => _host.Cognitive?.HasUnknown ?? false;
     internal ProviderFindingsEndpoint Endpoint { get; }
 
     internal ProviderFindingsSession(FindingsHostConfiguration configuration, IFindingsRecorder recorder,
         string command, IReadOnlyList<string> commandPrefix,
         Func<CancellationToken, Task<FindingsHostConfiguration>>? readConfiguration = null,
-        AILedger.Core.Assurance.IAssuranceService? assurance = null)
+        AILedger.Core.Assurance.IAssuranceService? assurance = null,
+        AILedger.Cli.Cognitive.CognitiveHandoffSession? cognitive = null)
     {
-        _host = new(configuration, recorder, readConfiguration ?? (_ => Task.FromResult(configuration)), assurance);
+        _host = new(configuration, recorder, readConfiguration ?? (_ => Task.FromResult(configuration)), assurance) { Cognitive = cognitive };
         _listener.Start(8);
         var port = ((IPEndPoint)_listener.LocalEndpoint).Port;
         Endpoint = new(command, commandPrefix.Concat(new[] { "findings", "relay",
-            port.ToString(System.Globalization.CultureInfo.InvariantCulture), Convert.ToHexString(_secret) }).ToArray(), assurance?.Operations, configuration.AllowDeclareProducerOutcome);
+            port.ToString(System.Globalization.CultureInfo.InvariantCulture), Convert.ToHexString(_secret) }).ToArray(), assurance?.Operations, configuration.AllowDeclareProducerOutcome, cognitive is not null);
         _accept = AcceptAsync();
     }
 
     internal static ProviderFindingsSession Start(IGovernedTaskService service, string ledgerRoot,
-        TaskId task, ActorId subject, RunId run, EventId? cause, string provider, string? cognitiveRoot = null,
-        AILedger.Core.Assurance.IAssuranceService? assurance = null, RoleKind? subjectRole = null)
+        TaskId task, ActorId subject, RunId run, EventId? cause, string provider,
+        RoleAssignment assignment, DateTimeOffset expiresAt, string? cognitiveRoot = null,
+        AILedger.Core.Assurance.IAssuranceService? assurance = null, CognitiveWorkKind? cognitiveWork = null)
     {
+        if (assignment.ActorId != subject || service is not IAgentSessionServiceFactory factory)
+            throw new InvalidOperationException("Provider recording requires a trusted, expiring session service binding.");
+        var authority = new AgentSessionAuthority(task, assignment, run, provider, expiresAt);
+        service = factory.BindAgentSession(authority);
         if (service is not IFindingsRecorder recorder || service is not IAlternativesRecorder || service is not IArtifactSubmitter || service is not IClaimDispositionsRecorder)
             throw new InvalidOperationException("Provider recording requires IFindingsRecorder, IAlternativesRecorder, IArtifactSubmitter and IClaimDispositionsRecorder services.");
         var configuration = new FindingsHostConfiguration(ledgerRoot, task.Value, subject.Value, run.Value,
             Path.Combine(ledgerRoot, task.Value, "telemetry"), RunId: run.Value, CausationId: cause?.Value,
-            AllowRecordFindings: true, Provider: provider, AllowRecordAlternatives: true, AllowSubmitArtifact: true, AllowRecordClaimDispositions: true, AllowInspect: true, CognitiveRoot: cognitiveRoot, AllowDeclareProducerOutcome: subjectRole is RoleKind.Worker or RoleKind.Researcher);
+            AllowRecordFindings: true, Provider: provider, AllowRecordAlternatives: true, AllowSubmitArtifact: true, AllowRecordClaimDispositions: true, AllowInspect: true, CognitiveRoot: cognitiveRoot, AllowDeclareProducerOutcome: assignment.Role is RoleKind.Worker or RoleKind.Researcher, AllowCognitiveHandoffs: true);
         // Neither a requested/preassigned session ID nor a future stream observation is a current
         // observation. Keep session null for this immutable connection; join via the actual run.
         var runtime = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         var muxer = Path.GetFullPath(Path.Combine(runtime, "..", "..", "..",
             OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"));
-        return new(configuration, recorder, muxer, [typeof(CliApplication).Assembly.Location], assurance: assurance);
+        async Task<FindingsHostConfiguration> ReadBinding(CancellationToken token)
+        {
+            var state = await service.GetStateAsync(task, token).ConfigureAwait(false);
+            authority.EnsureCurrent(state, DateTimeOffset.UtcNow);
+            return configuration;
+        }
+        return new(configuration, recorder, muxer, [typeof(CliApplication).Assembly.Location], ReadBinding, assurance,
+            new AILedger.Cli.Cognitive.CognitiveHandoffSession(service, new(task, subject, run, run.Value), cognitiveWork));
     }
 
     private async Task AcceptAsync()

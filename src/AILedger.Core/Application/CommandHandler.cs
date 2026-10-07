@@ -87,6 +87,8 @@ public sealed class CommandHandler : ICommandHandler, IKernelIdentitySource
             AddWorkItemCommand add => WorkItemLifecycleRules.Add(state, add),
             StartRunCommand start => RunLifecycleRules.Start(state, start, now),
             CompleteRunCommand complete => RunLifecycleRules.Complete(state, complete, now),
+            SelectPreparationCommand select => PreparationSelectionRules.Record(state, select),
+            RecordRoutingAssessmentCommand assess => RoutingAssessmentRules.Record(state, assess),
             DeclareProducerOutcomeCommand declare => ProducerOutcomeRules.Record(state, declare),
             StartCoordinatorSessionCommand start => CoordinatorSessionLifecycleRules.Start(state, start, now),
             CompleteCoordinatorSessionCommand complete =>

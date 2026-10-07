@@ -13,6 +13,15 @@ internal static class StageTransitionRules
         RequestStageTransitionCommand command,
         DateTimeOffset now)
     {
+        if (command.CompletedWorkItemId is { } member)
+        {
+            if (!(state.Stage == TaskStage.Review && command.TargetStage == TaskStage.Learn ||
+                state.Stage == TaskStage.Learn && command.TargetStage == TaskStage.Archive) ||
+                !state.WorkItems.TryGetValue(member, out var item) || item.Status != WorkItemStatus.Completed ||
+                command.CompletionAdmission is not { } admission || admission.Version != state.Version)
+                throw new GovernanceException("Completion continuation requires completed work and current host admission at Review -> Learn or Learn -> Archive.");
+            AILedger.Core.Assurance.GovernedAssuranceRules.ValidateReceipt(state, member, admission.Receipt);
+        }
         var request = StageTransitionRequestRules.Validate(state, command);
         if (request.Waiver is null)
         {

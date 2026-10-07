@@ -23,5 +23,5 @@ internal static class ProviderCliCommands
             "assurance-authority", "assurance-store", "without-brief", "with-stale-brief", "coordinator-session", "cause", "correlation", "max-context-bytes"),
         isReadOnly: false,
         (invocation, cancellationToken) => launcher.LaunchAsync(
-            invocation.Service, invocation.Input, mode, invocation.LedgerRoot, cancellationToken));
+            invocation.Service, invocation.Input, mode, invocation.LedgerRoot, invocation.LessonRoot, cancellationToken));
 }

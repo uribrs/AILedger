@@ -12,9 +12,12 @@ internal static class ProviderGrantResolver
         CommandLine input,
         string ledgerRoot,
         AssuranceBinding? assurance = null)
+        => Resolve(state, actorId, workItemId, input.Optional("working-directory"), input.Many("add-dir"), ledgerRoot, assurance);
+
+    public static ProviderGrants Resolve(GovernedTaskState state, ActorId actorId, WorkItemId? workItemId,
+        string? requestedWorkingDirectory, IReadOnlyList<string> requestedAdditionalDirectories,
+        string ledgerRoot, AssuranceBinding? assurance = null)
     {
-        var requestedWorkingDirectory = input.Optional("working-directory");
-        var requestedAdditionalDirectories = input.Many("add-dir");
         if (workItemId is null)
         {
             if (!state.Roles.TryGetValue(actorId, out var assignment) || assignment.Role != RoleKind.Operator)
@@ -130,10 +133,9 @@ internal static class ProviderGrantResolver
             }
         }
 
-        // Ledger writes are a separate governed channel, not a product scope.
+        // Ledger writes travel over the bound host channel, never a child filesystem grant.
         return new ProviderGrants(workingDirectory,
             automaticDirectories.Concat(additionalDirectories)
-                .Append(ResolveExistingDirectory(ledgerRoot))
                 .Where(directory => !PathComparer.Equals(directory, workingDirectory))
                 .Distinct(PathComparer).OrderBy(directory => directory, PathComparer).ToArray(),
             scopes.Select(scope => ProviderGrantCeiling(ProviderDirectoryForScope(scope)))
@@ -242,13 +244,8 @@ internal static class ProviderGrantResolver
             .Select(ResolveExistingScope)
             .Distinct(PathComparer)
             .ToArray();
-        // A provider directory that *contains* the Ledger root is the self-hosting case: a governed
-        // agent has to be able to record claims, evidence and escalations while it works, and under
-        // a workspace sandbox it can only write inside its own workspace. The protection against a
-        // tampered log is not this check — it is replay: FileGovernedTaskService re-validates event
-        // sequence and causation, and TaskTransitionValidator re-checks payload provenance, so a
-        // forged history fails closed. Truncation is the residual risk, detected separately by
-        // comparing the replayed version against the materialised state.
+        // Ancestors support self-hosting. The mandatory outer process sandbox excludes the
+        // authoritative subtree even there; replay validates legality, not writer authenticity.
         var containedDirectory = canonicalProviderDirectories.FirstOrDefault(
             directory => IsContainedPath(canonicalLedgerRoot, directory));
         if (containedDirectory is not null)

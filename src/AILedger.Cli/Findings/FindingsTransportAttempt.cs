@@ -10,6 +10,7 @@ namespace AILedger.Cli.Findings;
 
 internal sealed class FindingsTransportAttempt
 {
+    internal bool IsCognitiveHandoff { get; set; }
     internal string Id { get; } = Guid.NewGuid().ToString("N");
     internal DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
     private readonly long _started = Stopwatch.GetTimestamp();
@@ -36,7 +37,12 @@ internal sealed class FindingsTransportAttempt
     internal string? Failure { get; set; }
     internal string Delivery { get; set; } = "not_sent";
 
-    internal object Row(FindingsHostConfiguration host, string sessionId) => IsProducerOutcome ? new
+    internal object Row(FindingsHostConfiguration host, string sessionId) => IsCognitiveHandoff ? new
+    {
+        schema_version = 1, population = "cognitive_handoff", operation = "cognitive_handoff",
+        transport_attempt_id = Id, actor_id = host.ActorId, run_id = host.RunId,
+        request_id = RequestId, status = InspectionStatus, response_delivery = Delivery, transport_failure = Failure
+    } : IsProducerOutcome ? new
     {
         schema_version = 1, population = "producer_outcome", operation = "declare_producer_outcome",
         transport_attempt_id = Id, actor_id = host.ActorId, run_id = host.RunId,
@@ -96,7 +102,7 @@ internal sealed class FindingsTransportJournal(FindingsHostConfiguration host, T
             await _gate.WaitAsync(timeout.Token).ConfigureAwait(false);
             acquired = true;
             Directory.CreateDirectory(host.DiagnosticsDirectory);
-            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.IsProducerOutcome ? "producer_outcome" : attempt.AssuranceTool is not null ? "assurance" : attempt.InspectionTool is not null ? "inspection" : attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
+            var path = Path.Combine(host.DiagnosticsDirectory, $"{(attempt.IsCognitiveHandoff ? "cognitive_handoff" : attempt.IsProducerOutcome ? "producer_outcome" : attempt.AssuranceTool is not null ? "assurance" : attempt.InspectionTool is not null ? "inspection" : attempt.IsClaimDispositions ? "claim_dispositions" : attempt.IsArtifactSubmission ? "artifact_submission" : attempt.IsAlternatives ? "alternatives" : "findings")}-transport-{SessionId}.jsonl");
             var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(attempt.Row(host, SessionId)) + "\n");
             await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read,
                 4096, FileOptions.Asynchronous);

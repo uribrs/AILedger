@@ -35,9 +35,10 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
 
         var version = standardOutput.Concat(standardError)
             .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
-        if (exit.ExitCode != 0 || version is null)
+        if (exit.ExitCode != 0 || exit.Failure is not null || version is null)
         {
-            throw new AgentAdapterException($"{Provider} version probe failed with exit code {exit.ExitCode}.");
+            throw new AgentAdapterException($"{Provider} version probe failed with exit code {exit.ExitCode}. " +
+                ProbeDiagnostic(standardError, exit));
         }
 
         return version.Trim();
@@ -84,13 +85,22 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
             environment[variable.Key] = variable.Value;
         }
 
+        var isolation = request.Isolation;
+        if (isolation is not null && launchScope.TemporaryDirectory is { } runtimeDirectory)
+            isolation = isolation with
+            {
+                WritableDirectories = isolation.WritableDirectories.Append(runtimeDirectory).ToArray(),
+                ReadOnlyPaths = isolation.ReadOnlyPaths.Concat(Directory.GetFiles(runtimeDirectory)).ToArray()
+            };
+
         var invocation = new ProcessInvocation(
             request.ExecutablePath,
             request.WorkingDirectory,
             arguments,
             ComposeStandardInput(request),
             environment,
-            request.Timeout);
+            request.Timeout,
+            isolation);
 
         // Read by the failure paths below, which never receive a ProcessExit. The drain increments
         // it as it cuts, so a run refused part-way through still records how much had been cut when
@@ -190,6 +200,33 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
                 AgentRunStatus.ProtocolError, exception.Message, tally.Observed);
         }
 
+        catch (ProviderProcessCleanupException exception)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return CreateFailure(request, sessionId, version, arguments, now, now, -1, finalOutput, events, errors,
+                AgentRunStatus.Failed, "Provider cleanup is unconfirmed; reconcile execution before relaunch.", tally.Observed)
+                with { ProcessFailure = new(ProviderProcessFailureKind.Cleanup,
+                    redactor.RedactText(exception.InnerException?.Message ?? exception.Message), null, null, false, false,
+                    redactor.RedactText(exception.CleanupFailure.Message)) };
+        }
+
+        if (exit.Failure is { } processFailure)
+        {
+            processFailure = processFailure with
+            {
+                Diagnostic = redactor.RedactText(processFailure.Diagnostic),
+                CleanupDiagnostic = processFailure.CleanupDiagnostic is { } cleanup ? redactor.RedactText(cleanup) : null,
+                DrainDiagnostic = processFailure.DrainDiagnostic is { } drain ? redactor.RedactText(drain) : null
+            };
+            var diagnostic = $"Provider input write failed: {processFailure.Diagnostic}. " +
+                $"Observed child exit: {processFailure.ObservedExitCode?.ToString() ?? "unknown"}; " +
+                $"cleanup confirmed: {processFailure.CleanupConfirmed}; output complete: {processFailure.OutputComplete}.";
+            return CreateFailure(request, sessionId, version, arguments, exit.StartedAt, exit.EndedAt,
+                exit.ExitCode, finalOutput, events, errors,
+                processFailure.CallerCancelled || processFailure.LaunchTimedOut ? AgentRunStatus.Cancelled : AgentRunStatus.Failed,
+                diagnostic, tally.Observed, processFailure.LaunchTimedOut) with { ProcessFailure = processFailure };
+        }
+
         var failure = DetermineFailure(expectedSessionId, sessionId, exit.ExitCode, events, parseFailure, sessionFailure);
         var status = failure is null ? AgentRunStatus.Completed : AgentRunStatus.ProtocolError;
         if (exit.ExitCode != 0 || events.Any(item => item.IsError))
@@ -285,12 +322,23 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
 
             var help = standardOutput.Append(standardError).ToString();
             var missing = probe.RequiredTokens.Where(token => !help.Contains(token, StringComparison.Ordinal)).ToArray();
-            if (exit.ExitCode != 0 || missing.Length > 0)
+            if (exit.ExitCode != 0 || exit.Failure is not null || missing.Length > 0)
             {
                 throw new AgentAdapterException(
-                    $"{Provider} CLI capability probe '{string.Join(" ", probe.Arguments)}' failed or is missing: {string.Join(", ", missing)}.");
+                    $"{Provider} CLI capability probe '{string.Join(" ", probe.Arguments)}' failed (exit {exit.ExitCode}) or is missing: {string.Join(", ", missing)}. " +
+                    ProbeDiagnostic([standardError.ToString()], exit, new SensitiveDataRedactor(request.Environment.Values)));
             }
         }
+    }
+
+    private static string ProbeDiagnostic(IEnumerable<string> errors, ProcessExit exit, SensitiveDataRedactor? redactor = null)
+    {
+        var stderr = string.Join(Environment.NewLine, errors);
+        var text = $"{exit.Failure?.Diagnostic} Stderr: {(stderr.Length == 0 ? "not captured" : stderr)}";
+        // Redact the complete value before shortening it; a cut secret no longer matches.
+        text = redactor?.RedactText(text) ?? text;
+        if (text.Length > 2048) text = text[..2048] + " [truncated]";
+        return text;
     }
 
     private string? DetermineFailure(

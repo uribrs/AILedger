@@ -69,7 +69,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         // before lessons crossed repositories. The per-user default belongs to the process that
         // composes the service, not to the library, so that a caller holding a temporary root never
         // writes into the operator's real store by omission.
-        ILessonStore? lessonStore = null)
+        ILessonStore? lessonStore = null,
+        TimeProvider? coordinationTimeProvider = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventsPerTask);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEventLogBytes);
@@ -84,6 +85,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         _maximumEventsPerTask = maximumEventsPerTask;
         _maximumEventLogBytes = maximumEventLogBytes;
         _lessonStore = lessonStore;
+        _coordinationTimeProvider = coordinationTimeProvider ?? TimeProvider.System;
     }
 
     public async Task<CommandOutcome> ExecuteAsync(
@@ -108,6 +110,28 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
             Path.Combine(taskDirectory, _layout.LockFileName), cancellationToken).ConfigureAwait(false);
 
         var currentState = await ReplayAsync(taskId, taskDirectory, cancellationToken).ConfigureAwait(false);
+        await CheckCoordinationAsync(taskDirectory, cancellationToken).ConfigureAwait(false);
+        _agentAuthority?.EnsureAllowed(currentState, command, DateTimeOffset.UtcNow);
+        if (command.HostRequest is { } identity)
+        {
+            var prior = await FindHostRequestAsync(taskDirectory, identity, cancellationToken).ConfigureAwait(false);
+            if (prior.Count > 0)
+            {
+                if (prior.Any(e => e.ActorId != command.ActorId || e.CorrelationId != command.CorrelationId))
+                    throw new GovernanceException("Original request belongs to a different authenticated command binding.");
+                return new CommandOutcome(currentState!, prior);
+            }
+        }
+        if (command.ExpectedVersion is { } expected && currentState?.Version != expected)
+            throw new GovernanceException("Task version changed; refresh the action basis.", GovernanceRefusalKind.StaleBasis);
+        var admissionWork = command switch
+        {
+            CompleteWorkItemCommand { WithoutVerificationReason: null } completionRequest => (WorkItemId?)completionRequest.WorkItemId,
+            RequestStageTransitionCommand transition => transition.CompletedWorkItemId,
+            _ => null
+        };
+        await using var completionLease = admissionWork is { } admissionMember && currentState is not null && _completionAdmission is not null
+            ? await _completionAdmission.AcquireAsync(currentState, admissionMember, cancellationToken).ConfigureAwait(false) : null;
         CommandOutcome outcome;
         try
         {
@@ -116,6 +140,20 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 command = await PrepareConsultationAsync(taskId, currentState, consult, cancellationToken)
                     .ConfigureAwait(false);
             }
+            if (command is CompleteWorkItemCommand completion && currentState is not null)
+            {
+                // Ignore even an in-process caller's old observation. Revalidate physical inputs,
+                // policy and evidence under this task lock, then recheck fencing before append.
+                command = completion with { Admission = null };
+                if (completionLease is not null)
+                {
+                    command = completion with { Admission = new AILedger.Core.Assurance.WorkCompletionAdmission(completionLease.Receipt, currentState.Version) };
+                    await CheckCoordinationAsync(taskDirectory, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            if (command is RequestStageTransitionCommand transitionRequest)
+                command = transitionRequest with { CompletionAdmission = completionLease is null ? null :
+                    new AILedger.Core.Assurance.WorkCompletionAdmission(completionLease.Receipt, currentState!.Version) };
             outcome = _commandHandler.Handle(currentState, command, DateTimeOffset.UtcNow);
         }
         catch (GovernanceException exception)
@@ -138,7 +176,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 RefusalSite.Service,
                 currentState?.Version ?? 0,
                 exception.Message,
-                _kernelIdentity)).ConfigureAwait(false);
+                _kernelIdentity, exception.Kind.ToString())).ConfigureAwait(false);
 
             // Counted after the append, so the number names this refusal and not the one before it,
             // and so it equals what a reader counting rows in the file would find. When the append
@@ -151,15 +189,15 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 throw;
             }
 
-            // A replacement exception, because GovernanceException is sealed and carries only a
-            // message, so there is nowhere to put the original. Its stack is copied onto the
+            // A replacement exception, with the same typed refusal fact and the repeated
+            // diagnostic. GovernanceException remains sealed. Its stack is copied onto the
             // replacement before the throw: without that line the trace of the rule that actually
             // refused is discarded and replaced by one rooted here, and it is discarded on exactly
             // the second and every later occurrence of a rule — the first keeps it through the bare
             // rethrow above. That is the wrong way round. The repeated case is the one this
             // increment exists to make legible, and it is the one a maintainer most needs a frame
             // for.
-            var counted = new GovernanceException(exception.Message + notice);
+            var counted = new GovernanceException(exception.Message + notice, exception.Kind);
             ExceptionDispatchInfo.SetRemoteStackTrace(counted, exception.StackTrace ?? string.Empty);
             throw counted;
         }
@@ -177,6 +215,13 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 "task id is embedded in every one of its events so the log cannot be rewritten.");
         }
 
+        if (command.HostRequest is { } requestIdentity)
+            outcome = outcome with { Events = outcome.Events.Select(e => e with { HostRequest = requestIdentity }).ToArray() };
+        if (completionLease is not null)
+        {
+            await completionLease.RevalidateAsync(cancellationToken).ConfigureAwait(false);
+            await CheckCoordinationAsync(taskDirectory, cancellationToken).ConfigureAwait(false);
+        }
         await AppendEventsAsync(taskDirectory, outcome.Events, cancellationToken).ConfigureAwait(false);
         await TryPublishMintedLessonsAsync(outcome.Events).ConfigureAwait(false);
         await TryRepairDerivedStateAsync(taskDirectory, outcome.State).ConfigureAwait(false);
@@ -213,8 +258,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
     //
     // Last of the printed lines, below the rule's sentence and below any diagnostic lines a rule
     // adds, because everything above it is about this refusal and this is the only line that is
-    // about the actor. Two callers depend on that placement: ProviderLauncher matches a run-output
-    // refusal with Contains and with StartsWith, and both survive a line appended at the end.
+    // about the actor. Typed refusal facts are preserved independently of this presentation suffix.
     private static string? RepetitionNotice(RefusalRecurrence recurrence, bool rowWasWritten)
     {
         // The row this refusal failed to write is counted before the gate below, not left out of the
@@ -337,7 +381,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 // starts later is outside this snapshot, and a command already in progress is
                 // either complete in the snapshot or withheld by its command-boundary metadata.
                 archived = await ReplayAsync(
-                    sourceTaskId, taskDirectory, cancellationToken, allowConcurrentReplacement: true)
+                    sourceTaskId, taskDirectory, cancellationToken, allowConcurrentReplacement: true, archivedRecall: true)
                     .ConfigureAwait(false);
             }
             catch (ArgumentException)
@@ -556,7 +600,8 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         TaskId taskId,
         string taskDirectory,
         CancellationToken cancellationToken,
-        bool allowConcurrentReplacement = false)
+        bool allowConcurrentReplacement = false,
+        bool archivedRecall = false)
     {
         var eventsPath = Path.Combine(taskDirectory, _layout.EventsFileName);
         if (!File.Exists(eventsPath))
@@ -566,7 +611,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
 
         GovernedTaskState? state = null;
         await foreach (var @event in ReadEventsAsync(
-                           eventsPath, cancellationToken, allowConcurrentReplacement).ConfigureAwait(false))
+                           eventsPath, cancellationToken, allowConcurrentReplacement, archivedRecall: archivedRecall).ConfigureAwait(false))
         {
             ValidateEventEnvelope(taskId, @event, state?.Version ?? 0);
             try
@@ -592,8 +637,14 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         bool enforceLimits = true,
         List<AlternativesReceipt>? alternativeReceipts = null,
         List<ArtifactSubmissionReceipt>? artifactReceipts = null,
-        List<ClaimDispositionsReceipt>? dispositionReceipts = null)
+        List<ClaimDispositionsReceipt>? dispositionReceipts = null,
+        bool archivedRecall = false)
     {
+        // Trusted recall reads an immutable sibling snapshot while the current task mutation
+        // remains fenced. It cannot create a mutation service or expand the child's bound task.
+        var ownershipDirectory = archivedRecall && _coordination is { } owner
+            ? _pathResolver.Resolve(owner.TaskId) : Path.GetDirectoryName(eventsPath)!;
+        await CheckCoordinationAsync(ownershipDirectory, cancellationToken).ConfigureAwait(false);
         if (enforceLimits) EnsureEventLogSize(eventsPath);
         await using var file = new FileStream(
             eventsPath,
@@ -618,6 +669,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
         var artifactKeys = new HashSet<(string Actor, string Request)>();
         var alternativeKeys = new HashSet<(string Actor, string Request)>();
         var receiptKeys = new HashSet<(string Actor, string Request)>();
+        var hostKeys = new HashSet<(string Binding, string Request)>();
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             // An unterminated last line is never committed, even when the bytes happen to be valid
@@ -719,6 +771,15 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 continue;
             }
 
+            if (pendingCommand.Any(e => e.HostRequest is not null))
+            {
+                var identity = pendingCommand[0].HostRequest;
+                if (identity is null || identity.SchemaVersion != 1 || string.IsNullOrWhiteSpace(identity.Binding) ||
+                    string.IsNullOrWhiteSpace(identity.RequestId) || identity.Body.Length > 256 * 1024 ||
+                    pendingCommand.Any(e => e.HostRequest != identity || e.ActorId != pendingCommand[0].ActorId || e.CorrelationId != pendingCommand[0].CorrelationId) ||
+                    !hostKeys.Add((identity.Binding, identity.RequestId)))
+                    throw new InvalidDataException("Invalid or duplicate atomic host request receipt.");
+            }
             if (pendingReceipt is { } metadata)
             {
                 var receipt = FindingsReceiptEnvelope.Validate(metadata, pendingCommand, lineNumber);

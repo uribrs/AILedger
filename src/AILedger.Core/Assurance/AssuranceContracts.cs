@@ -1,11 +1,16 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AILedger.Core.Assurance;
 
 // Operator-owned policy. Never deserialized from an agent operation or a retrieved package.
 public sealed record AssurancePolicy(int SchemaVersion, string CaseId, string CandidateRoot,
     string Implementer, IReadOnlyList<AssuranceArea> Areas, IReadOnlyList<AssurancePrincipal> Principals,
-    IReadOnlyList<AssuranceCheck> Checks);
+    IReadOnlyList<AssuranceCheck> Checks)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public GovernedAssuranceScope? Governed { get; init; }
+}
 public sealed record AssuranceArea(string Id, IReadOnlyList<string> CandidatePaths,
     IReadOnlyList<string> RequirementPaths, IReadOnlyList<string> SourcePaths,
     IReadOnlyList<string> DependsOnAreas, IReadOnlyList<AssuranceCriterion> Criteria);
@@ -34,7 +39,13 @@ public sealed record AssuranceEntry(AssuranceReceipt Receipt, JsonElement Payloa
 public sealed record AssuranceInput(string Kind, string Path, string Sha256, int Bytes, string Content);
 public sealed record AssuranceSnapshot(string AreaId, string CandidateSha256, string RequirementSha256,
     string BindingSha256, IReadOnlyList<AssuranceInput> Inputs, IReadOnlyDictionary<string, string> Dependencies,
-    IReadOnlyList<AssuranceCriterion> Criteria, string Implementer, string Origin);
+    IReadOnlyList<AssuranceCriterion> Criteria, string Implementer, string Origin)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public GovernedAssuranceBasis? Governed { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PhysicalBindingSha256 { get; init; }
+}
 public sealed record InspectAssuranceRequest(int SchemaVersion, string AreaId, string? ReceiptId = null, int Offset = 0, int? ExpectedVersion = null);
 public sealed record ReadAssuranceRequest(int SchemaVersion, string RequestId, string AreaId,
     string ExpectedBinding, IReadOnlyList<string> Paths);
@@ -44,11 +55,29 @@ public sealed record RecordAssuranceRequest(int SchemaVersion, string RequestId,
     string ExpectedBinding, string Status, string Summary, IReadOnlyList<string> InspectedPaths,
     IReadOnlyList<string> ReadReceipts, IReadOnlyList<AssuranceObservation> Checks,
     IReadOnlyList<AssuranceFinding> Findings, IReadOnlyList<string> Uncertainty,
-    string? Supersedes = null);
+    string? Supersedes = null)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AssuranceFindingJudgment>? FindingJudgments { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AssuranceRepairImpact? RepairImpact { get; init; }
+}
 public sealed record AssuranceObservation(string CriterionId, string Status, string Evidence,
     IReadOnlyList<string> TestReceipts);
 public sealed record AssuranceFinding(string Key, string Kind, string Statement, IReadOnlyList<string> Paths,
-    IReadOnlyList<string> Contradicts);
+    IReadOnlyList<string> Contradicts)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? RequirementIds { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Uncertainty { get; init; }
+}
+// Adjudication preserves the original finding and uses host-observed evidence.
+public sealed record AssuranceFindingJudgment(int SchemaVersion, string FindingId, string Decision,
+    string Rationale, IReadOnlyList<string> RequirementIds, IReadOnlyList<string> Uncertainty,
+    IReadOnlyList<AssuranceFindingEvidence> Evidence);
+public sealed record AssuranceFindingEvidence(string Kind, string ReceiptId, string PathOrCheckId,
+    string Observation);
 public sealed record AcceptAssuranceRequest(int SchemaVersion, string RequestId, string AreaId,
     string ExpectedBinding, IReadOnlyList<string> Reports, string Rationale,
     IReadOnlyList<AssuranceDisposition> Dispositions);
@@ -69,3 +98,14 @@ public sealed record AssuranceInspection(AssuranceSnapshot Snapshot, IReadOnlyLi
     IReadOnlyList<string> UninspectedPaths, IReadOnlyList<string> UntestedCriteria,
     IReadOnlyList<string> UnresolvedFindings, string Acceptance, string Measurement,
     int UncommittedFiles, IReadOnlyList<string> PendingChecks, int JournalVersion, int TotalHistory, int? NextOffset, IReadOnlyList<JsonElement> CheckAttempts);
+
+// Authored judgment; the host separately retains before/after physical observations.
+public sealed record AssuranceRepairImpact(int SchemaVersion, string BeforeReceipt,
+    IReadOnlyList<string> AffectedAreas, IReadOnlyList<string> RequirementIds,
+    IReadOnlyList<string> DependencyAreas, string DependencyRationale,
+    IReadOnlyList<string> RequiredChecks, IReadOnlyList<string> AddressedFindings,
+    IReadOnlyList<string> ReuseReceipts, IReadOnlyList<string> InvalidateReceipts,
+    IReadOnlyList<string> Uncertainty)
+{
+    public IReadOnlyList<string> ImpactReadReceipts { get; init; } = [];
+}

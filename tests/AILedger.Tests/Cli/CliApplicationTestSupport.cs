@@ -302,9 +302,12 @@ internal static class CliApplicationTestSupport
 
     internal sealed class CompletionFailureService(
         IGovernedTaskService inner,
-        int failuresBeforeSuccess) : IGovernedTaskService, IFindingsRecorder, AILedger.Core.Alternatives.IAlternativesRecorder, AILedger.Core.Artifacts.IArtifactSubmitter, AILedger.Core.ClaimDispositions.IClaimDispositionsRecorder
+        int failuresBeforeSuccess) : IGovernedTaskService, IFindingsRecorder, AILedger.Core.Alternatives.IAlternativesRecorder, AILedger.Core.Artifacts.IArtifactSubmitter, AILedger.Core.ClaimDispositions.IClaimDispositionsRecorder, AILedger.Core.Authority.IAgentSessionServiceFactory
     {
         public int CompletionAttempts { get; private set; }
+
+        public IGovernedTaskService BindAgentSession(AILedger.Core.Authority.AgentSessionAuthority authority) =>
+            ((AILedger.Core.Authority.IAgentSessionServiceFactory)inner).BindAgentSession(authority);
 
         public Task<AILedger.Core.ClaimDispositions.ClaimDispositionsResult> RecordClaimDispositionsAsync(
             AILedger.Core.ClaimDispositions.ClaimDispositionsBinding binding,

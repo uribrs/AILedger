@@ -43,6 +43,7 @@ public sealed class CliApplication
     private readonly CliCommandExecutor _executor;
     private readonly ContextBriefingCliCommands _contextCommands;
     private readonly ProviderLauncher _providerLauncher;
+    private readonly AILedger.Cli.Orchestration.OrchestrationCliCommands _orchestration;
     private readonly CliCommandCatalog _commands;
 
     // The only directory a coordinator transcript may be read from, and the one control that makes a
@@ -102,10 +103,9 @@ public sealed class CliApplication
         _executor = new CliCommandExecutor(_output, _json);
         _contextCommands = new ContextBriefingCliCommands(
             _executor, contextAssembler, artifactLoader, _json);
-        var providerRunRecorder = new ProviderRunRecorder(_error, _json);
-        _providerLauncher = new ProviderLauncher(
-            adapterFactory, _contextCommands, _executor, _json, new RefusalJournal(), providerRunRecorder,
+        _providerLauncher = new ProviderLauncher(adapterFactory, contextAssembler, _executor, _error,
             () => VerificationHost);
+        _orchestration = new(_executor, adapterFactory, contextAssembler);
         _commands = CreateCommandCatalog();
     }
 
@@ -187,6 +187,10 @@ public sealed class CliApplication
             await _error.WriteLineAsync("Cancelled.").ConfigureAwait(false);
             return 130;
         }
+        catch (AILedger.Cli.Orchestration.OrchestrationStoppedException stopped)
+        {
+            return stopped.ExitCode;
+        }
         catch (AuditFailedException)
         {
             return 1;
@@ -252,7 +256,8 @@ public sealed class CliApplication
             .Concat(runs.Registrations())
             .Append(preflight.Registration())
             .Append(verification.Registration())
-            .Concat(ProviderCliCommands.Registrations(_providerLauncher)));
+            .Concat(ProviderCliCommands.Registrations(_providerLauncher))
+            .Concat(_orchestration.Registrations()));
     }
 
     private static string? DiscoverLedgerHome()

@@ -120,7 +120,7 @@ These shapes remain owned by their skills; they are not additional Phase 1 admis
   [ProviderLauncher](../src/AILedger.Cli/Providers/ProviderLauncher.cs) builds the role-filtered manifest
   after run start. [ContextManifestBudget](../src/AILedger.Cli/ContextBriefing/ContextManifestBudget.cs)
   measures serialized UTF-8 with a default 256 KiB limit, can omit unreferenced background lessons,
-  and refuses when required records cannot fit. [ProviderLauncher.Assurance](../src/AILedger.Cli/Assurance/ProviderLauncher.Assurance.cs)
+  and refuses when required records cannot fit. [ProviderLauncher.Assurance](../src/AILedger.Cli/Dispatch/ProviderDispatchService.Assurance.cs)
   then opens configured authority/store and checks governed role/input grants via
   [AssuranceHost](../src/AILedger.Cli/Assurance/AssuranceHost.cs). Required brief budget, protected paths,
   actual candidate bytes, area/check discovery IDs and review profile compatibility are host facts;

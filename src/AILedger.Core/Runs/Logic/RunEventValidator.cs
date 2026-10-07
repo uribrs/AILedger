@@ -17,6 +17,8 @@ internal static class RunEventValidator
         RequireDefined(run.Status, nameof(run.Status));
         // New-field boundary only: old starts deserialize null. Declarations require their own
         // owner-authorized event, never an assertion smuggled into run.started.
+        if (run.RoutingAssessment is not null)
+            throw new GovernanceException("A new run cannot carry a routing assessment.");
         if (run.ProducerOutcome is not null)
             throw new GovernanceException("A started run cannot already carry a producer outcome.");
         // Checked only when present, because null is the legitimate shape of every run recorded

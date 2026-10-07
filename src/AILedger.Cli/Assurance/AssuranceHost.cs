@@ -3,6 +3,8 @@ using AILedger.Core.Handoffs;
 using AILedger.Providers.Assurance;
 using AILedger.Providers.Process;
 using AILedger.Storage.Episodes;
+using AILedger.Storage;
+using AILedger.Core.Contracts;
 
 namespace AILedger.Cli.Assurance;
 
@@ -44,12 +46,31 @@ public static class AssuranceHost
     }
 
     public static async Task<AssuranceService> OpenAsync(string authorityPath, string storePath,
-        AssuranceSession session, Func<CancellationToken, Task>? authorizeSession, CancellationToken token)
+        AssuranceSession session, Func<CancellationToken, Task>? authorizeSession, CancellationToken token,
+        FileGovernedTaskService? governedHost = null, bool providerSession = false, DateTimeOffset? expiresAt = null)
     {
         if (!Path.IsPathFullyQualified(storePath)) throw new ArgumentException("Assurance store must be absolute.");
         var source = new FilePolicy(authorityPath);
         var policy = await source.ReadAsync(token).ConfigureAwait(false);
-        return new(new FileEpisodeStore(storePath), source, policy, session, new SystemProcessRunner(), authorizeSession);
+        AssuranceValidation.Policy(policy);
+        IGovernedAssuranceContext? context = null;
+        if (policy.Governed is { } scope)
+        {
+            AssuranceValidation.Require(governedHost is not null, "missing_governed_host", "Supply the associated governed ledger host for this policy.");
+            var state = await governedHost!.GetStateAsync(new(scope.TaskId), token).ConfigureAwait(false)
+                ?? throw new AssuranceRefusal("wrong_governed_binding", "Governed task is missing.");
+            AssuranceValidation.Require(scope.WorkItemIds.All(id => state.WorkItems.ContainsKey(new(id))),
+                "wrong_governed_binding", "Policy names an unknown governed work member.");
+            var roots = scope.WorkItemIds.SelectMany(id => state.WorkItems[new(id)].ResourceScope).ToArray();
+            EnsureProtectedPaths(authorityPath, storePath, roots.Append(governedHost.WorkspaceRoot));
+            EnsureInputGrants(AssuranceConfiguration.InputPaths(policy, session.Principal), roots, governedHost.WorkspaceRoot);
+            AssuranceValidation.Require(policy.Areas.All(a => AssuranceConfiguration.Principal(policy, session.Principal).Areas.Contains(a.Id)),
+                "unsupported", "The governed bridge requires the entire declared closure in the existing grant.");
+            await governedHost.BindAssuranceCaseAsync(state.TaskId, policy, storePath, token).ConfigureAwait(false);
+            context = governedHost.CreateAssuranceContext(state, session, providerSession,
+                expiresAt ?? AssuranceConfiguration.Principal(policy, session.Principal).ExpiresAt, storePath);
+        }
+        return new(new FileEpisodeStore(storePath), source, policy, session, new SystemProcessRunner(), authorizeSession, context);
     }
     public static void EnsureGovernedRole(string assuranceRole, string role)
     {

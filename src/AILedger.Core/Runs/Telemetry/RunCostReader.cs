@@ -5,6 +5,20 @@ namespace AILedger.Core.Application;
 
 public static class RunCostReader
 {
+    public static decimal? ReadReportedUsd(string provider, IReadOnlyList<ProviderEvent> events)
+    {
+        if (provider != "claude") return null;
+        var terminal = events.LastOrDefault(e => e.IsTerminal);
+        if (terminal?.Type != ClaudeTerminalEventType) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(terminal.RawJson);
+            return Property(document.RootElement, "total_cost_usd") is { ValueKind: JsonValueKind.Number } value &&
+                value.TryGetDecimal(out var amount) && amount >= 0 ? amount : null;
+        }
+        catch (JsonException) { return null; }
+    }
+
     // The two terminal event types, duplicated from ProviderProtocol rather than shared with it.
     // Core cannot reference Providers — the dependency runs the other way — and the alternative,
     // having each adapter fill the numbers into AgentRunResult, puts the reader in a project this

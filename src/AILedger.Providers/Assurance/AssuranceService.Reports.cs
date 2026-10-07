@@ -27,6 +27,9 @@ public sealed partial class AssuranceService
         var snapshot = await CurrentAsync(policy, request.AreaId, request.ExpectedBinding, token).ConfigureAwait(false);
         Require(_session.Principal != policy.Implementer, "self_approval", "An implementer cannot supply independent assurance for its own candidate.");
         ValidateReport(request, snapshot, entries.Where(e => Principal(policy).Areas.Contains(Snapshot(e).AreaId)).ToList(), Principal(policy).Role);
+        ValidateRepairImpact(request, snapshot, policy, entries);
+        if (snapshot.Governed is not null && Principal(policy).Role == "review" && request.Checks.Any(c => c.Status == "pass"))
+            EnsureRequiredChecks(snapshot, entries);
         var previous = entries.LastOrDefault(e => e.Receipt.Operation == "record_assurance" &&
             e.Receipt.Principal == _session.Principal && Snapshot(e).AreaId == request.AreaId);
         Require(previous?.Receipt.Id == request.Supersedes, "stale_checkpoint", "Name your latest report receipt in supersedes, or null for the first checkpoint.");
@@ -63,12 +66,17 @@ public sealed partial class AssuranceService
                     "unsupported_pass", $"Criterion '{check.CriterionId}' requires a successful host receipt for '{expectedCheck}'; an authored assertion is insufficient.");
             }
         }
+        ValidateFindingJudgments(request, snapshot, entries, role);
         Unique(request.Findings.Select(f => f.Key).ToArray(), "finding keys");
         foreach (var finding in request.Findings)
         {
             Text(finding.Key, "finding key", 128); Text(finding.Statement, "finding statement");
             Require(finding.Kind is "defect" or "contradiction" or "ambiguity", "invalid_request", "Finding kind is defect, contradiction or ambiguity.");
             Unique(finding.Paths, "finding paths"); Unique(finding.Contradicts, "contradicts");
+            Unique(finding.RequirementIds ?? [], "finding requirements");
+            Require((finding.RequirementIds ?? []).All(id => snapshot.Criteria.Any(c => c.Id == id)), "invalid_reference", "Unknown affected requirement.");
+            Items(finding.Uncertainty ?? [], "finding uncertainty");
+            foreach (var uncertainty in finding.Uncertainty ?? []) Text(uncertainty, "finding uncertainty");
             Require(finding.Paths.All(p => snapshot.Inputs.Any(i => i.Path == p)), "invalid_reference", "Finding names an undeclared input.");
             foreach (var id in finding.Contradicts)
                 Require(entries.Any(e => Visible(e, role) && FindingIds(e).Contains(id)), "invalid_reference", "Contradiction target must be a visible recorded finding ID.");

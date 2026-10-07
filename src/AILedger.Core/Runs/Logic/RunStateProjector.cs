@@ -35,6 +35,12 @@ internal static class RunStateProjector
     internal static GovernedTaskState Declare(GovernedTaskState state, ProducerOutcomeDeclared declared) =>
         state with { Runs = Set(state.Runs, declared.RunId, state.Runs[declared.RunId] with { ProducerOutcome = declared.Declaration }) };
 
+    internal static GovernedTaskState Select(GovernedTaskState state, PreparationSelected selected) =>
+        state with { Runs = Set(state.Runs, selected.RunId, state.Runs[selected.RunId] with { PreparationSelection = selected.Selection }) };
+
+    internal static GovernedTaskState Assess(GovernedTaskState state, RoutingAssessmentRecorded assessment) =>
+        state with { Runs = Set(state.Runs, assessment.RunId, state.Runs[assessment.RunId] with { RoutingAssessment = assessment.Assessment }) };
+
     private static IReadOnlyDictionary<TKey, TValue> Set<TKey, TValue>(
         IReadOnlyDictionary<TKey, TValue> source,
         TKey key,

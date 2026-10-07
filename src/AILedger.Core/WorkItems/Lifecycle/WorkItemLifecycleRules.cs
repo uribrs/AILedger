@@ -56,6 +56,20 @@ internal static class WorkItemLifecycleRules
         var workItem = Get(state.WorkItems, command.WorkItemId, "work item");
         EnsureCanComplete(state, workItem);
         var waiver = EnsureVerificationOrWaiver(state, command);
+        if (WorkItemVerificationRules.LatestCompletedWorkingRun(state, command.WorkItemId) is not null)
+        {
+            AILedger.Core.Assurance.GovernedAssuranceRules.EnsureCurrentWork(state, command.WorkItemId);
+            AILedger.Core.Assurance.GovernedAssuranceRules.EnsureCleanVerifier(state, command.WorkItemId);
+        }
+        if (waiver is null && (workItem.ResourceScope.Count > 0 || AssuranceRules.HasNewAssurance(state, command.WorkItemId)))
+        {
+            var admission = command.Admission ?? throw new GovernanceException("Explicit applicable task-13 acceptance through the trusted completion host is required.");
+            if (admission.Version != state.Version) throw new GovernanceException("Completion admission is stale.");
+            AILedger.Core.Assurance.GovernedAssuranceRules.ValidateReceipt(state, command.WorkItemId, admission.Receipt);
+            var pair = AILedger.Core.Assurance.GovernedAssuranceRules.CompletionPair(state, command.WorkItemId, admission.Receipt.Basis.CandidateId);
+            if (pair.Verifier.Id != admission.Receipt.VerifierRunId || pair.Reviewer.Id != admission.Receipt.ReviewerRunId)
+                throw new GovernanceException("Acceptance belongs to a different governed assurance pair.");
+        }
 
         return
         [
@@ -63,6 +77,7 @@ internal static class WorkItemLifecycleRules
                 command.WorkItemId,
                 waiver,
                 waiver is null ? null : CoordinatorSessionWaiverAttribution.Resolve(state, command.ActorId))
+            { Acceptance = command.Admission?.Receipt }
         ];
     }
 

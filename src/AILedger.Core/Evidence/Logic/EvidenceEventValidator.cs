@@ -27,6 +27,10 @@ internal static class EvidenceEventValidator
             throw new GovernanceException("The same evidence cannot both support and refute a claim.");
         }
 
+        if (evidence.TrustedTerminationVersion is { } version &&
+            (version != 1 || evidence.SourceType != "process-termination" || !IsOperator(state, @event.ActorId)))
+            throw new GovernanceException("Trusted termination attribution requires schema 1 and an operator at recording time.");
+        // Older legal evidence has no attribution field and remains replayable.
         ValidateProvenance(@event, evidence.Provenance, "evidence.add");
     }
 }

@@ -91,7 +91,14 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new StartRunCommand(actor, null, "c14g", new RunId("RCR1"), new WorkItemId("W2"), "codex", null, null, null, null, reviewer));
         await Run(writer, taskId, Artifact(reviewer, "c14g1", "A-RCR1", GovernedArtifactKind.CodeReviewOutput, new WorkItemId("W2"), new RunId("RCR1")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c14h", new RunId("RCR1"), AgentRunStatus.Completed, "session-r1"));
-        await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c15", new WorkItemId("W2")));
+        Assert.Contains("Explicit applicable task-13 acceptance", (await Assert.ThrowsAsync<GovernanceException>(() =>
+            Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c15", new WorkItemId("W2"))))).Message);
+        // Arrange only the previously legal completion event; the new command is refused above.
+        var beforeW2 = (await writer.GetStateAsync(taskId, default))!;
+        var historicalW2 = new LedgerEvent(1, new($"{taskId.Value}:{beforeW2.Version + 1:D10}"), taskId,
+            actor, DateTimeOffset.UtcNow, null, "historical-completion", new WorkItemCompleted(new("W2")));
+        await File.AppendAllTextAsync(Path.Combine(root.Path, taskId.Value, "events.jsonl"),
+            System.Text.Json.JsonSerializer.Serialize(historicalW2, LedgerJson.CreateOptions()) + "\n");
 
         // F2: a released area really is free again, proven by a second work item taking it after a
         // real commit rather than by asking the handler what it thinks.
@@ -106,7 +113,14 @@ public sealed class NewCommandReplayTests
         await Run(writer, taskId, new StartRunCommand(actor, null, "c20a", new RunId("RCR2"), new WorkItemId("W6"), "codex", null, null, null, null, reviewer));
         await Run(writer, taskId, Artifact(reviewer, "c20b", "A-RCR2", GovernedArtifactKind.CodeReviewOutput, new WorkItemId("W6"), new RunId("RCR2")));
         await Run(writer, taskId, new CompleteRunCommand(actor, null, "c20c", new RunId("RCR2"), AgentRunStatus.Completed, "session-r2"));
-        await Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c21", new WorkItemId("W6")));
+        Assert.Contains("Explicit applicable task-13 acceptance", (await Assert.ThrowsAsync<GovernanceException>(() =>
+            Run(writer, taskId, new CompleteWorkItemCommand(actor, null, "c21", new WorkItemId("W6"))))).Message);
+        // Arrange only the previously legal completion event; the new command is refused above.
+        var beforeW6 = (await writer.GetStateAsync(taskId, default))!;
+        var historicalW6 = new LedgerEvent(1, new($"{taskId.Value}:{beforeW6.Version + 1:D10}"), taskId,
+            actor, DateTimeOffset.UtcNow, null, "historical-completion", new WorkItemCompleted(new("W6")));
+        await File.AppendAllTextAsync(Path.Combine(root.Path, taskId.Value, "events.jsonl"),
+            System.Text.Json.JsonSerializer.Serialize(historicalW6, LedgerJson.CreateOptions()) + "\n");
 
         // The waived completion: its reason is a new field on an existing event, so it has to
         // serialise, come back, and pass the replay copy of the rules.

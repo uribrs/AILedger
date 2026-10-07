@@ -16,6 +16,10 @@ public sealed class SystemProcessRunner : IProcessRunner
     {
         Validate(invocation);
 
+        using var isolationScratch = invocation.Isolation is null ? null : new IsolationScratch();
+        if (isolationScratch is not null)
+            invocation = ProviderProcessIsolation.Confine(invocation, isolationScratch.Directory);
+
         using var process = new System.Diagnostics.Process
         {
             StartInfo = CreateStartInfo(invocation),
@@ -54,6 +58,9 @@ public sealed class SystemProcessRunner : IProcessRunner
         }
         catch (Exception originalException)
         {
+            if (originalException is InputWriteException inputFailure)
+                return await FinishInputFailureAsync(process, inputFailure, activeTasks, linked,
+                    timeout, cancellationToken, startedAt, tally).ConfigureAwait(false);
             // Read before anything is cancelled here, so the two flags say which source actually
             // ended the process rather than which one this handler touched on the way out.
             var propagated = Reclassify(
@@ -69,6 +76,42 @@ public sealed class SystemProcessRunner : IProcessRunner
                 TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             throw new UnreachableException();
         }
+    }
+
+    private static async Task<ProcessExit> FinishInputFailureAsync(
+        System.Diagnostics.Process process, InputWriteException failure, IReadOnlyList<Task> tasks,
+        CancellationTokenSource linked, CancellationTokenSource timeout, CancellationToken caller,
+        DateTimeOffset startedAt, TruncatedLineTally? tally)
+    {
+        // A closed input pipe often follows an earlier child error. Give the exit and readers a
+        // bounded chance to observe it before cancelling them. Never await the failed writer here.
+        var readersAndExit = tasks.Take(3).ToArray();
+        string? drainDiagnostic = null;
+        try
+        {
+            await Task.WhenAll(readersAndExit).WaitAsync(TimeSpan.FromSeconds(1), linked.Token)
+                .ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
+        {
+            drainDiagnostic = error.Message;
+        }
+        var exitedBeforeCleanup = process.HasExited;
+        var outputComplete = readersAndExit.Skip(1).All(task => task.IsCompletedSuccessfully);
+        var callerCancelled = caller.IsCancellationRequested;
+        var timedOut = timeout.IsCancellationRequested && !callerCancelled;
+        TryCancel(linked);
+        var cleanup = await CleanupProcessAsync(new SystemProcessCleanupTarget(process), tasks,
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        var readerFailures = readersAndExit.Skip(1).Where(task => task.IsFaulted)
+            .Select(task => task.Exception!.GetBaseException().Message).ToArray();
+        if (readerFailures.Length > 0) drainDiagnostic = string.Join("; ", readerFailures);
+        int? exitCode = process.HasExited ? process.ExitCode : null;
+        var observation = new ProviderProcessFailure(ProviderProcessFailureKind.InputWrite,
+            failure.InnerException!.Message, exitCode, exitedBeforeCleanup, cleanup is null,
+            outputComplete, cleanup?.Message, drainDiagnostic, callerCancelled, timedOut);
+        return new(exitCode ?? -1, startedAt, DateTimeOffset.UtcNow,
+            outputComplete ? tally?.Observed ?? 0 : tally?.Observed, observation);
     }
 
     /// <summary>
@@ -326,10 +369,16 @@ public sealed class SystemProcessRunner : IProcessRunner
         string input,
         CancellationToken cancellationToken)
     {
-        await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
-        await process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
-        process.StandardInput.Close();
+        try
+        {
+            await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
+            process.StandardInput.Close();
+        }
+        catch (IOException error) { throw new InputWriteException(error); }
     }
+
+    private sealed class InputWriteException(IOException cause) : IOException("Provider input write failed.", cause);
 
     private static void Validate(ProcessInvocation invocation)
     {
@@ -405,6 +454,17 @@ public sealed class SystemProcessRunner : IProcessRunner
         {
             // Process termination and reaping still have to run if a cancellation callback misbehaves.
         }
+    }
+}
+
+internal sealed class IsolationScratch : IDisposable
+{
+    internal string Directory { get; } = System.IO.Directory.CreateTempSubdirectory("ailedger-child-").FullName;
+
+    public void Dispose()
+    {
+        try { System.IO.Directory.Delete(Directory, recursive: true); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 }
 

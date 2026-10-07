@@ -200,6 +200,26 @@ public sealed class ProviderArgumentsTests
     }
 
     [Fact]
+    public async Task CapabilityDiagnosticRedactsSecretsBeforeApplyingItsLengthLimit()
+    {
+        const string secret = "sensitive-capability-secret";
+        var runner = new ScriptedProcessRunner()
+            .Enqueue(0, ["claude-test"])
+            .Enqueue(1, [], [new string('x', 2040) + secret]);
+        var request = ProviderProtocolTests.Request("claude", AgentLaunchMode.New, null) with
+        {
+            Environment = new Dictionary<string, string> { ["TEST_SECRET"] = secret }
+        };
+
+        var error = await Assert.ThrowsAsync<AgentAdapterException>(() =>
+            new ClaudeAgentAdapter(runner).RunAsync(request, default));
+
+        Assert.DoesNotContain("sensitiv", error.Message);
+        Assert.Contains("[truncated]", error.Message);
+        Assert.Equal(2, runner.Invocations.Count);
+    }
+
+    [Fact]
     public async Task ResumeWithoutSessionIsRejectedBeforeAnyProcessStarts()
     {
         var runner = new ScriptedProcessRunner();

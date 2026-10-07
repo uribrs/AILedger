@@ -114,6 +114,9 @@ internal static class WorkItemEventValidator
             throw new GovernanceException("Work item cannot be completed while an escalation on it is open.");
         }
 
+        if (completed.Acceptance is { } receipt)
+            AILedger.Core.Assurance.GovernedAssuranceRules.ValidateReceipt(state, completed.WorkItemId, receipt);
+
         // Required runs and their ordering remain command-time only: old histories have neither the
         // subject-role data nor the obligations needed to prove them. A present waiver is a newer shape
         // and can safely be checked for content and operator authority.

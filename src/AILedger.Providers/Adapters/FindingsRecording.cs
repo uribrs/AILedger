@@ -18,7 +18,8 @@ internal static class FindingsRecording
         if (endpoint is null) return;
         ValidateAssuranceTools(endpoint);
         var args = string.Join(", ", endpoint.Arguments.Select(RoslynNavigation.Quote));
-        var extraTools = (endpoint.AssuranceTools ?? []).Concat(endpoint.AllowProducerOutcome ? new[] { "declare_producer_outcome" } : []);
+        var extraTools = (endpoint.AssuranceTools ?? []).Concat(endpoint.AllowProducerOutcome ? new[] { "declare_producer_outcome" } : [])
+            .Concat(endpoint.AllowCognitiveHandoffs ? new[] { "cognitive_handoff" } : []);
         var extraNames = string.Concat(extraTools.Select(name => ",\"" + name + "\""));
         var extraGrants = string.Concat(extraTools.Select(name => "," + name + "={approval_mode=\"approve\"}"));
         arguments.Add("--config");
@@ -45,7 +46,7 @@ internal static class FindingsRecording
         if (request.FindingsEndpoint is null)
             return $"  {command} claim add --task {request.TaskId} --actor {request.ActorId} --id ID --statement TEXT\n" +
                 $"  {command} evidence add --task {request.TaskId} --actor {request.ActorId} --id ID --source-type TYPE --citation TEXT --summary TEXT [--supports CLAIM] [--refutes CLAIM]";
-        return ProducerOutcomeGuidance(request.FindingsEndpoint) + AssuranceGuidance(request.FindingsEndpoint) + """
+        return (request.FindingsEndpoint.AllowCognitiveHandoffs ? "Use cognitive_handoff for live governing artifacts, role-filtered lesson consultation, routing assessments, proposed decisions, escalations and closeout. File while your run is active. Preserve exact key/body for retry; unknown is not success. Never claim acceptance or human approval.\n" : "") + ProducerOutcomeGuidance(request.FindingsEndpoint) + AssuranceGuidance(request.FindingsEndpoint) + """
             Record claims and evidence with the supplied ailedger record_findings MCP tool directly.
             This recording guidance supersedes claim/evidence shell examples in the manifest's skills.
             Do not shell-translate prose or allocate durable claim/evidence IDs. Example tool arguments:
@@ -103,15 +104,20 @@ internal static class FindingsRecording
             record_claim_dispositions, prepare_work, complete_work, transition_stage. Preparation uses
             {id,title,owner,claims,scope,not_split_justification}; completion uses {work_id}; transition
             uses {stage,reason,serial_justification}. No waiver is implicit. ready is ledger admission
-            at that observation, never a grant or a guarantee; execute the existing tool/CLI, which
+            at that observation, never a grant or a guarantee; the authorized execution channel
             revalidates current state. blocked preserves actual prerequisites; unknown means something
             was uninspected (including physical assurance candidates); unsupported is an explicit gap.
             Do not attempt mutations just to discover prerequisites or treat fewer refusals as stronger safeguards.
-            Formal decision proposal/acceptance, claim supersession and lifecycle
+            """ + Environment.NewLine + (request.Isolation is not null ? """
+            Decision approval, claim supersession, unsupported artifact kinds and lifecycle operations
+            require a trusted host handoff. The confined child has no direct ledger CLI/filesystem channel.
+            Preserve findings and report the missing operation; never treat a tool refusal as a bypass grant.
+            """ : """
+            Decision operations unavailable through supplied tools, claim supersession and lifecycle
             operations remain CLI work with their own authority. No automatic closure or retrospective approval.
             Other kinds, external content references, artifact export and workflow operations still use the CLI below;
             operator recording CLI support remains available outside this supplied path.
-            """;
+            """);
     }
     private static string ProducerOutcomeGuidance(ProviderFindingsEndpoint endpoint) => !endpoint.AllowProducerOutcome ? "" : """
             Workers and Researchers: before returning, use declare_producer_outcome on this supplied session.

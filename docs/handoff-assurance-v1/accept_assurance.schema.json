@@ -46,7 +46,11 @@
             "maxLength": 256
           },
           "decision": {
-            "const": "not_applicable"
+            "enum": [
+              "not_applicable",
+              "refuted",
+              "repaired"
+            ]
           },
           "rationale": {
             "type": "string",

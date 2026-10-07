@@ -41,12 +41,12 @@ public sealed class VerificationSequenceTests
     }
 
     [Fact]
-    public void AllRequiredWorkerVerifierAndCodeReviewerPassesUnlockCompletion()
+    public void AllRequiredRunsStillRequireAcceptanceAndHistoricalCompletionReplays()
     {
         var task = Prepare(out var workItemId);
         task.RecordRequiredRuns(workItemId);
 
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
 
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
@@ -100,7 +100,7 @@ public sealed class VerificationSequenceTests
         Assert.Contains("latest working run", error.Message, StringComparison.OrdinalIgnoreCase);
 
         task.RecordCodeReviewerPass(workItemId, "RCR-repair");
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 
@@ -129,7 +129,7 @@ public sealed class VerificationSequenceTests
         Assert.Contains("same provider", error.Message, StringComparison.Ordinal);
         task.RecordVerifierPass(workItemId, "RV-different");
         task.RecordCodeReviewerPass(workItemId);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
 
@@ -230,7 +230,7 @@ public sealed class VerificationSequenceTests
         // A verifier that reads the work as it now stands is what the gate was always asking for.
         task.RecordVerifierPass(workItemId, "RV-after");
         task.RecordCodeReviewerPass(workItemId);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), workItemId));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(workItemId);
 
         Assert.Equal(WorkItemStatus.Completed, task.State.WorkItems[workItemId].Status);
     }
@@ -272,10 +272,12 @@ public sealed class VerificationSequenceTests
             ("RL", RoleKind.ImplementationLead, "claude"),
             ("RCR", RoleKind.CodeReviewer, "codex"));
 
-        var outcome = new CommandHandler().Handle(
-            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt);
-
-        Assert.Equal(WorkItemStatus.Completed, outcome.State.WorkItems[workItemId].Status);
+        var refusal = Assert.Throws<GovernanceException>(() => new CommandHandler().Handle(
+            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt));
+        Assert.Contains("Explicit applicable task-13 acceptance", refusal.Message);
+        var historical = new TaskReducer().Apply(state, new LedgerEvent(1, new("historical-completion"), state.TaskId,
+            operatorId, CompletedAt, null, "historical-replay", new WorkItemCompleted(workItemId)));
+        Assert.Equal(WorkItemStatus.Completed, historical.WorkItems[workItemId].Status);
     }
 
     // The provider gate reads the same "latest working run" and compares its provider against the
@@ -295,10 +297,12 @@ public sealed class VerificationSequenceTests
             ("RV", RoleKind.Verifier, "claude"),
             ("RCR", RoleKind.CodeReviewer, "codex"));
 
-        var outcome = new CommandHandler().Handle(
-            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt);
-
-        Assert.Equal(WorkItemStatus.Completed, outcome.State.WorkItems[workItemId].Status);
+        var refusal = Assert.Throws<GovernanceException>(() => new CommandHandler().Handle(
+            state, new CompleteWorkItemCommand(operatorId, null, "complete-legacy", workItemId), CompletedAt));
+        Assert.Contains("Explicit applicable task-13 acceptance", refusal.Message);
+        var historical = new TaskReducer().Apply(state, new LedgerEvent(1, new("historical-completion"), state.TaskId,
+            operatorId, CompletedAt, null, "historical-replay", new WorkItemCompleted(workItemId)));
+        Assert.Equal(WorkItemStatus.Completed, historical.WorkItems[workItemId].Status);
     }
 
     // The reviewer gate is the same claim about the same staleness: reviewing work whose verifier

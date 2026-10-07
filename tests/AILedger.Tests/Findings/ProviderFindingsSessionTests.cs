@@ -10,6 +10,20 @@ namespace AILedger.Tests.Findings;
 public sealed class ProviderFindingsSessionTests
 {
     [Fact]
+    public async Task WritableConfigurationCannotExpandAnExistingHostGrant()
+    {
+        using var f = new FindingsMcpFixture();
+        await f.OpenAsync();
+        var original = f.Configuration with { AllowRecordFindings = false };
+        var current = original;
+        var host = new FindingsMcpHost(original, f.Ledger.Service(), _ => Task.FromResult(current));
+        current = original with { AllowRecordFindings = true };
+        await Assert.ThrowsAsync<InvalidDataException>(() => host.BindAsync(default));
+        current = original with { ActorId = "another-operator" };
+        await Assert.ThrowsAsync<InvalidDataException>(() => host.BindAsync(default));
+    }
+
+    [Fact]
     public async Task HostOwnedBindingSurvivesFileSpoofingReconnectAndPermissionRevocation()
     {
         using var f = new FindingsMcpFixture();

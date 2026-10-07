@@ -37,6 +37,34 @@ public static class AssuranceConfiguration
             .SelectMany(area => area.CandidatePaths.Concat(area.RequirementPaths).Concat(area.SourcePaths))
             .Distinct(StringComparer.Ordinal).Select(path => Path.Combine(policy.CandidateRoot, path)).ToArray();
 
+    // Read-only routing identity for the complete configured principal/dependency closure. This
+    // neither binds an acceptance receipt to governed work nor certifies scope completeness.
+    public static async Task<string> CaptureBindingIdentityAsync(AssurancePolicy policy, string principal, CancellationToken token)
+    {
+        EnsureEnabled(Principal(policy, principal));
+        if (policy.Governed is not null)
+            Require(policy.Areas.All(a => Principal(policy, principal).Areas.Contains(a.Id)), "unsupported", "Governed bridge requires the complete declared area closure in each principal's existing scope.");
+        var rows = new List<object>();
+        foreach (var area in Areas(policy, principal).OrderBy(area => area.Id, StringComparer.Ordinal))
+        {
+            EnsureAreaGranted(policy, principal, area.Id);
+            var snapshot = await AssuranceSnapshotReader.CaptureAsync(policy, area.Id, token).ConfigureAwait(false);
+            rows.Add(new { snapshot.AreaId, snapshot.BindingSha256 });
+        }
+        return Hash(new { policy.CaseId, policy.Implementer, Areas = rows });
+    }
+
+    public static async Task<string> CapturePolicyBindingIdentityAsync(AssurancePolicy policy, CancellationToken token)
+    {
+        var rows = new List<object>();
+        foreach (var area in policy.Areas.OrderBy(a => a.Id, StringComparer.Ordinal))
+        {
+            var snapshot = await AssuranceSnapshotReader.CaptureAsync(policy, area.Id, token).ConfigureAwait(false);
+            rows.Add(new { snapshot.AreaId, snapshot.BindingSha256 });
+        }
+        return Hash(new { policy.CaseId, policy.Implementer, Areas = rows });
+    }
+
     public static async Task ValidateInputsAsync(AssurancePolicy policy, string principal, CancellationToken token)
     {
         var areas = Areas(policy, principal);

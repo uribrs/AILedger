@@ -60,7 +60,8 @@ public static class AssuranceValidation
         Visit(areaId);
         var checks = areas.Values.SelectMany(a => a.Criteria.Select(c => c.CheckId)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
             .Select(id => policy.Checks.Single(c => c.Id == id)).ToArray();
-        return Hash(new { policy.CaseId, policy.CandidateRoot, policy.Implementer, Areas = areas.Values.ToArray(), Checks = checks });
+        var identity = Hash(new { policy.CaseId, policy.CandidateRoot, policy.Implementer, Areas = areas.Values.ToArray(), Checks = checks });
+        return policy.Governed is null ? identity : Hash(new { identity, policy.Governed });
     }
     public static void Policy(AssurancePolicy policy)
     {
@@ -70,6 +71,12 @@ public static class AssuranceValidation
         Unique(policy.Areas.Select(a => a.Id).ToArray(), "area IDs");
         Unique(policy.Principals.Select(p => p.Id).ToArray(), "principal IDs");
         Unique(policy.Checks.Select(c => c.Id).ToArray(), "check IDs");
+        if (policy.Governed is { } governed)
+        {
+            Request(governed.SchemaVersion); Text(governed.TaskId, "governed task", 128);
+            Unique(governed.WorkItemIds, "governed work members");
+            Require(governed.WorkItemIds.Count > 0, "invalid_policy", "Governed association requires explicit work members.");
+        }
         foreach (var area in policy.Areas)
         {
             Items(area.CandidatePaths, "candidate_paths", 1); Items(area.RequirementPaths, "requirement_paths", 1);

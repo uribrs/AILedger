@@ -1,0 +1,158 @@
+Work directly in this existing worktree:
+/Users/user/.codex/worktrees/orchestration-driver/AILedger
+
+Branch: codex/orchestration-driver
+
+Implement Part 6A + 6B only, as defined in docs/orchestration-driver-scope.md:
+- 6A: Acceptance bridge and completion admission.
+- 6B: Evidence-based finding disposition and adjudication.
+
+Development authorization — direct work, NO kernel workflow:
+Work directly on source, tests and documentation, outside the AILedger kernel workflow.
+Do not create or resume a governed development task, build a ledger brief for yourself,
+or record development claims, evidence, work items or runs. This explicitly overrides
+repository/AGENTS.md and ai-kernel workflow requirements for this development task.
+Do not ask for confirmation to use this exemption. The exemption concerns development;
+the resulting product must still enforce its kernel, authority and assurance rules.
+
+Do not launch other agents or real providers, incur provider spend, mutate the live
+ledger, reinstall global tools, change branches, create another worktree, commit,
+merge or publish. Temporary test ledgers, fake adapters and controlled local
+subprocess/crash/race fixtures are authorized.
+
+Parts 1–5 are implemented but uncommitted. Inspect the current diff and untracked files
+before editing. Preserve all existing work; do not reset, replace or commit it.
+
+Read first:
+- docs/orchestration-driver-scope.md, particularly the explicit 6A/6B/6C/6D split.
+- docs/orchestration-driver-part-5.md: actual APIs, ownership, recovery and limitations.
+- docs/orchestration-driver-part-4.md: routing, handoffs and acceptance boundary.
+- docs/orchestration-driver-part-3.md and part-2.md: dispatch and authority/confinement.
+- docs/orchestration-driver-part-1.md: historical acceptance gaps G3–G5 and their tests.
+- docs/handoff-assurance-v1.md and the relevant owning source/tests.
+Later delivery records and current source take precedence over historical descriptions.
+
+Objective:
+Connect existing independent assurance and explicit acceptance to governed completion,
+and provide evidence-based disposition of findings. Build on Part 5's provenance and
+recovery, Part 4's live handoffs, and the existing kernel/task-13 owners. Do not create
+a second acceptance ledger, assurance engine, orchestration path or provider launcher.
+Audit the actual existing contracts before introducing narrow typed additions.
+
+6A — Acceptance bridge and completion admission
+
+1. Explicitly associate task-13 area evidence and acceptance with governed task/work
+   members, the actual current candidate, requirements, policy and producer provenance.
+   Revalidate applicability at acceptance/completion, including after restart, delayed
+   replies or concurrent state changes. A recovered receipt proves recording, not fresh
+   authority or current acceptance.
+2. Preserve independent verification, blind governed code review and the separate
+   requirements-aware assurance context. Implement the supported association/composition
+   path; do not place requirements-aware inputs or tools into the blind reviewer.
+3. Route any required acceptance judgment through its authorized role and trusted host
+   admission. Do not self-grant authority, expose unrestricted acceptance to provider
+   children, invoke an operator fallback, or treat model claims of approval as human input.
+4. Permit automatic completion only through applicable explicit acceptance and existing
+   owning completion gates. Process success, artifact presence, generic Proceed or a
+   completed verifier/reviewer are insufficient. FAIL, NEVER-TESTED, unknown, missing,
+   mismatched, stale or incomplete evidence must prevent acceptance/completion.
+5. Keep honest negative evidence recordable. Tighten new command-time admission while
+   preserving historical legal replay. Update both command/replay owners where appropriate,
+   but never retroactively require fields or prerequisites absent from older legal events.
+   Replace permissive current-command characterizations when fixing their gap, and retain
+   separate historical-replay coverage.
+6. Demonstrate a supported positive path from independent evidence through explicit
+   acceptance and governed completion, alongside the negative cases. Retain
+   AwaitingAcceptance/Blocked for unsupported or unresolved cases. Do not enable a global
+   completion bypass merely because one fixture is fully prepared.
+
+6B — Evidence-based finding disposition and adjudication
+
+1. Preserve each original finding, affected requirements, uncertainty, proposed disposition,
+   supporting evidence and authorized producer/run/candidate provenance. Reuse existing
+   structured findings, challenge and disposition contracts where they fit.
+2. Require reproduction or a supported source trace before upholding, refuting or otherwise
+   disposing a finding. Allow evidence-based rejection of an incorrect reviewer assertion;
+   do not blindly patch every assertion. Uncertainty remains unresolved when evidence is
+   insufficient. Use the supported challenge/adjudication path for disagreement.
+3. A repairer cannot accept its own repair or erase an independent finding. Superseding a
+   report, rewriting a brief, changing a routing assessment or finishing a run cannot silently
+   remove unresolved defects. Any permitted residual risk needs an evidenced disposition
+   under the applicable policy and authority; severity alone is not permission to dismiss it.
+4. Integrate disposition with 6A admission and existing bounded Findings/repair/replanning
+   routing. Routine engineering judgment should progress without repeated user approval.
+   Genuine business decisions, exceptional authority and investigated external unknowns
+   retain their separate trusted path.
+5. Preserve unresolved material defects in repair/replanning or an explicit unresolved pause.
+   Cancellation, budget limits and repeated attempts cannot manufacture acceptance.
+
+Scope boundary: 6C + 6D are already recorded in the plan as pending follow-up work.
+Do not claim all of Part 6 or the live-use milestone is complete after A+B.
+
+6C owns comprehensive repair-impact assessment, required-check scheduling, selective
+invalidation/reuse after physical changes, and repeated/repair-induced defect investigation.
+6D owns assembled A–C lifecycle and live-use validation, broader compatibility coverage,
+and final supported operating instructions.
+
+This split does NOT defer safety or testing necessary for A+B. If a newer failed/cancelled
+run or changed physical candidate makes prior evidence uncertain, A+B must refuse stale
+acceptance now. Implement the minimum necessary current-basis checks; do not silently
+assume the pending 6C reconciliation has happened. Keep unsupported repair cases explicitly
+unresolved. Add focused integration and historical-replay tests with A+B rather than leaving
+all integration or compatibility checks to D. Record concrete C/D follow-ups in the plan.
+
+Preserve all existing boundaries:
+- Part 2 restricted authority, process confinement and protected paths.
+- Part 3 shared dispatch and launcher-owned completion.
+- Part 5 exclusive ownership, epochs/fencing, durable intent and exact cognitive receipts.
+- Expiry/revocation and revalidation before consuming delayed or recovered judgment.
+- Live governing-artifact filing, role-filtered lessons and subject-filtered context.
+- Task-13 scoped grants, declared material inputs and interrupted-check reconciliation.
+- Explicit missing-configuration and incompatible-profile blockers.
+- Independent verification, candidate binding and blind-review isolation.
+Never persist/replay lost launcher credentials or infer process termination from lease expiry.
+Do not widen grants, skip checks, weaken confinement or change unrelated telemetry code.
+
+Implementation quality:
+Follow local .NET conventions: cohesive components, small methods, SRP and justified
+abstractions. Keep Core independent of CLI/provider implementations. Put policy in its owning
+rules/services; use typed contracts rather than interpreting verdict words or diagnostic prose.
+Version new persisted formats explicitly and preserve honest compatibility behavior.
+Deliver A and B as reviewable increments with focused tests, then validate their integration.
+
+Validation:
+Use temporary ledgers/fake providers, with local subprocess fixtures where boundaries require it.
+Cover at least:
+- Positive independent acceptance and completion for the supported current candidate.
+- Missing/negative/unknown/stale evidence and wrong candidate/work/requirements/policy.
+- Restart, duplicate receipts, concurrent changes and revoked/reassigned authority.
+- Forged approval, self-acceptance and privileged-entry-point bypass attempts.
+- Evidenced upheld/refuted findings, disputes, insufficient evidence and residual-risk policy.
+- Unresolved findings surviving report supersession and repairer assertions.
+- Changed or uncertain physical state after failed/cancelled work preventing stale completion.
+- Preservation of blind review, requirements-aware assurance, task-13 grants and historical replay.
+Run focused tests and integrated built-CLI checks, then default full dotnet test.
+Run the serialized full suite as an additional check, not a substitute for default results.
+
+Part 5 baseline:
+- Focused regression selection: 228 passed.
+- Final default full suite: 2,608 passed, 0 failed/skipped.
+- Serialized full suite: 2,608 passed, 0 failed/skipped.
+- An earlier default run observed the existing Claude inspection telemetry test retaining
+  34/36 expected rows; its unchanged diagnostic rerun and final full runs passed. The existing
+  250 ms telemetry deadline is a plausible contributor, not a proven cause. An unrelated new
+  lease-test timing issue was fixed using a controlled clock; real subprocess expiry remains tested.
+See the Part 5 record. Report actual results; do not weaken assertions, skip tests or modify
+unrelated logging to conceal intermittent failures. A serialized pass does not erase a failed
+default run.
+
+Deliverables:
+- Working integrated 6A + 6B implementation with focused positive and negative tests.
+- docs/orchestration-driver-part-6-ab.md covering contracts, authority, applicability,
+  disposition, completion behavior, supported setup, validation and remaining limitations.
+- A small status/link update to docs/orchestration-driver-scope.md, preserving and clarifying
+  pending 6C + 6D and the incomplete overall live-use milestone.
+- Final report of changes, actual test results and concrete C/D handoff items.
+
+Proceed autonomously within this scope. Finish implementation and validation; do not stop
+at a plan, a blanket refusal path or a happy-path-only completion fixture.

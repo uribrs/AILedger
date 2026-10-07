@@ -68,7 +68,7 @@ public sealed class WorkItemReleaseTests
         var task = new TestTask();
         Add(task, "W1", Path.GetFullPath("src"));
         task.RecordRequiredRuns(new WorkItemId("W1"));
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), new WorkItemId("W1")));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(new WorkItemId("W1"));
 
         // Work that was done stays done. Abandoning it would erase a completion from the record
         // rather than add a decision to it.
@@ -219,8 +219,7 @@ public sealed class WorkItemReleaseTests
         var completed = new TestTask();
         Add(completed, "W1", Path.GetFullPath("src"));
         completed.RecordRequiredRuns(new WorkItemId("W1"));
-        completed.Apply(new CompleteWorkItemCommand(
-            completed.OperatorId, null, completed.NextCorrelation(), new WorkItemId("W1")));
+        completed.RequireAcceptanceThenReplayHistoricalCompletion(new WorkItemId("W1"));
 
         // W1 here is stale because the claim it was built on was rejected, so its dependency is
         // out of date as well. That refusal is now behind the status too, and the status is the

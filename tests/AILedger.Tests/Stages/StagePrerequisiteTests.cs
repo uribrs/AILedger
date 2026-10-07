@@ -356,7 +356,7 @@ public sealed class StagePrerequisiteTests
         var work = new WorkItemId("W1");
         task.ReachStage(TaskStage.Review);
         task.RecordCodeReviewerPass(work);
-        task.Apply(new CompleteWorkItemCommand(task.OperatorId, null, task.NextCorrelation(), work));
+        task.RequireAcceptanceThenReplayHistoricalCompletion(work);
 
         task.Transition(TaskStage.Learn);
 

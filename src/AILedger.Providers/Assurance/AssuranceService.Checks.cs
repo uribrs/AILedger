@@ -69,6 +69,7 @@ public sealed partial class AssuranceService
             foreach (var dependency in current.Dependencies)
             {
                 var child = await AssuranceSnapshotReader.CaptureAsync(policy, dependency.Key, token).ConfigureAwait(false);
+                if (current.Governed is { } basis) child = BindGovernedSnapshot(child, basis);
                 Require(child.BindingSha256 == dependency.Value, "stale_candidate", "Dependency changed during test materialization.");
                 await AddAsync(child).ConfigureAwait(false);
             }
@@ -138,6 +139,10 @@ public sealed partial class AssuranceService
     public async Task ReconcileChecksAsync(string requestId, string checkPrincipal, bool confirmedStopped, CancellationToken token)
     {
         Require(confirmedStopped, "confirmation_required", "Confirm that the recorded check process has stopped before reconciling.");
+        await _authorizeSession(token).ConfigureAwait(false);
+        Require(_initial.Governed is null || _governedContext is not null, "missing_governed_host", "Governed reconciliation requires an associated trusted host.");
+        await using var governed = _governedContext is null ? null : await _governedContext.AcquireAsync(_initial, _session, token).ConfigureAwait(false);
+        _governedLease.Value = governed;
         await using var lease = await _store.AcquireAsync(_id, token).ConfigureAwait(false);
         var policy = await AuthorizeAsync(token).ConfigureAwait(false);
         Require(Principal(policy).Role == "acceptance", "authorization_denied", "Only the explicit accepting authority can attest reconciliation.");

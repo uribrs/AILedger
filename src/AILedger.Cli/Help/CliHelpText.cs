@@ -16,6 +16,19 @@ internal static class CliHelpText
                            immutable inputs, independent evidence and explicit acceptance.
                            Assurance acceptance does not complete governed work.
 
+        orchestrate coverage   typed lifecycle/deployment coverage; bounded acceptance, repair and recovery profile
+        orchestrate reconcile-stopped --task ID --actor ID --run ID --termination-evidence ID (trusted host only)
+        orchestrate intake     --task ID --actor ID --request-file PATH (trusted host only)
+        orchestrate run        --task ID --actor ID --profiles PATH --working-directory PATH
+                              [--work ID] [--cognitive-root PATH] [--executable PATH]
+                              [--assurance-authority PATH --assurance-store PATH --acceptance-principal ID]
+                              [--serial-justification ID] [--timeout-seconds N] [--owner-lease-seconds N]
+                              Completion and closeout require current explicit acceptance; repair reuse never transfers approval.
+                              Owner lease must exceed 1.5 * (bounded check batch seconds + 30). Exit 4: stopped/pending, 5: unknown, 130: cancelled.
+                              Planning profiles alone do not authorize implementation: protected assurance inputs/checks and independent roles are required.
+                              Provider startup/transport faults stop across restart. Read the returned diagnostic and retained runs/ID.json;
+                              establish termination before reconcile-stopped. Version/help success does not prove authenticated startup.
+
         version            (no options)   what this build was made from
         task open          --task ID --actor ID --title TEXT --goal TEXT [--tag TAG]
         status             --task ID
@@ -23,9 +36,10 @@ internal static class CliHelpText
                            Role coverage names, per role, the actors assigned to it and whether a
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
-        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY] [--alternatives] [--alternatives-telemetry DIRECTORY]
+        retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY] [--alternatives] [--alternatives-telemetry DIRECTORY] [--orchestration]
                            [--artifacts] [--artifacts-telemetry DIRECTORY] [--dispositions] [--dispositions-telemetry DIRECTORY]
                            (what governance did on one task and what it cost)
+                           --orchestration reads existing dispatch/recovery journals, refusal causes and per-run usage; missing human measurements stay unknown.
                            Counts, durations and the causal chains the log can join, with no score,
                            grade or overall number anywhere, and a notMeasured list naming what this
                            task's record cannot answer. It is a read: run it after the fact, and

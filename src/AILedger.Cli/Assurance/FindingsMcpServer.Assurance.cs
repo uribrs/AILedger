@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using AILedger.Core.Assurance;
+using AILedger.Core.Domain;
 
 namespace AILedger.Cli.Findings;
 
@@ -18,6 +19,13 @@ public sealed partial class FindingsMcpServer
         var start = Stopwatch.GetTimestamp(); attempt.ApplicationEntered = true;
         try
         {
+            try { await _host.ValidateSessionAsync(token).ConfigureAwait(false); }
+            catch (Exception error) when (error is GovernanceException or InvalidDataException)
+            {
+                attempt.InspectionStatus = "error";
+                return AssuranceValidation.Json(new AssuranceResponse("error", attempt.Id, null, false, null,
+                    new("authorization_denied", error.Message, "Obtain a current trusted host binding.", "not_committed")));
+            }
             var result = await _host.Assurance.InvokeAsync(attempt.AssuranceTool!, arguments, token).ConfigureAwait(false);
             attempt.ApplicationAttemptId = result.AttemptId; attempt.InspectionStatus = result.Status;
             attempt.AssuranceResult = result;

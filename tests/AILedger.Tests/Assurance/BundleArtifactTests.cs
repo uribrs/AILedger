@@ -44,8 +44,9 @@ public sealed partial class BundleAssuranceTests
         await f.Verify("VA", "A");
         Assert.Equal(1, await f.Run("work", "complete", "--id", "A"));
         Assert.Contains("review", f.Error.ToString(), StringComparison.OrdinalIgnoreCase);
-        await f.Ok("work", "complete", "--id", "B");
-        Assert.Equal(WorkItemStatus.Completed, (await f.State()).WorkItems[new WorkItemId("B")].Status);
+        Assert.Equal(1, await f.Run("work", "complete", "--id", "B"));
+        Assert.Contains("Explicit applicable task-13 acceptance", f.Error.ToString());
+        Assert.Equal(WorkItemStatus.Paused, (await f.State()).WorkItems[new WorkItemId("B")].Status);
     }
 
     [Fact]

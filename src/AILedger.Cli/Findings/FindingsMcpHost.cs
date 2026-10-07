@@ -17,7 +17,7 @@ namespace AILedger.Cli.Findings;
 public sealed record FindingsHostConfiguration(string TaskWorkspaceRoot, string TaskId, string ActorId,
     string CorrelationId, string DiagnosticsDirectory, string? RunId = null, string? CausationId = null,
     bool AllowRecordFindings = false, bool AllowRunless = false, string? Provider = null,
-    string? ProviderSessionId = null, bool AllowRecordAlternatives = false, bool AllowSubmitArtifact = false, bool AllowRecordClaimDispositions = false, bool AllowInspect = false, string? CognitiveRoot = null, bool AllowDeclareProducerOutcome = false)
+    string? ProviderSessionId = null, bool AllowRecordAlternatives = false, bool AllowSubmitArtifact = false, bool AllowRecordClaimDispositions = false, bool AllowInspect = false, string? CognitiveRoot = null, bool AllowDeclareProducerOutcome = false, [property: JsonIgnore] bool AllowCognitiveHandoffs = false)
 {
     internal ClaimDispositionsBinding ClaimDispositionsBinding => new(new(TaskId), new(ActorId),
         RunId is null ? null : new RunId(RunId), CorrelationId,
@@ -39,6 +39,7 @@ public sealed class FindingsMcpHost
     internal FindingsHostConfiguration Configuration { get; }
     internal IFindingsRecorder? Recorder { get; }
     internal AILedger.Core.Assurance.IAssuranceService? Assurance { get; }
+    internal AILedger.Cli.Cognitive.CognitiveHandoffSession? Cognitive { get; init; }
     internal bool AssuranceOnly { get; }
 
     public FindingsMcpHost(FindingsHostConfiguration configuration, IFindingsRecorder? recorder,
@@ -86,9 +87,26 @@ public sealed class FindingsMcpHost
 
     internal Task<FindingsHostConfiguration> BindProducerOutcomeAsync(CancellationToken token) => ReadBindingAsync(token);
 
+    internal async Task ValidateSessionAsync(CancellationToken token)
+    {
+        // Standalone trusted assurance hosts have their own principal/session policy and no
+        // governed provider binding. This flag is host composition, never a tool argument.
+        if (AssuranceOnly) return;
+        _ = await ReadBindingAsync(token).ConfigureAwait(false);
+    }
+
     private async Task<FindingsHostConfiguration> ReadBindingAsync(CancellationToken cancellationToken)
     {
         var current = await _readConfiguration(cancellationToken).ConfigureAwait(false);
+        if (current.AllowRecordFindings && !Configuration.AllowRecordFindings ||
+            current.AllowRunless && !Configuration.AllowRunless ||
+            current.AllowRecordAlternatives && !Configuration.AllowRecordAlternatives ||
+            current.AllowSubmitArtifact && !Configuration.AllowSubmitArtifact ||
+            current.AllowRecordClaimDispositions && !Configuration.AllowRecordClaimDispositions ||
+            current.AllowInspect && !Configuration.AllowInspect ||
+            current.AllowDeclareProducerOutcome && !Configuration.AllowDeclareProducerOutcome ||
+            current.AllowCognitiveHandoffs && !Configuration.AllowCognitiveHandoffs)
+            throw new InvalidDataException("Host grants cannot expand an existing session; establish a new trusted binding.");
         // Grants may be revoked on a running connection. Attribution and destination are pinned.
         if (current with { AllowRecordFindings = Configuration.AllowRecordFindings,
                 AllowRunless = Configuration.AllowRunless,
@@ -96,7 +114,8 @@ public sealed class FindingsMcpHost
                 AllowSubmitArtifact = Configuration.AllowSubmitArtifact,
                 AllowRecordClaimDispositions = Configuration.AllowRecordClaimDispositions,
                 AllowInspect = Configuration.AllowInspect,
-                AllowDeclareProducerOutcome = Configuration.AllowDeclareProducerOutcome } != Configuration)
+                AllowDeclareProducerOutcome = Configuration.AllowDeclareProducerOutcome,
+                AllowCognitiveHandoffs = Configuration.AllowCognitiveHandoffs } != Configuration)
             throw new InvalidDataException("Host attribution changed; reconnect with the original binding for recovery.");
         return current;
     }

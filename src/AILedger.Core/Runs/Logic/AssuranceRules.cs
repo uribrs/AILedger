@@ -136,7 +136,7 @@ internal static class AssuranceRules
         foreach (var member in WorkCoverage.Effective(run.WorkItemId, run.Assurance))
             if (!HasOutput(state, run, kind, member))
                 throw new GovernanceException(
-                    $"Assurance artifact coverage: completing run '{run.Id}' requires its applicable '{kind}' on member '{member}'.");
+                    $"Assurance artifact coverage: completing run '{run.Id}' requires its applicable '{kind}' on member '{member}'.", GovernanceRefusalKind.RequiredRunOutput);
     }
 
     internal static bool QualifiesVerifier(GovernedTaskState state, AgentRun run, WorkItemId member)

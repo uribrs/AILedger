@@ -121,7 +121,7 @@ internal static class RunLifecycleRules
                     artifact.Kind == requiredKind && artifact.ProducerRunId == run.Id))
             {
                 throw new GovernanceException(
-                    $"Completing {run.SubjectRole} run '{run.Id}' requires its matching '{requiredKind}' artifact.");
+                    $"Completing {run.SubjectRole} run '{run.Id}' requires its matching '{requiredKind}' artifact.", GovernanceRefusalKind.RequiredRunOutput);
             }
         }
 

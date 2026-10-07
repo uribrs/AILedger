@@ -21,6 +21,7 @@ public sealed class ProviderLaunchScope : IDisposable
 
     public IReadOnlyDictionary<string, string> Environment { get; }
     public IReadOnlyList<string> Arguments { get; }
+    internal string? TemporaryDirectory => _temporaryDirectory;
 
     public void Dispose()
     {
