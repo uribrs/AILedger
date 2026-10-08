@@ -11,12 +11,20 @@ public sealed record GovernedAssuranceAnchor(int SchemaVersion, string CaseId, s
 
 public sealed partial class FileGovernedTaskService
 {
-    public async Task BindAssuranceCaseAsync(TaskId task, AssurancePolicy policy, string store, CancellationToken token)
+    public async Task BindAssuranceCaseAsync(GovernedTaskState initial, AssurancePolicy policy, string store,
+        AssuranceSession session, bool providerSession, DateTimeOffset expiresAt, CancellationToken token)
     {
+        Policy(policy);
+        Require(policy.Governed?.TaskId == initial.TaskId.Value, "wrong_governed_binding", "Assurance policy must identify the bound task.");
+        var task = initial.TaskId;
         var directory = _pathResolver.Resolve(task);
         await using var gate = await _mutationLock.AcquireAsync(Path.Combine(directory, _layout.LockFileName), token).ConfigureAwait(false);
         await CheckCoordinationAsync(directory, token).ConfigureAwait(false);
         var current = await ReadCoordinationAsync(directory, token).ConfigureAwait(false);
+        var state = await ReplayAsync(task, directory, token).ConfigureAwait(false)
+            ?? throw new AILedger.Core.Domain.GovernanceException("Governed task is unavailable.");
+        EnsureAssuranceSessionCurrent(state, initial, session, providerSession, expiresAt, policy);
+
         var anchor = new GovernedAssuranceAnchor(1, policy.CaseId, Path.GetFullPath(store), policy.Governed!.WorkItemIds.Order(StringComparer.Ordinal).ToArray());
         if (current?.AssuranceAnchor is { } existing)
         {

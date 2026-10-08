@@ -51,7 +51,7 @@ public static class AssuranceConfiguration
             var snapshot = await AssuranceSnapshotReader.CaptureAsync(policy, area.Id, token).ConfigureAwait(false);
             rows.Add(new { snapshot.AreaId, snapshot.BindingSha256 });
         }
-        return Hash(new { policy.CaseId, policy.Implementer, Areas = rows });
+        return Hash(new { policy.CaseId, Implementer = ImplementationIdentity(policy), Areas = rows });
     }
 
     public static async Task<string> CapturePolicyBindingIdentityAsync(AssurancePolicy policy, CancellationToken token)
@@ -62,7 +62,7 @@ public static class AssuranceConfiguration
             var snapshot = await AssuranceSnapshotReader.CaptureAsync(policy, area.Id, token).ConfigureAwait(false);
             rows.Add(new { snapshot.AreaId, snapshot.BindingSha256 });
         }
-        return Hash(new { policy.CaseId, policy.Implementer, Areas = rows });
+        return Hash(new { policy.CaseId, Implementer = ImplementationIdentity(policy), Areas = rows });
     }
 
     public static async Task ValidateInputsAsync(AssurancePolicy policy, string principal, CancellationToken token)

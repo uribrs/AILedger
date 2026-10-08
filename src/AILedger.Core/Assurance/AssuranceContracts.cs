@@ -10,6 +10,8 @@ public sealed record AssurancePolicy(int SchemaVersion, string CaseId, string Ca
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public GovernedAssuranceScope? Governed { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? WorkImplementers { get; init; }
 }
 public sealed record AssuranceArea(string Id, IReadOnlyList<string> CandidatePaths,
     IReadOnlyList<string> RequirementPaths, IReadOnlyList<string> SourcePaths,
@@ -43,6 +45,8 @@ public sealed record AssuranceSnapshot(string AreaId, string CandidateSha256, st
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public GovernedAssuranceBasis? Governed { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? WorkImplementers { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PhysicalBindingSha256 { get; init; }
 }

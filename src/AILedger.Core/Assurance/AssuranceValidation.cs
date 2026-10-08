@@ -44,6 +44,14 @@ public static class AssuranceValidation
         Require(version == 1, "invalid_request", "Expected assurance schema_version=1.");
         if (key is not null) Require(FindingsValidation.IsRequestId(key), "invalid_request", "Use a stable 1–128 character request_id.");
     }
+    public static bool IsImplementer(AssurancePolicy policy, string principal) =>
+        policy.Implementer == principal || policy.WorkImplementers?.Values.Contains(principal, StringComparer.Ordinal) == true;
+
+    // Preserve legacy identities byte-for-byte when the optional governed attribution is absent.
+    public static string ImplementationIdentity(AssurancePolicy policy) => policy.WorkImplementers is null
+        ? policy.Implementer
+        : Hash(new { policy.Implementer, WorkImplementers = policy.WorkImplementers.OrderBy(p => p.Key, StringComparer.Ordinal).ToArray() });
+
     public static string PolicyIdentity(AssurancePolicy policy) => Hash(policy with
     {
         Principals = policy.Principals.Select(p => p with { Enabled = true }).ToArray()
@@ -60,7 +68,7 @@ public static class AssuranceValidation
         Visit(areaId);
         var checks = areas.Values.SelectMany(a => a.Criteria.Select(c => c.CheckId)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
             .Select(id => policy.Checks.Single(c => c.Id == id)).ToArray();
-        var identity = Hash(new { policy.CaseId, policy.CandidateRoot, policy.Implementer, Areas = areas.Values.ToArray(), Checks = checks });
+        var identity = Hash(new { policy.CaseId, policy.CandidateRoot, Implementer = ImplementationIdentity(policy), Areas = areas.Values.ToArray(), Checks = checks });
         return policy.Governed is null ? identity : Hash(new { identity, policy.Governed });
     }
     public static void Policy(AssurancePolicy policy)
@@ -76,6 +84,15 @@ public static class AssuranceValidation
             Request(governed.SchemaVersion); Text(governed.TaskId, "governed task", 128);
             Unique(governed.WorkItemIds, "governed work members");
             Require(governed.WorkItemIds.Count > 0, "invalid_policy", "Governed association requires explicit work members.");
+        }
+        if (policy.WorkImplementers is { } implementers)
+        {
+            Require(policy.Governed is not null && implementers.Count == policy.Governed.WorkItemIds.Count &&
+                policy.Governed.WorkItemIds.All(implementers.ContainsKey), "invalid_policy",
+                "work_implementers must name exactly the governed work members.");
+            foreach (var actor in implementers.Values) Text(actor, "work implementer", 128);
+            Require(implementers.Values.Contains(policy.Implementer, StringComparer.Ordinal), "invalid_policy",
+                "implementer must identify an actual actor in work_implementers, not a team label.");
         }
         foreach (var area in policy.Areas)
         {

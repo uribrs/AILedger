@@ -6,6 +6,7 @@ using AILedger.Providers.Assurance;
 using AILedger.Storage;
 using AILedger.Storage.Episodes;
 using AILedger.Tests.Support;
+using AILedger.Tests.Cli;
 using static AILedger.Core.Assurance.AssuranceValidation;
 
 namespace AILedger.Tests.Orchestration;
@@ -13,6 +14,68 @@ namespace AILedger.Tests.Orchestration;
 [Collection(StandardInput.Collection)]
 public sealed class AssuranceOwnershipTests
 {
+    [Fact]
+    public async Task InvalidWorkingProvenanceCannotPinTheTaskToAnUnusableCase()
+    {
+        using var f = await CompletionFixture.OpenAsync();
+        var original = f.Policy;
+        var host = (FileGovernedTaskService)f.Driver.Bundle.Service;
+        Assert.Null((await host.InspectCoordinationAsync(new("T1"), default))?.AssuranceAnchor);
+        await f.SavePolicyAsync(original with { Implementer = "another-worker" });
+        var error = await Assert.ThrowsAsync<AssuranceRefusal>(() => AILedger.Cli.Assurance.AssuranceHost.OpenAsync(
+            f.Driver.Authority, f.Driver.Options.Dispatch.AssuranceStore!,
+            new("operator", "invalid-setup", "external-client", null), null, default, host));
+        Assert.Equal("wrong_governed_binding", error.Code);
+        Assert.Null((await host.InspectCoordinationAsync(new("T1"), default))?.AssuranceAnchor);
+        await f.SavePolicyAsync(original with { CaseId = "corrected-case" });
+        _ = await AILedger.Cli.Assurance.AssuranceHost.OpenAsync(f.Driver.Authority,
+            f.Driver.Options.Dispatch.AssuranceStore!, new("operator", "valid-setup", "external-client", null), null, default, host);
+        Assert.Equal("corrected-case", (await host.InspectCoordinationAsync(new("T1"), default))!.AssuranceAnchor!.CaseId);
+    }
+
+    [Theory]
+    [InlineData("disabled")]
+    [InlineData("expired")]
+    [InlineData("role")]
+    [InlineData("missing-input")]
+    public async Task InvalidAssurancePreparationLeavesNoPermanentAnchor(string invalid)
+    {
+        using var f = await CompletionFixture.OpenAsync();
+        var host = (FileGovernedTaskService)f.Driver.Bundle.Service;
+        var policy = f.Policy;
+        if (invalid == "missing-input")
+            policy = policy with { Areas = policy.Areas.Select(a => a with { CandidatePaths = ["missing.cs"] }).ToArray() };
+        else
+            policy = policy with { Principals = policy.Principals.Select(p => p.Id != "operator" ? p : p with
+            {
+                Enabled = invalid != "disabled",
+                ExpiresAt = invalid == "expired" ? DateTimeOffset.UtcNow.AddMinutes(-1) : p.ExpiresAt,
+                Role = invalid == "role" ? "verification" : p.Role
+            }).ToArray() };
+        await f.SavePolicyAsync(policy);
+        Assert.NotNull(await Record.ExceptionAsync(() => AILedger.Cli.Assurance.AssuranceHost.OpenAsync(
+            f.Driver.Authority, f.Driver.Options.Dispatch.AssuranceStore!,
+            new("operator", "invalid-setup", "external-client", null), null, default, host)));
+        Assert.Null((await host.InspectCoordinationAsync(new("T1"), default))?.AssuranceAnchor);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UncertainNewerWorkingExecutionCannotPinAssurance(bool failed)
+    {
+        using var f = await CompletionFixture.OpenAsync();
+        await CliStageFixture.AdvanceAsync(f.Driver.Bundle.App, f.Driver.Bundle.Root, "T1", TaskStage.Repair);
+        await f.Driver.Bundle.Ok("run", "start", "--subject", "worker", "--run", "newer-work", "--work", "A", "--provider", "codex");
+        if (failed)
+            await f.Driver.Bundle.Ok("run", "complete", "--run", "newer-work", "--status", "failed", "--session", "failed-working-session");
+        var host = (FileGovernedTaskService)f.Driver.Bundle.Service;
+        await Assert.ThrowsAsync<GovernanceException>(() => AILedger.Cli.Assurance.AssuranceHost.OpenAsync(
+            f.Driver.Authority, f.Driver.Options.Dispatch.AssuranceStore!,
+            new("operator", "uncertain-work", "external-client", null), null, default, host));
+        Assert.Null((await host.InspectCoordinationAsync(new("T1"), default))?.AssuranceAnchor);
+    }
+
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public async Task CheckHoldsTaskLockButLeaseExpiryFencesItsReceiptAndRetainsUnknownAttempt(bool expire)

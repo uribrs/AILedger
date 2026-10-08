@@ -25,7 +25,7 @@ public sealed partial class AssuranceService
         if (await ReplayAsync("record_assurance", request.RequestId, request, entries, attempt, token).ConfigureAwait(false) is { } replay) return replay;
         Require(AILedger.Core.Artifacts.ArtifactSubmissionIdentity.IsHash(request.ExpectedBinding), "invalid_request", "expected_binding must be the exact SHA-256 returned by inspection.");
         var snapshot = await CurrentAsync(policy, request.AreaId, request.ExpectedBinding, token).ConfigureAwait(false);
-        Require(_session.Principal != policy.Implementer, "self_approval", "An implementer cannot supply independent assurance for its own candidate.");
+        Require(!IsImplementer(policy, _session.Principal), "self_approval", "An implementer cannot supply independent assurance for its own candidate.");
         ValidateReport(request, snapshot, entries.Where(e => Principal(policy).Areas.Contains(Snapshot(e).AreaId)).ToList(), Principal(policy).Role);
         ValidateRepairImpact(request, snapshot, policy, entries);
         if (snapshot.Governed is not null && Principal(policy).Role == "review" && request.Checks.Any(c => c.Status == "pass"))

@@ -36,9 +36,15 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
         {
             var providerSettings = JsonNode.Parse(request.Assurance?.VerifierRunId is not null
                 ? ReviewerSettings() : SandboxSettings)!.AsObject();
+            // The kernel's OS boundary already confines this process and every child, just
+            // as it does for Codex. A nested provider sandbox needs forbidden proxy listeners.
+            // Preserve the provider sandbox for callers without that outer boundary.
+            if (request.Isolation is not null)
+                providerSettings["sandbox"]!["enabled"] = false;
             var settings = RoslynNavigation.CreateSettingsFile(request, directory);
             var servers = new Dictionary<string, object>();
             var tools = new List<string>();
+            if (request.Isolation is not null) tools.Add("Bash");
             if (settings is not null)
             {
                 providerSettings["hooks"] = JsonSerializer.SerializeToNode(
@@ -54,6 +60,7 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
                 tools.Add(FindingsRecording.ClaudeTool);
                 tools.Add(FindingsRecording.ClaudeAlternativesTool);
                 tools.Add(FindingsRecording.ClaudeArtifactTool);
+                if (findings.AllowCognitiveHandoffs) tools.Add("mcp__ailedger__cognitive_handoff");
                 if (request.FindingsEndpoint.AllowProducerOutcome) tools.Add(FindingsRecording.ClaudeProducerOutcomeTool);
                 tools.Add(FindingsRecording.ClaudeClaimDispositionsTool);
                 tools.Add("mcp__ailedger__inspect_task");
@@ -66,9 +73,9 @@ public sealed class ClaudeAgentAdapter(IProcessRunner processRunner) : AgentAdap
             if (servers.Count > 0)
             {
                 // Inline launch configuration cannot be rewritten through an agent-writable file.
-                arguments.AddRange(["--mcp-config", JsonSerializer.Serialize(new { mcpServers = servers }),
-                    "--allowedTools", string.Join(",", tools)]);
+                arguments.AddRange(["--mcp-config", JsonSerializer.Serialize(new { mcpServers = servers })]);
             }
+            if (tools.Count > 0) arguments.AddRange(["--allowedTools", string.Join(",", tools)]);
             return new ProviderLaunchScope(environment, directory, arguments,
                 RoslynNavigation.ProtectedPaths(request, directory));
         }

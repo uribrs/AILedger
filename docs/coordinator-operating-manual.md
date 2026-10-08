@@ -448,7 +448,7 @@ with the check in the quick reference.
 | `Evidence '<E>' does not support claim '<C>'.` followed by two lines naming what each record points at | `Claims/Logic/ClaimRules.cs:58-63, 154-167` | Read the two lines. Add evidence with the right `--supports` or `--refutes`, then resolve with it. |
 | `Unknown claim '<id>'.` | `CommandHandler.cs:216` | Read `status` for the real id before writing. |
 | `Actor '<id>' lacks capability 'RecordAlternative'.` (a researcher) | `AuthorizationPolicy.cs:50-56`; `RoleDefaults.cs:27-29` | The researcher records claims and evidence; a lead records the alternative. |
-| `Required context is <n> UTF-8 bytes; --max-context-bytes is <m>. No required records were truncated. Select a narrower --work brief, reduce its required inputs, or explicitly increase --max-context-bytes.` | `AILedger.Cli/ContextBriefing/ContextManifestBudget.cs:56-59` | Narrow `--work`, or raise `--max-context-bytes`. Default is 262144 (`ContextManifestBudget.cs:12`). |
+| `Required context is <n> UTF-8 bytes; --max-context-bytes is <m>. No required records were truncated. Select a narrower --work brief, reduce its required inputs, or explicitly increase --max-context-bytes.` | `AILedger.Cli/ContextBriefing/ContextManifestBudget.cs:56-59` | Narrow `--work`, or raise `--max-context-bytes`. Default is 262144 (`ContextManifestBudget.cs:12`). Delivery uses compact JSON without omitting required records. Codex additionally limits the entire composed input to 1048576 characters, including host instructions; raising the byte budget cannot raise that provider limit. |
 | `Closeout synthesis finding '<id>' uses a value outside the frozen vocabulary. …` | `CloseoutSynthesisRules.cs:20-36, 76-83` | Use only the listed values for kind, severity, opportunity, repair and disposition. |
 
 Other refusals a coordinator meets:
@@ -525,7 +525,7 @@ schema and complete commands.
    build provenance.
 2. Preview `service start`, read the plan, then repeat with its `--confirm` digest. The kernel
    publishes an IPv4 loopback endpoint and checks readiness. Workers connect as clients; their
-   confinement still prohibits listeners and Docker access.
+   confinement still prohibits listeners and Docker access. Governed Claude uses the same outer OS boundary for Bash as for the provider process and its other children; its nested shell sandbox is disabled only when that outer confinement is supplied. Standalone adapter calls retain the provider sandbox.
 3. Build/refresh the worker's brief after startup. Endpoint delivery is automatic; provisioning
    and refresh of an already running worker are not. Check reachability before each proof because
    a recorded readiness result is not continuous monitoring.

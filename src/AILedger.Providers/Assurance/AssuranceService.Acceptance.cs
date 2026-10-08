@@ -23,13 +23,13 @@ public sealed partial class AssuranceService
     {
         Require(policy.Principals.Any(p => p.Id == acceptor && p.Role == "acceptance" && p.Enabled && p.ExpiresAt > DateTimeOffset.UtcNow && p.Areas.Contains(snapshot.AreaId)),
             "authorization_denied", "Explicit acceptance requires current scoped acceptance authority.");
-        Require(acceptor != policy.Implementer, "self_approval", "Implementer cannot accept its own candidate.");
+        Require(!IsImplementer(policy, acceptor), "self_approval", "Implementer cannot accept its own candidate.");
         Text(request.Rationale, "acceptance rationale"); Unique(request.Reports, "reports"); Items(request.Dispositions, "dispositions");
         ValidateDependencyAcceptance(snapshot, policy, entries);
         var current = CurrentReports(entries.Where(e => Snapshot(e).AreaId == snapshot.AreaId), snapshot, policy).ToArray();
         var chosen = request.Reports.Select(id => current.SingleOrDefault(e => e.Receipt.Id == id)
             ?? throw new AssuranceRefusal("stale_assurance", "Acceptance references missing, superseded, revoked or stale assurance.")).ToArray();
-        Require(chosen.All(e => e.Receipt.Principal != acceptor && e.Receipt.Principal != policy.Implementer), "self_approval", "Acceptance, implementation and independent inspection identities must differ.");
+        Require(chosen.All(e => e.Receipt.Principal != acceptor && !IsImplementer(policy, e.Receipt.Principal)), "self_approval", "Acceptance, implementation and independent inspection identities must differ.");
         var reviews = chosen.Where(e => Payload<AssuranceReport>(e).Role == "review").ToArray();
         var verifications = chosen.Where(e => Payload<AssuranceReport>(e).Role == "verification").ToArray();
         Require(reviews.Length > 0 && verifications.Length > 0, "missing_assurance", "Acceptance requires an independent review and verification report on this exact binding.");

@@ -75,6 +75,7 @@ public sealed class ContextBudgetDeliveryTests
         var success = await application.RunAsync([.. launch, "--run", "R2"], CancellationToken.None);
         Assert.True(success == 0, error.ToString());
         var request = Assert.Single(capture.Requests);
+        Assert.DoesNotContain("\n  \"", request.StandardInput);
         var manifest = JsonSerializer.Deserialize<ContextManifest>(request.StandardInput, LedgerJson.CreateOptions())!;
         Assert.Equal(ContextManifestBudget.DefaultMaximumBytes, manifest.Budget!.MaximumBytes);
         Assert.True(Encoding.UTF8.GetByteCount(request.StandardInput) <= manifest.Budget.MaximumBytes);

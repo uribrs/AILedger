@@ -22,7 +22,8 @@ public static class ProviderDispatchHost
         DispatchHostOptions options, Func<string, IAgentAdapter> adapters, IContextAssembler context,
         RoutineOrchestrationAuthority? authority, Func<VerificationHost> verification)
     {
-        var json = LedgerJson.CreateOptions(indented: true);
+        // Provider transport carries every record without presentation whitespace.
+        var json = LedgerJson.CreateOptions(indented: false);
         return new ProviderDispatchService(adapters,
             new LaunchContextPreparation(context, new CognitiveArtifactLoader(), json, options),
             mutations, host, options, authority, json, new RefusalJournal(), new ProviderRunRecorder(json), verification);

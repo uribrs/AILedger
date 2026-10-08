@@ -186,6 +186,22 @@ The optional schema-1 `repair_impact` permits independently assessed reuse of an
 requirements-aware review; it never transfers checks, verifier runs or acceptance. Current own-session
 reads of affected/dependency inputs and unchanged physical, governing, policy and authority applicability
 are mandatory. Case/store/member association is pinned to prevent resetting findings or check budgets.
+
+For a governed case whose members have different workers, optional `work_implementers` maps
+**every** governed work ID to its actual latest completed working-run actor. Extra or missing members
+are refused. Keep `implementer` as one actual actor in that map, never a team label. Without the map,
+the existing scalar implementer must match every member. Every actor in the map is excluded from
+independent reports, checks, synthesis and acceptance across the case. Attribution enters candidate
+and policy identities; changing it requires a fresh host session and fresh applicable assurance.
+
+Trusted setup validates configuration, input bounds, session authority and working provenance before
+persisting a new case anchor, then rechecks authority/provenance under the task lock. Invalid setup
+does not reserve the task permanently. A case pinned by an older host with incorrect attribution can
+be corrected using the same case ID, canonical store and exact members, with an accurate map. This
+preserves the anchor, journal, unresolved findings and consumed check batches. Do not delete the
+anchor or create a new store to recover. This policy support does not expand the orchestration
+driver's single-selection lifecycle.
+
 See [Part 6C+D](orchestration-driver-part-6-cd.md) for the current reuse contract, lease timing,
 positive process reconciliation and completion/closeout restart. See
 [Part 6A+B](orchestration-driver-part-6-ab.md) for the separate requirements-aware review context,

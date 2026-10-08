@@ -169,14 +169,15 @@ public sealed class RoslynNavigationTests
                 Assert.Equal("serve", arguments[2]);
                 settingsPath = arguments[3]!;
                 scratchDirectory = Path.GetDirectoryName(settingsPath)!;
-                Assert.Equal(NavigationTools.Select(tool => $"mcp__roslyn__{tool}"),
+                Assert.Equal(new[] { "Bash" }.Concat(NavigationTools.Select(tool => $"mcp__roslyn__{tool}")),
                     ProviderProtocolTests.ValueAfter(invocation.Arguments, "--allowedTools").Split(','));
                 Assert.Contains("--strict-mcp-config", invocation.Arguments);
                 Assert.Contains("--disable-slash-commands", invocation.Arguments);
                 using var providerSettings = JsonDocument.Parse(ProviderProtocolTests.ValueAfter(invocation.Arguments, "--settings"));
                 Assert.False(providerSettings.RootElement.GetProperty("disableAllHooks").GetBoolean());
                 AssertNavigationHook(providerSettings.RootElement.GetProperty("hooks"));
-                Assert.True(providerSettings.RootElement.GetProperty("sandbox").GetProperty("enabled").GetBoolean());
+                Assert.NotNull(invocation.Isolation);
+                Assert.False(providerSettings.RootElement.GetProperty("sandbox").GetProperty("enabled").GetBoolean());
                 Assert.Equal(reviewer, providerSettings.RootElement.TryGetProperty("env", out var environment));
                 if (reviewer)
                 {

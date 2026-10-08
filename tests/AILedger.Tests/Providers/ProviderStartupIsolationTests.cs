@@ -102,7 +102,7 @@ public sealed class ProviderStartupIsolationTests
         server.Bind(new UnixDomainSocketEndPoint(socketPath));
         server.Listen();
         var script = $$"""
-            import socket
+            import socket, os
             with socket.socket(socket.AF_UNIX) as resolver:
                 resolver.connect('/private/var/run/mDNSResponder')
             with socket.socket(socket.AF_UNIX) as unrelated:
@@ -112,6 +112,15 @@ public sealed class ProviderStartupIsolationTests
                     pass
                 else:
                     raise AssertionError('Unrelated host socket was reachable')
+            alias = os.path.join(os.environ['TMPDIR'], 'alias')
+            os.symlink({{JsonSerializer.Serialize(socketPath)}}, alias)
+            with socket.socket(socket.AF_UNIX) as unrelated:
+                try:
+                    unrelated.connect(alias)
+                except PermissionError:
+                    pass
+                else:
+                    raise AssertionError('Scratch symlink exposed a host socket')
             print('PASS')
             """;
         var result = await ProviderIsolationTests.RunAsync(new("/usr/bin/python3", work.Path, ["-c", script], "",

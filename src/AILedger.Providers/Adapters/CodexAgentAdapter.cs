@@ -23,12 +23,20 @@ public sealed class CodexAgentAdapter : AgentAdapterBase
         new(["exec", "resume", "--help"], ["SESSION_ID", "--json"])
     ];
 
+    private const int MaximumInputCharacters = 1048576;
+
     // Codex refuses to run outside a git work tree unless --skip-git-repo-check is passed, and
     // that flag exists to be a deliberate choice rather than an adapter default. Governed work
     // should be in a repository anyway, so this is checked as a precondition and reported before
     // launch — the same reason the capability probes run first.
     protected override void EnsurePreconditions(AgentLaunchRequest request)
     {
+        var characters = ComposeStandardInput(request).Length;
+        if (characters > MaximumInputCharacters)
+            throw new AgentAdapterException(
+                $"Codex composed input is {characters} characters; the provider limit is {MaximumInputCharacters}. " +
+                "Select a narrower governed brief or reduce superseded inputs; increasing --max-context-bytes cannot raise the provider limit.");
+
         for (var directory = new DirectoryInfo(request.WorkingDirectory);
              directory is not null;
              directory = directory.Parent)

@@ -9,7 +9,7 @@ public sealed partial class AssuranceService
         AssurancePolicy policy, List<AssuranceEntry> entries)
     {
         if (request.RepairImpact is not { } impact) return;
-        Require(Principal(policy).Role == "synthesis" && _session.Principal != policy.Implementer,
+        Require(Principal(policy).Role == "synthesis" && !IsImplementer(policy, _session.Principal),
             "authorization_denied", "Repair impact requires independent scoped synthesis authority.");
         Request(impact.SchemaVersion);
         Text(impact.DependencyRationale, "dependency rationale");

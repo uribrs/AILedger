@@ -50,10 +50,13 @@ public static class AssuranceHost
         FileGovernedTaskService? governedHost = null, bool providerSession = false, DateTimeOffset? expiresAt = null)
     {
         if (!Path.IsPathFullyQualified(storePath)) throw new ArgumentException("Assurance store must be absolute.");
+        EnsureStorePath(storePath);
         var source = new FilePolicy(authorityPath);
         var policy = await source.ReadAsync(token).ConfigureAwait(false);
         AssuranceValidation.Policy(policy);
         IGovernedAssuranceContext? context = null;
+        GovernedTaskState? initial = null;
+        var expiry = expiresAt ?? AssuranceConfiguration.Principal(policy, session.Principal).ExpiresAt;
         if (policy.Governed is { } scope)
         {
             AssuranceValidation.Require(governedHost is not null, "missing_governed_host", "Supply the associated governed ledger host for this policy.");
@@ -66,11 +69,19 @@ public static class AssuranceHost
             EnsureInputGrants(AssuranceConfiguration.InputPaths(policy, session.Principal), roots, governedHost.WorkspaceRoot);
             AssuranceValidation.Require(policy.Areas.All(a => AssuranceConfiguration.Principal(policy, session.Principal).Areas.Contains(a.Id)),
                 "unsupported", "The governed bridge requires the entire declared closure in the existing grant.");
-            await governedHost.BindAssuranceCaseAsync(state.TaskId, policy, storePath, token).ConfigureAwait(false);
-            context = governedHost.CreateAssuranceContext(state, session, providerSession,
-                expiresAt ?? AssuranceConfiguration.Principal(policy, session.Principal).ExpiresAt, storePath);
+            initial = state;
+            context = governedHost.CreateAssuranceContext(state, session, providerSession, expiry, storePath);
         }
-        return new(new FileEpisodeStore(storePath), source, policy, session, new SystemProcessRunner(), authorizeSession, context);
+        var service = new AssuranceService(new FileEpisodeStore(storePath), source, policy, session,
+            new SystemProcessRunner(), authorizeSession, context);
+        if (initial is not null)
+        {
+            // Reject unusable grants and inputs before committing the case's permanent anchor.
+            await service.ValidateConfigurationAsync(token).ConfigureAwait(false);
+            await governedHost!.BindAssuranceCaseAsync(initial, policy, storePath, session,
+                providerSession, expiry, token).ConfigureAwait(false);
+        }
+        return service;
     }
     public static void EnsureGovernedRole(string assuranceRole, string role)
     {

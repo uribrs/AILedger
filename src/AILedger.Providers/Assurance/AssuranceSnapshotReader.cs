@@ -35,9 +35,13 @@ internal static class AssuranceSnapshotReader
         var candidate = Hash(inputs.Where(i => i.Kind == "candidate").Select(i => new { i.Path, i.Sha256, i.Bytes }).ToArray());
         var requirements = Hash(new { Inputs = inputs.Where(i => i.Kind == "requirement").Select(i => new { i.Path, i.Sha256, i.Bytes }).ToArray(), area.Criteria });
         var binding = Hash(new { Area = id, Candidate = candidate, Requirements = requirements,
-            Sources = inputs.Where(i => i.Kind == "source").Select(i => new { i.Path, i.Sha256, i.Bytes }).ToArray(), Dependencies = dependencies, policy.Implementer });
+            Sources = inputs.Where(i => i.Kind == "source").Select(i => new { i.Path, i.Sha256, i.Bytes }).ToArray(), Dependencies = dependencies, Implementer = ImplementationIdentity(policy) });
         var snapshot = new AssuranceSnapshot(id, candidate, requirements, binding, inputs, dependencies,
-            area.Criteria, policy.Implementer, "external_candidate_host_snapshot; implementation execution is not observed");
+            area.Criteria, policy.Implementer, "external_candidate_host_snapshot; implementation execution is not observed")
+        {
+            WorkImplementers = policy.WorkImplementers is null ? null :
+                policy.WorkImplementers.OrderBy(p => p.Key, StringComparer.Ordinal).ToDictionary(p => p.Key, p => p.Value)
+        };
         snapshots.Add(id, snapshot); visiting.Remove(id);
         return snapshot;
     }

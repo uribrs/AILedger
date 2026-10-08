@@ -46,37 +46,50 @@ public sealed partial class FileGovernedTaskService
             EnsureCurrent();
             await checkOwner(token).ConfigureAwait(false);
         }
-        public void EnsureCurrent()
-        {
-            var actor = new ActorId(session.Principal);
-            Require(DateTimeOffset.UtcNow < expiresAt && initial.Roles.TryGetValue(actor, out var old) &&
-                state.Roles.TryGetValue(actor, out var assignment) && Hash(old) == Hash(assignment),
-                "authorization_denied", "Governed assurance authority expired or was reassigned.");
-            Require(state.Roles[actor].Capabilities.Contains(Capability.BuildContext), "authorization_denied", "Governed assurance requires current BuildContext capability.");
-            var role = state.Roles[actor].Role;
-            var assuranceRole = policy.Principals.Single(p => p.Id == session.Principal).Role;
-            Require(assuranceRole switch
-            {
-                "acceptance" => !providerSession && role == RoleKind.Operator && state.Roles[actor].Capabilities.Contains(Capability.ManageWork),
-                "review" => !providerSession && role is RoleKind.PlanningLead or RoleKind.Researcher,
-                "verification" => role == RoleKind.Verifier,
-                "synthesis" => role is RoleKind.PlanningLead or RoleKind.ImplementationLead or RoleKind.Operator,
-                _ => false
-            }, "incompatible_context", "Use a separately authorized requirements-aware context; blind review cannot receive these tools.");
-            if (providerSession)
-            {
-                var authority = new AgentSessionAuthority(initial.TaskId, initial.Roles[actor], new(session.SessionId), session.Provider, expiresAt);
-                authority.EnsureCurrent(state, DateTimeOffset.UtcNow);
-            }
-            foreach (var member in policy.Governed!.WorkItemIds)
-            {
-                var item = state.WorkItems.GetValueOrDefault(new(member));
-                Require(item is not null && item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale or WorkItemStatus.Blocked),
-                    "wrong_governed_binding", "Governed assurance requires current nonterminal work.");
-                var work = WorkItemRunObservations.LatestCompletedWork(state, new(member));
-                Require(work?.ActorId.Value == policy.Implementer, "wrong_governed_binding", "Implementer attribution must match actual working provenance.");
-            }
-        }
+        public void EnsureCurrent() =>
+            EnsureAssuranceSessionCurrent(state, initial, session, providerSession, expiresAt, policy);
+
         public ValueTask DisposeAsync() => gate.DisposeAsync();
+    }
+
+    private static void EnsureAssuranceSessionCurrent(GovernedTaskState state, GovernedTaskState initial,
+        AssuranceSession session, bool providerSession, DateTimeOffset expiresAt, AssurancePolicy policy)
+    {
+        var actor = new ActorId(session.Principal);
+        Require(DateTimeOffset.UtcNow < expiresAt && initial.Roles.TryGetValue(actor, out var old) &&
+            state.Roles.TryGetValue(actor, out var assignment) && Hash(old) == Hash(assignment),
+            "authorization_denied", "Governed assurance authority expired or was reassigned.");
+        Require(state.Roles[actor].Capabilities.Contains(Capability.BuildContext), "authorization_denied", "Governed assurance requires current BuildContext capability.");
+        var role = state.Roles[actor].Role;
+        var assuranceRole = policy.Principals.Single(p => p.Id == session.Principal).Role;
+        Require(assuranceRole switch
+        {
+            "acceptance" => !providerSession && role == RoleKind.Operator && state.Roles[actor].Capabilities.Contains(Capability.ManageWork),
+            "review" => !providerSession && role is RoleKind.PlanningLead or RoleKind.Researcher,
+            "verification" => role == RoleKind.Verifier,
+            "synthesis" => role is RoleKind.PlanningLead or RoleKind.ImplementationLead or RoleKind.Operator,
+            _ => false
+        }, "incompatible_context", "Use a separately authorized requirements-aware context; blind review cannot receive these tools.");
+        if (providerSession)
+        {
+            var authority = new AgentSessionAuthority(initial.TaskId, initial.Roles[actor], new(session.SessionId), session.Provider, expiresAt);
+            authority.EnsureCurrent(state, DateTimeOffset.UtcNow);
+        }
+        EnsureAssuranceWorkingProvenance(state, policy);
+    }
+
+    // Used under the task lock both before pinning host configuration and at every operation.
+    private static void EnsureAssuranceWorkingProvenance(GovernedTaskState state, AssurancePolicy policy)
+    {
+        foreach (var member in policy.Governed!.WorkItemIds)
+        {
+            var item = state.WorkItems.GetValueOrDefault(new(member));
+            Require(item is not null && item.Status is not (WorkItemStatus.Completed or WorkItemStatus.Abandoned or WorkItemStatus.Stale or WorkItemStatus.Blocked),
+                "wrong_governed_binding", "Governed assurance requires current nonterminal work.");
+            GovernedAssuranceRules.EnsureCurrentWork(state, new(member));
+            var work = WorkItemRunObservations.LatestCompletedWork(state, new(member));
+            var implementer = policy.WorkImplementers is { } actors ? actors[member] : policy.Implementer;
+            Require(work?.ActorId.Value == implementer, "wrong_governed_binding", "Implementer attribution must match actual working provenance.");
+        }
     }
 }

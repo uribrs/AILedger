@@ -101,11 +101,12 @@ public sealed class RepairContinuationTests
         using var f = await CompletionFixture.OpenAsync();
         await f.RunAsync(); Assert.Null((await f.AcceptAsync()).Error);
         var oldReview = f.AcceptRequest!.Reports[0];
+        var synthesis = await OpenAsync(f, "synthesis", "reconcile-inputs");
         await CliStageFixture.BackAsync(f.Driver.Bundle.App, f.Driver.Bundle.Root, TaskStage.Repair);
         await f.Driver.Bundle.Ok("run", "start", "--run", "interrupted-cd", "--subject", "worker", "--work", "A", "--provider", "codex");
         if (changed) await File.AppendAllTextAsync(Path.Combine(f.Policy.CandidateRoot, "a.cs"), "\n");
         await f.Driver.Bundle.Ok("run", "complete", "--run", "interrupted-cd", "--status", status);
-        var synthesis = await OpenAsync(f, "synthesis", "reconcile-inputs");
+        await Assert.ThrowsAsync<AILedger.Core.Domain.GovernanceException>(() => OpenAsync(f, "synthesis", "invalid-new-session"));
         var unknown = await synthesis.InvokeAsync("inspect_assurance", Json(new InspectAssuranceRequest(1, "a")), default);
         Assert.Equal("governed_admission", unknown.Error?.Code);
         // A retained failure and apparently identical bytes do not prove the process stopped.

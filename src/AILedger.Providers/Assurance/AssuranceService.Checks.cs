@@ -21,7 +21,7 @@ public sealed partial class AssuranceService
         Unique(request.CheckIds, "check_ids"); Require(request.CheckIds.Count is >= 1 and <= 8, "invalid_request", "Run 1–8 configured checks.");
         Require(request.CheckIds.All(id => snapshot.Criteria.Any(c => c.CheckId == id)), "authorization_denied", "Only this area's configured checks may run.");
         Require(request.CheckIds.Sum(id => policy.Checks.Single(c => c.Id == id).TimeoutSeconds) <= 300, "capacity_exceeded", "A check batch is limited to 300 seconds of configured timeouts.");
-        Require(_session.Principal != policy.Implementer, "self_approval", "Independent checks require a principal other than the implementer.");
+        Require(!IsImplementer(policy, _session.Principal), "self_approval", "Independent checks require a principal other than the implementer.");
         var fingerprint = Fingerprint("run_assurance_checks", request);
         var started = records.FirstOrDefault(r => r.Kind == "assurance_check_started" && r.Data.GetProperty("principal").GetString() == _session.Principal && r.Data.GetProperty("request_id").GetString() == request.RequestId);
         if (started is not null)
