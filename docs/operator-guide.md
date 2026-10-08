@@ -347,6 +347,29 @@ Codex is launched with strict configuration and `workspace-write` sandboxing. Cl
 
 AILedger v0.1 assumes one cooperative operating-system principal. `--actor` is audited attribution, not authenticated identity, and event files are not cryptographically protected from another process running as that user. Do not place the Ledger root inside a provider scope. If providers or sibling local processes are adversarial, run them behind an isolation boundary and do not rely on v0.1 role checks as a security perimeter.
 
+## HTTP mocks and host verification
+
+Since 2.0.198, `ailedger service start`, `service inspect` and `service stop` provide the native
+host-owned HTTP mock lifecycle. Workers prepare mock code and scenarios within their scope; the
+authorized host coordinator builds the image and provisions it through a root
+`ailedger.services.json` profile. Provisioning is explicit, not automatic. Preview `service start`
+and read its plan before supplying the returned confirmation digest.
+
+The kernel pins the image, publishes IPv4 loopback, checks readiness, records lifecycle evidence
+and includes endpoint observations in non-reviewer briefs. Workers connect to the endpoint; they
+still cannot listen or manage Docker. Refresh briefs after provisioning. Changed mocks require a
+new build and service ID between proof runs. Use `service stop` before closeout; services survive
+the launching CLI process, and stopping retains bounded diagnostic logs and removes only the
+owned container.
+
+Run complete native Falcon simulations, other proofs that own their server internally, and
+ordinary VSTest through host-side `ailedger verification run` with a declared repository profile.
+It retains process output, results and source observations; it does not replace independent
+verification or acceptance.
+
+See the [coordinator workflow](coordinator-operating-manual.md#http-mocks-and-host-proofs) and
+[host-service setup and recovery guide](host-services.md) for profile schemas, commands and limits.
+
 ## Persistence and recovery
 
 Each safe task ID becomes one directory:

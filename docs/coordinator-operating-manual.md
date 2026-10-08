@@ -22,6 +22,8 @@ quoted refusal continues beyond what is shown.
 
 Interaction routing refreshed on 2026-09-29. The source commit above remains the historical
 anchor for unchanged guard citations; this refresh does not re-certify every cited line.
+Host-service operation added on 2026-10-08, checked against source commit `6d7ef7f` (2.0.198).
+Service citations below use that commit; this addition does not re-certify older sections.
 
 ## Quick reference
 
@@ -57,6 +59,7 @@ Three kinds of authority are separate (judgment):
 | `provider launch` for a Worker | Stage is Execution or Repair. Item is not Blocked, Stale, Completed or Abandoned. No run is active on it. |
 | `provider launch` for a Verifier | Stage is Verification. Choose a provider other than the worker's. With `--candidate`, the same provider is refused at launch (`AILedger.Core/Runs/Logic/AssuranceRules.cs:106-113`). Without it, the same provider is refused only at `work complete` (`AILedger.Core/WorkItems/Lifecycle/WorkItemLifecycleRules.cs:265-271`). |
 | `provider launch` for a CodeReviewer | Stage is Review. `--work` is named. A verifier completed after the latest work. With `--candidate`, pass `--verifier-run`. |
+| `service start` | Host operator, live task, unused service ID, local built image and root `ailedger.services.json`. Preview the plan, then confirm its digest. See [HTTP mocks and host proofs](#http-mocks-and-host-proofs). |
 | `work complete` | Worker run, verifier run (other provider, after the work), and for a scoped item or any item with new assurance a current CodeReviewOutput. No active run, no open escalation. |
 | `lesson mark` | Stage is Learn. Actor is operator or lead. |
 | Archive | No active run, no open challenge, at least one lesson mark that mints a lesson. |
@@ -474,6 +477,48 @@ its first Design admission, as the Design arm requires. Its later review finding
 Repair and fresh assurance. That was recovery working, not waste.
 
 ---
+
+## HTTP mocks and host proofs
+
+**Guidance:** use the native host-service path when workers need an HTTP mock. Workers may write
+mock code and fault scenarios within their assigned scope. The authorized host coordinator builds
+the image, provisions the service and performs cleanup. Provisioning is not automatic: the
+coordinator issues the commands. Existing task authorization may cover this setup; holding the
+operator actor ID does not itself authorize new scope or a business decision.
+
+**Enforced** (2.0.198, `AILedger.Cli/Services/ServiceCliCommands.cs:26`): `service start` requires a
+host operator, refuses an archived task or reused service ID, resolves the local image to an
+immutable ID, and requires the confirmation from a current preview. A changed image, source
+observation, profile or engine plan invalidates that confirmation. The service uses a root
+`ailedger.services.json` profile; there is no automatic image build or pull.
+
+**Guidance:** follow this sequence; the [host-service guide](host-services.md) supplies the profile
+schema and complete commands.
+
+1. Build the mock image on the host. Use `verification run` with a declared build profile to retain
+   the command, result and source observations. A source fingerprint alone does not prove image
+   build provenance.
+2. Preview `service start`, read the plan, then repeat with its `--confirm` digest. The kernel
+   publishes an IPv4 loopback endpoint and checks readiness. Workers connect as clients; their
+   confinement still prohibits listeners and Docker access.
+3. Build/refresh the worker's brief after startup. Endpoint delivery is automatic; provisioning
+   and refresh of an already running worker are not. Check reachability before each proof because
+   a recorded readiness result is not continuous monitoring.
+4. When mock sources change, the worker returns the change details. The host builds the replacement,
+   stops the old service and starts a new service ID before the next dependent proof. Do not replace
+   the mock beneath an active proof.
+5. Use `service inspect` for the live container observation and `service stop` to retain bounded
+   logs and remove the owned container. Services survive their launching CLI process; explicitly
+   stop them before task closeout. After interruption or uncertain cleanup, inspect/stop the same ID.
+
+**Enforced** (2.0.198, `AILedger.Cli/Services/ServiceBriefing.cs:8`): `context build` and dispatch
+briefs include only successful service observations whose retained receipt matches the ledger
+evidence. Stopped/failed records are omitted. Code reviewers receive no mutable service observations.
+
+**Guidance:** when a proof runner owns its mock and assertion counters in the same process, run
+the complete proof through host-side `verification run`. Native Falcon simulations follow this
+path. Ordinary VSTest can use the same host path. Recorded execution evidence does not waive
+independent verification, acceptance or governed completion requirements.
 
 ## Reading and tooling
 
