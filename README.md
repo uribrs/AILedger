@@ -1,6 +1,18 @@
-# AILedger 2.0
+# AILedger 4.0
 
-AILedger 2.0 is a local, governed task kernel for coordinating AI-assisted work. It preserves the existing AILedger skill methodology as a verified cognitive snapshot, while moving durable truth, authority, lifecycle, causal invalidation, context isolation, and provider-run bookkeeping into deterministic .NET mechanisms.
+AILedger 4.0 is a local, governed task kernel for coordinating AI-assisted work. It preserves the existing AILedger skill methodology as a verified cognitive snapshot, while moving durable truth, authority, lifecycle, causal invalidation, context isolation, and provider-run bookkeeping into deterministic .NET mechanisms.
+
+The release generations describe the system's evolution:
+
+- **1.0:** the original skills-based methodology.
+- **2.0:** the original kernel with a pure CLI interface.
+- **3.0:** separated interfaces and triggering.
+- **4.0:** the current kernel, including structured agent interactions, governed assurance and native host services.
+
+The current release is **4.0.7**. `Directory.Build.props` declares the version used by builds and
+`scripts/install.sh`; advance that version for the next release. Reinstalling a release keeps its
+number. `ailedger version` also reports the source commit, and build metadata retains the build time
+and dirty-tree marker. Historical logs retain the version labels recorded when they were written.
 
 The operator remains the authority. Codex and Claude provide cognition through provider adapters; neither provider owns task truth or may silently expand its role. The append-only task event log is authoritative, and generated JSON/Markdown files make the current state easy for tools and people to inspect. Closing a task mints durable lessons from governed findings; later tasks recall those lessons into their own opening history and context.
 

@@ -3,7 +3,7 @@ namespace AILedger.Cli.Help;
 internal static class CliHelpText
 {
     public const string Text = """
-        AILedger 2.0 governed task CLI
+        AILedger 4.0 governed task CLI
 
         Global options: --root PATH        (default: discovered home/.ailedger/tasks)
                         --lesson-root PATH (default: discovered home/lessons)

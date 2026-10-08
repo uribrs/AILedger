@@ -6,16 +6,15 @@
 # has to uninstall first every time. Forgetting that is how the installed tool goes stale while the
 # build and the suite stay green — see Backlog/kernel-version-stamp.md.
 #
-# The version carries the commit count and the short sha, so every build is a distinct version and
-# what is installed can be traced back to a tree.
+# Directory.Build.props declares the release version. Commit and build-time metadata retain
+# traceability; reinstalling the same release does not advance its patch number.
 set -e
 cd "$(dirname "$0")/.."
 
-count=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+version=$(dotnet msbuild src/AILedger.Cli/AILedger.Cli.csproj -nologo -getProperty:Version)
 sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 build_time=$(date -u +%s)
 dirty=$(git status --porcelain 2>/dev/null | head -1)
-version="2.0.$count"
 [ -n "$dirty" ] && suffix="-dirty" || suffix=""
 
 echo "packing $version$suffix from $sha"
