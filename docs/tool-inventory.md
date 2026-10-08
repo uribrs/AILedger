@@ -81,6 +81,16 @@ and decisions still belong in the task's normal evidence record.
   E10 (1,749 passed, one skipped); container-verification task OE5/PV4. Socket presence rechecked
   **2026-09-24**; daemon health was not re-probed then.
 
+### HTTP mocks for governed sessions
+
+- **Setup:** the host uses native `ailedger service start|inspect|stop` with a root
+  `ailedger.services.json` profile. The kernel pins the built image, publishes IPv4 loopback,
+  checks readiness, retains lifecycle evidence and supplies recorded endpoints in worker briefs.
+- **Boundary:** workers remain clients and cannot listen or manage Docker. Services live until
+  explicitly stopped. See [host services](host-services.md) for setup, rebuilds and cleanup.
+- **Evidence:** incident-repairs task `2026-10-08_0700-claude-incident-repairs`, IE19: native service
+  start, loopback HTTP, same-machine LAN-address refusal, listener-denying client, brief and stop.
+
 ### .NET tests in governed sessions
 
 - **Location:** `scripts/test-governed.sh` in the AILedger checkout.

@@ -19,6 +19,8 @@ internal sealed class LaunchContextPreparation(IContextAssembler contextAssemble
             ?? throw new CliUsageException($"Task '{input.TaskId}' was not found.");
         var artifacts = await LoadLaunchArtifactsAsync(input.CognitiveWork, assuranceDiscovery, input.Recovery, cancellationToken).ConfigureAwait(false);
         var manifest = contextAssembler.BuildForRun(state, actorId, runId, artifacts, DateTimeOffset.UtcNow);
+        manifest = await AILedger.Cli.Services.ServiceBriefing.AppendAsync(manifest, state,
+            _options.LedgerRoot, cancellationToken).ConfigureAwait(false);
         return ContextManifestBudget.Apply(manifest, maximumBytes, json);
     }
 
@@ -27,6 +29,8 @@ internal sealed class LaunchContextPreparation(IContextAssembler contextAssemble
     {
         var artifacts = await LoadLaunchArtifactsAsync(input.CognitiveWork, assuranceDiscovery, input.Recovery, cancellationToken).ConfigureAwait(false);
         var manifest = contextAssembler.BuildForLaunch(state, launch, artifacts, DateTimeOffset.UtcNow);
+        manifest = await AILedger.Cli.Services.ServiceBriefing.AppendAsync(manifest, state,
+            _options.LedgerRoot, cancellationToken).ConfigureAwait(false);
         _ = ContextManifestBudget.Apply(manifest, input.MaximumContextBytes, json,
             prospectiveLaunch: true);
     }

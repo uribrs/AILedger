@@ -171,6 +171,12 @@ internal static class CliHelpText
                            the same run files; a research one must name each external claim in the
                            current research episode; a reconsideration one must follow the latest
                            return from a later stage into Design or Research.
+        service start      --task ID --actor ID --id SERVICE-ID --checkout PATH --profile NAME [--confirm SHA256]
+                           Host operator only. Preview then confirm a root ailedger.services.json profile.
+                           Pins a local image; publishes IPv4 loopback only; waits for HTTP readiness.
+        service inspect    --task ID --actor ID --id SERVICE-ID (live container observation)
+        service stop       --task ID --actor ID --id SERVICE-ID (retain logs, remove only owned container)
+                           Services live until stopped. Use a new id after rebuild; workers receive recorded endpoints.
         verification run   --task ID --actor ID --id EVIDENCE-ID --checkout PATH --candidate SHA256
                            [--profile NAME] [--confirm SHA256] [--timeout-seconds N]
                            [--supports CLAIM] [--refutes CLAIM]

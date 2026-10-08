@@ -64,6 +64,8 @@ internal sealed class ContextBriefingCliCommands(
         var manifest = contextAssembler.Build(
             state, Actor(input), OptionalId(input.Optional("work"), value => new WorkItemId(value)),
             artifacts, DateTimeOffset.UtcNow, AssuranceCliInput.Selection(input));
+        manifest = await AILedger.Cli.Services.ServiceBriefing.AppendAsync(manifest, state,
+            invocation.LedgerRoot, cancellationToken).ConfigureAwait(false);
         manifest = ContextManifestBudget.Apply(manifest, maximumBytes, json);
         var skills = ContextSkills.From(manifest.Artifacts);
         var body = JsonSerializer.Serialize(manifest, json) + Environment.NewLine;

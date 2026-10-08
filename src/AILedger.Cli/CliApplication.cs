@@ -231,6 +231,7 @@ public sealed class CliApplication
         var closeout = new CloseoutCliCommands(_executor);
         var cleanup = new TaskCleanupCliCommands(_executor);
         var verification = new VerificationCliCommands(_executor, _json, () => VerificationHost);
+        var services = new AILedger.Cli.Services.ServiceCliCommands(_executor, () => VerificationHost);
         return new CliCommandCatalog(new[] { TaskCliCommands.Open(_executor) }
             .Concat(taskInspection.Registrations())
             .Concat(new AILedger.Cli.Handoffs.HandoffCliCommands(_executor, ProcessStandardInput).Registrations())
@@ -256,6 +257,7 @@ public sealed class CliApplication
             .Concat(runs.Registrations())
             .Append(preflight.Registration())
             .Append(verification.Registration())
+            .Concat(services.Registrations())
             .Concat(ProviderCliCommands.Registrations(_providerLauncher))
             .Concat(_orchestration.Registrations()));
     }

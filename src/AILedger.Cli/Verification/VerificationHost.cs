@@ -17,6 +17,10 @@ internal sealed class VerificationHost
 
     public IVerificationProcessSpawner Spawner { get; init; } = new ShellVerificationProcessSpawner();
 
+    // Readiness may contact only the literal loopback endpoint. Ignore proxy settings and redirects.
+    public Func<HttpMessageHandler> CreateServiceProbeHandler { get; init; } =
+        () => new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false };
+
     public TimeProvider Clock { get; init; } = TimeProvider.System;
 
     /// <summary>
