@@ -349,6 +349,11 @@ AILedger v0.1 assumes one cooperative operating-system principal. `--actor` is a
 
 ## HTTP mocks and host verification
 
+Use `sh scripts/install.sh` for kernel upgrades. It stages the new tool before switching the
+command and retains complete older runtimes for already-running worker hooks. Consequently,
+`dotnet tool list --global` may list multiple retained versions; `ailedger version` identifies the
+active command. .NET's global updater cannot update this retained-version layout directly.
+
 Checkout fingerprints for host verification and service preparation exclude untracked
 `.ailedger-output/` contents at any directory depth. These are worker runtime files and retained
 reports, not candidate source. Tracked files remain measured even inside that directory; other
