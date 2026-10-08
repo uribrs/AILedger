@@ -8,6 +8,27 @@ namespace AILedger.Tests.Verification;
 
 public sealed class VerificationIoFailureTests
 {
+    [Fact]
+    public async Task ActiveRuntimeLockDoesNotBlockVerificationOrChangeItsDigest()
+    {
+        using var fixture = new VerificationFixture(new ScriptedSpawner(async (start, token) =>
+        {
+            await File.WriteAllTextAsync(Path.Combine(start.WorkingDirectory,
+                ".ailedger-output", "notes.md"), "output changed during verification", token);
+            return 0;
+        }), createSocketFile: false);
+        await fixture.OpenAsync();
+        fixture.WriteRedisProfile(docker: false, command: "true");
+        var runtime = Directory.CreateDirectory(Path.Combine(fixture.Checkout, ".ailedger-output")).FullName;
+        await using var held = new FileStream(Path.Combine(runtime, ".lock"),
+            FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        Assert.Equal(0, await fixture.RunAsync("runtime-lock", VerificationCliCommands.Confirmation("true")));
+        using var result = JsonDocument.Parse(await File.ReadAllTextAsync(
+            Path.Combine(fixture.TaskPath, "verification/runtime-lock/result.json")));
+        Assert.Equal(result.RootElement.GetProperty("worktreeSha256Before").GetString(),
+            result.RootElement.GetProperty("worktreeSha256After").GetString());
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

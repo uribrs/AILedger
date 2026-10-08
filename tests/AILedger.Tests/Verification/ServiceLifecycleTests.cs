@@ -12,6 +12,21 @@ namespace AILedger.Tests.Verification;
 public sealed class ServiceLifecycleTests
 {
     [Fact]
+    public async Task ActiveRuntimeLockAndOutputChangesDoNotBlockServiceStart()
+    {
+        using var fixture = new Fixture();
+        await fixture.OpenAsync();
+        var confirm = await fixture.PreviewAsync();
+        var runtime = Directory.CreateDirectory(Path.Combine(fixture.Inner.Checkout,
+            "src", ".ailedger-output", "run-active")).FullName;
+        await using var held = new FileStream(Path.Combine(runtime, ".lock"),
+            FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        await File.WriteAllTextAsync(Path.Combine(runtime, "notes.md"), "new worker output");
+        Assert.Equal(0, await fixture.StartAsync(confirm));
+        Assert.Equal(1, fixture.Engine.Creates);
+    }
+
+    [Fact]
     public async Task PreviewHasNoContainerSideEffectsAndConfirmedLifecycleIsRetainedAndBriefed()
     {
         using var fixture = new Fixture();

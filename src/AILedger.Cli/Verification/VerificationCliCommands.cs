@@ -179,7 +179,8 @@ internal sealed class VerificationCliCommands(
         }
 
         // What ran is the checkout as it stood when the command started: its HEAD and the content of
-        // every file git lists (S12). A failure here refuses the run before anything is created.
+        // files selected by WorktreeFingerprint (S12), excluding untracked kernel runtime output.
+        // A failure here refuses the run before anything is created.
         string gitHead;
         string worktreeBefore;
         try

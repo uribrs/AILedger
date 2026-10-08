@@ -349,6 +349,13 @@ AILedger v0.1 assumes one cooperative operating-system principal. `--actor` is a
 
 ## HTTP mocks and host verification
 
+Checkout fingerprints for host verification and service preparation exclude untracked
+`.ailedger-output/` contents at any directory depth. These are worker runtime files and retained
+reports, not candidate source. Tracked files remain measured even inside that directory; other
+untracked, nonignored files remain measured too. An unreadable source file still blocks measurement.
+Keep implementation and proof inputs outside runtime output directories. Retained report bytes
+need their own evidence citations; the checkout digest does not cover excluded output.
+
 Since 2.0.198, `ailedger service start`, `service inspect` and `service stop` provide the native
 host-owned HTTP mock lifecycle. Workers prepare mock code and scenarios within their scope; the
 authorized host coordinator builds the image and provisions it through a root

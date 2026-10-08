@@ -39,7 +39,10 @@ Image tags are resolved to local immutable image IDs before confirmation. The pr
 includes task/service identity, checkout path, Git HEAD, observed worktree fingerprint, complete
 profile, resolved image ID and Docker socket. Any change requires a fresh preview. The source
 fingerprint is an observation of the checkout, **not evidence that the image was built from it**.
-Retain build evidence separately.
+Retain build evidence separately. The fingerprint excludes untracked `.ailedger-output/` contents
+at any depth so worker logs and runtime locks do not block service preparation or change its
+confirmation. Tracked files in those directories remain measured. Keep source and proof inputs
+outside runtime output directories; unreadable files elsewhere are not silently skipped.
 
 ## Build and run
 

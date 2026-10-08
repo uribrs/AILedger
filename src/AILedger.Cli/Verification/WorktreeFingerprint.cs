@@ -5,7 +5,8 @@ namespace AILedger.Cli.Verification;
 
 /// <summary>
 /// Contract S12: a SHA-256 over the paths git lists for the work tree, tracked and untracked but not
-/// ignored, and what each one holds on disk. Two checkouts at one HEAD whose edits differ in content
+/// ignored, excluding untracked .ailedger-output runtime directories, and what each one holds on disk.
+/// Tracked files remain measured even inside those directories. Two checkouts at one HEAD whose edits differ in content
 /// get different digests, which a hash of the status listing does not (PC40). It reads the files
 /// directly and writes nothing: no temporary index, no objects (PALT19), and no diff configuration
 /// can change it (PALT20).
@@ -15,7 +16,8 @@ internal static class WorktreeFingerprint
     public static async Task<string> ComputeAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
         var listing = await VerificationCliCommands.GitAsync(
-            repositoryRoot, ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cancellationToken)
+            repositoryRoot, ["ls-files", "-z", "--cached", "--others", "--exclude-standard",
+                "--exclude=.ailedger-output/"], cancellationToken)
             .ConfigureAwait(false);
         var paths = Encoding.UTF8.GetString(listing)
             .Split('\0', StringSplitOptions.RemoveEmptyEntries)
