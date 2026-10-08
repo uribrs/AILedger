@@ -192,11 +192,12 @@ internal static class GovernedExecutionBriefing
         {
             // Stay within an existing write grant, outside the hidden ledger and disposable
             // process scratch. A run-specific directory prevents parallel report collisions.
-            var notes = Path.Combine(request.WorkingDirectory, ".ailedger-output",
-                "run-" + Uri.EscapeDataString(request.RunId.Value), "execution_notes.md");
+            var notes = Path.Combine(ProviderRunOutput.DirectoryFor(request)!, "execution_notes.md");
             builder.AppendLine().AppendLine($"Your durable execution report path is: {notes}")
                 .AppendLine("Create its parent directory and write execution_notes.md there, including partial or blocked results.")
                 .AppendLine("This supplied path replaces taskPath for execution notes in this confined session; do not put them in TMPDIR.")
+                .AppendLine("AILEDGER_RUN_OUTPUT names the same durable directory. Keep cited build/test logs and supporting files there too.")
+                .AppendLine("Temporary logs must be retained there before recording their final paths as evidence; a summary does not retain the underlying log.")
                 .AppendLine("Return the durable path and record findings/evidence through the supplied tools. The report is not acceptance.");
         }
         if (request.Assurance?.VerifierRunId is not null) AppendReviewerIsolation(builder);
@@ -328,7 +329,9 @@ internal static class GovernedExecutionBriefing
                 .AppendLine("This AILedger checkout supplies a reusable governed .NET test command:")
                 .AppendLine($"  sh {Quote(script)}")
                 .AppendLine("Use it for the suite: it builds outside the checkout and runs native xUnit without VSTest socket IPC.")
-                .AppendLine("It retains build/test logs in TMPDIR and returns nonzero for test failures or runner errors.")
+                .AppendLine("It keeps build artifacts in TMPDIR and writes logs under AILEDGER_RUN_OUTPUT when supplied.")
+                .AppendLine("Without AILEDGER_RUN_OUTPUT its logs are temporary: retain them in an authorized durable location before citing them.")
+                .AppendLine("It returns nonzero for test failures or runner errors.")
                 .AppendLine("For a single suite, append its assembly name, then an optional test-name substring; see tools/GovernedTests/README.md.")
                 .AppendLine("Some integration tests need platform application-data write access; this command does not grant it.")
                 .AppendLine("Do not reconstruct a reflection test runner. If execution is denied, record the missing capability")

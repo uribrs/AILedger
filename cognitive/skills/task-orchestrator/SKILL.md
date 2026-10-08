@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.8.3
+version: 1.8.4
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
@@ -198,16 +198,42 @@ After recording recon claims and evidence and consulting lessons as above, gener
 structured template:
 
 ```bash
-ailedger artifact recon-template --task TASK > <taskPath>/research/internal-recon.json
+ailedger artifact recon-template --task TASK --source-path /absolute/inspected/file > <taskPath>/research/internal-recon.json
 ```
 
-Complete the JSON with exactly these version-1 fields: `schemaVersion` (1), `taskId`,
-`claimSetHash`, `assessments`, and `report`. Preserve the generated task ID and lowercase SHA-256
+In a supplied session use `cognitive_handoff` with `kind: recon_template` and `source_paths`, an
+array of absolute source paths within the host's granted directories. Inspect the files through
+the permitted navigation tools first; requesting hashes does not inspect their meaning. The CLI
+operator fallback accepts repeated `--source-path` options.
+
+Complete the JSON with exactly these version-2 fields: `schemaVersion` (2), `taskId`,
+`claimSetHash`, `assessments`, `report`, and `sourceReview`. Preserve the generated task ID and lowercase SHA-256
 claim digest. Every claim, including resolved and superseded claims, must appear exactly once as
 `{"claimId":"ID","domain":"internal"}` or with domain `external`. Null template domains and an
 empty report deliberately fail admission. Put the human-readable recon Markdown in `report`;
 classification is the producer's explicit judgment, never inferred from that prose. Do not add
 properties or duplicate keys. Use the shared template command rather than computing a second hash.
+
+`sourceReview` records the actual review scope, not an assertion that the entire repository was
+read. Fill `scope` with baseline/current revision context and the boundaries of the inspection.
+The host fills `files[].path` and `sha256` (`missing` for a deleted file); preserve them and fill
+each file's `claimIds`, `evidenceIds`, and `assessment`. Every mapped claim must have a directional
+support/refutation link from the cited evidence. Explain what changed or why its conclusion still
+holds; no refutation quota applies. Record new source evidence before filing, then reconsult if the
+claim hash changed. `uninspected` explicitly names gaps and exclusions. `reuseReason` explains reuse;
+it is required when no files are selected, including tasks where source inspection is inapplicable.
+Do not disguise uninspected changed source as reuse. A missing or unlinked result is not passing evidence.
+
+The host checks declared files at filing and before forward Research→Design/Design→Scope. On drift,
+reinspect affected files, record the consequences and obtain fresh hashes before superseding recon.
+These are observations of selected bytes, not an immutable checkout or proof of comprehension;
+unlisted files are not checked. Keep source selection complete for the affected claims and disclose
+any unavailable roots rather than dropping them to pass. Version-1 historical reports remain readable
+and retain claim-only freshness; use the current template for new work.
+
+For an incorrect evidence link, append a correction citing the original retained result, its scope
+and corrected direction. Do not claim it was rerun or silently erase the original mistake. If its
+log is gone, a new run establishes a new result against a new source basis, not the lost historical run.
 
 File the completed JSON as the active producer's own task-wide artifact, in Research or Design:
 

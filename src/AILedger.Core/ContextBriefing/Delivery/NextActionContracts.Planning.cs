@@ -8,7 +8,7 @@ public static partial class NextActionContracts
 {
     private static ActionContract Recon(GovernedTaskState state) => new(
         "recon/research before planning", "Operator", "PlanningLead/ImplementationLead; Researcher for external questions",
-        "InternalRecon strict JSON: {schemaVersion:1,taskId,claimSetHash,assessments:[{claimId,domain:internal|external}],report}. " +
+        "InternalRecon strict JSON: use the version-2 recon template with sourceReview (scope, measured files, claim/evidence links, reassessment, reuseReason, uninspected). " +
         "Every historical claim exactly once, report nonblank. Research return: cited findings, limitations, implement-now/verify-first recommendation and evidence IDs; declare_producer_outcome for Researcher.",
         [Artifact(state, GovernedArtifactKind.InternalRecon),
          new("claim-set", "Bind recon consultation and artifact to current task and claim hash; active own task-wide lead producer at Research/Design.",

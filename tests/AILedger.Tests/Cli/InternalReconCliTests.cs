@@ -38,12 +38,15 @@ public sealed class InternalReconCliTests
         var stateBefore = await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None);
         Assert.Equal(0, await cli.RunAsync(["artifact", "recon-template", "--root", root.Path, "--task", "T1"], CancellationToken.None));
         var doc = JsonNode.Parse(output.ToString())!.AsObject();
-        Assert.Equal(5, doc.Count);
+        Assert.Equal(6, doc.Count);
+        Assert.Equal(2, doc["schemaVersion"]!.GetValue<int>());
         Assert.Null(doc["assessments"]![0]!["domain"]);
         Assert.Equal(InternalReconDocuments.ComputeClaimSetHash(stateBefore!), doc["claimSetHash"]!.GetValue<string>());
         Assert.Equal(stateBefore!.Version, (await Service(root.Path).GetStateAsync(new TaskId("T1"), CancellationToken.None))!.Version);
         doc["assessments"]![0]!["domain"] = "internal";
         doc["report"] = "# Recon\n  Preserve this report λ\n";
+        doc["sourceReview"]!["scope"] = "Synthetic task without product source files";
+        doc["sourceReview"]!["reuseReason"] = "Source inspection is inapplicable to this fixture";
         var body = malformed ? doc.ToJsonString() + "{}" : doc.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         int exit;
         using (new StandardInput(body))

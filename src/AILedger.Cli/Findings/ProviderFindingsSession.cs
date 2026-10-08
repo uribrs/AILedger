@@ -41,7 +41,8 @@ internal sealed class ProviderFindingsSession : IAsyncDisposable
     internal static ProviderFindingsSession Start(IGovernedTaskService service, string ledgerRoot,
         TaskId task, ActorId subject, RunId run, EventId? cause, string provider,
         RoleAssignment assignment, DateTimeOffset expiresAt, string? cognitiveRoot = null,
-        AILedger.Core.Assurance.IAssuranceService? assurance = null, CognitiveWorkKind? cognitiveWork = null)
+        AILedger.Core.Assurance.IAssuranceService? assurance = null, CognitiveWorkKind? cognitiveWork = null,
+        IReadOnlyList<string>? sourceDirectories = null)
     {
         if (assignment.ActorId != subject || service is not IAgentSessionServiceFactory factory)
             throw new InvalidOperationException("Provider recording requires a trusted, expiring session service binding.");
@@ -64,7 +65,8 @@ internal sealed class ProviderFindingsSession : IAsyncDisposable
             return configuration;
         }
         return new(configuration, recorder, muxer, [typeof(CliApplication).Assembly.Location], ReadBinding, assurance,
-            new AILedger.Cli.Cognitive.CognitiveHandoffSession(service, new(task, subject, run, run.Value), cognitiveWork));
+            new AILedger.Cli.Cognitive.CognitiveHandoffSession(service, new(task, subject, run, run.Value), cognitiveWork,
+                new AILedger.Cli.Cognitive.ReconSourceAccess(sourceDirectories ?? [], ledgerRoot)));
     }
 
     private async Task AcceptAsync()

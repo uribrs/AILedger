@@ -34,8 +34,8 @@ internal static class CognitiveHandoffParser
     }
     private static CognitiveHostOperation ReconTemplate(JsonElement op)
     {
-        StrictJson.Members(op, ["kind"]);
-        return new ReconTemplateHandoff();
+        StrictJson.Members(op, ["kind"], ["source_paths"]);
+        return new ReconTemplateHandoff(op.TryGetProperty("source_paths", out _) ? Strings(op, "source_paths", 256) : null);
     }
     private static CognitiveHostOperation Artifact(JsonElement op)
     {

@@ -389,6 +389,25 @@ If planning introduces further claim changes, refresh again before returning. Th
 that run before requesting Scope. All-claim coverage, freshness, external research requirements,
 and completion gates remain in force; replacing only a digest is not reassessment.
 
+New recon templates use schema version 2. Supply `source_paths` to the live `recon_template`
+operation, or repeat `--source-path` on `artifact recon-template` as the operator. Paths must be
+absolute; supplied sessions restrict them to the host's source directories. The host measures
+selected files without returning their contents or bypassing navigation rules. Fill `sourceReview`:
+`scope`, `files` (generated `path`/`sha256`, then `claimIds`, `evidenceIds`, `assessment`),
+`reuseReason`, and `uninspected`. Each mapped claim needs a directional link from the named evidence.
+An empty selection requires an explicit reuse/inapplicability reason. Use `uninspected` for actual
+gaps, not as a claim that the work is verified. Selected files are rechecked at filing and before
+forward Design/Scope admission. Changed or missing bytes require reassessment and a superseding
+recon. Unlisted files are not checked, and observed hashes prove neither reading nor comprehension.
+Version-1 reports and historical replay remain supported without inspecting today's filesystem.
+
+Governed workers receive `AILEDGER_RUN_OUTPUT` beside their execution notes. Keep cited logs there.
+The supplied test helper keeps build outputs in scratch but writes success/failure logs under that
+durable directory. Without the variable it explicitly warns that logs are temporary. Evidence links
+are already supported by `record_findings` and `verification run --supports/--refutes`. Correct a bad
+link by appending evidence that cites the original retained result and explains the correction;
+never rewrite history or present a new run as recovery of a deleted historical log.
+
 ## Persistence and recovery
 
 Each safe task ID becomes one directory:

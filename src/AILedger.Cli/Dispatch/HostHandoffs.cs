@@ -9,7 +9,7 @@ public abstract record CognitiveHostOperation
 }
 public sealed record GoverningArtifactHandoff(GoverningArtifactHandoffKind Kind, string Title,
     string Markdown, ArtifactId? Supersedes = null) : CognitiveHostOperation;
-public sealed record ReconTemplateHandoff : CognitiveHostOperation;
+public sealed record ReconTemplateHandoff(IReadOnlyList<string>? SourcePaths = null) : CognitiveHostOperation;
 public sealed record LessonConsultationHandoff(LessonConsultationPurpose Purpose, string Question,
     IReadOnlyList<string> Tags, IReadOnlyList<ClaimId> Claims) : CognitiveHostOperation;
 public sealed record RoutingAssessmentHandoff(RoutingAssessment Assessment) : CognitiveHostOperation;

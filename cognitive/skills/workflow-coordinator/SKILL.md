@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.9.4
+version: 1.9.5
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -167,6 +167,12 @@ contract/plan. Do not dispatch a recon-only run merely because the claim digest 
 The original recon actor does not own future revisions: the current eligible producer authors
 its own superseding revision, preserving prior findings and reassessing the changed claims and
 their consequences. The complete all-claim assessment and current consultation are still required.
+Use the current version-2 recon template: it carries selected file hashes, claim/evidence links,
+reassessment notes, reuse rationale and explicit uninspected gaps. Verify the source selection covers
+material changes; a hash proves observed bytes, not reading or complete repository coverage. The
+host refuses changed declared files at filing and forward Design/Scope; refresh within the same
+eligible planning run. Separate recon remains useful when materially changed scope or uncertainty
+requires a fresh fact-finding assignment, not as an automatic dispatch for every digest change.
 
 For downstream recovery, route the orchestrator through existing reasoned backward transitions.
 Backward Design entry permits replanning despite stale or missing recon; it does not authorize

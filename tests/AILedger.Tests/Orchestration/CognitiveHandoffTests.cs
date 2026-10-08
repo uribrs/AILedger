@@ -123,7 +123,8 @@ public sealed class CognitiveHandoffTests
             question = "Current lessons?", tags = new[] { "routing" }, claims = Array.Empty<string>() }));
         var document = JsonSerializer.Deserialize<InternalReconDocument>(template)! with
         {
-            Assessments = [new("new-claim", "internal")], Report = "Source inspected by this producer."
+            Assessments = [new("new-claim", "internal")], Report = "Source inspected by this producer.",
+            SourceReview = new("Synthetic fixture; no product source", [], "No product files exist in this fixture", [])
         };
         AssertRecorded(await relay.HandoffAsync(new { kind = "governing_artifact", artifact_kind = "internal_recon",
             title = "Complete recon", markdown = JsonSerializer.Serialize(document) }));

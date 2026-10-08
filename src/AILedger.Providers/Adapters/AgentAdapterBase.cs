@@ -84,6 +84,8 @@ public abstract class AgentAdapterBase(IProcessRunner processRunner) : IAgentAda
         {
             environment[variable.Key] = variable.Value;
         }
+        if (ProviderRunOutput.DirectoryFor(request) is { } outputDirectory)
+            environment[ProviderRunOutput.EnvironmentVariable] = outputDirectory;
 
         var isolation = request.Isolation;
         if (isolation is not null && launchScope.TemporaryDirectory is { } runtimeDirectory)

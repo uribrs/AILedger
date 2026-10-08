@@ -18,12 +18,20 @@ case "$scratch_parent/" in
     "$repo/"*) echo 'TMPDIR must be outside the repository.' >&2; exit 2 ;;
 esac
 scratch=$(mktemp -d "$scratch_parent/ailedger-tests.XXXXXX")
-echo "Build artifacts and logs: $scratch"
+logs=$scratch
+if [ -n "${AILEDGER_RUN_OUTPUT:-}" ]; then
+    mkdir -p "$AILEDGER_RUN_OUTPUT"
+    logs=$(mktemp -d "$AILEDGER_RUN_OUTPUT/tests.XXXXXX")
+else
+    echo 'Logs are temporary; retain them before citing them as evidence.' >&2
+fi
+echo "Build artifacts: $scratch"
+echo "Build/test logs: $logs"
 
 build() {
-    if ! dotnet build "$1" --artifacts-path "$scratch/artifacts" -m:1 -p:NuGetAudit=false > "$scratch/$2.log" 2>&1; then
-        dd if="$scratch/$2.log" bs=65536 count=1 2>/dev/null >&2
-        echo "Build failed; full log: $scratch/$2.log" >&2
+    if ! dotnet build "$1" --artifacts-path "$scratch/artifacts" -m:1 -p:NuGetAudit=false > "$logs/$2.log" 2>&1; then
+        dd if="$logs/$2.log" bs=65536 count=1 2>/dev/null >&2
+        echo "Build failed; full log: $logs/$2.log" >&2
         exit 1
     fi
 }
@@ -38,11 +46,11 @@ for suite in $suites; do
     # Use the suite's dependency manifest and output directory, including project/native assets.
     if dotnet exec --depsfile "$directory/$suite.deps.json" \
         --runtimeconfig "$directory/$suite.runtimeconfig.json" \
-        "$directory/GovernedTests.dll" "$directory/$suite.dll" "$@" > "$scratch/$suite.log" 2>&1; then
-        grep "^$suite: total=" "$scratch/$suite.log"
+        "$directory/GovernedTests.dll" "$directory/$suite.dll" "$@" > "$logs/$suite.log" 2>&1; then
+        grep "^$suite: total=" "$logs/$suite.log"
     else
-        dd if="$scratch/$suite.log" bs=65536 count=1 2>/dev/null >&2
-        echo "Suite failed; full log: $scratch/$suite.log" >&2
+        dd if="$logs/$suite.log" bs=65536 count=1 2>/dev/null >&2
+        echo "Suite failed; full log: $logs/$suite.log" >&2
         exit 1
     fi
 done

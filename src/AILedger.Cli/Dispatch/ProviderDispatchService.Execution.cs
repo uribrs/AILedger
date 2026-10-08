@@ -22,7 +22,8 @@ internal sealed partial class ProviderDispatchService
         var findings = ProviderFindingsSession.Start(_hostService, _options.LedgerRoot, input.TaskId,
             input.Subject, active.Start.RunId, input.Cause, active.Prepared.Provider,
             active.Started.State.Roles[input.Subject], DateTimeOffset.UtcNow.AddSeconds(input.TimeoutSeconds),
-            CognitiveArtifactLoader.ResolveRoot(_options.CognitiveRoot), assurance, input.CognitiveWork);
+            CognitiveArtifactLoader.ResolveRoot(_options.CognitiveRoot), assurance, input.CognitiveWork,
+            grants.AdditionalDirectories.Prepend(grants.WorkingDirectory).Concat(grants.NavigationDirectories ?? []).Distinct().ToArray());
         try
         {
             var request = new AgentLaunchRequest(active.Start.RunId, input.TaskId, input.Subject, input.WorkItemId,

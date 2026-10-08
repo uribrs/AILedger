@@ -92,10 +92,14 @@ internal static class CliHelpText
                            skill set for the same actor appends nothing and leaves the version where
                            it was, so it is a read that conditionally records audit evidence, not a
                            read with no effect on the ledger.
-        artifact recon-template --task ID [--root PATH]
+        artifact recon-template --task ID [--root PATH] [--source-path ABSOLUTE_FILE ...]
                            Read-only JSON template; fill every domain with internal or external and
                            report with nonblank recon Markdown. Keep taskId and claimSetHash intact.
                            Includes resolved/superseded claims; null domains are not admissible.
+                           Version 2 also requires sourceReview: scope, measured files with claimIds,
+                           evidenceIds and assessment, reuseReason, and uninspected gaps. An empty
+                           file selection needs a reuse/inapplicability reason. Selected bytes are
+                           rechecked at filing and before forward Design/Scope; hashes do not prove reading.
                            Example: artifact recon-template --task T > recon.json
                            Complete recon.json, then file from its active task-wide lead run:
                            artifact record --task T --actor LEAD --run R --id IR1 --kind InternalRecon

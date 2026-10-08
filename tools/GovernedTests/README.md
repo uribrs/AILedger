@@ -2,8 +2,10 @@
 
 From any working directory, run `sh /path/to/AILedger/scripts/test-governed.sh`.
 The script builds the current checkout into a fresh directory under `TMPDIR`, then runs both
-test assemblies without VSTest's socket. It prints the output directory and keeps complete logs
-there. NuGet vulnerability auditing is disabled for this local test build; restore/build failures
+test assemblies without VSTest's socket. Build artifacts stay in scratch. If `AILEDGER_RUN_OUTPUT`
+is supplied (automatically for governed workers), build and test logs go into a unique `tests.*`
+directory there, including failed builds/tests. Without it the script warns that logs are temporary;
+retain them in an authorized durable location before citing them. NuGet vulnerability auditing is disabled for this local test build; restore/build failures
 still stop execution. No source-tree build outputs or default permission grants are changed.
 
 The runner uses xUnit 2.5.3's discovery and execution framework, matching these test projects.

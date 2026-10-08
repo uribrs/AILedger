@@ -26,10 +26,13 @@ internal static class InternalReconRules
         {
             using var json = JsonDocument.Parse(content);
             var root = json.RootElement;
-            ExactProperties(root, "schemaVersion", "taskId", "claimSetHash", "assessments", "report");
             var version = root.GetProperty("schemaVersion");
-            if (version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 1)
-                throw Invalid("schemaVersion must be integer 1.");
+            if (version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number is not (1 or 2))
+                throw Invalid("schemaVersion must be integer 1 or 2.");
+            if (number == 1)
+                ExactProperties(root, "schemaVersion", "taskId", "claimSetHash", "assessments", "report");
+            else
+                ExactProperties(root, "schemaVersion", "taskId", "claimSetHash", "assessments", "report", "sourceReview");
             var taskId = Text(root, "taskId");
             if (taskId != state.TaskId.Value)
                 throw Invalid("taskId must match the task.");
@@ -56,11 +59,14 @@ internal static class InternalReconRules
             }
             if (seen.Count != state.Claims.Count)
                 throw Invalid("assessments must cover every claim, including resolved and superseded claims.");
-            return new(1, taskId, hash, rows, report);
+            return new(number, taskId, hash, rows, report)
+            {
+                SourceReview = number == 2 ? ReconSourceReviewRules.Validate(state, root.GetProperty("sourceReview")) : null
+            };
         }
-        catch (JsonException)
+        catch (Exception error) when (error is not GovernanceException && error is (JsonException or KeyNotFoundException or InvalidOperationException))
         {
-            throw Invalid("content must be strict schema-version-1 JSON.");
+            throw Invalid("content must be strict schema-version-1 or schema-version-2 JSON.");
         }
     }
 
@@ -105,7 +111,7 @@ internal static class InternalReconRules
                 $"requires a recon lesson consultation by producer run '{producerRunId}' against the current claim set.");
     }
 
-    private static void ExactProperties(JsonElement element, params string[] names)
+    internal static void ExactProperties(JsonElement element, params string[] names)
     {
         if (element.ValueKind != JsonValueKind.Object)
             throw Invalid("document and assessments must be objects.");
@@ -117,7 +123,7 @@ internal static class InternalReconRules
             throw Invalid("required properties are missing.");
     }
 
-    private static string Text(JsonElement element, string name)
+    internal static string Text(JsonElement element, string name)
     {
         var value = element.GetProperty(name);
         if (value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString()))

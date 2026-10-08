@@ -1,6 +1,6 @@
 ---
 name: contract-driven-execution
-version: 1.6.5
+version: 1.6.6
 description: Direct-path executor for non-trivial work that has a finalized prompt contract. Performs the implementation, refactoring, research-driven coding, or agent-workflow execution against the current PromptContract artifact and records findings in the governed task. Typically invoked by `task-orchestrator` on the direct execution path.
 ---
 
@@ -60,6 +60,11 @@ Researchers in Research. Read the recalled lessons already served in your brief 
 context. When one informs a finding or rejected approach, record the link with `from_lesson` using
 the supplied recording tools. A newly discovered gap belongs in your findings and handoff; do not
 select a consultation purpose as an execution prerequisite or switch roles to obtain one.
+
+Keep cited build/test logs and supporting files under the host-supplied `AILEDGER_RUN_OUTPUT`
+directory, beside execution notes. TMPDIR is disposable. Record the durable path, source basis,
+and exactly what the run establishes, with directional claim links. A retained summary does not
+preserve a deleted log; a later rerun establishes new evidence, not the missing historical output.
 
 ### 2. Validate The Contract
 

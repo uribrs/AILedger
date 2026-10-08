@@ -8,7 +8,7 @@ namespace AILedger.Cli.Cognitive;
 // The cache bounds transport work. File storage commits exact key/body/binding receipts with
 // the governed events, so reconnect/restart does not depend on this instance surviving.
 internal sealed class CognitiveHandoffSession(IGovernedTaskService service, CognitiveHostBinding binding,
-    CognitiveWorkKind? assignment = null)
+    CognitiveWorkKind? assignment = null, ReconSourceAccess? sourceAccess = null)
 {
     internal IReadOnlyList<HostHandoffReceipt> Receipts => _receipts.Values.Select(row => row.Receipt).ToArray();
     internal bool HasUnknown { get; private set; }
@@ -61,8 +61,10 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
                 var run = state.Runs[binding.RunId];
                 if (run.Status != AgentRunStatus.Active || run.ActorId != binding.Subject)
                     throw new GovernanceException("Cognitive handoff requires the bound active producer.");
-                if (request.Operation is ReconTemplateHandoff)
-                    return ReadReconTemplate(request, state, run);
+                if (request.Operation is ReconTemplateHandoff template)
+                    return await ReadReconTemplateAsync(request, template, state, run, token).ConfigureAwait(false);
+                if (request.Operation is GoverningArtifactHandoff { Kind: GoverningArtifactHandoffKind.InternalRecon } recon)
+                    (sourceAccess ?? new ReconSourceAccess([], "/")).EnsureAllowed(recon.Markdown);
                 if (request.Operation is RoutingAssessmentHandoff assessment && assignment is { } expected && assessment.Assessment.Work != expected)
                     throw new GovernanceException("Assessment does not match the host-assigned cognitive work.");
                 if (request.Operation is RoutingAssessmentHandoff or DecisionResolutionHandoff or PreparationSelectionHandoff)
@@ -81,6 +83,10 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
             }
             catch (GovernanceException error) { receipt = Refused(request, error.Message); }
             catch (NotSupportedException error) { receipt = new(HostHandoffStatus.Unsupported, request.RequestId, [], Diagnostic: error.Message); }
+            catch (Exception error) when (command is null && error is (IOException or UnauthorizedAccessException or ArgumentException or JsonException))
+            {
+                receipt = Refused(request, "No mutation attempted: " + error.Message);
+            }
             catch (Exception error) when (error is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
             {
                 receipt = new(HostHandoffStatus.Unknown, request.RequestId, [],
@@ -95,7 +101,8 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
         finally { _gate.Release(); }
     }
 
-    private HostHandoffReceipt ReadReconTemplate(CognitiveHostHandoff request, GovernedTaskState state, AgentRun run)
+    private async Task<HostHandoffReceipt> ReadReconTemplateAsync(CognitiveHostHandoff request,
+        ReconTemplateHandoff template, GovernedTaskState state, AgentRun run, CancellationToken token)
     {
         // This is authoring input, not an artifact or a judgment. Do not cache a stale
         // claim hash as an idempotent write receipt or manufacture any ledger event.
@@ -106,8 +113,10 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
             role.Role is not (RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead) ||
             !role.Capabilities.Contains(Capability.BuildContext))
             throw new GovernanceException("Recon template requires a current task-wide lead at Research or Design.");
+        var paths = (sourceAccess ?? new ReconSourceAccess([], "/")).Resolve(template.SourcePaths ?? []);
+        var files = await ReconSourceFiles.ObserveAsync(paths, token).ConfigureAwait(false);
         return new(HostHandoffStatus.Observed, request.RequestId, [], TaskVersion: state.Version,
-            ReconTemplate: JsonSerializer.SerializeToElement(InternalReconDocuments.CreateTemplate(state)));
+            ReconTemplate: JsonSerializer.SerializeToElement(InternalReconDocuments.CreateSourceReviewTemplate(state, files)));
     }
 
     private LedgerCommand Command(CognitiveHostOperation operation, AgentRun run, string requestId)

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 
 
@@ -67,13 +68,30 @@ def main():
         runs = [call for call in calls if call['args'][0] == 'exec']
         assert len(runs) == 1 and 'AILedger.Memory.Tests' in runs[0]['args'][2]
 
+        durable = root / 'retained output'
+        scratch = root / 'disposable scratch'
+        scratch.mkdir()
+        for overrides in ({}, {'PROBE_BUILD_FAIL': '1'}, {'PROBE_TEST_FAIL': '1'}):
+            previous = set(durable.glob('tests.*'))
+            run(['AILedger.Tests'], 1 if overrides else 0,
+                AILEDGER_RUN_OUTPUT=str(durable), TMPDIR=str(scratch), **overrides)
+            retained = (set(durable.glob('tests.*')) - previous).pop()
+            shutil.rmtree(scratch)
+            scratch.mkdir()
+            assert (retained / 'solution-build.log').exists()
+            if 'PROBE_BUILD_FAIL' not in overrides:
+                text = (retained / 'AILedger.Tests.log').read_text()
+                assert ('deliberate suite failure' if overrides else 'total=1') in text
+            else:
+                assert 'deliberate build failure' in (retained / 'solution-build.log').read_text()
+
         before = set(repo.iterdir())
         assert run([], 2, TMPDIR=str(repo)) == []
         assert set(repo.iterdir()) == before
         assert run(['invalid-suite'], 2) == []
         assert run(['all', 'filter', 'extra'], 2) == []
     print('PASS: cwd, paths with spaces/apostrophe, filter, both suites, build failure, '
-          'test failure, source-tree TMPDIR rejection and invalid arguments.')
+          'test failure, retained success/failure logs after scratch deletion, source-tree TMPDIR rejection and invalid arguments.')
 
 
 if __name__ == '__main__':

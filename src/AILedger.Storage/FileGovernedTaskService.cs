@@ -155,6 +155,7 @@ public sealed partial class FileGovernedTaskService : IGovernedTaskService, IFin
                 command = transitionRequest with { CompletionAdmission = completionLease is null ? null :
                     new AILedger.Core.Assurance.WorkCompletionAdmission(completionLease.Receipt, currentState!.Version) };
             outcome = _commandHandler.Handle(currentState, command, DateTimeOffset.UtcNow);
+            await EnsureReconSourcesAsync(currentState, command, cancellationToken).ConfigureAwait(false);
         }
         catch (GovernanceException exception)
         {

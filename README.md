@@ -9,7 +9,7 @@ The release generations describe the system's evolution:
 - **3.0:** separated interfaces and triggering.
 - **4.0:** the current kernel, including structured agent interactions, governed assurance and native host services.
 
-The current release is **4.0.7**. `Directory.Build.props` declares the version used by builds and
+The current release is **4.0.8**. `Directory.Build.props` declares the version used by builds and
 `scripts/install.sh`; advance that version for the next release. Reinstalling a release keeps its
 number. `ailedger version` also reports the source commit, and build metadata retains the build time
 and dirty-tree marker. Historical logs retain the version labels recorded when they were written.

@@ -37,6 +37,7 @@ public sealed class ProviderArgumentsTests
             WorkItemId = null
         }, CancellationToken.None);
         var invocation = runner.Invocations.Last();
+        Assert.False(invocation.Environment.ContainsKey(ProviderRunOutput.EnvironmentVariable));
         var brief = provider == "codex" ? invocation.StandardInput : ProviderProtocolTests.ValueAfter(invocation.Arguments, "-p");
 
         Assert.Contains("save research/<topic>.md as supporting output", brief, StringComparison.Ordinal);
@@ -114,6 +115,7 @@ public sealed class ProviderArgumentsTests
         var result = await new CodexAgentAdapter(runner).RunAsync(request, CancellationToken.None);
 
         var run = runner.Invocations[3];
+        Assert.Equal(ProviderRunOutput.DirectoryFor(request), run.Environment[ProviderRunOutput.EnvironmentVariable]);
         Assert.Equal(["exec", "--help"], runner.Invocations[1].Arguments);
         Assert.Equal(["exec", "resume", "--help"], runner.Invocations[2].Arguments);
         // Codex reads its prompt from stdin, so the governed-execution briefing leads and the

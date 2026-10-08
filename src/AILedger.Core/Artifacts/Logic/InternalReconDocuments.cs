@@ -6,6 +6,10 @@ namespace AILedger.Core.Contracts;
 /// <summary>Shared authoring and version-binding boundary for internal recon.</summary>
 public static class InternalReconDocuments
 {
+    public static InternalReconDocument CreateSourceReviewTemplate(GovernedTaskState state,
+        IReadOnlyList<ReconSourceFile>? files = null) => CreateTemplate(state) with
+        { SchemaVersion = 2, SourceReview = new("", files ?? [], "", []) };
+
     /// <summary>The returned template is deliberately inadmissible until classified and completed.</summary>
     public static InternalReconDocument CreateTemplate(GovernedTaskState state) =>
         new(1, state.TaskId.Value, ComputeClaimSetHash(state),

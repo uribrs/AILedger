@@ -321,6 +321,19 @@ and consequences, and still classify the complete claim set. Refresh again befor
 contract/plan authoring changes claims. The host completes the combined run before requesting Scope.
 Initial forward Design admission and external Researcher obligations remain separate prerequisites.
 
+Version-2 templates add `sourceReview`: selected file hashes, their claim/evidence links and
+reassessment notes, review scope, reuse rationale, and explicit uninspected gaps. Request hashes
+with `source_paths` on the supplied `recon_template` operation (CLI: repeated `--source-path`).
+The host measures only selected files, restricted to supplied source roots in governed sessions;
+it rechecks those bytes at filing and before forward Design/Scope. It does not infer completeness,
+reading or comprehension. Do not require a refuted claim as evidence that recon was thorough.
+Historical version-1 recon retains its claim-only freshness semantics and remains replayable.
+
+Workers must retain cited logs under `AILEDGER_RUN_OUTPUT`, not scratch. The governed test helper
+now does so for success and failure. Correct missed evidence links with an explicit append-only
+correction pointing at the original retained result. A rerun replaces missing evidence with a new
+observation against the current source; it does not recreate the historical run.
+
 The cycle (within that planning run when already in Design):
 
 1. The claim set changes (claim added, resolved, superseded).

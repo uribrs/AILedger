@@ -16,7 +16,7 @@ internal sealed class ArtifactCliCommands(
     public IEnumerable<CliCommandRegistration> Registrations()
     {
         yield return new CliCommandRegistration(
-            ["artifact recon-template"], CliCommandOptions.Set("root", "task"),
+            ["artifact recon-template"], CliCommandOptions.Set("root", "task", "source-path"),
             isReadOnly: true, ReconTemplateAsync);
         yield return new CliCommandRegistration(
             ["artifact record"],
@@ -37,8 +37,10 @@ internal sealed class ArtifactCliCommands(
     {
         var state = await CliCommandExecutor.RequireStateAsync(invocation, cancellationToken).ConfigureAwait(false);
         // Templates retain null domains so authors can fill every assessment explicitly.
+        var paths = invocation.Input.Many("source-path").Select(path => AILedger.Storage.ReconSourceFiles.Canonicalize(path)).Distinct().ToArray();
+        var files = await AILedger.Storage.ReconSourceFiles.ObserveAsync(paths, cancellationToken).ConfigureAwait(false);
         var template = JsonSerializer.Serialize(
-            InternalReconDocuments.CreateTemplate(state), new JsonSerializerOptions { WriteIndented = true });
+            InternalReconDocuments.CreateSourceReviewTemplate(state, files), new JsonSerializerOptions { WriteIndented = true });
         await executor.WriteLineAsync(template).ConfigureAwait(false);
     }
 
