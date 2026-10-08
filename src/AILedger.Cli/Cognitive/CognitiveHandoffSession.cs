@@ -42,7 +42,7 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
                 if (request.Operation is RoutingAssessmentHandoff assessment && assignment is { } expected && assessment.Assessment.Work != expected)
                     throw new GovernanceException("Assessment does not match the host-assigned cognitive work.");
                 if (request.Operation is RoutingAssessmentHandoff or DecisionResolutionHandoff or PreparationSelectionHandoff)
-                    await EnsureJudgmentBasisAsync(run, token).ConfigureAwait(false);
+                    await EnsureJudgmentBasisAsync(state, run, request.Operation, token).ConfigureAwait(false);
                 if (request.Operation is DecisionResolutionHandoff resolution)
                     ValidateResolution(state, run, resolution);
                 command = Command(request.Operation, run, request.RequestId) with
@@ -115,15 +115,52 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
         };
     }
 
-    private async Task EnsureJudgmentBasisAsync(AgentRun run, CancellationToken token)
+    private async Task EnsureJudgmentBasisAsync(GovernedTaskState state, AgentRun run,
+        CognitiveHostOperation operation, CancellationToken token)
     {
+        var workerReport = operation is RoutingAssessmentHandoff && run.SubjectRole == RoleKind.Worker &&
+            run.WorkItemId is not null;
+        var dependencies = workerReport
+            ? new AILedger.Core.Application.ContextAssembler().BuildForRun(state, run.ActorId, run.Id, [], DateTimeOffset.UtcNow)
+                .Artifacts.Where(artifact => artifact.Kind == ContextArtifactKind.Claim)
+                .Select(artifact => new ClaimId(artifact.Id)).ToHashSet()
+            : [];
         await foreach (var row in service.GetHistoryAsync(binding.TaskId, token).ConfigureAwait(false))
         {
             if (row.RecordedAt < run.StartedAt || row.CorrelationId == binding.RunId.Value ||
                 row.Data is RunStarted or RunCompleted or ContextBuilt) continue;
+            if (workerReport && IsIndependentWorkerReport(state, run, row, dependencies)) continue;
             throw new GovernanceException("The governed basis changed outside this producer after briefing; refresh and reassess before recording a delayed judgment.");
         }
     }
+
+    private static bool IsIndependentWorkerReport(GovernedTaskState state, AgentRun run,
+        LedgerEvent row, IReadOnlySet<ClaimId> dependencies)
+    {
+        var peer = state.Runs.Values.FirstOrDefault(candidate => candidate.Id.Value == row.CorrelationId);
+        if (peer is not { SubjectRole: RoleKind.Worker, WorkItemId: { } peerWork } ||
+            peer.ActorId != row.ActorId || peerWork == run.WorkItemId ||
+            !state.WorkItems.TryGetValue(peerWork, out var other) ||
+            !state.WorkItems.TryGetValue(run.WorkItemId!.Value, out var own) ||
+            own.ResourceScope.Any(first => other.ResourceScope.Any(second => Overlaps(first, second))))
+            return false;
+
+        // Additive reports from disjoint workers are not changes to this worker's
+        // contract. Linked dependency evidence and every governing mutation still refuse.
+        return row.Data switch
+        {
+            ClaimAdded added => !dependencies.Contains(added.Claim.Id),
+            EvidenceAdded added => !added.Evidence.Supports.Concat(added.Evidence.Refutes).Any(dependencies.Contains),
+            AlternativeRecorded => true,
+            ProducerOutcomeDeclared outcome => outcome.RunId == peer.Id,
+            RoutingAssessmentRecorded assessment => assessment.RunId == peer.Id,
+            _ => false
+        };
+    }
+
+    private static bool Overlaps(string first, string second) =>
+        first == second || first.StartsWith(second.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+        second.StartsWith(first.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     private static void ValidateResolution(GovernedTaskState state, AgentRun run, DecisionResolutionHandoff request)
     {

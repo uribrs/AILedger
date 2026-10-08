@@ -1,6 +1,6 @@
 ---
 name: contract-driven-execution
-version: 1.6.3
+version: 1.6.4
 description: Direct-path executor for non-trivial work that has a finalized prompt contract. Performs the implementation, refactoring, research-driven coding, or agent-workflow execution against the current PromptContract artifact and records findings in the governed task. Typically invoked by `task-orchestrator` on the direct execution path.
 ---
 
@@ -34,8 +34,12 @@ contract, orchestration plan, constraints, claims, decisions, work scope, and st
 kernel may also materialize `task.md`, `assumptions.md`, and `decisions.md` in `taskPath`; those are
 read-only projections and must never be edited.
 
-`execution_notes.md` is the worker-owned execution report and may be created or updated in
-`taskPath`.
+`execution_notes.md` is the worker-owned execution report. In a confined session, use the
+durable report path explicitly supplied by the host inside the authorized work scope; direct
+ledger/taskPath access is forbidden there. Otherwise it may be created or updated in `taskPath`.
+TMPDIR is disposable and deleted at run exit: never return it as the only location of execution
+notes or required evidence. Record durable findings/evidence through the supplied tools and return
+the durable report path, including for partial or blocked work.
 
 ## Workflow
 

@@ -178,6 +178,7 @@ internal static class GovernedExecutionBriefing
         The host confines this process and descendants. Direct ledger reads/writes, CLI mutations,
         replacement hosts and actor switching cannot acquire authority. Do not use those paths.
         Keep temporary output under TMPDIR; submit supported documents inline through the tools.
+        TMPDIR is deleted at run exit. It is never a durable report or evidence destination.
         Use cognitive_handoff for its advertised operations only when supplied by this session.
         Report unsupported operations and your findings to the trusted host; never invent success.
         Do not complete your run, change stages, waive checks, reassign roles, resolve user decisions
@@ -187,6 +188,17 @@ internal static class GovernedExecutionBriefing
         File required supported outputs before returning. Provider completion is not acceptance.
         Keep command output below 1 MiB; the integration retains at most 8 MiB per stream.
         """);
+        if (request.WorkItemId is not null && request.Assurance is null)
+        {
+            // Stay within an existing write grant, outside the hidden ledger and disposable
+            // process scratch. A run-specific directory prevents parallel report collisions.
+            var notes = Path.Combine(request.WorkingDirectory, ".ailedger-output",
+                "run-" + Uri.EscapeDataString(request.RunId.Value), "execution_notes.md");
+            builder.AppendLine().AppendLine($"Your durable execution report path is: {notes}")
+                .AppendLine("Create its parent directory and write execution_notes.md there, including partial or blocked results.")
+                .AppendLine("This supplied path replaces taskPath for execution notes in this confined session; do not put them in TMPDIR.")
+                .AppendLine("Return the durable path and record findings/evidence through the supplied tools. The report is not acceptance.");
+        }
         if (request.Assurance?.VerifierRunId is not null) AppendReviewerIsolation(builder);
         else if (request.Assurance is not null)
             builder.AppendLine("Verify every covered member against the supplied contract, plan, relevant findings and stop conditions.");

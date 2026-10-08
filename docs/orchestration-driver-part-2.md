@@ -98,6 +98,11 @@ Only the existing environment allowlist and explicit launch environment reach th
 the launcher. The relay credential authorizes only the bound endpoint and expires with that host.
 No additional credential copying/forwarding is introduced.
 
+Private scratch is deleted at process exit. Confined work-item sessions without assurance receive
+a durable execution-report path at `<working-directory>/.ailedger-output/run-<escaped-run-id>/execution_notes.md`,
+inside their existing write grant. Return that path and record findings through the bound tools;
+scratch paths are not retained evidence. This does not recover reports already deleted by older runs.
+
 The default-deny profile permits ordinary file reads outside hidden authority, process execution,
 forking, self-signals, limited system services and outbound TCP/UDP needed for provider transport.
 It also permits the exact `/private/var/run/mDNSResponder` socket required for macOS DNS resolution.
@@ -105,6 +110,11 @@ It does not grant arbitrary process inspection/tracing, signalling other process
 Apple events or external service launch. It is **not** a general network/data-exfiltration sandbox.
 Any reachable privileged host endpoint must authenticate its own callers; an unauthenticated local
 broker that executes commands as the owner is outside the supported deployment boundary.
+
+Listener binding is not granted, including loopback. VSTest and local HTTP mock servers therefore
+require an authorized host verification route. A `local tcp "localhost:*"` bind/inbound rule was
+tested on macOS and also admitted wildcard listeners and same-machine connections to the LAN
+address; it is not a demonstrated 127.0.0.1/::1-only boundary. Do not widen it automatically.
 
 The built-in version/help probes and Codex hook-trust preparation still run as trusted setup, before
 model input. Provider executables and their dependencies must therefore be trusted and protected

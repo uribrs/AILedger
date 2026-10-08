@@ -13,6 +13,49 @@ namespace AILedger.Tests.Providers;
 public sealed class ProviderIsolationTests
 {
     [Fact]
+    public async Task ListenerBindingsRemainDeniedByConfinement()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        using var root = new TemporaryDirectory();
+        const string script = """
+            import socket
+            for family, address in [(socket.AF_INET, ('127.0.0.1', 0)), (socket.AF_INET6, ('::1', 0)),
+                                    (socket.AF_INET, ('0.0.0.0', 0)), (socket.AF_INET6, ('::', 0)),
+                                    (socket.AF_UNIX, 'forbidden.socket')]:
+                with socket.socket(family) as server:
+                    try:
+                        server.bind(address)
+                    except PermissionError:
+                        continue
+                    raise AssertionError('Forbidden bind succeeded: ' + str(address))
+            print('PASS')
+            """;
+        var result = await RunAsync(new("/usr/bin/python3", root.Path, ["-c", script], "",
+            new Dictionary<string, string>(), TimeSpan.FromSeconds(15), new([root.Path], [], [])));
+        Assert.True(result.Exit == 0, result.Error);
+        Assert.Contains("PASS", result.Output);
+    }
+
+    [Fact]
+    public async Task SuppliedExecutionNotesPathSurvivesScratchCleanup()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        using var root = new TemporaryDirectory();
+        var request = ProviderProtocolTests.Request("codex", AgentLaunchMode.New, null) with
+        { WorkingDirectory = root.Path, RunId = new("notes-run"), Isolation = new([root.Path], [], []) };
+        var brief = AILedger.Providers.Adapters.GovernedExecutionBriefing.For(request, root.Path);
+        var notes = Path.Combine(root.Path, ".ailedger-output", "run-notes-run", "execution_notes.md");
+        Assert.Contains(notes, brief);
+        Assert.Contains("TMPDIR is deleted", brief);
+        var script = $"mkdir -p {Quote(Path.GetDirectoryName(notes)!)}; printf report > {Quote(notes)}; printf '%s' \"$TMPDIR\"";
+        var result = await RunAsync(new("/bin/sh", root.Path, ["-c", script], "", new Dictionary<string, string>(),
+            TimeSpan.FromSeconds(10), request.Isolation));
+        Assert.True(result.Exit == 0, result.Error);
+        Assert.False(Directory.Exists(result.Output.Trim()));
+        Assert.Equal("report", await File.ReadAllTextAsync(notes));
+    }
+
+    [Fact]
     public async Task CodexWorktreeIsWritableWhileOperatorConfigurationRemainsProtected()
     {
         if (!OperatingSystem.IsMacOS()) return;

@@ -80,6 +80,12 @@ changes after the producer's run begins refuse delayed consequential handoffs. E
 write also carries a task-version condition checked under storage's mutation lock. Candidate
 capture, independent verification and blind-review pairing retain their Part 4 boundaries.
 
+Scoped worker routing reports have one narrow concurrency exception: additive claims, evidence,
+alternatives and outcome/routing reports attributed to another worker on disjoint work may pass
+without invalidating the briefing. Evidence linked to the reporting worker's claim dependencies,
+operator writes and governing changes still refuse. Task-wide planning/decision/preparation checks
+remain conservative. Recording a worker report neither accepts it nor grants a downstream action.
+
 ## Enforceable deployment and setup
 
 The supported profile is **`macos-confined-cognitive-coordinator-v1`**, on a local macOS filesystem
