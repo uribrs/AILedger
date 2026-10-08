@@ -55,6 +55,11 @@ public sealed class RoslynSearchGuardTests
     [InlineData("find . -name '*.slnx'")]
     [InlineData("rg -g '*.py' Engine .")]
     [InlineData("rg --glob='*.yaml' Engine .")]
+    [InlineData("grep -n -A 18 -B 3 'cursor_recovery' ./*.yaml")]
+    [InlineData("rg Engine *.yaml")]
+    [InlineData("grep Engine setting?.yaml")]
+    [InlineData("rg Engine *.yaml *.txt")]
+    [InlineData("rg Engine *.yaml | head")]
     [InlineData("rg Pattern notes.txt > out.txt")]
     [InlineData("sed -n '1,80p' Engine.cs")]
     [InlineData("cat Engine.cs")]
@@ -81,6 +86,53 @@ public sealed class RoslynSearchGuardTests
         var hook = fixture.Grep(fixture.Repository);
         hook["tool_input"]!["glob"] = glob;
         Assert.Null(fixture.Evaluate(hook));
+    }
+
+    [Theory]
+    [InlineData("rg Engine *.yaml *.cs")]
+    [InlineData("rg Engine *.yaml .")]
+    [InlineData("rg Engine *.yaml; rg Engine Engine.cs")]
+    [InlineData("rg Engine $DIR/*.yaml")]
+    [InlineData("rg Engine */*.yaml")]
+    [InlineData("rg Engine *.{yaml,cs}")]
+    [InlineData("rg Engine *.c?")]
+    [InlineData("rg Engine absent*.yaml")]
+    public void NonCSharpGlobsDoNotHideCSharpOrAmbiguousTargets(string command)
+    {
+        using var fixture = new Fixture();
+        Assert.NotNull(fixture.Evaluate(fixture.Shell(command)));
+    }
+
+    [Theory]
+    [InlineData("yaml")]
+    [InlineData("custom")]
+    public void AllowsNonCSharpFilenameGlobsInSubdirectory(string extension)
+    {
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "Fixtures"));
+        for (var index = 0; index < 50; index++)
+            File.WriteAllText(Path.Combine(directory.FullName, $"fixture{index}.{extension}"), "cursor_recovery");
+        Assert.Null(fixture.Evaluate(fixture.Shell(
+            $"grep -n -A 18 -B 3 'cursor_recovery' Fixtures/*.{extension}")));
+    }
+
+    [Fact]
+    public void NonCSharpGlobChecksMatchingDirectories()
+    {
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "nested.yaml"));
+        File.WriteAllText(Path.Combine(directory.FullName, "Hidden.cs"), "class Hidden {}");
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("grep -r Hidden *.yaml")));
+    }
+
+    [Fact]
+    public void NonCSharpGlobChecksSymlinkTargets()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var fixture = new Fixture();
+        File.CreateSymbolicLink(Path.Combine(fixture.Repository, "linked.yaml"),
+            Path.Combine(fixture.OtherRepository, "Engine.cs"));
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("rg Engine *.yaml")));
     }
 
     [Fact]

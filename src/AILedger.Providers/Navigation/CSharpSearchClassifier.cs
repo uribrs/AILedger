@@ -192,8 +192,15 @@ internal static partial class CSharpSearchClassifier
             }
             else
             {
-                targets.Add(Resolve(argument, cwd));
-                opaque |= argument.IndexOfAny(['$', '`', '*', '?', '{']) >= 0;
+                if (TryResolveNonCSharpGlob(argument, cwd, out var matches))
+                {
+                    targets.AddRange(matches);
+                }
+                else
+                {
+                    targets.Add(Resolve(argument, cwd));
+                    opaque |= argument.IndexOfAny(['$', '`', '*', '?', '{', '[']) >= 0;
+                }
             }
         }
 
@@ -204,6 +211,30 @@ internal static partial class CSharpSearchClassifier
 
         return MaySearchCSharp(targets, opaque ? [] : filters)
             ? new Search(targets, !opaque) : null;
+    }
+
+    private static bool TryResolveNonCSharpGlob(string argument, string cwd, out string[] matches)
+    {
+        matches = [];
+        // Resolve only ordinary filename wildcards, never shell expansion or wildcard parents.
+        // Classify actual entries: a directory or symlink named *.yaml can still expose C#.
+        if (argument.IndexOfAny(['$', '`', '{', '}', '[', ']', '\\', '~', '(', ')']) >= 0)
+            return false;
+        var pattern = Path.GetFileName(argument);
+        var parent = Path.GetDirectoryName(argument);
+        var extension = Path.GetExtension(pattern);
+        if (pattern.IndexOfAny(['*', '?']) < 0 || parent?.IndexOfAny(['*', '?']) >= 0 ||
+            extension.Length < 2 || !extension[1..].All(char.IsAsciiLetterOrDigit) ||
+            extension.Equals(".cs", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var directory = Resolve(string.IsNullOrEmpty(parent) ? "." : parent, cwd);
+        if (!Directory.Exists(directory)) return false;
+        var entries = Directory.EnumerateFileSystemEntries(directory, pattern).Take(10001).ToArray();
+        // An unmatched glob may disappear under nullglob, causing rg to search the cwd.
+        if (entries.Length is 0 or > 10000) return false;
+        matches = entries.Select(entry => RoslynSolutionPaths.Canonicalize(entry)).ToArray();
+        return true;
     }
 
     private static bool MaySearchCSharp(IReadOnlyList<string> targets, IReadOnlyList<string> filters)
