@@ -370,6 +370,25 @@ verification or acceptance.
 See the [coordinator workflow](coordinator-operating-manual.md#http-mocks-and-host-proofs) and
 [host-service setup and recovery guide](host-services.md) for profile schemas, commands and limits.
 
+## Lessons and recon during execution and replanning
+
+Workers use recalled lessons already served in their brief as unverified context; they do not run
+lesson consultation. Link applicable findings/alternatives with `from_lesson`. The live cognitive
+tool schema omits consultation for ineligible roles/stages. Recon/reconsideration consultations
+belong to task-wide leads in Research/Design; research consultations belong to Researchers in Research.
+
+Recon/reconsideration consultation can send `claims: []`: the host binds the complete current claim
+set automatically. Research must name its investigated claims. Explicit consultation selections can
+contain up to 4096 claim references within the 128 KiB handoff bound. Recon still classifies every claim.
+
+A stale recon does not inherently require a separate recon-only launch. In Design, the eligible
+planning producer can perform reconsideration, assess changed claims and their consequences,
+consult recon against the final claim set, file a complete superseding recon, and revise the
+contract/plan in the same run. The replacement producer need not be the original recon actor.
+If planning introduces further claim changes, refresh again before returning. The host completes
+that run before requesting Scope. All-claim coverage, freshness, external research requirements,
+and completion gates remain in force; replacing only a digest is not reassessment.
+
 ## Persistence and recovery
 
 Each safe task ID becomes one directory:

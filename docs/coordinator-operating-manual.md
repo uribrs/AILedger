@@ -24,6 +24,8 @@ Interaction routing refreshed on 2026-09-29. The source commit above remains the
 anchor for unchanged guard citations; this refresh does not re-certify every cited line.
 Host-service operation added on 2026-10-08, checked against source commit `6d7ef7f` (2.0.198).
 Service citations below use that commit; this addition does not re-certify older sections.
+Consultation discovery and combined Design recon/planning guidance refreshed on 2026-10-08.
+These instructions preserve the existing role, stage, freshness and completed-producer gates.
 
 ## Quick reference
 
@@ -311,7 +313,15 @@ The recon binds a hash of every claim's id, statement, status, evidence ids and 
 The refusal is `InternalRecon: claimSetHash does not match the current claim set; refresh and
 supersede recon.` (`InternalReconRules.cs:37-39`).
 
-The cycle:
+**Guidance:** a changed claim set requires reassessment, not a separate agent launch. In Design,
+the current eligible task-wide planning lead can consult reconsideration, refresh recon and revise
+the contract/plan in one run. It can supersede recon written by another eligible lead; each new
+revision belongs to its actual producer. Preserve valid earlier findings, assess the changed claims
+and consequences, and still classify the complete claim set. Refresh again before returning if
+contract/plan authoring changes claims. The host completes the combined run before requesting Scope.
+Initial forward Design admission and external Researcher obligations remain separate prerequisites.
+
+The cycle (within that planning run when already in Design):
 
 1. The claim set changes (claim added, resolved, superseded).
 2. `ailedger artifact recon-template --task T > recon.json` — the template carries the new hash.
@@ -324,7 +334,9 @@ The cycle:
    `Artifacts/Logic/ArtifactRules.cs:64-67`). A claim change after the consultation needs a new one.
 5. From an active task-wide lead run, at Research or Design:
    `ailedger artifact record --task T --actor LEAD --run R --id IR2 --kind InternalRecon --title "Internal recon" --supersedes IR1 --body-stdin < recon.json`
-6. The launcher completes run R. Only then does the recon satisfy Design (`InternalReconRules.cs:81-82`).
+6. In Design, finish the contract/plan revisions in run R, refreshing recon again if they change
+   claims. The launcher completes run R. Only then does the recon satisfy forward admission
+   (`InternalReconRules.cs:81-82`). Do not stop the producer merely to launch another planner.
 
 Design never falls back to an older recon revision (`InternalReconRules.cs:67-73`). Resolving a claim
 during Design therefore needs a superseding recon before Design→Scope. Plan for it (judgment:
@@ -521,6 +533,14 @@ path. Ordinary VSTest can use the same host path. Recorded execution evidence do
 independent verification, acceptance or governed completion requirements.
 
 ## Reading and tooling
+
+**Guidance:** Workers consume recalled lessons in their briefs as unverified context and link
+applicable findings or alternatives with `from_lesson`. They do not initiate lesson consultation.
+No consultation purpose permits a Worker: recon/reconsideration belong to eligible task-wide
+leads in Research/Design; research belongs to Researchers in Research. Cognitive tool discovery
+omits lesson consultation when the bound run has no eligible purpose and lists only eligible
+purposes otherwise. This avoids inviting a forbidden operation; command admission remains the
+authority. A worker's missing context or new finding is reported through its normal handoff.
 
 ### Enforced
 

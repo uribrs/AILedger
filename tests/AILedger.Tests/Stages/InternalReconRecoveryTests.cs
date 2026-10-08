@@ -6,6 +6,48 @@ namespace AILedger.Tests.Stages;
 
 public sealed class InternalReconRecoveryTests
 {
+    [Fact]
+    public void OneNewPlanningProducerCanReconsiderRefreshReconAndReviseBothPlanningArtifacts()
+    {
+        var f = new InternalReconFixture();
+        f.Eligible();
+        f.Task.Transition(TaskStage.Design);
+        f.Task.RecordPromptContract();
+        f.Task.RecordOrchestrationPlan();
+        f.Task.Transition(TaskStage.Scope);
+        f.Resolve();
+        f.Task.Transition(TaskStage.Design);
+
+        var planner = new ActorId("replacement-planner");
+        f.Task.Assign(planner, RoleKind.PlanningLead, Capability.BuildContext, Capability.RecordArtifact);
+        var before = f.Task.State.Runs.Count;
+        var combined = new RunId("combined-replan");
+        f.Task.Apply(new StartRunCommand(f.Task.OperatorId, null, f.Task.NextCorrelation(), combined,
+            null, "codex", null, SubjectActorId: planner));
+        f.Task.ConsultLessons(planner, combined, LessonConsultationPurpose.Reconsideration);
+        f.Task.ConsultLessons(planner, combined, LessonConsultationPurpose.Recon);
+        f.Task.Apply(AILedger.Tests.Support.ArtifactCommands.Record(f.Task, planner, "fresh-recon",
+            GovernedArtifactKind.InternalRecon, f.Body(), producerRun: combined, supersedes: "recon"));
+        f.Task.Apply(AILedger.Tests.Support.ArtifactCommands.Record(f.Task, planner, "fresh-contract",
+            GovernedArtifactKind.PromptContract, producerRun: combined, supersedes: "A-contract"));
+        f.Task.Apply(AILedger.Tests.Support.ArtifactCommands.Record(f.Task, planner, "fresh-plan",
+            GovernedArtifactKind.OrchestrationPlan, AILedger.Tests.Support.ArtifactCommands.PlanBody,
+            producerRun: combined, supersedes: "A-plan"));
+
+        // Combining cognition does not admit an unfinished producer through the forward gate.
+        Assert.Throws<GovernanceException>(() => f.Task.Transition(TaskStage.Scope));
+        f.Task.Apply(new CompleteRunCommand(f.Task.OperatorId, null, f.Task.NextCorrelation(),
+            combined, AgentRunStatus.Completed, "combined-session"));
+        f.Task.Transition(TaskStage.Scope);
+        Assert.Equal(before + 1, f.Task.State.Runs.Count);
+        Assert.All(new[] { "fresh-recon", "fresh-contract", "fresh-plan" }, id =>
+            Assert.Equal(combined, f.Task.State.Artifacts[new ArtifactId(id)].ProducerRunId));
+        Assert.Equal(2, f.Task.State.LessonConsultations.Count(c => c.RunId == combined));
+        GovernedTaskState? replay = null;
+        foreach (var row in f.Task.Events) replay = new TaskReducer().Apply(replay, row);
+        Assert.Equal(TaskStage.Scope, replay!.Stage);
+    }
+
     [Theory]
     [InlineData(AgentRunStatus.Completed)]
     [InlineData(AgentRunStatus.Failed)]

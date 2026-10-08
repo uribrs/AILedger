@@ -1,5 +1,6 @@
 using AILedger.Cli.Cognitive;
 using AILedger.Cli.Dispatch;
+using AILedger.Cli.Findings;
 using AILedger.Core.Contracts;
 using AILedger.Tests.Findings;
 using AILedger.Tests.Support;
@@ -8,6 +9,31 @@ namespace AILedger.Tests.Orchestration;
 
 public sealed class ParallelWorkerHandoffTests
 {
+    [Fact]
+    public async Task WorkerToolDiscoveryDoesNotInviteForbiddenLessonConsultation()
+    {
+        using var f = await OpenAsync();
+        var state = await f.StateAsync();
+        var actor = new ActorId("worker1");
+        await using var session = ProviderFindingsSession.Start(f.Service(), f.Root, f.TaskId, actor,
+            new("R1"), null, "codex", state.Roles[actor], DateTimeOffset.UtcNow.AddMinutes(5));
+        using var relay = await CognitiveRelay.OpenAsync(session.Endpoint);
+        var tools = await relay.ToolsAsync();
+        var handoff = Assert.Single(tools.EnumerateArray().Where(t => t.GetProperty("name").GetString() == "cognitive_handoff"));
+        var kinds = handoff.GetProperty("inputSchema").GetProperty("properties").GetProperty("operation")
+            .GetProperty("oneOf").EnumerateArray().Select(o => o.GetProperty("properties").GetProperty("kind").GetProperty("const").GetString()).ToArray();
+        Assert.DoesNotContain("lesson_consultation", kinds);
+        Assert.DoesNotContain("recon_template", kinds);
+        Assert.Contains("routing_assessment", kinds);
+        Assert.Contains("No lesson consultation purpose", handoff.GetProperty("description").GetString());
+        var version = (await f.StateAsync()).Version;
+        var refused = await relay.HandoffAsync(new { kind = "lesson_consultation", purpose = "reconsideration",
+            question = "Misapplied worker consultation", tags = new[] { "routing" }, claims = Array.Empty<string>() });
+        Assert.Equal("refused", refused.GetProperty("status").GetString());
+        Assert.Equal(version, (await f.StateAsync()).Version);
+        await relay.FinishAsync();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

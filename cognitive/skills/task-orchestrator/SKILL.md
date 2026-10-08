@@ -1,6 +1,6 @@
 ---
 name: task-orchestrator
-version: 1.8.2
+version: 1.8.3
 description: Post-contract planning brain for non-trivial work. Reads the current PromptContract artifact, resolves external research, runs an internal recon pass, plans governed execution, reconciles assurance, and writes the cited closeout synthesis before lessons are marked. Use after `prompt-contract-designer` has produced a contract, typically invoked by `workflow-coordinator`.
 ---
 
@@ -169,6 +169,12 @@ The kernel refuses an InternalRecon unless its producer run recorded a recon les
 against the same claim set the document binds. Consult from the producer run itself, in Research or
 Design, after the last claim change and immediately before generating the template:
 
+For recon/reconsideration, claim references are optional (`claims: []` in the supplied tool).
+The host binds the whole current claim set automatically, even when no references are selected.
+This does not reduce the recon document's requirement to classify every claim. Research consultation
+must still name the claims being investigated. The tool accepts up to 4096 consultation references,
+subject to its 128 KiB request bound.
+
 ```bash
 ailedger lesson consult --task TASK --actor LEAD --run RECON-RUN --purpose recon \
   --question "<the question this recon answers>" --tag TAG [--tag TAG ...] [--claim CLAIM ...]
@@ -230,6 +236,19 @@ recon when the current revision is stale or its producer is ineligible. Return r
 launcher for the Design transition, then contract and plan authoring can proceed.
 
 ### Recover stale or missing recon through replanning
+
+In Design, perform a needed recon refresh within your current eligible task-wide planning run.
+The kernel does not require a recon-only run or the original recon actor. Consult reconsideration
+when the episode requires it, finish consequential claim changes, consult recon against the final
+claim set, obtain the fresh template and file your own superseding recon. Revise the contract and
+plan in the same run. If those revisions add or change claims, repeat the recon consultation and
+refresh before returning. The launcher completes your run before requesting Scope; you never
+complete it yourself. Preserve valid prior findings, reassess changed claims and their effects,
+and retain the complete all-claim classification. Do not merely replace the digest.
+
+A separate research run remains necessary when external questions require Researcher cognition.
+Initial forward Research-to-Design admission also still needs a completed eligible recon producer.
+Combining Design work does not waive either requirement or permit an unfinished producer to pass.
 
 Initial forward Research-to-Design admission is strict. Reasoned backward entry into Design is
 replanning access: it does not require current recon, completed external research or the

@@ -1,6 +1,6 @@
 ---
 name: contract-driven-execution
-version: 1.6.4
+version: 1.6.5
 description: Direct-path executor for non-trivial work that has a finalized prompt contract. Performs the implementation, refactoring, research-driven coding, or agent-workflow execution against the current PromptContract artifact and records findings in the governed task. Typically invoked by `task-orchestrator` on the direct execution path.
 ---
 
@@ -53,6 +53,13 @@ Read in this order:
 4. Any other `research/<topic-slug>.md` files referenced by the orchestration plan.
 
 Do not start a new task directory from inside this skill. If `taskPath` does not exist, stop and report.
+
+Workers do not initiate lesson consultation. No consultation purpose admits a Worker: recon and
+reconsideration belong to eligible task-wide leads in Research/Design, and research belongs to
+Researchers in Research. Read the recalled lessons already served in your brief as unverified
+context. When one informs a finding or rejected approach, record the link with `from_lesson` using
+the supplied recording tools. A newly discovered gap belongs in your findings and handoff; do not
+select a consultation purpose as an execution prerequisite or switch roles to obtain one.
 
 ### 2. Validate The Contract
 
@@ -143,5 +150,6 @@ retry the identical arguments after uncertainty, including when the first respon
 Conflicting content is refused. Declare when ready to return, not at every progress checkpoint.
 This records self-report only: it never closes your run/work item, resolves claims or accepts work.
 Missing historical declarations stay unknown. If the tool is unavailable, report that limit in your
-ordinary return; do not invent a declaration or impersonate the launcher. Existing report, consultation,
-claim/evidence, escalation and independent-assurance obligations continue to apply.
+ordinary return; do not invent a declaration or impersonate the launcher. Existing report,
+claim/evidence, escalation and independent-assurance obligations continue to apply. A Researcher
+retains its Research-stage consultation obligation; a Worker has no consultation obligation.

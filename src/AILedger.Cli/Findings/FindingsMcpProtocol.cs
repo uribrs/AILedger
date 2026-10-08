@@ -22,10 +22,10 @@ internal static class FindingsMcpProtocol
             serverInfo = new { name = "ailedger-findings", version = "1.0.0" } };
     }
 
-    internal static object Tools(bool alternatives = false, bool artifacts = false, bool dispositions = false, bool inspection = false, IReadOnlyList<string>? assurance = null, bool includeFindings = true, bool producerOutcome = false, bool cognitive = false)
+    internal static object Tools(bool alternatives = false, bool artifacts = false, bool dispositions = false, bool inspection = false, IReadOnlyList<string>? assurance = null, bool includeFindings = true, bool producerOutcome = false, bool cognitive = false, object? cognitiveDescription = null)
     {
         var tools = new List<object>();
-        if (cognitive) tools.Add(AILedger.Cli.Cognitive.CognitiveHandoffTools.Describe());
+        if (cognitive) tools.Add(cognitiveDescription ?? AILedger.Cli.Cognitive.CognitiveHandoffTools.Describe());
         if (includeFindings) tools.Add(FindingsTool());
         if (producerOutcome) tools.Add(ProducerOutcomeTool());
         if (assurance is not null) tools.AddRange(assurance.Select(AILedger.Cli.Assurance.AssuranceTools.Describe));

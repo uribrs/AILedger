@@ -15,6 +15,30 @@ internal sealed class CognitiveHandoffSession(IGovernedTaskService service, Cogn
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Dictionary<string, (string Body, HostHandoffReceipt Receipt)> _receipts = new(StringComparer.Ordinal);
 
+    internal async Task<object> DescribeAsync(CancellationToken token)
+    {
+        var state = await service.GetStateAsync(binding.TaskId, token).ConfigureAwait(false);
+        if (state is null || !state.Runs.TryGetValue(binding.RunId, out var run) ||
+            run.Status != AgentRunStatus.Active || run.ActorId != binding.Subject ||
+            !state.Roles.TryGetValue(binding.Subject, out var role) || role.Role != run.SubjectRole ||
+            !role.Capabilities.Contains(Capability.BuildContext))
+            return CognitiveHandoffTools.Describe();
+
+        // Discovery only. Command admission still checks the current role, stage and purpose;
+        // schema visibility cannot authorize a mutation or relax historical replay.
+        if (role.Role == RoleKind.Researcher && state.Stage == TaskStage.Research)
+            return CognitiveHandoffTools.Describe(["research"]);
+        if (run.WorkItemId is null && run.Assurance is null &&
+            role.Role is RoleKind.Operator or RoleKind.PlanningLead or RoleKind.ImplementationLead)
+            return CognitiveHandoffTools.Describe(state.Stage switch
+            {
+                TaskStage.Research => ["recon"],
+                TaskStage.Design => ["recon", "reconsideration"],
+                _ => []
+            });
+        return CognitiveHandoffTools.Describe();
+    }
+
     internal async Task<HostHandoffReceipt> InvokeAsync(CognitiveHostHandoff request, CancellationToken token)
     {
         var body = JsonSerializer.Serialize(request.Operation, request.Operation.GetType(), LedgerJson.CreateOptions());

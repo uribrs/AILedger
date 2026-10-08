@@ -21,6 +21,13 @@ internal sealed class CognitiveRelay : IDisposable
         Assert.False(response.TryGetProperty("error", out _), response.GetRawText());
         return response.GetProperty("result").GetProperty("structuredContent").Clone();
     }
+    internal async Task<JsonElement> ToolsAsync()
+    {
+        await _relay.SendAsync(JsonSerializer.Serialize(new { jsonrpc = "2.0", id = _id++, method = "tools/list" }));
+        var response = await _relay.ReadAsync();
+        Assert.False(response.TryGetProperty("error", out _), response.GetRawText());
+        return response.GetProperty("result").GetProperty("tools").Clone();
+    }
     internal Task<JsonElement> HandoffAsync(object operation, string? key = null) =>
         CallAsync("cognitive_handoff", new { request_id = key ?? Guid.NewGuid().ToString("N"), operation });
     internal async Task<string> EvidenceAsync()

@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.9.3
+version: 1.9.4
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -153,7 +153,7 @@ Do not ask Workers or external Researchers to file recon, and do not file it on 
 Consume the orchestrator's classifications without redoing them. If any assessment is external,
 route its required external research through `technical-researcher`: BOTH current eligible recon
 and completed real Researcher cognition are required, with no external claim still Open. After
-claim resolution or other claim-set changes, return to the recon producer for a fresh template,
+claim resolution or other claim-set changes, route an eligible lead to a fresh template,
 complete reassessment and explicit `--supersedes` revision from an active run; wait for that
 producer to complete too. All-internal recon requires no Researcher. A loose report, skipped map,
 older revision or provider-none run cannot satisfy the recon prerequisite. Keep the separate
@@ -162,14 +162,19 @@ eligibility on forward Research-to-Design and again on forward Design-to-Scope; 
 the operation.
 
 Once Design is admitted, continue contract authoring. If already in Design, consume the current
-recon and route any necessary refresh to its producer rather than repeating discovery.
+recon. When it is stale, have the eligible task-wide planning run refresh it while revising the
+contract/plan. Do not dispatch a recon-only run merely because the claim digest changed.
+The original recon actor does not own future revisions: the current eligible producer authors
+its own superseding revision, preserving prior findings and reassessing the changed claims and
+their consequences. The complete all-claim assessment and current consultation are still required.
 
 For downstream recovery, route the orchestrator through existing reasoned backward transitions.
 Backward Design entry permits replanning despite stale or missing recon; it does not authorize
 implementation. From Scope, retreat to Design with a nonblank reason, not directly to Research
 (the latter edge is illegal). For resolved internal changes or an empty claim set, route a fresh
-all-claim template and producer-owned recon revision in Design, then wait for its launcher to
-complete real cognition. Do not invent an Open claim or dispatch an unnecessary Researcher.
+all-claim template and producer-owned recon revision within the same Design planning run that
+revises the contract/plan and performs reconsideration. Wait for its launcher to complete the
+combined run before requesting Scope. Do not invent an Open claim or dispatch an unnecessary Researcher.
 Legacy tasks lacking recon file their first revision in Design; existing recon is explicitly
 superseded.
 
@@ -196,11 +201,14 @@ evaluate applicability yourself:
   such return. A Design-to-Research detour in first-pass planning opens no episode; one inside an
   open episode keeps it open.
 
-A refusal naming a consultation is a routing gap: dispatch the owning role. A consultation that
-served no lesson satisfies its point.
+A refusal naming a required consultation is a routing gap. Workers have no consultation purpose;
+do not route one to consultation merely because an advertised tool or generic instruction mentions
+lessons. Recalled lessons in a worker brief are context, not an invitation to run reconsideration.
+A required consultation that served no lesson satisfies its point. The eligible planning run can
+perform its own recon and reconsideration consultations without a separate dispatch for each.
 
-Before forward Design-to-Scope, reconcile any claim changes from contract/plan authoring and route
-recon refresh as needed. That exit checks the full Design predicate again, including both arms
+Before the planning run returns, have it reconcile claim changes from contract/plan authoring and
+refresh recon in that run as needed. Then request forward Design-to-Scope. That exit checks the full Design predicate again, including both arms
 when external, no Open external claim, current binding, successful real current producer and the
 alternative-or-accepted-decision prerequisite, plus the current PromptContract. Wait for the
 producer to complete and revise contract/plan as needed; backward entry cannot bypass this gate.

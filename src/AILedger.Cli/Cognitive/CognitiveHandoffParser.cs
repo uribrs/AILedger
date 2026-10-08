@@ -53,7 +53,8 @@ internal static class CognitiveHandoffParser
     {
         StrictJson.Members(op, ["kind", "purpose", "question", "tags", "claims"]);
         return new LessonConsultationHandoff(EnumValue<LessonConsultationPurpose>(op, "purpose"), Text(op, "question"),
-            Strings(op, "tags"), Strings(op, "claims").Select(id => new ClaimId(id)).ToArray());
+            Strings(op, "tags"), Strings(op, "claims", CognitiveHandoffTools.MaximumConsultationClaims)
+                .Select(id => new ClaimId(id)).ToArray());
     }
     private static CognitiveHostOperation Assessment(JsonElement op)
     {
@@ -93,7 +94,7 @@ internal static class CognitiveHandoffParser
             Text(op, "do_not"), EnumValue<LessonActor>(op, "lesson_actor"), EnumValue<VerifyExpectation>(op, "verify_expects"));
     }
     private static EvidenceId[] Evidence(JsonElement op) => Strings(op, "evidence_ids").Select(id => new EvidenceId(id)).ToArray();
-    private static string[] Strings(JsonElement op, string name) => FindingsRequestParser.Array(op.GetProperty(name), 16)
+    private static string[] Strings(JsonElement op, string name, int maximum = 16) => FindingsRequestParser.Array(op.GetProperty(name), maximum)
         .Select(value => value.ValueKind == JsonValueKind.String && value.GetString() is { Length: > 0 and <= 8192 } text
             ? text : throw new JsonException("Expected bounded nonempty strings.")).ToArray();
     private static string Text(JsonElement op, string name, int maximum = 8192)

@@ -108,10 +108,12 @@ public sealed partial class FindingsMcpServer
             if (method == "tools/list")
             {
                 if (parameters.ValueKind != JsonValueKind.Undefined) StrictJson.Members(parameters, [], ["_meta"]);
+                var cognitive = _host.Configuration.AllowCognitiveHandoffs && _host.Cognitive is not null
+                    ? await _host.Cognitive.DescribeAsync(connection.Token).ConfigureAwait(false) : null;
                 await SendAsync(FindingsMcpProtocol.Result(id!.Value, FindingsMcpProtocol.Tools(_host.Configuration.AllowRecordAlternatives && _host.Recorder is IAlternativesRecorder,
                     _host.Configuration.AllowSubmitArtifact && _host.Recorder is IArtifactSubmitter,
                     _host.Configuration.AllowRecordClaimDispositions && _host.Recorder is IClaimDispositionsRecorder,
-                    _host.Configuration.AllowInspect && _host.Recorder is ITaskInspector, _host.Assurance?.Operations, !_host.AssuranceOnly, _host.Configuration.AllowDeclareProducerOutcome && _host.Recorder is AILedger.Core.Contracts.IGovernedTaskService, _host.Configuration.AllowCognitiveHandoffs && _host.Cognitive is not null)), connection.Token)
+                    _host.Configuration.AllowInspect && _host.Recorder is ITaskInspector, _host.Assurance?.Operations, !_host.AssuranceOnly, _host.Configuration.AllowDeclareProducerOutcome && _host.Recorder is AILedger.Core.Contracts.IGovernedTaskService, cognitive is not null, cognitive)), connection.Token)
                     .ConfigureAwait(false);
                 return;
             }

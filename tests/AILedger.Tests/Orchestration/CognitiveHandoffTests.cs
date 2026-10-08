@@ -13,6 +13,89 @@ namespace AILedger.Tests.Orchestration;
 
 public sealed class CognitiveHandoffTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReconConsultationSupportsLargeClaimSetsWithOrWithoutExplicitSelection(bool selectClaims)
+    {
+        using var f = await CognitiveFixture.OpenAsync(TaskStage.Research);
+        var ids = Enumerable.Range(1, 45).Select(i => "claim-" + i).ToArray();
+        foreach (var id in ids)
+            await f.Ledger.ExecuteAsync(new AddClaimCommand(f.Lead, null, f.Run.Value,
+                new(id), "Observation " + id, "Recon must classify it"));
+        await using var session = await f.Session();
+        using var relay = await CognitiveRelay.OpenAsync(session.Endpoint);
+        var result = await relay.HandoffAsync(new { kind = "lesson_consultation", purpose = "recon",
+            question = "Lessons for the current task?", tags = new[] { "routing" }, claims = selectClaims ? ids : [] });
+        AssertRecorded(result);
+        var state = await f.Ledger.StateAsync();
+        var consultation = Assert.Single(state.LessonConsultations);
+        Assert.Equal(selectClaims ? 45 : 0, consultation.ClaimIds.Count);
+        Assert.Equal(InternalReconDocuments.ComputeClaimSetHash(state), consultation.ClaimSetHash);
+        await relay.FinishAsync();
+    }
+
+    [Fact]
+    public void ConsultationClaimCapacityMatchesDiscoveryAndRetainsBoundedInput()
+    {
+        var tool = JsonSerializer.SerializeToElement(CognitiveHandoffTools.Describe(["recon"]));
+        var operation = tool.GetProperty("inputSchema").GetProperty("properties").GetProperty("operation")
+            .GetProperty("oneOf").EnumerateArray().Single(o => o.GetProperty("properties")
+                .GetProperty("kind").GetProperty("const").GetString() == "lesson_consultation");
+        var maximum = operation.GetProperty("properties").GetProperty("claims").GetProperty("maxItems").GetInt32();
+        var body = JsonSerializer.SerializeToElement(new { request_id = "large-consultation", operation = new
+        {
+            kind = "lesson_consultation", purpose = "recon", question = "Lessons?", tags = new[] { "routing" },
+            claims = Enumerable.Range(0, maximum + 1).Select(i => "C" + i).ToArray()
+        } });
+        Assert.Throws<JsonException>(() => CognitiveHandoffParser.Parse(body));
+    }
+
+    [Theory]
+    [InlineData(TaskStage.Research, "recon")]
+    [InlineData(TaskStage.Design, "recon,reconsideration")]
+    [InlineData(TaskStage.Scope, "")]
+    public async Task LeadToolDiscoveryListsOnlyStageEligibleConsultationPurposes(TaskStage stage, string expected)
+    {
+        using var f = await CognitiveFixture.OpenAsync(stage);
+        await using var session = await f.Session();
+        using var relay = await CognitiveRelay.OpenAsync(session.Endpoint);
+        var purposes = ConsultationPurposes(await relay.ToolsAsync());
+        Assert.Equal(expected, string.Join(",", purposes));
+        await relay.FinishAsync();
+    }
+
+    [Fact]
+    public async Task ResearcherToolDiscoveryOffersResearchOnly()
+    {
+        using var f = await CognitiveFixture.OpenAsync(TaskStage.Research);
+        var actor = new ActorId("researcher");
+        var run = new RunId("research");
+        await f.Ledger.ExecuteAsync(new AssignRoleCommand(f.Ledger.Actor, null, "setup", actor,
+            RoleKind.Researcher, [Capability.BuildContext, Capability.AddClaim, Capability.AddEvidence]));
+        await f.Ledger.ExecuteAsync(new StartRunCommand(f.Ledger.Actor, null, "setup", run, null,
+            "codex", null, SubjectActorId: actor));
+        var state = await f.Ledger.StateAsync();
+        await using var session = ProviderFindingsSession.Start(f.Ledger.Service(), f.Ledger.Root,
+            f.Ledger.TaskId, actor, run, null, "codex", state.Roles[actor], DateTimeOffset.UtcNow.AddMinutes(5));
+        using var relay = await CognitiveRelay.OpenAsync(session.Endpoint);
+        Assert.Equal(new[] { "research" }, ConsultationPurposes(await relay.ToolsAsync()));
+        await relay.FinishAsync();
+    }
+
+    private static string[] ConsultationPurposes(JsonElement tools)
+    {
+        var tool = tools.EnumerateArray().Single(t => t.GetProperty("name").GetString() == "cognitive_handoff");
+        var operations = tool.GetProperty("inputSchema").GetProperty("properties").GetProperty("operation").GetProperty("oneOf");
+        foreach (var operation in operations.EnumerateArray())
+        {
+            var properties = operation.GetProperty("properties");
+            if (properties.GetProperty("kind").GetProperty("const").GetString() == "lesson_consultation")
+                return properties.GetProperty("purpose").GetProperty("enum").EnumerateArray().Select(p => p.GetString()!).ToArray();
+        }
+        return [];
+    }
+
     [Fact]
     public async Task ReconTemplateIsFreshReadOnlyAndSupportsProducerOwnedFiling()
     {

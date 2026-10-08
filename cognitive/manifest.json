@@ -17,7 +17,7 @@
     },
     {
       "path": "contract-driven-execution/SKILL.md",
-      "sha256": "cc1c7213809c598e3d9a01ac213db96e7f78830f5278a5b1b5dd2ed74f7020bd"
+      "sha256": "fcd30497c9ee0d5ed14bb56f775370af39b4009c8ccd1e584771a9527d5b43dc"
     },
     {
       "path": "prompt-contract-designer/SKILL.md",
@@ -25,7 +25,7 @@
     },
     {
       "path": "task-orchestrator/SKILL.md",
-      "sha256": "b7f348c406ffba14df4cda994868b2f8ad8b1ae980e9e904429775f2cbea5795"
+      "sha256": "4ceceb31b616883f28e8e05d781c031057e972059aed5ae78f2c339a58706184"
     },
     {
       "path": "task-orchestrator/references/orchestration-rubric.md",
@@ -49,7 +49,7 @@
     },
     {
       "path": "workflow-coordinator/SKILL.md",
-      "sha256": "9a5bc0689b0cbb896e950b16ae25450c6079ed8b237ce9792b435694f9dba257"
+      "sha256": "a3efdda8d031c6201a753fc8e8cf4d6f6caeecf4f114a6ed0efac51acad851a7"
     }
   ]
 }
