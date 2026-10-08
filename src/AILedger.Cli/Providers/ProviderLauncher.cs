@@ -23,14 +23,22 @@ internal sealed class ProviderLauncher(Func<string, IAgentAdapter> adapters, ICo
         };
         var dispatch = ProviderDispatchHost.Create(service, service, options, adapters, context, null, verification);
         var result = await dispatch.LaunchAsync(request, cancellationToken).ConfigureAwait(false);
+        if (result.Failure is not null)
+            await error.WriteLineAsync(ProviderLaunchSummary.FailureLine(result)).ConfigureAwait(false);
         if (result.Retention.Status == ResultRetentionStatus.Failed)
             await error.WriteLineAsync(result.Retention.Diagnostic).ConfigureAwait(false);
-        if (result.Started is not null && (result.Completed is not null || result.ProviderResult is not null))
+        // A failed retention must not discard the only recovery copy of a provider result.
+        var summarize = input.Flag("compact") && (result.ProviderResult is null || result.Retention.Status == ResultRetentionStatus.Retained);
+        if (summarize)
+            await executor.WriteProviderSummaryAsync(service, request.TaskId, request.ActorId, request.RunId,
+                ProviderLaunchSummary.Create(result)).ConfigureAwait(false);
+        else if (result.Started is not null && (result.Completed is not null || result.ProviderResult is not null))
             await executor.WriteProviderReturnAsync(service, request.TaskId, request.ActorId, request.RunId,
                 result.ProviderResult, mode != AgentLaunchMode.Resume).ConfigureAwait(false);
         if (result.Failure?.Kind == DispatchFailureKind.CompletionRecordingFailed && result.ProviderResult is not null)
             throw new IOException($"Provider run '{request.RunId}' returned a terminal result, but its Ledger run could not be closed. " +
-                "The provider result was written to standard output for recovery.", result.Error);
+                (summarize ? "The retained provider result path is in the summary for recovery." :
+                    "The provider result was written to standard output for recovery."), result.Error);
         if (result.Error is not null) ExceptionDispatchInfo.Capture(result.Error).Throw();
     }
 

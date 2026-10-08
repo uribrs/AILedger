@@ -9,6 +9,9 @@ internal sealed class RunCliCommands(CliCommandExecutor executor)
     public IEnumerable<CliCommandRegistration> Registrations()
     {
         yield return new CliCommandRegistration(
+            ["run watch"], CliCommandOptions.Set("root", "task", "actor", "run", "since", "json"),
+            isReadOnly: true, new RunWatcher(executor).WatchAsync);
+        yield return new CliCommandRegistration(
             ["run start"],
             CliCommandOptions.Set(
                 "root", "task", "actor", "subject", "run", "work", "provider", "session",

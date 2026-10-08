@@ -36,7 +36,7 @@ public sealed class CliCommandCatalogTests
                 "context build", "decision propose",
                 "decision resolve", "escalation raise", "escalation resolve", "evidence add", "handoff index", "handoff prepare", "handoff retrieve", "history",
                 "lesson consult", "lesson mark", "lesson recheck", "orchestrate coverage", "orchestrate intake", "orchestrate reconcile-stopped", "orchestrate run", "preflight batch", "provider launch", "provider resume", "retrospective build",
-                "retrospective record", "run complete", "run start", "session complete", "session start",
+                "retrospective record", "run complete", "run start", "run watch", "session complete", "session start",
                 "stage transition", "status", "task cleanup apply", "task cleanup plan", "task history",
                 "task open", "task status", "verification run", "version", "who",
                 "work abandon", "work add", "work block", "work complete", "work unblock"

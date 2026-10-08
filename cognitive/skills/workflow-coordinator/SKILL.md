@@ -104,6 +104,14 @@ The task id, actor, run, role, `taskPath`, and context manifest must be present.
 stop and ask the operator to launch or re-brief the run through `ailedger provider launch` or
 `ailedger context build`. Do not create a parallel task directory or ledger.
 
+For authorized operator CLI use, `provider launch --compact` keeps the result concise and preserves
+the next-action contract and retained-detail path. `run watch --task TASK --run RUN` follows an admitted
+run until its ledger status is terminal; `history --task TASK --follow --since VERSION` follows the
+whole task. Neither command grants authority or changes a run. The launch briefing gate checks the
+recorded brief and current served skills, not a requirement to mechanically rebuild before every
+dispatch. Read the brief, refresh for changed context, and satisfy the actual refusal; never use a
+display option as a briefing waiver.
+
 ### 1. Resolve taskPath
 
 Use the `taskPath` supplied by the kernel and pass it unchanged to downstream skills. The coordinator

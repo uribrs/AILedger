@@ -386,6 +386,11 @@ Then:
   ```
 
   Runs against **one** work item are sequential by kernel rule; runs against **different** work items are not. That is why one governed work item per disjoint scope is a requirement and not a style preference — it is what makes the phase launchable at once.
+  For authorized operator CLI launches, add `--compact` to receive compact results, retained-detail
+  paths and the existing next-action contract. After admission, `ailedger run watch --task TASK --run R1`
+  follows recorded activity and exits when the ledger records termination; `--json` emits JSON lines.
+  Use `history --task TASK --follow --since VERSION` for the whole task. Do not write a separate polling
+  script. These are observations, never completion authority or proof that a process has terminated.
 - Reassemble the finished pieces in the main thread before verification.
 
 ### Worker Continuity — Fresh vs Resumed

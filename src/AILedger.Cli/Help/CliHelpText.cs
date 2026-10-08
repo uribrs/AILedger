@@ -36,6 +36,11 @@ internal static class CliHelpText
                            Role coverage names, per role, the actors assigned to it and whether a
                            completed run has carried it, which is the staffing a stage arm requires.
         history            --task ID [--follow] [--since VERSION]
+        run watch          --task ID --run ID [--since VERSION] [--json]
+                           Read-only: shows run start/completion and subject writes correlated to that run.
+                           Stops on recorded terminal status; Ctrl-C stops watching without cancelling the run.
+                           Start after admission. --json emits one compact observation per line.
+                           Uncorrelated writes are not attributed; use history --follow for the whole task.
         retrospective build --task ID [--coordinator-session ID --coordinator-transcript PATH] [--findings] [--findings-telemetry DIRECTORY] [--alternatives] [--alternatives-telemetry DIRECTORY] [--orchestration]
                            [--artifacts] [--artifacts-telemetry DIRECTORY] [--dispositions] [--dispositions-telemetry DIRECTORY]
                            (what governance did on one task and what it cost)
@@ -213,6 +218,13 @@ internal static class CliHelpText
                           --also-work ID (repeatable) --candidate SHA256 --verifier-run ID
                           --max-context-bytes N (default 262144; required context must fit)
                           --assurance-authority FILE --assurance-store DIR (both; fresh launch only)
+                          --compact (compact JSON result with next actions and retained-details path)
+
+        Launch failures print a one-line run/status/diagnostic summary on stderr. Existing full JSON
+        output and exit codes remain the default. --compact omits the provider transcript only when
+        retained successfully; retention failure preserves the full recovery result on stdout.
+        Provider status and ledger completion are separate: an unconfirmed close is never success.
+        While a run is active, use run watch --task ID --run ID instead of polling status yourself.
 
         Context prioritizes selected work and its dependencies, omits obsolete claims/decisions unless
         still required, and preserves role isolation. The byte budget may omit background lessons/marks;
@@ -259,6 +271,10 @@ internal static class CliHelpText
         digests are recomputed from, and a root that cannot be read is refused rather than waved
         through: a brief nobody can check is not a current brief. context build itself is never
         gated, so a fresh task is always openable.
+        This gate does not demand a rebuild before every launch when the served skills are unchanged.
+        Build and read the brief initially and refresh when its instructions or task context change;
+        follow the exact missing/stale prerequisite reported by a refusal. A readiness observation
+        never grants a launch, and none of the display or watch options builds or waives a brief.
 
         Two doors open that gate, because an absent brief and a stale one are different failures.
         --without-brief REASON is the operator's decision to proceed with no brief at all: only an
