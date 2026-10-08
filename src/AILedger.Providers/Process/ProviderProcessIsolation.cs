@@ -22,7 +22,9 @@ public static class ProviderProcessIsolation
         EnsureSupported();
         var environment = new Dictionary<string, string>(invocation.Environment)
         {
-            ["TMPDIR"] = scratch, ["TMP"] = scratch, ["TEMP"] = scratch
+            ["TMPDIR"] = scratch, ["TMP"] = scratch, ["TEMP"] = scratch,
+            // Claude defaults its internal shell files to /tmp on macOS, ignoring TMPDIR.
+            ["CLAUDE_CODE_TMPDIR"] = scratch
         };
         var writable = isolation.WritableDirectories.Append(scratch).Select(Canonical).Distinct().ToArray();
         var hidden = isolation.HiddenPaths.Select(Canonical).Distinct().ToArray();

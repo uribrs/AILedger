@@ -129,6 +129,34 @@ public sealed class ProviderStartupIsolationTests
         Assert.Contains("PASS", result.Output);
     }
 
+    [Fact]
+    public async Task ClaudeInternalTempFilesUsePrivateScratchAndAreCleanedUp()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        using var work = new TemporaryDirectory();
+        using var external = new TemporaryDirectory();
+        const string script = """
+            import os
+            scratch = os.environ['CLAUDE_CODE_TMPDIR']
+            assert scratch == os.environ['TMPDIR']
+            directory = os.path.join(scratch, 'claude-' + str(os.getuid()), 'shell')
+            os.makedirs(directory)
+            with open(os.path.join(directory, 'probe'), 'w') as output:
+                output.write('private shell file')
+            print(scratch)
+            """;
+        var result = await ProviderIsolationTests.RunAsync(new("/usr/bin/python3", work.Path, ["-c", script], "",
+            new Dictionary<string, string> { ["CLAUDE_CODE_TMPDIR"] = external.Path },
+            TimeSpan.FromSeconds(15), new([work.Path], [], [])));
+
+        Assert.True(result.Exit == 0, result.Error);
+        var scratch = result.Output.Trim();
+        Assert.NotEmpty(scratch);
+        Assert.NotEqual(external.Path, scratch);
+        Assert.False(Directory.Exists(scratch));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(external.Path));
+    }
+
     private sealed class RuntimeProbeRunner : IProcessRunner
     {
         private readonly ScriptedProcessRunner capabilities = new ScriptedProcessRunner()
