@@ -73,6 +73,7 @@ public sealed class ArtifactSubmissionProviderTests
         var body = System.Text.Json.Nodes.JsonNode.Parse(Body())!; body[field] = value;
         var response = await ExchangeAsync(f, body.ToJsonString());
         Assert.Equal("invalid_request", response.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal("not_committed", response.GetProperty("error").GetProperty("commit_state").GetString());
         Assert.DoesNotContain((await f.StateAsync()).Artifacts.Keys, id => id.Value.StartsWith("AS_", StringComparison.Ordinal));
     }
 

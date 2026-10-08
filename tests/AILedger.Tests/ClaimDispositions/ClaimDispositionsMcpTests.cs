@@ -32,6 +32,7 @@ public sealed class ClaimDispositionsMcpTests
         var before = await File.ReadAllBytesAsync(f.Ledger.EventsPath);
         var response = await f.RecordAsync(body);
         Assert.Equal("invalid_request", response.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal("not_committed", response.GetProperty("error").GetProperty("commit_state").GetString());
         Assert.Equal(before, await File.ReadAllBytesAsync(f.Ledger.EventsPath));
         Assert.False(Assert.Single(await f.AttemptsAsync()).GetProperty("application_entered").GetBoolean());
     }

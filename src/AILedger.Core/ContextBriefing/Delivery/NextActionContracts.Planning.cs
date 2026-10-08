@@ -19,7 +19,7 @@ public static partial class NextActionContracts
              "technical-researcher; StagePrerequisiteRules.EnsureResearchConsulted"), HostPreparation()]);
 
     private static ActionContract Plan(GovernedTaskState state) => new(
-        "author/revise planning contract before planning dispatch", "Operator", "PlanningLead/ImplementationLead",
+        PlanningAction(state), "Operator", "PlanningLead/ImplementationLead",
         OrchestrationPlanDocuments.AttentionTableTemplate +
         "| R1 | descriptive-name | failure | cause and impact | test: named artifact | citation |\n" +
         $"Or state '{OrchestrationPlanDocuments.NoMaterialAttentionItems} — <task-specific reason>'. " +
@@ -32,6 +32,16 @@ public static partial class NextActionContracts
          Guidance("planning-sections", "Preflight Evidence; Source Obligation Map; Proposed Change Walkthrough; Consequential Assumptions and Recon Stop. These four sections are workflow guidance: current plan admission does not enforce their schemas. PromptContract guidance: Role, Goal, Context, Constraints, Success Criteria, Execution Rules, Output Format, Stop Conditions.",
              "task-orchestrator; workflow-coordinator; prompt-contract-designer"),
          Guidance("replanning", "After returning from a later stage, complete reconsideration lesson consultation in the new episode before Scope; refresh recon when claim hash changes. Do not waive recon/consultations.", "StagePrerequisiteRules; task-orchestrator")]);
+
+    private static string PlanningAction(GovernedTaskState state)
+    {
+        var current = ArtifactRevisionRules.Current(state);
+        if (!current.Any(artifact => artifact.Kind == GovernedArtifactKind.PromptContract))
+            return "author/revise planning contract before planning dispatch";
+        return current.Any(artifact => artifact.Kind == GovernedArtifactKind.OrchestrationPlan)
+            ? "reconcile planning prerequisites before execution"
+            : "author orchestration plan from the current prompt contract";
+    }
 
     private static ContractRequirement PlanShape(GovernedTaskState state)
     {

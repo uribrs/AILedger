@@ -16,6 +16,19 @@ public sealed class RoslynSearchGuardTests
     [InlineData("rg -g '*.py' Engine .\nrg Engine .")]
     [InlineData("bash -lc 'rg Engine Engine.cs'")]
     [InlineData("sh -c 'rg Engine Engine.cs'")]
+    [InlineData("python3 -c 'from pathlib import Path; print(Path(\"Engine.cs\").read_text())'")]
+    [InlineData("python3 -c 'import glob; print(glob.glob(\"*.cs\"))'")]
+    [InlineData("python3 -c 'import os; os.system(\"rg Engine Engine.cs\")'")]
+    [InlineData("python3 scan.py Engine.cs")]
+    [InlineData("node -e 'console.log(require(\"fs\").readFileSync(\"Engine.cs\",\"utf8\"))'")]
+    [InlineData("cat *.cs | head")]
+    [InlineData("find . -name '*.cs' | xargs cat")]
+    [InlineData("python3 -c 'print(f\"{open(\"Engine.cs\").read()}\")'")]
+    [InlineData("python3 - <<PY\nprint(\"$(cat Engine.cs)\")\nPY")]
+    [InlineData("python3 - <<'PY'\nfrom pathlib import Path\nprint(Path('Engine.cs').read_text())\nPY")]
+    [InlineData("python3 - <<'PY'\nprint('report Engine.cs')\nPY\nrg Engine Engine.cs")]
+    [InlineData("python3 - << PY\nprint('report')\nPY\nrg Engine Engine.cs")]
+    [InlineData("python3 -c 'print(1)' '<<PY' ; rg Engine Engine.cs")]
     public void DeniesShellContentSearchesInMixedRepositoryWithoutFailure(string command)
     {
         using var fixture = new Fixture();
@@ -47,6 +60,9 @@ public sealed class RoslynSearchGuardTests
     [InlineData("cat Engine.cs")]
     [InlineData("dotnet build App.slnx")]
     [InlineData("dotnet test App.slnx")]
+    [InlineData("python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' 'Report: Engine.cs; open read_text rg grep xargs cat *.cs'")]
+    [InlineData("python3 -c 'import hashlib; print(hashlib.sha256(b\"Engine.cs open read_text rg grep xargs cat *.cs\").hexdigest())'")]
+    [InlineData("python3 - <<'PY'\nimport hashlib\nprint(hashlib.sha256(b'Engine.cs open read_text rg grep xargs cat *.cs').hexdigest())\nPY")]
     public void AllowsDiscoveryNonCSharpReadsAndBuildsWithoutSpendingFallback(string command)
     {
         using var fixture = new Fixture();

@@ -39,6 +39,37 @@ internal static partial class CSharpSearchClassifier
         for (var index = 0; index < tokens.Length; index++)
         {
             var name = Path.GetFileName(tokens[index]);
+            if (name == "xargs" && command.Contains(".cs", StringComparison.OrdinalIgnoreCase))
+                searches.Add(new Search([cwd], false));
+            if (name == "cat")
+            {
+                var arguments = tokens.Skip(index + 1).TakeWhile(value => value is not (";" or "&&" or "||" or "|"));
+                if (arguments.Any(value => value.Contains('*') && value.Contains(".cs", StringComparison.OrdinalIgnoreCase)))
+                    searches.Add(new Search([cwd], false));
+            }
+            if (ScriptInterpreter().IsMatch(name))
+            {
+                var scriptEnd = index + 1;
+                while (scriptEnd < tokens.Length && tokens[scriptEnd] is not (";" or "&&" or "||" or "|")) scriptEnd++;
+                var arguments = tokens[(index + 1)..scriptEnd];
+                if (command.Contains(".cs", StringComparison.OrdinalIgnoreCase) &&
+                    MayScanFiles(arguments, command))
+                    searches.Add(new Search([cwd], false));
+                // A heredoc is interpreter input, not a sequence of shell commands. Do not
+                // mistake words such as "rg" inside a report literal for executable commands.
+                var heredoc = arguments.Contains("-")
+                    ? arguments.FirstOrDefault(value => value.StartsWith("<<", StringComparison.Ordinal)) : null;
+                if (heredoc is not null)
+                {
+                    var delimiter = Unquote(heredoc[2..].TrimStart('-'));
+                    var close = Array.FindIndex(tokens, scriptEnd, token => token == delimiter);
+                    if (delimiter.Length == 0 || close < 0)
+                        searches.Add(new Search([cwd], false)); // Ambiguous input cannot hide following commands.
+                    scriptEnd = close < 0 ? tokens.Length : close + 1;
+                }
+                index = scriptEnd - 1;
+                continue;
+            }
             if (name == "git" && index + 2 < tokens.Length && tokens[index + 1] == "-C")
             {
                 cwd = Resolve(tokens[index + 2], cwd);
@@ -84,20 +115,27 @@ internal static partial class CSharpSearchClassifier
 
         if (searches.Count == 0)
         {
-            // Catch explicit scripted/bulk C# scans without confusing a targeted source read
-            // with a symbol search. Opaque scripts remain outside this classifier's coverage.
-            if (command.Contains(".cs", StringComparison.OrdinalIgnoreCase) &&
-                ScriptOrBulkScan().IsMatch(command))
-            {
-                return new Search([cwd], false);
-            }
-
             return null;
         }
 
         var targets = searches.SelectMany(search => search.Targets).Distinct(RoslynSolutionPaths.Comparer).ToArray();
         var compound = tokens.Any(token => token is ";" or "&&" or "||" or "|");
         return new Search(targets, searches.Count == 1 && !compound && searches[0].CanUseFallback);
+    }
+
+    private static bool MayScanFiles(string[] arguments, string command)
+    {
+        var inline = Array.FindIndex(arguments, value => value is "-c" or "-e" or "--eval");
+        var script = inline >= 0 && inline + 1 < arguments.Length ? arguments[inline + 1]
+            : arguments.Contains("-") && command.Contains("<<", StringComparison.Ordinal) ? command : null;
+        if (script is null) return true; // Opaque script files cannot establish a harmless data operation.
+        if (script.Contains("$(", StringComparison.Ordinal) || script.Contains('`') || InterpolatedLiteral().IsMatch(script))
+            return true; // Executable interpolation must not disappear with ordinary string data.
+
+        // Inline report data can contain .cs paths and even quoted search commands. Only inspect
+        // executable script text for file access/evaluation, not literals or trailing data arguments.
+        // This remains a heuristic, not a sandbox for arbitrary programs.
+        return ScriptFileAccess().IsMatch(ScriptLiterals().Replace(script, " "));
     }
 
     private static Search? ClassifyArguments(string[] arguments, string cwd)
@@ -227,6 +265,12 @@ internal static partial class CSharpSearchClassifier
     private static partial Regex KnownFlag();
     [GeneratedRegex(@"^\*\.(?:py|js|ts|tsx|jsx|json|ya?ml|md|txt|xml|toml|sh|html|css|sql|csv)$", RegexOptions.IgnoreCase)]
     private static partial Regex NonCSharpGlob();
-    [GeneratedRegex(@"\b(?:python[0-9.]*|node|perl|awk|xargs)\b|\bcat\s+[^;|]*\*[^\s]*\.cs", RegexOptions.IgnoreCase)]
-    private static partial Regex ScriptOrBulkScan();
+    [GeneratedRegex(@"^(?:python[0-9.]*|node|perl|awk)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ScriptInterpreter();
+    [GeneratedRegex("\"\"\"[\\s\\S]*?\"\"\"|'''[\\s\\S]*?'''|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'")]
+    private static partial Regex ScriptLiterals();
+    [GeneratedRegex("\\b(?:f|fr|rf)[\"']", RegexOptions.IgnoreCase)]
+    private static partial Regex InterpolatedLiteral();
+    [GeneratedRegex(@"\b(?:open|read|readline|readlines|read_text|read_bytes|glob|rglob|iglob|walk|listdir|scandir|readFile\w*|readdir\w*|createReadStream|eval|exec|execfile|system|popen|spawn\w*|subprocess|require|import_module|__import__)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex ScriptFileAccess();
 }

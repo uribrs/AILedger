@@ -69,6 +69,13 @@ This gives process-crash recovery under the existing local-filesystem guarantees
 
 Errors have `status: "error"`, `attempt_id`, and `error` with `code`, `message`, `boundary`, `commit_state`, `retry`, nullable `item_path`, and nullable `rule_id`. `commit_state` is `not_committed`, `committed`, or `unknown`; inability to check a protected receipt is `unknown`, never a claim that it does not exist. An authorized conflict proves an earlier key use committed but the new content did not; use `committed` and explain that distinction. No failure receipt is persisted as a successful idempotency result.
 
+Wire validation rejected before application entry returns `boundary: "request"`,
+`commit_state: "not_committed"` and `retry: "after_correction"`, with a field path where known.
+Unknown-field diagnostics name allowed schema fields without echoing field values. This describes
+the rejected attempt only; it does not reconcile an earlier unknown attempt under the same key.
+The same pre-admission distinction applies to alternatives, claim dispositions and artifact
+submission. Binding failures and uncertain application outcomes retain their existing semantics.
+
 | Code | Boundary and behavior |
 |---|---|
 | `invalid_request` | Request shape, duplicates, nonblank fields, keys, or limits; correct a rejected request. First reconcile any earlier unknown attempt with its original body/key before submitting revised content under a new key |

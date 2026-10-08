@@ -22,8 +22,8 @@ public sealed partial class FindingsMcpServer
         {
             var error = e as FindingsRequestException;
             return new(attempt.Id, null, false, new(error?.Code ?? "invalid_request",
-                error?.Message ?? "Expected the exact record_alternatives v1 request shape and valid Unicode.",
-                "request", "unknown", "after_correction", error?.ItemPath));
+                error?.Message ?? (e is JsonException { Path: not null } shape ? shape.Message : null) ?? "Expected the exact record_alternatives v1 request shape and valid Unicode.",
+                "request", "not_committed", "after_correction", error?.ItemPath ?? (e as JsonException)?.Path));
         }
         AlternativesBinding binding;
         try

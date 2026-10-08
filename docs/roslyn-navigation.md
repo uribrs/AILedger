@@ -53,6 +53,12 @@ and explicit non-C# filters such as `rg -g '*.yaml' ...` remain available. Broad
 must narrow their file filters if they are intended only for non-C# content. The classifier
 conservatively treats unknown directory coverage as potentially C#.
 
+Inline interpreter code that processes report literals or arguments (for example, computing a
+SHA-256 over retrieved JSON containing `.cs` citations) is not a source search. The script heuristic
+examines file access or evaluation in executable code rather than treating the interpreter name
+and a `.cs` mention anywhere as sufficient. Opaque script files, executable interpolation and
+explicit bulk source scans remain conservative refusals. This heuristic is not a filesystem sandbox.
+
 A failed authorized Roslyn load or query records a receipt through the bridge. One receipt
 permits **one simple CLI search within that solution directory for ten minutes**. Compound
 commands and ambiguous targets cannot consume it. Receipts are claimed atomically, cannot

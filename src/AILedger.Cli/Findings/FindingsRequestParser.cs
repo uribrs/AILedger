@@ -17,8 +17,10 @@ internal static class FindingsRequestParser
         var version = body.GetProperty("schema_version");
         if (!IsVersionOne(version))
             throw new JsonException("Expected schema_version 1.");
-        var findings = Array(body.GetProperty("findings"), 32).Select(Finding).ToArray();
-        var evidence = Array(body.GetProperty("evidence"), 64).Select(Evidence).ToArray();
+        var findings = Array(body.GetProperty("findings"), 32, "findings")
+            .Select((item, index) => Finding(item, $"findings[{index}]")).ToArray();
+        var evidence = Array(body.GetProperty("evidence"), 64, "evidence")
+            .Select((item, index) => Evidence(item, $"evidence[{index}]")).ToArray();
         return FindingsValidation.Snapshot(new(1, StrictJson.Text(body, "request_id"), findings, evidence));
     }
 
@@ -39,40 +41,43 @@ internal static class FindingsRequestParser
         return significant == "1" && (long)exponent + digits.Length - significant.Length - scale == 0;
     }
 
-    private static FindingInput Finding(JsonElement item)
+    private static FindingInput Finding(JsonElement item, string path)
     {
-        StrictJson.Members(item, ["key", "statement"], ["consequence_if_wrong", "from_lesson"]);
-        return new(StrictJson.Text(item, "key"), StrictJson.Text(item, "statement"),
-            OptionalText(item, "consequence_if_wrong"), OptionalText(item, "from_lesson"));
+        StrictJson.Members(item, ["key", "statement"], ["consequence_if_wrong", "from_lesson"], path);
+        return new(StrictJson.Text(item, "key", path), StrictJson.Text(item, "statement", path),
+            OptionalText(item, "consequence_if_wrong", path), OptionalText(item, "from_lesson", path));
     }
 
-    private static EvidenceInput Evidence(JsonElement item)
+    private static EvidenceInput Evidence(JsonElement item, string path)
     {
-        StrictJson.Members(item, ["key", "source_type", "citation", "summary", "supports", "refutes"]);
-        return new(StrictJson.Text(item, "key"), StrictJson.Text(item, "source_type"),
-            StrictJson.Text(item, "citation"), StrictJson.Text(item, "summary"),
-            Array(item.GetProperty("supports"), 64).Select(Reference).ToArray(),
-            Array(item.GetProperty("refutes"), 64).Select(Reference).ToArray());
+        StrictJson.Members(item, ["key", "source_type", "citation", "summary", "supports", "refutes"], path: path);
+        return new(StrictJson.Text(item, "key", path), StrictJson.Text(item, "source_type", path),
+            StrictJson.Text(item, "citation", path), StrictJson.Text(item, "summary", path),
+            Array(item.GetProperty("supports"), 64, path + ".supports")
+                .Select((value, index) => Reference(value, $"{path}.supports[{index}]")).ToArray(),
+            Array(item.GetProperty("refutes"), 64, path + ".refutes")
+                .Select((value, index) => Reference(value, $"{path}.refutes[{index}]")).ToArray());
     }
 
-    private static FindingReference Reference(JsonElement item)
+    private static FindingReference Reference(JsonElement item, string path)
     {
-        StrictJson.Members(item, [], ["finding", "claim_id"]);
-        if (item.EnumerateObject().Count() != 1) throw new JsonException("Expected exactly one reference target.");
-        return item.TryGetProperty("finding", out _) ? new(Finding: StrictJson.Text(item, "finding"))
-            : new(ClaimId: StrictJson.Text(item, "claim_id"));
+        StrictJson.Members(item, [], ["finding", "claim_id"], path);
+        if (item.EnumerateObject().Count() != 1)
+            throw new JsonException("Expected exactly one reference target.", path, null, null);
+        return item.TryGetProperty("finding", out _) ? new(Finding: StrictJson.Text(item, "finding", path))
+            : new(ClaimId: StrictJson.Text(item, "claim_id", path));
     }
 
-    internal static JsonElement.ArrayEnumerator Array(JsonElement value, int maximum)
+    internal static JsonElement.ArrayEnumerator Array(JsonElement value, int maximum, string path = "$")
     {
         if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() > maximum)
-            throw new JsonException($"Expected an array with at most {maximum} items.");
+            throw new JsonException($"Expected an array with at most {maximum} items.", path, null, null);
         return value.EnumerateArray();
     }
 
-    internal static string? OptionalText(JsonElement item, string name) =>
+    internal static string? OptionalText(JsonElement item, string name, string path = "") =>
         !item.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null
-            ? null : StrictJson.Text(item, name);
+            ? null : StrictJson.Text(item, name, path);
 }
 
 internal static class StrictJson
@@ -86,7 +91,7 @@ internal static class StrictJson
         return JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 });
     }
 
-    internal static void Validate(JsonElement value)
+    internal static void Validate(JsonElement value, string path = "")
     {
         switch (value.ValueKind)
         {
@@ -94,12 +99,14 @@ internal static class StrictJson
                 var names = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var property in value.EnumerateObject())
                 {
-                    if (!names.Add(property.Name)) throw new JsonException("Duplicate JSON property.");
-                    Validate(property.Value);
+                    var location = PropertyPath(path, property.Name);
+                    if (!names.Add(property.Name)) throw new JsonException("Duplicate JSON property.", location, null, null);
+                    Validate(property.Value, location);
                 }
                 break;
             case JsonValueKind.Array:
-                foreach (var item in value.EnumerateArray()) Validate(item);
+                var index = 0;
+                foreach (var item in value.EnumerateArray()) Validate(item, $"{path}[{index++}]");
                 break;
             case JsonValueKind.String:
                 _ = value.GetString(); // Reject invalid escaped surrogate sequences, without replacement.
@@ -107,21 +114,33 @@ internal static class StrictJson
         }
     }
 
-    internal static void Members(JsonElement value, string[] required, string[]? optional = null)
+    internal static void Members(JsonElement value, string[] required, string[]? optional = null, string path = "")
     {
-        if (value.ValueKind != JsonValueKind.Object) throw new JsonException("Expected an object.");
+        if (value.ValueKind != JsonValueKind.Object) throw new JsonException("Expected an object.", path, null, null);
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in value.EnumerateObject())
+        {
             if (!names.Add(property.Name) || !required.Contains(property.Name) &&
                 !(optional?.Contains(property.Name) ?? false))
-                throw new JsonException("Unknown or duplicate JSON property.");
-        if (required.Any(name => !names.Contains(name))) throw new JsonException("Missing required property.");
+                throw new JsonException($"Unknown or duplicate JSON property. Allowed properties: {string.Join(", ", required.Concat(optional ?? []))}.",
+                    PropertyPath(path, property.Name), null, null);
+        }
+        foreach (var name in required)
+            if (!names.Contains(name)) throw new JsonException("Missing required property.", PropertyPath(path, name), null, null);
     }
 
-    internal static string Text(JsonElement value, string name)
+    internal static string Text(JsonElement value, string name, string path = "")
     {
         if (!value.TryGetProperty(name, out var item) || item.ValueKind != JsonValueKind.String)
-            throw new JsonException("Expected a string property.");
+            throw new JsonException("Expected a string property.", PropertyPath(path, name), null, null);
         return item.GetString()!;
+    }
+
+    // Diagnostics identify fields, never values, and cannot echo unbounded or control-bearing keys.
+    private static string PropertyPath(string parent, string name)
+    {
+        var safe = name.Length is > 0 and <= 64 && name.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')
+            ? name : "[unrecognized-property]";
+        return parent.Length == 0 ? safe : parent + "." + safe;
     }
 }

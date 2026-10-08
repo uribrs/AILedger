@@ -39,6 +39,7 @@ public sealed class AlternativesMcpTests
         var before = await File.ReadAllBytesAsync(f.Ledger.EventsPath);
         var result = await f.RecordAsync(body);
         Assert.Equal("invalid_request", result.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal("not_committed", result.GetProperty("error").GetProperty("commit_state").GetString());
         Assert.Equal(before, await File.ReadAllBytesAsync(f.Ledger.EventsPath));
         Assert.False(Assert.Single(await f.AttemptsAsync()).GetProperty("application_entered").GetBoolean());
     }

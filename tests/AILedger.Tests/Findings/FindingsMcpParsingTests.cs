@@ -46,11 +46,36 @@ public sealed class FindingsMcpParsingTests
         var before = await File.ReadAllBytesAsync(f.Ledger.EventsPath);
         var result = await f.RecordAsync(body);
         Assert.Equal("invalid_request", result.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal("not_committed", result.GetProperty("error").GetProperty("commit_state").GetString());
         Assert.Equal(before, await File.ReadAllBytesAsync(f.Ledger.EventsPath));
         var row = Assert.Single(await f.AttemptsAsync());
         Assert.False(row.GetProperty("application_entered").GetBoolean());
         Assert.Equal(JsonValueKind.Null, row.GetProperty("application_attempt_id").ValueKind);
         Assert.False(File.Exists(Path.Combine(f.Ledger.Directory, "findings-attempts.jsonl")));
+    }
+
+    [Theory]
+    [InlineData("consequence", "findings[0].consequence", "consequence_if_wrong")]
+    [InlineData("duplicate-key", "evidence[0].key", "unique")]
+    public async Task CorrectableInputReportsLocationAndCanBeResubmitted(string defect, string path, string message)
+    {
+        using var f = new FindingsMcpFixture();
+        await f.OpenAsync();
+        var valid = FindingsMcpFixture.Body();
+        var invalid = defect == "consequence"
+            ? valid.Replace("\"statement\":", "\"consequence\":\"private-value\",\"statement\":")
+            : valid.Replace("\"key\":\"e1\"", "\"key\":\"f1\"");
+        var result = await f.RecordAsync(invalid);
+        var error = result.GetProperty("error");
+        Assert.Equal("not_committed", error.GetProperty("commit_state").GetString());
+        Assert.Equal("after_correction", error.GetProperty("retry").GetString());
+        Assert.Equal(path, error.GetProperty("item_path").GetString());
+        Assert.Contains(message, error.GetProperty("message").GetString());
+        Assert.DoesNotContain("private-value", error.GetRawText());
+        Assert.Empty((await f.Ledger.StateAsync()).Claims);
+        var corrected = await f.RecordAsync(valid);
+        Assert.Equal("committed", corrected.GetProperty("status").GetString());
+        Assert.Single((await f.Ledger.StateAsync()).Claims);
     }
 
     [Theory]

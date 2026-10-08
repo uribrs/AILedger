@@ -1,6 +1,6 @@
 ---
 name: workflow-coordinator
-version: 1.9.2
+version: 1.9.3
 description: Pure routing skill for non-trivial work. Sequences planning, governed execution, independent assurance, closeout synthesis, lessons, archival, retrospective filing and eligible retention so every durable result stays in one governed task.
 ---
 
@@ -36,6 +36,27 @@ imminent authoring shape, observed task version, requirements with satisfied/mis
 source authority and available work/producer/candidate/verifier bindings. A delivered observation
 is not authority, technical acceptance, a reservation or a freshness guarantee; execution rechecks.
 Plan attention columns come from `OrchestrationPlanDocuments`, which also validates new filings.
+
+Consume a rebuilt brief only after `context build` succeeds. Keep stderr and check its exit status;
+do not suppress a failed build and then read a previous `--output` file. An existing file proves
+neither a successful refresh nor current task state. When the byte limit is exceeded, apply the
+reported remedy to the context build itself; a larger limit on a later launch does not refresh
+that saved file. Before reporting contradictory readiness, compare `taskVersion` and
+`nextActionContract.observedTaskVersion` with the current task, rebuild successfully, and use the
+supplied readiness check when available. Do not probe a mutation to compensate for an unread brief.
+
+For structured recording errors, inspect `boundary`, `commit_state`, `retry` and `item_path`.
+A request validation error with `not_committed` and `after_correction` permits correcting the
+identified input. An `unknown` outcome still requires the original body/key/binding retry;
+absence from an attempt log alone is not proof that a transaction did not commit.
+
+When authoring dispatch constraints, inspect the subject's role-filtered brief for required inputs
+and role boundaries. Preserve operator instructions and accepted decisions with their provenance;
+record unaccepted solution choices as proposals or open questions for the owning role, not as
+operator constraints. Concrete inputs and acceptance requirements are useful; dictating a planner's
+unsettled solution is not routing. Do not add narrative to a blind reviewer to fill perceived gaps.
+Follow the retrieval contract as well: chunked JSON requires same-version/digest assembly and UTF-8
+SHA-256 verification before parsing. Do not call a required integrity check optional busywork.
 
 Keep provider process result, recorded run termination, required output presence and attributed
 outcome separate. Worker/Researcher `reported-complete`, `blocked` and `partial` declarations are
