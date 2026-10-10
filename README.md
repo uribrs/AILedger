@@ -7,7 +7,7 @@ The release generations describe the system's evolution:
 - **1.0:** the original skills-based methodology.
 - **2.0:** the original kernel with a pure CLI interface.
 - **3.0:** separated interfaces and triggering.
-- **4.0:** the current kernel, including structured agent interactions, governed assurance and native host services.
+- **4.1:** the current kernel, adding explicit bounded renewal of exhausted assurance check budgets to structured agent interactions, governed assurance and native host services.
 
 The current release is **4.0.8**. `Directory.Build.props` declares the version used by builds and
 `scripts/install.sh`; advance that version for the next release. Reinstalling a release keeps its

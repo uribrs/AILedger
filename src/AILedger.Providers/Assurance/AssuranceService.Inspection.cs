@@ -37,7 +37,10 @@ public sealed partial class AssuranceService
             CurrentFindings(visible, snapshot, policy).SelectMany(FindingIds).Where(id => !disposed.Contains(id)).ToArray(), accepted ? "accepted" : "not_accepted",
             "host observations and authored judgments are distinct; provider usage not collected", await _store.CountUncommittedAsync(_id, token).ConfigureAwait(false),
             pending, records.Count, visible.Length, request.Offset + page.Length < visible.Length ? request.Offset + page.Length : null,
-            CheckAttempts(records, entries, request.AreaId, Principal(policy).Role));
+            CheckAttempts(records, entries, request.AreaId, Principal(policy).Role))
+        {
+            CheckBudget = CheckBudget(records)
+        };
         return new("ok", attempt, null, false, Json(inspection), null);
     }
 

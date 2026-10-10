@@ -15,6 +15,32 @@ namespace AILedger.Tests.Orchestration;
 public sealed class AssuranceOwnershipTests
 {
     [Fact]
+    public async Task BudgetRenewalPreservesGovernedAnchorBindingAndUnresolvedFindings()
+    {
+        using var f = await CompletionFixture.OpenAsync(); await f.RunAsync();
+        Assert.NotNull((await f.AcceptAsync(withFinding: true)).Error);
+        var verifier = await RepairContinuationTests.OpenAsync(f, "verifier", "budget-verifier");
+        var before = await RepairContinuationTests.InspectAsync(verifier, "a");
+        for (var i = before.CheckBudget!.ConsumedBatches; i < 8; i++)
+            Assert.Null((await verifier.InvokeAsync("run_assurance_checks",
+                Json(new RunAssuranceChecksRequest(1, "budget-" + i, "a", before.Snapshot.BindingSha256, ["unit"])), default)).Error);
+        var host = (FileGovernedTaskService)f.Driver.Bundle.Service;
+        var anchor = (await host.InspectCoordinationAsync(new("T1"), default))!.AssuranceAnchor;
+        var accepting = await RepairContinuationTests.OpenAsync(f, "operator", "budget-operator");
+        var budget = (await RepairContinuationTests.InspectAsync(accepting, "a")).CheckBudget!;
+        await accepting.ExtendCheckBudgetAsync(new(1, "renew", budget.PolicySha256, 8, 1,
+            "Reverify corrected checks without resetting the governed case"), true, default);
+        var after = await RepairContinuationTests.InspectAsync(accepting, "a");
+        Assert.Equal(before.Snapshot.BindingSha256, after.Snapshot.BindingSha256);
+        Assert.Contains(f.FindingId!, after.UnresolvedFindings);
+        Assert.Equal(Hash(anchor), Hash((await host.InspectCoordinationAsync(new("T1"), default))!.AssuranceAnchor));
+        Assert.Equal("not_accepted", after.Acceptance);
+        Assert.Null((await verifier.InvokeAsync("run_assurance_checks",
+            Json(new RunAssuranceChecksRequest(1, "after-renewal", "a", after.Snapshot.BindingSha256, ["unit"])), default)).Error);
+        Assert.NotEqual(WorkItemStatus.Completed, (await f.Driver.Bundle.State()).WorkItems[new("A")].Status);
+    }
+
+    [Fact]
     public async Task InvalidWorkingProvenanceCannotPinTheTaskToAnUnusableCase()
     {
         using var f = await CompletionFixture.OpenAsync();

@@ -85,6 +85,10 @@ them. It reserves nothing and does not promise a later launch will pass.
   unsupported scope is an explicit gap, not a reason to skip it silently.
   It is separate from the governed frozen `--candidate` flow below and does not replace its
   independent verifier/reviewer outputs or completion rules.
+- An exhausted task-13 check budget has a trusted operator recovery command, `assurance extend-check-budget`.
+  With explicit authorization, grant 1–8 additional batches against the inspected policy and consumed count;
+  retain the case and all findings. Repair check configuration first and budget for the next verifier's
+  required area closure. This grants capacity only, never acceptance or a waiver.
 
 - Consult the [tool and environment inventory](tool-inventory.md) before locating or installing a
   needed capability; follow its discovery and update instructions for missing or stale entries (guidance).

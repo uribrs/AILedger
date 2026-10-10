@@ -31,7 +31,8 @@ public sealed partial class AssuranceService
                 "Inspect the recorded attempt. The operator must stop any remaining process and reconcile it before requesting new checks with a new key.");
         }
         Require(!PendingChecks(records, entries).Any(), "inspection_interrupted", "A prior host check has an unknown ending. Reconcile it before executing another check.");
-        Require(records.Count(r => r.Kind == "assurance_check_started") < 8, "capacity_exceeded", "This bounded assurance case has used its eight check batches; obtain a new bounded intent rather than extending it silently.");
+        Require(CheckBudget(records).RemainingBatches > 0, "capacity_exceeded",
+            "This case has exhausted its authorized check batches. A trusted operator may use assurance extend-check-budget with the inspected policy and consumed count; preserve this case and its history.");
         var directory = Directory.CreateTempSubdirectory("ailedger-assurance-check-").FullName;
         var inputs = await MaterializeAsync(policy, snapshot, directory, token).ConfigureAwait(false);
         await _store.AppendAsync(_id, "assurance_check_started", new { fingerprint, request_id = request.RequestId,

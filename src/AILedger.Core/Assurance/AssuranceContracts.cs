@@ -101,7 +101,11 @@ public sealed record AssuranceApplicability(string Id, string Operation, string 
 public sealed record AssuranceInspection(AssuranceSnapshot Snapshot, IReadOnlyList<AssuranceApplicability> History,
     IReadOnlyList<string> UninspectedPaths, IReadOnlyList<string> UntestedCriteria,
     IReadOnlyList<string> UnresolvedFindings, string Acceptance, string Measurement,
-    int UncommittedFiles, IReadOnlyList<string> PendingChecks, int JournalVersion, int TotalHistory, int? NextOffset, IReadOnlyList<JsonElement> CheckAttempts);
+    int UncommittedFiles, IReadOnlyList<string> PendingChecks, int JournalVersion, int TotalHistory, int? NextOffset, IReadOnlyList<JsonElement> CheckAttempts)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AssuranceCheckBudget? CheckBudget { get; init; }
+}
 
 // Authored judgment; the host separately retains before/after physical observations.
 public sealed record AssuranceRepairImpact(int SchemaVersion, string BeforeReceipt,

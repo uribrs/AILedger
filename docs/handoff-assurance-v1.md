@@ -96,7 +96,7 @@ principal's granted scope. All inputs must be canonical relative non-symlink UTF
 The policy declares what the bounded candidate contains. It does not discover undeclared code,
 resources or environmental dependencies. The client must inspect this selection before relying on
 assurance. This first slice has at most eight areas, 32 total paths per area, 256 KiB exact bytes per
-area and 128 KiB per input, 32 criteria/principals/check definitions, 1–8 checks per batch and eight check batches per case.
+area and 128 KiB per input, 32 criteria/principals/check definitions, 1–8 checks per batch and initially eight check batches per case.
 A check timeout is 1–300 seconds; a batch's total configured timeouts cannot exceed 300 seconds.
 Use a narrowly scoped change whose complete relevant inputs fit. Binaries, symlinks and larger
 repository build closures are unsupported; split the task deliberately rather than omit material
@@ -233,6 +233,52 @@ ailedger assurance reconcile --authority /absolute/policy.json --store /absolute
 
 Reconciliation stays unknown; it permits an explicitly requested new check key within the case's
 remaining bound. The old key remains interrupted. It is not proof of a successful process ending.
+
+### Exhausted check budgets (4.1)
+
+`inspect_assurance` includes `check_budget`: the current `policy_sha256`, lifetime
+`consumed_batches`, applicable `batch_limit`, `remaining_batches` and `maximum_extension_batches`.
+Every started batch counts, including failed or interrupted checks. Configuration mistakes do not
+refund attempts. Eight areas can consume the entire initial allowance in one verification pass.
+
+After exhaustion, the explicitly authorized local operator can grant **1–8 additional batches**
+within the same case. Correct and preflight the checks first; a bad filter or missing baseline is
+not repaired by a larger budget. Use the current policy, an acceptance principal covering every
+area, and a fresh inspection. The principal must differ from all implementers. Unknown check
+endings require reconciliation first. This command is not exposed to provider MCP sessions.
+
+```sh
+ailedger assurance extend-check-budget --authority /absolute/policy.json --store /absolute/store \
+  --principal operator --session budget-renewal-1 --governed-root /absolute/ledger/tasks \
+  --body-stdin --confirm-budget-extension < renewal.json
+```
+
+Omit `--governed-root` only for a policy without a governed association. `renewal.json` contains:
+
+```json
+{
+  "schema_version": 1,
+  "request_id": "corrected-checks-1",
+  "expected_policy_sha256": "<exact hash from check_budget.policy_sha256>",
+  "expected_consumed_batches": 8,
+  "additional_batches": 8,
+  "reason": "Correct the documented check configuration and run fresh verification"
+}
+```
+
+The grant, reason, principal/session, policy identity and new lifetime ceiling are appended under
+the existing case lock. A stale consumed count or remaining applicable capacity prevents renewal.
+After an uncertain response, retry the **same body, request ID, session and policy**; the original
+grant is returned without adding capacity twice. Policy changes require a fresh host session;
+an old policy's unused grant does not authorize the changed checks. All started batches still
+count, and a new bounded grant can be issued when the current policy has no remaining capacity.
+
+Renewal changes no candidate, finding, check result, acceptance or task lifecycle. Existing
+freshness and independent-assurance rules remain in force. Corrected configuration invalidates
+affected evidence through those rules. A fresh verifier needs its own applicable check receipts,
+so plan capacity for its required area closure, not just the previously failed areas. Do not delete
+the store, reset the anchor, mark checks passed or waive missing proof to recover.
+
 The check runner uses existing process termination/timeout handling; it is an operator-authorized
 local test process, not task 12's offline sandbox or a hostile-code sandbox. Configure only the
 exact test executable/arguments and environment authority appropriate for the selected candidate.

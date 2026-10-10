@@ -3,7 +3,7 @@ namespace AILedger.Cli.Help;
 internal static class CliHelpText
 {
     public const string Text = """
-        AILedger 4.0 governed task CLI
+        AILedger 4.1 governed task CLI
 
         Global options: --root PATH        (default: discovered home/.ailedger/tasks)
                         --lesson-root PATH (default: discovered home/lessons)
@@ -12,7 +12,7 @@ internal static class CliHelpText
         Every governed mutation requires an explicit --actor ID. Repeat list options once per value.
         Experimental offline episodes use a separate trusted host binding and store:
         episode --help      run/resume/inspect/reconcile; read-only, no model spend or acceptance
-        assurance --help    scoped MCP serve and interrupted-check reconciliation;
+        assurance --help    scoped MCP serve, interrupted-check reconciliation and bounded budget renewal;
                            immutable inputs, independent evidence and explicit acceptance.
                            Assurance acceptance does not complete governed work.
 
