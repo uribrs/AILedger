@@ -1,5 +1,9 @@
 # Operator guide
 
+To end a task successfully when its remaining workflow is no longer wanted, use the
+[human-only closure hatch](human-task-closure.md). It requires your explicit confirmation,
+OS authentication, and a reason; an agent holding the operator role cannot approve it.
+
 ## Setup
 
 Install the .NET 8 SDK, then from the repository root run:

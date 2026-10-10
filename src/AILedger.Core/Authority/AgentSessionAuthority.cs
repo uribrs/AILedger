@@ -17,7 +17,7 @@ public sealed class AgentSessionAuthority(TaskId task, RoleAssignment assignment
     {
         if (Volatile.Read(ref _revoked) != 0 || now >= expiresAt)
             throw new GovernanceException("Provider host binding expired or was revoked.");
-        if (state is null || state.TaskId != task ||
+        if (state is null || state.HumanClosure is not null || state.TaskId != task ||
             !state.Runs.TryGetValue(run, out var active) || active.Status != AgentRunStatus.Active ||
             active.ActorId != assignment.ActorId || active.Provider != provider ||
             active.SubjectRole is { } role && role != assignment.Role ||

@@ -29,6 +29,15 @@ internal sealed partial class ProviderDispatchService
         }
         catch (GovernanceException)
         {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var state = await _hostService.GetStateAsync(active.Input.TaskId, deadline.Token).ConfigureAwait(false);
+            if (state?.HumanClosure?.InterruptedRuns.Contains(active.Start.RunId) == true)
+            {
+                receipt.HumanClosureObserved = true;
+                receipt.Completed = new(state.Version, [new EventId($"{state.TaskId.Value}:{state.Version:D10}")], AgentRunStatus.Cancelled);
+                receipt.CompletionRecording = LedgerRecordingStatus.Recorded;
+                return;
+            }
             receipt.CompletionRecording = LedgerRecordingStatus.Refused;
             throw;
         }
@@ -54,6 +63,8 @@ internal sealed partial class ProviderDispatchService
             throw new IOException("Provider launch failed and its active run could not be closed.",
                 new AggregateException(error, cleanup));
         }
+        if (receipt.HumanClosureObserved)
+            throw new AILedger.Cli.Tasks.HumanTaskClosedException();
     }
 
     private async Task CloseProviderResultAsync(ActiveDispatch active, DispatchProgress receipt,
@@ -86,6 +97,8 @@ internal sealed partial class ProviderDispatchService
         }
         catch (Exception error) { throw CompletionFailure(result, error); }
 
+        if (receipt.HumanClosureObserved)
+            throw new AILedger.Cli.Tasks.HumanTaskClosedException();
         if (receipt.RequiredOutputKind is { } kind)
             throw new ProviderRunFailedException($"Provider run '{result.RunId}' did not record its required '{kind}' artifact; " +
                 "its Ledger run was closed as 'Failed'.");

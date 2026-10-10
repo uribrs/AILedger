@@ -3,6 +3,11 @@
 For a Claude or Codex session that coordinates a governed task. Read the quick reference before you
 act. Read the section for a command before you issue it.
 
+The human may end the task successfully through [human task closure](human-task-closure.md).
+This authority is not delegated to coordinators, including agents assigned the operator role.
+Once `humanClosure` is recorded, stop routing and retain unresolved findings; do not launch recovery
+or try to satisfy the remaining workflow. Successful human closure does not change check outcomes.
+
 Every rule carries one label:
 
 - **enforced** — kernel source refuses the command. The citation is `path:line` at source commit

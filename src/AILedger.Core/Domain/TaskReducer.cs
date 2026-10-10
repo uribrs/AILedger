@@ -27,6 +27,7 @@ public sealed class TaskReducer : ITaskReducer
 
         var next = @event.Data switch
         {
+            AILedger.Core.TaskClosure.TaskClosedByHuman closed => AILedger.Core.TaskClosure.HumanTaskClosureRules.Apply(Require(state), closed.Closure, @event.RecordedAt),
             TaskOpened opened => TaskOpeningStateProjector.Open(@event, opened),
             RoleAssigned assigned => RoleStateProjector.Assign(Require(state), assigned.Assignment),
             ClaimAdded added => ClaimStateProjector.Add(Require(state), added),

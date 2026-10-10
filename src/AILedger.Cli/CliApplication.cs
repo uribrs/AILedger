@@ -58,6 +58,7 @@ public sealed class CliApplication
     // spawner and clock. Settable for the reason HarnessTranscriptRoot is: a test replaces it rather
     // than reaching the real Docker socket or running a real profile command.
     internal VerificationHost VerificationHost { get; init; } = VerificationHost.Default;
+    internal IHumanClosureConfirmation HumanClosureConfirmation { get; init; } = new MacHumanClosureConfirmation();
 
     internal CliCommandCatalog CommandCatalog => _commands;
 
@@ -182,6 +183,11 @@ public sealed class CliApplication
                 new CliCommandInvocation(input, service, root, lessonRoot), cancellationToken).ConfigureAwait(false);
             return 0;
         }
+        catch (HumanTaskClosedException exception)
+        {
+            await _error.WriteLineAsync(exception.Message).ConfigureAwait(false);
+            return 130;
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await _error.WriteLineAsync("Cancelled.").ConfigureAwait(false);
@@ -233,6 +239,7 @@ public sealed class CliApplication
         var verification = new VerificationCliCommands(_executor, _json, () => VerificationHost);
         var services = new AILedger.Cli.Services.ServiceCliCommands(_executor, () => VerificationHost);
         return new CliCommandCatalog(new[] { TaskCliCommands.Open(_executor) }
+            .Append(new HumanTaskClosureCliCommands(_executor, () => HumanClosureConfirmation).Registration())
             .Concat(taskInspection.Registrations())
             .Concat(new AILedger.Cli.Handoffs.HandoffCliCommands(_executor, ProcessStandardInput).Registrations())
             .Append(VersionCliCommands.Registration(_executor))

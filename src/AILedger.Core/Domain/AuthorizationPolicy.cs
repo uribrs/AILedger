@@ -93,6 +93,7 @@ public sealed class AuthorizationPolicy
         CompleteWorkItemCommand or BlockWorkItemCommand or UnblockWorkItemCommand
             or AbandonWorkItemCommand => [Capability.ManageWork],
         OpenTaskCommand => [],
+        AILedger.Core.TaskClosure.CloseTaskByHumanCommand => [],
         _ => throw new GovernanceException($"Unsupported command '{command.GetType().Name}'.")
     };
 }

@@ -76,6 +76,17 @@ public sealed class MarkdownTaskProjectionWriter : ITaskProjectionWriter
         AppendItems(builder, state.Roles.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
             $"- `{Clean(pair.Key.Value)}` — {pair.Value.Role}; capabilities: {Join(pair.Value.Capabilities.Select(value => value.ToString()))}");
 
+        if (state.HumanClosure is { } closure)
+        {
+            builder.AppendLine().AppendLine("## Human closure").AppendLine()
+                .AppendLine("Outcome: **succeeded by human override**")
+                .AppendLine($"Reason: {Clean(closure.Reason)}")
+                .AppendLine($"Confirmed by: {Clean(closure.HumanIdentity)} as `{Clean(closure.ActorId.Value)}`")
+                .AppendLine("Historical findings and check results remain unchanged; unfinished work was withdrawn.");
+            if (closure.InterruptedRuns.Count > 0)
+                builder.AppendLine("Interrupted runs require separate process-termination evidence; closure is not proof of termination.");
+        }
+
         builder.AppendLine().AppendLine("## Work Items").AppendLine();
         AppendItems(builder, state.WorkItems.OrderBy(pair => pair.Key.Value, StringComparer.Ordinal), pair =>
             $"- `{Clean(pair.Key.Value)}` — **{pair.Value.Status}** — {Clean(pair.Value.Title)}" +

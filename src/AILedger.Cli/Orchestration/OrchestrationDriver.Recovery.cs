@@ -39,6 +39,8 @@ internal sealed partial class OrchestrationDriver
         var key = prior + "/" + refusal.Code;
         if (!_investigated.Add(key)) return Result(DriverStatus.Blocked, "no_progress", "Unchanged refusal after investigation; evidence and unresolved work are retained.");
         await RefreshAsync(token).ConfigureAwait(false);
+        if (_state!.HumanClosure is not null)
+            return Result(DriverStatus.Archived, "closed_by_human", "Human closure ended the workflow; no recovery dispatch is required.");
         await kernel.BriefAsync(token).ConfigureAwait(false);
         await RefreshAsync(token).ConfigureAwait(false);
         if (refusal.Code == nameof(GovernanceRefusalKind.StaleBasis)) return null;

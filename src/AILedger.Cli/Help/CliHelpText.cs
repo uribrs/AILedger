@@ -3,7 +3,7 @@ namespace AILedger.Cli.Help;
 internal static class CliHelpText
 {
     public const string Text = """
-        AILedger 4.1 governed task CLI
+        AILedger 4.2 governed task CLI
 
         Global options: --root PATH        (default: discovered home/.ailedger/tasks)
                         --lesson-root PATH (default: discovered home/lessons)
@@ -141,6 +141,10 @@ internal static class CliHelpText
         work block         --task ID --actor ID --id ID --reason TEXT [--escalation ID]
         work unblock       --task ID --actor ID --id ID
         work abandon       --task ID --actor ID --id ID --reason TEXT
+        task close         --task ID --actor ID --human-override --reason TEXT
+                           Human-only successful closure from any open stage, bypassing workflow gates.
+                           Requires explicit macOS confirmation and fresh OS authentication; no unattended approval.
+                           Retains findings, withdraws unfinished work, fences agents. Physical termination is separate.
         escalation raise   --task ID --actor ID --id ID --kind business-decision|true-unknown
                            --question TEXT [--work ID] [--option TEXT] [--recommend TEXT] [--evidence ID]
         escalation resolve --task ID --actor ID --id ID --status resolved|withdrawn [--resolution TEXT]

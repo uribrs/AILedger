@@ -59,6 +59,8 @@ public sealed record GovernedTaskState
     public long? ReconsiderationOpenedAtVersion { get; init; }
     // Version of the latest StageTransitioned whose Current is Research; null when none.
     public long? ResearchOpenedAtVersion { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AILedger.Core.TaskClosure.HumanTaskClosure? HumanClosure { get; init; }
     internal ActorId? PendingOpeningActor { get; init; }
     // Transient replay state tying a waiver event to the immediately caused stage transition.
     // Internal properties are not projected into state.json; a completed command always consumes it.

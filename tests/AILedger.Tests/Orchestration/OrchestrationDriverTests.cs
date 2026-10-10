@@ -15,6 +15,24 @@ namespace AILedger.Tests.Orchestration;
 [Collection(StandardInput.Collection)]
 public sealed class OrchestrationDriverTests
 {
+    [Fact]
+    public async Task HumanClosureStopsDriverSuccessfullyWithoutRecoveryOrFurtherDispatch()
+    {
+        using var f = await DriverFixture.OpenAsync();
+        f.Bundle.Adapter.BeforeResult = async _ =>
+        {
+            var state = await f.Bundle.State();
+            await f.Bundle.Service.ExecuteAsync(state.TaskId,
+                AILedger.Tests.Core.HumanTaskClosureTests.Confirm(state), default);
+        };
+        var result = await (await f.Driver()).DriveAsync(new(new("A")), default);
+        Assert.Equal(DriverStatus.Archived, result.Status);
+        Assert.Equal("closed_by_human", result.Code);
+        Assert.Single(result.Dispatches);
+        Assert.Single(f.Bundle.Adapter.Requests);
+        Assert.Equal("succeeded_by_human_override", (await f.Bundle.State()).HumanClosure!.Outcome);
+    }
+
     [Theory]
     [InlineData("none")] [InlineData("verifier")] [InlineData("reviewer")]
     public async Task ExplicitJudgmentsRouteWorkVerificationReviewAndEvidenceBackedRepair(string repair)

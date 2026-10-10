@@ -17,6 +17,56 @@ public sealed class ProviderDispatchTests
 {
     [Theory]
     [InlineData(false)] [InlineData(true)]
+    public async Task HumanClosureReturnsCancellationExitFromCliWithoutCancellingItsCallerToken(bool throws)
+    {
+        using var f = await Fixture.OpenAsync();
+        f.Adapter.Execute = async (request, token) =>
+        {
+            await f.Ledger.ExecuteAsync(AILedger.Tests.Core.HumanTaskClosureTests.Confirm(await f.Ledger.StateAsync()));
+            try { await Task.Delay(Timeout.InfiniteTimeSpan, token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested && !throws) { }
+            return Adapter.Result(request) with { Status = AgentRunStatus.Cancelled };
+        };
+        var error = new StringWriter();
+        var app = new CliApplication(TextWriter.Null, error, _ => f.Ledger.Service(), _ => f.Adapter, new ContextAssembler());
+        var exit = await app.RunAsync(["provider", "launch", "--root", f.Ledger.Root, "--task", f.Ledger.TaskId.Value,
+            "--actor", "operator", "--run", "R1", "--provider", "codex", "--working-directory", f.Work.Path,
+            "--executable", "/usr/bin/true", "--cognitive-root", ContextBrief.CognitiveRoot()], default);
+        Assert.Equal(130, exit);
+        Assert.Contains("human operator closed this task successfully", error.ToString());
+        Assert.Equal("succeeded_by_human_override", (await f.Ledger.StateAsync()).HumanClosure!.Outcome);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task HumanClosureCancelsProviderAndRetainsLateResultWithoutReopeningTask(bool lateSuccess)
+    {
+        using var f = await Fixture.OpenAsync();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Adapter.Execute = async (request, token) =>
+        {
+            entered.SetResult();
+            try { await Task.Delay(Timeout.InfiniteTimeSpan, token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            return Adapter.Result(request) with { Status = lateSuccess ? AgentRunStatus.Completed : AgentRunStatus.Cancelled };
+        };
+        var launch = f.Direct().LaunchAsync(f.Request, default);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        var closed = await f.Ledger.ExecuteAsync(AILedger.Tests.Core.HumanTaskClosureTests.Confirm(await f.Ledger.StateAsync()));
+        var result = await launch.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.Equal(DispatchFailureKind.Cancelled, result.Failure!.Kind);
+        Assert.Equal(LedgerRecordingStatus.Recorded, result.CompletionRecording);
+        Assert.Equal(AgentRunStatus.Cancelled, result.Completed!.Status);
+        Assert.Equal(ResultRetentionStatus.Retained, result.Retention.Status);
+        var final = await f.Ledger.StateAsync();
+        Assert.Equal(closed.State.Version, final.Version);
+        Assert.Equal("succeeded_by_human_override", final.HumanClosure!.Outcome);
+        Assert.Single(final.Runs);
+        Assert.Equal(AgentRunStatus.Cancelled, final.Runs[new("R1")].Status);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
     public async Task DirectAndCliUseSameBriefGrantsAndCompletion(bool cli)
     {
         using var f = await Fixture.OpenAsync();

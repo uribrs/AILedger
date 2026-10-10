@@ -37,7 +37,9 @@ internal sealed partial class ProviderDispatchService
             receipt.ManifestHash = _runRecorder.HashManifest(manifestJson);
             receipt.ManifestArtifactCount = manifest.Artifacts.Count;
             receipt.Phase = DispatchPhase.ProviderExecution;
-            var result = await active.Adapter.RunAsync(request, token).ConfigureAwait(false);
+            await using var closureMonitor = await AILedger.Cli.Tasks.HumanClosureMonitor.StartAsync(
+                _hostService, input.TaskId, token).ConfigureAwait(false);
+            var result = await active.Adapter.RunAsync(request, closureMonitor.Token).ConfigureAwait(false);
             if (result.RunId != active.Start.RunId)
                 throw new AgentAdapterException($"Provider '{active.Prepared.Provider}' returned a result for run '{result.RunId}' while run " +
                     $"'{active.Start.RunId}' was launched. The provider result was not kept and the run was closed as failed.");

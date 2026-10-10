@@ -15,6 +15,21 @@ namespace AILedger.Tests.Orchestration;
 public sealed class AssuranceOwnershipTests
 {
     [Fact]
+    public async Task HumanClosureEndsExistingAssuranceAuthorityWithoutManufacturingAcceptance()
+    {
+        using var f = await CompletionFixture.OpenAsync(); await f.RunAsync();
+        var accepting = await RepairContinuationTests.OpenAsync(f, "operator", "human-closure-operator");
+        var before = await RepairContinuationTests.InspectAsync(accepting, "a");
+        var state = await f.Driver.Bundle.State();
+        await f.Driver.Bundle.Service.ExecuteAsync(state.TaskId,
+            AILedger.Tests.Core.HumanTaskClosureTests.Confirm(state), default);
+        var inspection = await accepting.InvokeAsync("inspect_assurance", Json(new InspectAssuranceRequest(1, "a")), default);
+        Assert.Equal("authorization_denied", inspection.Error!.Code);
+        Assert.Equal("not_accepted", before.Acceptance);
+        Assert.Equal("succeeded_by_human_override", (await f.Driver.Bundle.State()).HumanClosure!.Outcome);
+    }
+
+    [Fact]
     public async Task BudgetRenewalPreservesGovernedAnchorBindingAndUnresolvedFindings()
     {
         using var f = await CompletionFixture.OpenAsync(); await f.RunAsync();

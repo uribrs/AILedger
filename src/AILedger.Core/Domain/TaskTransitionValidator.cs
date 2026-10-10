@@ -24,9 +24,14 @@ internal static class TaskTransitionValidator
     public static void Validate(GovernedTaskState? state, LedgerEvent @event)
     {
         ValidateEventMetadata(@event);
+        if (state?.HumanClosure is not null)
+            throw new GovernanceException("No workflow event may follow a human task closure.");
 
         switch (@event.Data)
         {
+            case AILedger.Core.TaskClosure.TaskClosedByHuman closed:
+                AILedger.Core.TaskClosure.HumanTaskClosureRules.Validate(Require(state), @event.ActorId, closed.Closure, @event.RecordedAt);
+                break;
             case TaskOpened opened:
                 TaskOpeningEventValidator.ValidateOpened(opened);
                 break;

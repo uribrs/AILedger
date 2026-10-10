@@ -54,6 +54,8 @@ internal sealed partial class OrchestrationDriver(DriverKernel kernel, DriverHos
             {
                 token.ThrowIfCancellationRequested();
                 await RefreshAsync(token).ConfigureAwait(false);
+                if (_state!.HumanClosure is not null)
+                    return Result(DriverStatus.Archived, "closed_by_human", "Task closed successfully by its human operator; no further workflow is owed.");
                 if (request.WorkItemId is null && _preparedWork is { } selectedWork) request = request with { WorkItemId = selectedWork };
                 if (OpenEscalations().Length > 0)
                     return Result(DriverStatus.AwaitingHumanDecision, "open_escalation", "Resolve the attached business decision or investigated unknown through its separate trusted path.");

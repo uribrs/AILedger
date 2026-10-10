@@ -30,6 +30,9 @@ internal sealed partial class OrchestrationDriver
         if (_dispatches.Any(d => d.RunId == receipt.RunId))
             return new(Stop: Result(DriverStatus.Blocked, "no_progress", "The same judgment has already been consumed without progress; retained work remains unresolved."));
         _dispatches.Add(receipt);
+        await RefreshAsync(token).ConfigureAwait(false);
+        if (_state!.HumanClosure is not null)
+            return new(Stop: Result(DriverStatus.Archived, "closed_by_human", "Task closed successfully by its human operator; provider result remains diagnostic evidence."));
         if (receipt.StartRecording == LedgerRecordingStatus.Unknown || receipt.CompletionRecording == LedgerRecordingStatus.Unknown || receipt.CognitiveHandoffUnknown)
             return new(Stop: Result(DriverStatus.UnknownOutcome, "unknown_recording", "Preserve dispatch and handoff receipts; no automatic retry after uncertain execution."));
         if (receipt.Failure is { } failure)
@@ -41,7 +44,6 @@ internal sealed partial class OrchestrationDriver
                     " Infrastructure stop: inspect the retained result and host configuration; no automatic Findings retry. A recorded failure does not attest process-tree termination. Reconcile uncertain execution before an explicit relaunch." : "")));
         if (receipt.Completed?.Status != AgentRunStatus.Completed || receipt.Retention.Status != ResultRetentionStatus.Retained)
             return new(Stop: Result(DriverStatus.UnknownOutcome, "incomplete_receipt", "No confirmed closure and retained result; reconcile before further dispatch."));
-        await RefreshAsync(token).ConfigureAwait(false);
         if (OpenEscalations().Length > 0)
             return new(Stop: Result(DriverStatus.AwaitingHumanDecision, "open_escalation", "The producer recorded a business decision or investigated unknown; use the separate trusted resolution path."));
         // Completion is transport/lifecycle evidence only. An explicit recorded judgment is

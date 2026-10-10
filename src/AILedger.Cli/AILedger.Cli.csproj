@@ -17,7 +17,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ailedger</ToolCommandName>
     <PackageId>AILedger.Cli</PackageId>
-    <Description>AILedger 4.1 governed task kernel.</Description>
+    <Description>AILedger 4.2 governed task kernel.</Description>
     <Authors>UriB</Authors>
     <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/nupkg</PackageOutputPath>
   </PropertyGroup>
@@ -41,4 +41,16 @@
     <EmbeddedResource Include="../../docs/structured-alternatives-v1/response.schema.json" LogicalName="Alternatives.ResponseSchema" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <HumanConfirmationHelper>$(BaseIntermediateOutputPath)$(Configuration)/native/ailedger-human-confirm</HumanConfirmationHelper>
+  </PropertyGroup>
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <Content Include="$(HumanConfirmationHelper)" Link="ailedger-human-confirm" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="BuildHumanConfirmation" BeforeTargets="PrepareForBuild"
+          Condition="$([MSBuild]::IsOSPlatform('OSX'))"
+          Inputs="Tasks/Native/HumanConfirmation.swift" Outputs="$(HumanConfirmationHelper)">
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(HumanConfirmationHelper)'))" />
+    <Exec Command="/usr/bin/xcrun swiftc -module-cache-path &quot;$(BaseIntermediateOutputPath)swift-cache&quot; &quot;Tasks/Native/HumanConfirmation.swift&quot; -o &quot;$(HumanConfirmationHelper)&quot;" />
+  </Target>
 </Project>

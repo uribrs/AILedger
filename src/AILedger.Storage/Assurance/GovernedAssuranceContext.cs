@@ -56,6 +56,7 @@ public sealed partial class FileGovernedTaskService
         AssuranceSession session, bool providerSession, DateTimeOffset expiresAt, AssurancePolicy policy)
     {
         var actor = new ActorId(session.Principal);
+        Require(state.HumanClosure is null, "authorization_denied", "Task was closed by its human operator; assurance authority ended.");
         Require(DateTimeOffset.UtcNow < expiresAt && initial.Roles.TryGetValue(actor, out var old) &&
             state.Roles.TryGetValue(actor, out var assignment) && Hash(old) == Hash(assignment),
             "authorization_denied", "Governed assurance authority expired or was reassigned.");

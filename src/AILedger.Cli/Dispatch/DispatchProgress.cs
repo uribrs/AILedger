@@ -8,6 +8,7 @@ internal sealed class DispatchProgress(ProviderDispatchRequest request)
 {
     public IReadOnlyList<HostHandoffReceipt> CognitiveReceipts { get; set; } = [];
     public bool CognitiveHandoffUnknown { get; set; }
+    public bool HumanClosureObserved { get; set; }
     public AssurancePreparationStatus AssurancePreparation { get; set; }
     public int? TimeoutSeconds { get; set; }
     public DispatchPhase Phase { get; set; }

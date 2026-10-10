@@ -18,6 +18,7 @@ public sealed record LedgerEvent(
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "eventType")]
 [JsonDerivedType(typeof(TaskOpened), "task.opened")]
+[JsonDerivedType(typeof(AILedger.Core.TaskClosure.TaskClosedByHuman), "task.closed-by-human")]
 [JsonDerivedType(typeof(RoleAssigned), "actor.role-assigned")]
 [JsonDerivedType(typeof(ClaimAdded), "claim.added")]
 [JsonDerivedType(typeof(ClaimResolved), "claim.resolved")]

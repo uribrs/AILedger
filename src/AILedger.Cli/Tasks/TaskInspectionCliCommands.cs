@@ -114,7 +114,7 @@ internal sealed class TaskInspectionCliCommands(
         var debt = TaskDebt.Compute(state);
         if (!debt.IsClear)
         {
-            projection["owed"] = JsonSerializer.SerializeToNode(debt, json);
+            projection[state.HumanClosure is null ? "owed" : "unresolvedAtHumanClosure"] = JsonSerializer.SerializeToNode(debt, json);
         }
 
         var waivers = BriefWaiver.Compute(state);

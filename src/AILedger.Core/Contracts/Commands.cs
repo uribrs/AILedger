@@ -4,6 +4,7 @@ namespace AILedger.Core.Contracts;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "commandType")]
 [JsonDerivedType(typeof(OpenTaskCommand), "task.open")]
+[JsonDerivedType(typeof(AILedger.Core.TaskClosure.CloseTaskByHumanCommand), "task.close-by-human")]
 [JsonDerivedType(typeof(AssignRoleCommand), "actor.assign-role")]
 [JsonDerivedType(typeof(AddClaimCommand), "claim.add")]
 [JsonDerivedType(typeof(ResolveClaimCommand), "claim.resolve")]

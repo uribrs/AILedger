@@ -72,10 +72,13 @@ public sealed class CommandHandler : ICommandHandler, IKernelIdentitySource
         }
 
         _authorizationPolicy.Authorize(state, command);
+        if (state.HumanClosure is not null)
+            throw new GovernanceException("Task was closed successfully by its human operator; further workflow mutations are fenced.");
         EntryActionStageRules.EnsureAllowed(state, command);
 
         return command switch
         {
+            AILedger.Core.TaskClosure.CloseTaskByHumanCommand close => AILedger.Core.TaskClosure.HumanTaskClosureRules.Close(state, close, now),
             AssignRoleCommand assign => RoleAssignmentRules.AssignRole(state, assign, now),
             AddClaimCommand add => ClaimRules.AddClaim(state, add, now),
             ResolveClaimCommand resolve => ClaimRules.ResolveClaim(state, resolve),
