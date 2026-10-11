@@ -116,6 +116,85 @@ public sealed class RoslynSearchGuardTests
             $"grep -n -A 18 -B 3 'cursor_recovery' Fixtures/*.{extension}")));
     }
 
+    [Theory]
+    [InlineData("grep -R -n --include='*.ts' Engine modules/*/src")]
+    [InlineData("grep -R -n --include='*.ts' --exclude='*.spec.ts' --exclude-dir='mocks' Engine modules/*/src")]
+    [InlineData("grep -R -n --include='*.ts' --exclude '*.spec.ts' --exclude-dir mocks Engine modules")]
+    [InlineData("grep -R -n --include='*.ts' --exclude='*.spec.ts' --exclude-dir=mocks Engine modules")]
+    [InlineData("rg -g '*.ts' Engine modules/*/src")]
+    [InlineData("rg Engine modules/*/src/*.ts")]
+    public void AllowsBoundedTypeScriptSearchesWithoutSpendingFallback(string command)
+    {
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "modules", "client", "src"));
+        File.WriteAllText(Path.Combine(directory.FullName, "client.ts"), "Engine");
+        File.WriteAllText(Path.Combine(directory.FullName, "Engine.cs"), "class Engine {}");
+        fixture.RecordFailure();
+
+        Assert.Null(fixture.Evaluate(fixture.Shell(command)));
+        Assert.Null(fixture.Evaluate(fixture.Shell("rg Engine Engine.cs")));
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("rg Engine Engine.cs")));
+    }
+
+    [Theory]
+    [InlineData("rg -g '*.ts' Engine modules/*/src/*")]
+    [InlineData("grep -R --include='*.ts' --include='*.cs' Engine modules/*/src")]
+    [InlineData("grep -R --include='*.ts' --unknown-option Engine modules/*/src")]
+    [InlineData("rg -g '*.ts' Engine modules/$MODULE/src")]
+    [InlineData("rg -g '*.ts' Engine modules/**/src")]
+    [InlineData("rg -g '*.ts' Engine absent*/src")]
+    public void AmbiguousOrCSharpGlobSearchesCannotSpendFallback(string command)
+    {
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "modules", "client", "src"));
+        File.WriteAllText(Path.Combine(directory.FullName, "Engine.cs"), "class Engine {}");
+        fixture.RecordFailure();
+
+        Assert.NotNull(fixture.Evaluate(fixture.Shell(command)));
+        Assert.Null(fixture.Evaluate(fixture.Shell("rg Engine Engine.cs")));
+    }
+
+    [Fact]
+    public void FilteredParentGlobCannotHideSymlinkToCSharpFile()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "modules", "client"));
+        File.CreateSymbolicLink(Path.Combine(directory.FullName, "client.ts"),
+            Path.Combine(fixture.OtherRepository, "Engine.cs"));
+        fixture.RecordFailure();
+
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("rg -g '*.ts' Engine modules/*/*.ts")));
+        Assert.Null(fixture.Evaluate(fixture.Shell("rg Engine Engine.cs")));
+    }
+
+    [Fact]
+    public void ParentGlobChecksDirectorySymlinkTargets()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "modules"));
+        Directory.CreateSymbolicLink(Path.Combine(directory.FullName, "linked"), fixture.OtherRepository);
+        fixture.RecordFailure();
+
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("rg Engine modules/*")));
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("rg -g '*.ts' Engine modules/*/*.cs")));
+        Assert.Null(fixture.Evaluate(fixture.Shell("rg Engine Engine.cs")));
+    }
+
+    [Fact]
+    public void OversizedGlobRemainsOpaqueEvenWithNonCSharpFilter()
+    {
+        using var fixture = new Fixture();
+        var directory = Directory.CreateDirectory(Path.Combine(fixture.Repository, "modules"));
+        for (var index = 0; index <= 10000; index++)
+            File.WriteAllText(Path.Combine(directory.FullName, $"client{index}.ts"), "");
+        fixture.RecordFailure();
+
+        Assert.NotNull(fixture.Evaluate(fixture.Shell("rg -g '*.ts' Engine modules/*.ts")));
+        Assert.Null(fixture.Evaluate(fixture.Shell("rg Engine Engine.cs")));
+    }
+
     [Fact]
     public void NonCSharpGlobChecksMatchingDirectories()
     {

@@ -149,6 +149,7 @@ internal static partial class CSharpSearchClassifier
         var targets = new List<string>();
         var patternSeen = false;
         var opaque = false;
+        var wildcardTarget = false;
         for (var index = 0; index < arguments.Length; index++)
         {
             var argument = arguments[index];
@@ -180,6 +181,11 @@ internal static partial class CSharpSearchClassifier
             {
                 index++;
             }
+            else if (argument.StartsWith("--exclude=", StringComparison.Ordinal) ||
+                     argument.StartsWith("--exclude-dir=", StringComparison.Ordinal))
+            {
+                // Exclusions only narrow the search; their equals form consumes no next argument.
+            }
             else if (argument.StartsWith('-'))
             {
                 // Unknown options can take arguments. Do not authorize fallback for an
@@ -192,7 +198,8 @@ internal static partial class CSharpSearchClassifier
             }
             else
             {
-                if (TryResolveNonCSharpGlob(argument, cwd, out var matches))
+                wildcardTarget |= argument.IndexOfAny(['*', '?']) >= 0;
+                if (TryResolveSearchGlob(argument, cwd, out var matches))
                 {
                     targets.AddRange(matches);
                 }
@@ -210,30 +217,45 @@ internal static partial class CSharpSearchClassifier
         }
 
         return MaySearchCSharp(targets, opaque ? [] : filters)
-            ? new Search(targets, !opaque) : null;
+            ? new Search(targets, !opaque && !wildcardTarget) : null;
     }
 
-    private static bool TryResolveNonCSharpGlob(string argument, string cwd, out string[] matches)
+    private static bool TryResolveSearchGlob(string argument, string cwd, out string[] matches)
     {
         matches = [];
-        // Resolve only ordinary filename wildcards, never shell expansion or wildcard parents.
-        // Classify actual entries: a directory or symlink named *.yaml can still expose C#.
-        if (argument.IndexOfAny(['$', '`', '{', '}', '[', ']', '\\', '~', '(', ')']) >= 0)
-            return false;
-        var pattern = Path.GetFileName(argument);
-        var parent = Path.GetDirectoryName(argument);
-        var extension = Path.GetExtension(pattern);
-        if (pattern.IndexOfAny(['*', '?']) < 0 || parent?.IndexOfAny(['*', '?']) >= 0 ||
-            extension.Length < 2 || !extension[1..].All(char.IsAsciiLetterOrDigit) ||
-            extension.Equals(".cs", StringComparison.OrdinalIgnoreCase))
+        // Resolve ordinary * and ? path segments, including wildcard parents. Keep shell
+        // expansion and recursive globs opaque. Actual targets still undergo the C# checks.
+        if (argument.IndexOfAny(['*', '?']) < 0 || argument.Contains("**", StringComparison.Ordinal) ||
+            argument.IndexOfAny(['$', '`', '{', '}', '[', ']', '\\', '~', '(', ')']) >= 0 ||
+            argument.Split(Path.DirectorySeparatorChar).Contains(".."))
             return false;
 
-        var directory = Resolve(string.IsNullOrEmpty(parent) ? "." : parent, cwd);
-        if (!Directory.Exists(directory)) return false;
-        var entries = Directory.EnumerateFileSystemEntries(directory, pattern).Take(10001).ToArray();
-        // An unmatched glob may disappear under nullglob, causing rg to search the cwd.
-        if (entries.Length is 0 or > 10000) return false;
-        matches = entries.Select(entry => RoslynSolutionPaths.Canonicalize(entry)).ToArray();
+        var path = Path.GetFullPath(argument, cwd);
+        var root = Path.GetPathRoot(path)!;
+        var candidates = new List<string> { root };
+        var visited = 0;
+        foreach (var segment in path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var next = new List<string>();
+            foreach (var directory in candidates.Where(Directory.Exists))
+            {
+                var entries = segment.IndexOfAny(['*', '?']) >= 0
+                    ? Directory.EnumerateFileSystemEntries(directory, segment)
+                    : [Path.Combine(directory, segment)];
+                foreach (var entry in entries)
+                {
+                    if (++visited > 10000) return false;
+                    if (File.Exists(entry) || Directory.Exists(entry)) next.Add(entry);
+                }
+            }
+            // An unmatched glob may disappear under nullglob, causing rg to search the cwd.
+            if (next.Count == 0) return false;
+            candidates = next;
+        }
+        // An unprefixed glob can expand to command-line options, not just paths.
+        if (argument.IndexOf(Path.DirectorySeparatorChar) < 0 &&
+            candidates.Any(entry => Path.GetFileName(entry).StartsWith('-'))) return false;
+        matches = candidates.Select(entry => RoslynSolutionPaths.Canonicalize(entry)).ToArray();
         return true;
     }
 

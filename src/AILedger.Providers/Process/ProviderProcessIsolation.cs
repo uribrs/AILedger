@@ -23,6 +23,8 @@ public static class ProviderProcessIsolation
         var environment = new Dictionary<string, string>(invocation.Environment)
         {
             ["TMPDIR"] = scratch, ["TMP"] = scratch, ["TEMP"] = scratch,
+            // zsh uses a filename prefix, independently of TMPDIR, for heredoc files.
+            ["TMPPREFIX"] = Path.Combine(scratch, "zsh"),
             // Claude defaults its internal shell files to /tmp on macOS, ignoring TMPDIR.
             ["CLAUDE_CODE_TMPDIR"] = scratch
         };

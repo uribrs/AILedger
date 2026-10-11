@@ -157,6 +157,41 @@ public sealed class ProviderStartupIsolationTests
         Assert.Empty(Directory.EnumerateFileSystemEntries(external.Path));
     }
 
+    [Theory]
+    [InlineData("-fc")]
+    [InlineData("-lc")]
+    public async Task ZshHeredocsUsePrivateScratchWithoutWideningWrites(string shellMode)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        using var work = new TemporaryDirectory();
+        using var external = new TemporaryDirectory();
+        var forbidden = Path.Combine(external.Path, "forbidden");
+        const string script = """
+            set -eu
+            /bin/cat <<'EOF' > heredoc.txt
+            literal $value
+            EOF
+            /bin/zsh -fc '/bin/cat <<EOF > nested.txt
+            nested heredoc
+            EOF'
+            [[ "$TMPPREFIX" == "$TMPDIR/"* ]]
+            if printf forbidden > "$1"; then exit 10; fi
+            print -r -- "$TMPDIR"
+            """;
+        var result = await ProviderIsolationTests.RunAsync(new("/bin/zsh", work.Path,
+            [shellMode, script, "heredoc-probe", forbidden], "",
+            new Dictionary<string, string> { ["TMPPREFIX"] = Path.Combine(external.Path, "inherited") },
+            TimeSpan.FromSeconds(15), new([work.Path], [], [])));
+
+        Assert.True(result.Exit == 0, result.Error);
+        Assert.Equal("literal $value\n", await File.ReadAllTextAsync(Path.Combine(work.Path, "heredoc.txt")));
+        Assert.Equal("nested heredoc\n", await File.ReadAllTextAsync(Path.Combine(work.Path, "nested.txt")));
+        var scratch = result.Output.Trim();
+        Assert.NotEmpty(scratch);
+        Assert.False(Directory.Exists(scratch));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(external.Path));
+    }
+
     private sealed class RuntimeProbeRunner : IProcessRunner
     {
         private readonly ScriptedProcessRunner capabilities = new ScriptedProcessRunner()
