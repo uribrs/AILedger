@@ -95,8 +95,39 @@ principal's granted scope. All inputs must be canonical relative non-symlink UTF
 
 The policy declares what the bounded candidate contains. It does not discover undeclared code,
 resources or environmental dependencies. The client must inspect this selection before relying on
-assurance. This first slice has at most eight areas, 32 total paths per area, 256 KiB exact bytes per
-area and 128 KiB per input, 32 criteria/principals/check definitions, 1–8 checks per batch and initially eight check batches per case.
+assurance. For new cases, the planning role proposes the area breakdown and check allowance from the
+developed change, its dependencies, required checks and anticipated repair/re-verification. The
+authorized operator approves that judgment in the protected policy's `plan`; writing a proposal is
+not permission to spend. Areas are not required to match work items one-for-one.
+
+For example, a five-area change with one batch per area and allowance for further verification could use:
+
+```json
+"plan": {
+  "area_rationale": "Five changed components with distinct requirements; their consumer dependencies are declared in areas.",
+  "check_batch_limit": 20,
+  "check_budget_rationale": "Five initial batches and fifteen for repairs and fresh verifier coverage."
+}
+```
+
+Planned cases have no fixed area-count ceiling. `check_batch_limit` is a positive, case-wide lifetime
+allowance, not a per-area allowance or a model-spend grant. Both rationales are required. The host
+checks a necessary minimum for one coverage pass from distinct required checks, the per-batch count
+and timeout limits; that lower bound does not prove the plan sufficient for packing checks or repairs.
+Inspection returns the current `check_budget`; it also returns `plan` when the principal is granted
+every area, so partial-scope inspectors do not receive case-wide planning prose. The first admitted operation records the
+approved plan, complete area/check declarations and policy hash in the case journal before any check runs.
+Reopening the same policy does not duplicate that record; policy revisions retain earlier plans and outcomes.
+
+Legacy policies without `plan` retain their original identities, eight-area profile and initial
+eight-batch allowance. To adopt planning, add the approved plan to the same policy/case/store and
+open fresh sessions. Lifetime consumption remains; changing policy does not refund attempts. For a
+budget-only increase, prefer the operator revision below, which preserves the current policy and bindings.
+
+Technical bounds remain: 64 KiB policy documents, 32 total paths per area, 256 KiB exact bytes per
+area and 128 KiB per input, 32 criteria per area, 32 principals, and 1–8 checks per batch. Planned
+cases can declare the check definitions their scope needs within the policy byte bound; legacy
+policies retain their 32-definition profile.
 A check timeout is 1–300 seconds; a batch's total configured timeouts cannot exceed 300 seconds.
 Use a narrowly scoped change whose complete relevant inputs fit. Binaries, symlinks and larger
 repository build closures are unsupported; split the task deliberately rather than omit material
@@ -234,15 +265,16 @@ ailedger assurance reconcile --authority /absolute/policy.json --store /absolute
 Reconciliation stays unknown; it permits an explicitly requested new check key within the case's
 remaining bound. The old key remains interrupted. It is not proof of a successful process ending.
 
-### Exhausted check budgets (4.1)
+### Revising check budgets (4.2.3)
 
 `inspect_assurance` includes `check_budget`: the current `policy_sha256`, lifetime
 `consumed_batches`, applicable `batch_limit`, `remaining_batches` and `maximum_extension_batches`.
 Every started batch counts, including failed or interrupted checks. Configuration mistakes do not
-refund attempts. Eight areas can consume the entire initial allowance in one verification pass.
+refund attempts. `maximum_extension_batches` now reports remaining integer counter capacity, not a
+recommended allowance or an eight-batch spending limit. Journal and payload capacity remain separate bounds.
 
-After exhaustion, the explicitly authorized local operator can grant **1–8 additional batches**
-within the same case. Correct and preflight the checks first; a bad filter or missing baseline is
+The explicitly authorized local operator can grant a **judgment-sized positive number of additional batches**
+within the same case, including before exhaustion. Correct and preflight the checks first; a bad filter or missing baseline is
 not repaired by a larger budget. Use the current policy, an acceptance principal covering every
 area, and a fresh inspection. The principal must differ from all implementers. Unknown check
 endings require reconciliation first. This command is not exposed to provider MCP sessions.
@@ -260,18 +292,22 @@ Omit `--governed-root` only for a policy without a governed association. `renewa
   "schema_version": 1,
   "request_id": "corrected-checks-1",
   "expected_policy_sha256": "<exact hash from check_budget.policy_sha256>",
-  "expected_consumed_batches": 8,
-  "additional_batches": 8,
-  "reason": "Correct the documented check configuration and run fresh verification"
+  "expected_consumed_batches": 7,
+  "expected_batch_limit": 20,
+  "additional_batches": 12,
+  "reason": "Three repair areas require fresh verification; retain the thirteen unused batches and authorize twelve more for the revised plan"
 }
 ```
 
 The grant, reason, principal/session, policy identity and new lifetime ceiling are appended under
-the existing case lock. A stale consumed count or remaining applicable capacity prevents renewal.
+the existing case lock. Both expected counters must match a fresh inspection; competing revisions
+cannot silently stack. Additional batches are added to the larger of the current limit and lifetime
+consumption, preserving unused capacity and all spent attempts. Historical requests omitting
+`expected_batch_limit` remain valid only after exhaustion, and retain their exact replay identities.
 After an uncertain response, retry the **same body, request ID, session and policy**; the original
 grant is returned without adding capacity twice. Policy changes require a fresh host session;
 an old policy's unused grant does not authorize the changed checks. All started batches still
-count, and a new bounded grant can be issued when the current policy has no remaining capacity.
+count. Providers cannot approve their own allowance or access this revision through assurance MCP tools.
 
 Renewal changes no candidate, finding, check result, acceptance or task lifecycle. Existing
 freshness and independent-assurance rules remain in force. Corrected configuration invalidates

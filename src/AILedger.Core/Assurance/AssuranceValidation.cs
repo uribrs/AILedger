@@ -33,9 +33,9 @@ public static class AssuranceValidation
     public static void Items<T>(IReadOnlyList<T>? items, string name, int minimum = 0, int maximum = 32) =>
         Require(items is not null && items.Count >= minimum && items.Count <= maximum && items.All(i => i is not null),
             "invalid_request", $"{name} must contain {minimum}–{maximum} non-null entries.");
-    public static void Unique(IReadOnlyList<string> items, string name)
+    public static void Unique(IReadOnlyList<string> items, string name, int maximum = 32)
     {
-        Items(items, name);
+        Items(items, name, maximum: maximum);
         foreach (var item in items) Text(item, name, 256);
         Require(items.Distinct(StringComparer.Ordinal).Count() == items.Count, "invalid_request", $"{name} contains duplicates.");
     }
@@ -75,10 +75,14 @@ public static class AssuranceValidation
     {
         Request(policy.SchemaVersion); Text(policy.CaseId, "case_id", 128); Text(policy.Implementer, "implementer", 128);
         Require(Path.IsPathFullyQualified(policy.CandidateRoot), "invalid_policy", "Candidate root must be absolute.");
-        Items(policy.Areas, "areas", 1, 8); Items(policy.Principals, "principals", 1); Items(policy.Checks, "checks", 1);
-        Unique(policy.Areas.Select(a => a.Id).ToArray(), "area IDs");
+        Items(policy.Areas, "areas", 1, int.MaxValue); Items(policy.Principals, "principals", 1);
+        var checkLimit = policy.Plan is null ? 32 : int.MaxValue;
+        Items(policy.Checks, "checks", 1, checkLimit);
+        Require(policy.Plan is not null || policy.Areas.Count <= 8, "invalid_policy",
+            "Provide an approved plan with area and check-budget rationale for scopes beyond the legacy eight-area profile.");
+        Unique(policy.Areas.Select(a => a.Id).ToArray(), "area IDs", int.MaxValue);
         Unique(policy.Principals.Select(p => p.Id).ToArray(), "principal IDs");
-        Unique(policy.Checks.Select(c => c.Id).ToArray(), "check IDs");
+        Unique(policy.Checks.Select(c => c.Id).ToArray(), "check IDs", checkLimit);
         if (policy.Governed is { } governed)
         {
             Request(governed.SchemaVersion); Text(governed.TaskId, "governed task", 128);
@@ -98,7 +102,7 @@ public static class AssuranceValidation
         {
             Items(area.CandidatePaths, "candidate_paths", 1); Items(area.RequirementPaths, "requirement_paths", 1);
             Unique(area.CandidatePaths.Concat(area.RequirementPaths).Concat(area.SourcePaths).ToArray(), "area paths");
-            Unique(area.DependsOnAreas, "area dependencies"); Items(area.Criteria, "criteria", 1);
+            Unique(area.DependsOnAreas, "area dependencies", int.MaxValue); Items(area.Criteria, "criteria", 1);
             Unique(area.Criteria.Select(c => c.Id).ToArray(), "criterion IDs");
             Require(area.DependsOnAreas.All(id => id != area.Id && policy.Areas.Any(a => a.Id == id)), "invalid_policy", "Unknown or self area dependency.");
             foreach (var criterion in area.Criteria)
@@ -110,7 +114,7 @@ public static class AssuranceValidation
         foreach (var principal in policy.Principals)
         {
             Require(principal.Role is "review" or "verification" or "synthesis" or "acceptance", "invalid_policy", "Unknown assurance role.");
-            Unique(principal.Areas, "principal areas");
+            Unique(principal.Areas, "principal areas", int.MaxValue);
             Require(principal.Areas.Count > 0 && principal.Areas.All(id => policy.Areas.Any(a => a.Id == id)), "invalid_policy", "Principal has unknown or empty area scope.");
         }
         foreach (var check in policy.Checks)
@@ -120,5 +124,6 @@ public static class AssuranceValidation
             foreach (var argument in check.Arguments) Require(argument is not null && argument.Length <= 4096, "invalid_policy", "Invalid check argument.");
             Require(check.TimeoutSeconds is >= 1 and <= 300, "invalid_policy", "Checks require a 1–300 second timeout.");
         }
+        AssurancePlanning.Validate(policy);
     }
 }

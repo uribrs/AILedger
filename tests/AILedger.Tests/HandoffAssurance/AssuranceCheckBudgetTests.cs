@@ -121,15 +121,57 @@ public sealed class AssuranceCheckBudgetTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(9)]
     [InlineData(-1)]
-    public async Task ExtensionIsBounded(int additional)
+    public async Task ExtensionMustBePositive(int additional)
     {
         using var f = await AssuranceFixture.CreateAsync();
         var request = await RequestAsync(f, additional);
         Assert.Equal("invalid_request", (await Assert.ThrowsAsync<AssuranceRefusal>(() =>
             f.Sessions["operator"].ExtendCheckBudgetAsync(request, true, default))).Code);
         Assert.Empty(await GrantsAsync(f));
+    }
+
+    [Fact]
+    public async Task PlannedRevisionCanExceedEightBeforeExhaustionAndDoesNotRefundAttempts()
+    {
+        using var f = await AssuranceFixture.CreateAsync();
+        f.Runner.Outcome = "failure";
+        await ConsumeAsync(f, 2);
+        var budget = (await f.InspectAsync()).CheckBudget!;
+        var request = (await RequestAsync(f, 20)) with { ExpectedBatchLimit = budget.BatchLimit };
+        var first = await f.Sessions["operator"].ExtendCheckBudgetAsync(request, true, default);
+        Assert.Equal(28, first.Grant.BatchLimit);
+        f.OpenSessions();
+        Assert.True((await f.Sessions["operator"].ExtendCheckBudgetAsync(request, true, default)).Replayed);
+        var after = (await f.InspectAsync()).CheckBudget!;
+        Assert.Equal(2, after.ConsumedBatches);
+        Assert.Equal(26, after.RemainingBatches);
+        Assert.Equal("not_accepted", (await f.InspectAsync()).Acceptance);
+        Assert.Single(await GrantsAsync(f));
+    }
+
+    [Fact]
+    public async Task ConcurrentProactiveRevisionsRequireFreshLimitAndCannotStack()
+    {
+        using var f = await AssuranceFixture.CreateAsync();
+        var request = (await RequestAsync(f, 12)) with { ExpectedBatchLimit = 8 };
+        var results = await Task.WhenAll(new[] { "one", "two" }.Select(key => Record.ExceptionAsync(() =>
+            f.Sessions["operator"].ExtendCheckBudgetAsync(request with { RequestId = key }, true, default))));
+        Assert.Single(results.Where(e => e is null));
+        Assert.Equal("stale_snapshot", Assert.IsType<AssuranceRefusal>(Assert.Single(results.Where(e => e is not null))).Code);
+        Assert.Equal(20, (await f.InspectAsync()).CheckBudget!.BatchLimit);
+        Assert.Single(await GrantsAsync(f));
+    }
+
+    [Fact]
+    public async Task CounterOverflowRefusesWithoutGrantingCapacity()
+    {
+        using var f = await AssuranceFixture.CreateAsync();
+        var request = (await RequestAsync(f, int.MaxValue)) with { ExpectedBatchLimit = 8 };
+        Assert.Equal("invalid_request", (await Assert.ThrowsAsync<AssuranceRefusal>(() =>
+            f.Sessions["operator"].ExtendCheckBudgetAsync(request, true, default))).Code);
+        Assert.Empty(await GrantsAsync(f));
+        Assert.Equal(8, (await f.InspectAsync()).CheckBudget!.BatchLimit);
     }
 
     [Fact]

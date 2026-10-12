@@ -90,10 +90,13 @@ them. It reserves nothing and does not promise a later launch will pass.
   unsupported scope is an explicit gap, not a reason to skip it silently.
   It is separate from the governed frozen `--candidate` flow below and does not replace its
   independent verifier/reviewer outputs or completion rules.
-- An exhausted task-13 check budget has a trusted operator recovery command, `assurance extend-check-budget`.
-  With explicit authorization, grant 1–8 additional batches against the inspected policy and consumed count;
-  retain the case and all findings. Repair check configuration first and budget for the next verifier's
-  required area closure. This grants capacity only, never acceptance or a waiver.
+- For task 13, have the planning role propose meaningful areas and a check allowance from the developed
+  scope, dependencies and repair/re-verification needs. The authorized operator approves `plan` in the
+  protected host policy; no fixed area count applies to planned cases. See the contract for technical bounds.
+- `assurance extend-check-budget` supports judgment-sized increases before exhaustion. With explicit
+  authorization, include the inspected policy, consumed count and `expected_batch_limit`, a positive
+  additional allowance and its rationale. Retain the case, unused capacity and all findings. Providers
+  cannot self-increase spending. Historical requests without the expected limit still require exhaustion.
 
 - Consult the [tool and environment inventory](tool-inventory.md) before locating or installing a
   needed capability; follow its discovery and update instructions for missing or stale entries (guidance).

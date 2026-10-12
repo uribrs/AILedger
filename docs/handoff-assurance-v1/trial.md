@@ -32,7 +32,10 @@ billable model adapter or dollar-limit enforcement and cannot supply that missin
    assign actual independent review/verification principals and an accepting principal with scoped
    areas and expiry. Pin approved host check executable SHA-256 and argument vector. Inspect the
    test itself for relevance; `exit 0` is not a criterion test. Keep the policy/store outside every
-   provider write root, with appropriate local filesystem protection.
+   provider write root, with appropriate local filesystem protection. Propose a `plan` from the actual
+   area boundaries, required checks and repair/re-verification allowance; have the authorized operator
+   approve its `area_rationale`, `check_batch_limit` and `check_budget_rationale`. The example's numeric
+   allowance is for that fixture, not a default for your task. See the contract for revisions in the same case.
 3. Existing governed assurance runs can supply `--assurance-authority FILE --assurance-store DIR`
    on a real permitted **fresh** `provider launch`. All ordinary stage/role/run prerequisites still
    apply. Do not create waived histories to make this bridge work. For externally produced code,

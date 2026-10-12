@@ -12,7 +12,11 @@ public sealed record AssurancePolicy(int SchemaVersion, string CaseId, string Ca
     public GovernedAssuranceScope? Governed { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, string>? WorkImplementers { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AssurancePlan? Plan { get; init; }
 }
+// Proposed from the developed scope, approved through the trusted operator-owned policy.
+public sealed record AssurancePlan(string AreaRationale, int CheckBatchLimit, string CheckBudgetRationale);
 public sealed record AssuranceArea(string Id, IReadOnlyList<string> CandidatePaths,
     IReadOnlyList<string> RequirementPaths, IReadOnlyList<string> SourcePaths,
     IReadOnlyList<string> DependsOnAreas, IReadOnlyList<AssuranceCriterion> Criteria);
@@ -105,6 +109,8 @@ public sealed record AssuranceInspection(AssuranceSnapshot Snapshot, IReadOnlyLi
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AssuranceCheckBudget? CheckBudget { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AssurancePlan? Plan { get; init; }
 }
 
 // Authored judgment; the host separately retains before/after physical observations.

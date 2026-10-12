@@ -93,9 +93,10 @@ older passing report cannot substitute. Negative/unknown reports remain recordab
 No worker or lead acquires verifier authority. No extra ceremonial check phase is added. The bounded
 profile runs all declared required checks for each new candidate; it does not attempt unsupported
 semantic test-subset selection. Checks outside the applicable declared criteria are not mandated.
-The case still permits at most eight check batches; exhaustion preserves unresolved work. Changing
-case ID, store or member association is refused by the pinned coordination anchor. Successor-case
-budget extension/migration is unsupported, not an automatic reset or permission to discard findings.
+The case uses the operator-approved task-13 plan's check allowance (eight initially for legacy policies).
+Exhaustion preserves unresolved work; a trusted operator can revise capacity within the same case using
+`assurance extend-check-budget`. Changing case ID, store or member association is refused by the pinned
+coordination anchor. A revision grants capacity only and preserves prior findings and consumed attempts.
 
 A failed/cancelled worker can have changed files without producing a completed result. Active or newer
 uncertain runs block previous evidence. Even after a later completed worker, earlier failed/cancelled

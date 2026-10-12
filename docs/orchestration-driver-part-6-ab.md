@@ -167,8 +167,9 @@ create scopes or convert a multi-member task into an accepted whole.
    unaccepted members prevent closeout. Without the bridge option, the old explicit pending boundary
    remains; direct ordinary `work complete` does not secretly open an acceptance service.
 
-The bounded host-check profile retains task-13's limits (including its existing eight check batches
-per case). Exhaustion pauses with unresolved work; it is not a repair cap that produces success.
+The host-check profile uses task-13's approved scope-based plan and technical limits. Legacy policies
+retain their initial eight-batch allowance. Exhaustion pauses with unresolved work; the trusted operator
+can revise capacity in the same case, without converting a repair cap into success.
 Configure `--owner-lease-seconds` longer than the longest bounded governed assurance call plus IO margin:
 the task lock is held during checks, so heartbeat renewal can wait. Lease loss fences further writes;
 reconciliation must establish process termination separately. Broad operating guidance is still 6D.

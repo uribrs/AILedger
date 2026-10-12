@@ -79,7 +79,10 @@ def run(cli, root):
     os.chmod(slow, 0o700)
     expires = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
     policy = {"schema_version": 1, "case_id": "task13-scripted-example", "candidate_root": str(candidate),
-              "implementer": "external-implementer", "areas": [], "principals": [], "checks": []}
+              "implementer": "external-implementer", "areas": [], "principals": [], "checks": [],
+              "plan": {"area_rationale": "Three fixture components; b depends on a and c is independent.",
+                       "check_batch_limit": 12,
+                       "check_budget_rationale": "Three initial areas plus repair, changed-input and interruption probes; no model spend."}}
     for area in ("a", "b", "c"):
         policy["areas"].append({"id": area, "candidate_paths": [area + ".txt"],
           "requirement_paths": [area + ".requirements"], "source_paths": [area + ".source"],

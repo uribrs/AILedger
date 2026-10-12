@@ -8,8 +8,6 @@ namespace AILedger.Providers.Assurance;
 
 public sealed partial class AssuranceService
 {
-    private const int InitialCheckBatches = 8;
-    private const int MaximumExtensionBatches = 8;
     private const string BudgetGrantKind = "assurance_check_budget_extended";
 
     // Like reconciliation, only the local trusted operator adapter exposes this method.
@@ -51,12 +49,20 @@ public sealed partial class AssuranceService
         var budget = CheckBudget(records);
         Require(request.ExpectedConsumedBatches == budget.ConsumedBatches, "stale_snapshot",
             "Consumed check batches changed; inspect the current budget before renewal.");
-        Require(budget.RemainingBatches == 0, "budget_not_exhausted",
-            "Use the remaining authorized batches before requesting a bounded extension.");
+        if (request.ExpectedBatchLimit is { } expectedLimit)
+            Require(expectedLimit == budget.BatchLimit, "stale_snapshot",
+                "Authorized check limit changed; inspect the current budget before revision.");
+        else
+            Require(budget.RemainingBatches == 0, "budget_not_exhausted",
+                "To revise before exhaustion, include expected_batch_limit from a fresh inspection.");
+        var basis = Math.Max(budget.BatchLimit, budget.ConsumedBatches);
+        Require(request.AdditionalBatches <= int.MaxValue - basis, "invalid_request",
+            "The resulting check allowance exceeds the supported counter range.");
         await AssuranceConfiguration.ValidateInputsAsync(policy, _session.Principal, token).ConfigureAwait(false);
         await AuthorizeAsync(token).ConfigureAwait(false);
+        await RecordPlanAsync(policy, records, token).ConfigureAwait(false);
         var grant = new AssuranceCheckBudgetGrant("ABG_" + Guid.NewGuid().ToString("N"), fingerprint,
-            request, _session, _policyHash, checked(budget.ConsumedBatches + request.AdditionalBatches), DateTimeOffset.UtcNow);
+            request, _session, _policyHash, checked(basis + request.AdditionalBatches), DateTimeOffset.UtcNow);
         await _store.AppendAsync(_id, BudgetGrantKind, grant, token).ConfigureAwait(false);
         return new(grant, false);
     }
@@ -69,16 +75,17 @@ public sealed partial class AssuranceService
         Require(AILedger.Core.Artifacts.ArtifactSubmissionIdentity.IsHash(request.ExpectedPolicySha256),
             "invalid_request", "expected_policy_sha256 must be the exact hash returned by inspection.");
         Require(request.ExpectedConsumedBatches >= 0, "invalid_request", "Consumed batches cannot be negative.");
-        Require(request.AdditionalBatches is >= 1 and <= MaximumExtensionBatches, "invalid_request",
-            "Authorize 1–8 additional check batches per renewal.");
+        Require(request.ExpectedBatchLimit is null or > 0, "invalid_request", "Expected batch limit must be positive.");
+        Require(request.AdditionalBatches >= 1, "invalid_request",
+            "Authorize a positive number of additional check batches based on the remaining work.");
     }
 
     private AssuranceCheckBudget CheckBudget(IReadOnlyList<EpisodeRecord> records)
     {
         var used = records.Count(r => r.Kind == "assurance_check_started");
         var limit = BudgetGrants(records).Where(g => g.PolicySha256 == _policyHash)
-            .Select(g => g.BatchLimit).Append(InitialCheckBatches).Max();
-        return new(_policyHash, used, limit, Math.Max(0, limit - used), MaximumExtensionBatches);
+            .Select(g => g.BatchLimit).Append(AssurancePlanning.InitialBatchLimit(_initial)).Max();
+        return new(_policyHash, used, limit, Math.Max(0, limit - used), int.MaxValue - Math.Max(limit, used));
     }
 
     private static IEnumerable<AssuranceCheckBudgetGrant> BudgetGrants(IEnumerable<EpisodeRecord> records) =>

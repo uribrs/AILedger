@@ -63,6 +63,8 @@ public sealed partial class AssuranceService : IAssuranceService
             await using var lease = await _store.AcquireAsync(_id, token).ConfigureAwait(false);
             var policy = await AuthorizeAsync(token).ConfigureAwait(false);
             var records = await _store.ReadAsync(_id, token).ConfigureAwait(false);
+            if (await RecordPlanAsync(policy, records, token).ConfigureAwait(false) is { } plan)
+                records = records.Append(plan).ToArray();
             var entries = Entries(records);
             var result = operation switch
             {

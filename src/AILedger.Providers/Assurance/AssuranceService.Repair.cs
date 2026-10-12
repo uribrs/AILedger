@@ -13,8 +13,8 @@ public sealed partial class AssuranceService
             "authorization_denied", "Repair impact requires independent scoped synthesis authority.");
         Request(impact.SchemaVersion);
         Text(impact.DependencyRationale, "dependency rationale");
-        Unique(impact.AffectedAreas, "affected areas"); Unique(impact.RequirementIds, "requirements");
-        Unique(impact.DependencyAreas, "dependencies"); Unique(impact.RequiredChecks, "required checks");
+        Unique(impact.AffectedAreas, "affected areas", int.MaxValue); Unique(impact.RequirementIds, "requirements");
+        Unique(impact.DependencyAreas, "dependencies", int.MaxValue); Unique(impact.RequiredChecks, "required checks", int.MaxValue);
         Unique(impact.AddressedFindings, "addressed findings"); Unique(impact.ReuseReceipts, "reuse receipts");
         Unique(impact.InvalidateReceipts, "invalidated receipts"); Items(impact.Uncertainty, "impact uncertainty");
         foreach (var uncertainty in impact.Uncertainty) Text(uncertainty, "impact uncertainty");

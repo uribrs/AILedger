@@ -71,27 +71,36 @@ public sealed class AssuranceOwnershipTests
         Assert.Equal("succeeded_by_human_override", (await f.Driver.Bundle.State()).HumanClosure!.Outcome);
     }
 
-    [Fact]
-    public async Task BudgetRenewalPreservesGovernedAnchorBindingAndUnresolvedFindings()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BudgetRenewalPreservesGovernedAnchorBindingAndUnresolvedFindings(bool planned)
     {
-        using var f = await CompletionFixture.OpenAsync(); await f.RunAsync();
+        using var f = await CompletionFixture.OpenAsync();
+        if (planned) await f.SavePolicyAsync(f.Policy with { Plan = new("Separate changed components and their dependencies.", 12,
+            "Initial checks plus repair and fresh verifier coverage.") });
+        await f.RunAsync();
         Assert.NotNull((await f.AcceptAsync(withFinding: true)).Error);
         var verifier = await RepairContinuationTests.OpenAsync(f, "verifier", "budget-verifier");
         var before = await RepairContinuationTests.InspectAsync(verifier, "a");
-        for (var i = before.CheckBudget!.ConsumedBatches; i < 8; i++)
+        var target = planned ? 11 : 8;
+        for (var i = before.CheckBudget!.ConsumedBatches; i < target; i++)
             Assert.Null((await verifier.InvokeAsync("run_assurance_checks",
                 Json(new RunAssuranceChecksRequest(1, "budget-" + i, "a", before.Snapshot.BindingSha256, ["unit"])), default)).Error);
         var host = (FileGovernedTaskService)f.Driver.Bundle.Service;
         var anchor = (await host.InspectCoordinationAsync(new("T1"), default))!.AssuranceAnchor;
         var accepting = await RepairContinuationTests.OpenAsync(f, "operator", "budget-operator");
         var budget = (await RepairContinuationTests.InspectAsync(accepting, "a")).CheckBudget!;
-        await accepting.ExtendCheckBudgetAsync(new(1, "renew", budget.PolicySha256, 8, 1,
-            "Reverify corrected checks without resetting the governed case"), true, default);
+        await accepting.ExtendCheckBudgetAsync(new(1, "renew", budget.PolicySha256, target, planned ? 12 : 1,
+            "Reverify corrected checks without resetting the governed case")
+            { ExpectedBatchLimit = planned ? budget.BatchLimit : null }, true, default);
         var after = await RepairContinuationTests.InspectAsync(accepting, "a");
         Assert.Equal(before.Snapshot.BindingSha256, after.Snapshot.BindingSha256);
         Assert.Contains(f.FindingId!, after.UnresolvedFindings);
         Assert.Equal(Hash(anchor), Hash((await host.InspectCoordinationAsync(new("T1"), default))!.AssuranceAnchor));
         Assert.Equal("not_accepted", after.Acceptance);
+        Assert.Equal(planned ? 24 : 9, after.CheckBudget!.BatchLimit);
+        Assert.Equal(target, after.CheckBudget.ConsumedBatches);
         Assert.Null((await verifier.InvokeAsync("run_assurance_checks",
             Json(new RunAssuranceChecksRequest(1, "after-renewal", "a", after.Snapshot.BindingSha256, ["unit"])), default)).Error);
         Assert.NotEqual(WorkItemStatus.Completed, (await f.Driver.Bundle.State()).WorkItems[new("A")].Status);

@@ -39,7 +39,8 @@ public sealed partial class AssuranceService
             pending, records.Count, visible.Length, request.Offset + page.Length < visible.Length ? request.Offset + page.Length : null,
             CheckAttempts(records, entries, request.AreaId, Principal(policy).Role))
         {
-            CheckBudget = CheckBudget(records)
+            CheckBudget = CheckBudget(records),
+            Plan = policy.Areas.All(a => Principal(policy).Areas.Contains(a.Id)) ? policy.Plan : null
         };
         return new("ok", attempt, null, false, Json(inspection), null);
     }
