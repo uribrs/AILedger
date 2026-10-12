@@ -1,5 +1,6 @@
 using AILedger.Core.Contracts;
 using AILedger.Core.Domain;
+using AILedger.Storage;
 
 namespace AILedger.Cli.Tasks;
 
@@ -35,7 +36,17 @@ internal sealed class HumanClosureMonitor : IAsyncDisposable
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
             while (await timer.WaitForNextTickAsync(_lifetime.Token).ConfigureAwait(false))
             {
-                var state = await service.GetStateAsync(task, _lifetime.Token).ConfigureAwait(false);
+                GovernedTaskState? state;
+                try
+                {
+                    state = await service.GetStateAsync(task, _lifetime.Token).ConfigureAwait(false);
+                }
+                catch (TaskMutationLockTimeoutException)
+                {
+                    // Assurance checks retain the task lock through receipt commit. Contention
+                    // is not loss of the task view; retry the authoritative read after the lease.
+                    continue;
+                }
                 if (state?.HumanClosure is null) continue;
                 await _execution.CancelAsync().ConfigureAwait(false);
                 return;

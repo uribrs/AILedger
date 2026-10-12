@@ -7,6 +7,7 @@ using AILedger.Storage;
 using AILedger.Storage.Episodes;
 using AILedger.Tests.Support;
 using AILedger.Tests.Cli;
+using AILedger.Cli.Tasks;
 using static AILedger.Core.Assurance.AssuranceValidation;
 
 namespace AILedger.Tests.Orchestration;
@@ -14,6 +15,47 @@ namespace AILedger.Tests.Orchestration;
 [Collection(StandardInput.Collection)]
 public sealed class AssuranceOwnershipTests
 {
+    [Fact]
+    public async Task LongGovernedCheckSurvivesClosureMonitorLockContentionAndRecordsOnce()
+    {
+        using var f = await CompletionFixture.OpenAsync(); await f.RunAsync();
+        var host = (FileGovernedTaskService)f.Driver.Bundle.Service;
+        var state = await f.Driver.Bundle.State();
+        var session = new AssuranceSession("verifier", "long-check", "external-client", null);
+        var runner = new ControlledRunner();
+        var service = new AssuranceService(new FileEpisodeStore(f.Driver.Options.Dispatch.AssuranceStore!), new PolicySource(f.Policy), f.Policy,
+            session, runner, governedContext: host.CreateAssuranceContext(state, session, false, DateTimeOffset.UtcNow.AddHours(1), f.Driver.Options.Dispatch.AssuranceStore));
+        var before = await RepairContinuationTests.InspectAsync(service, "a");
+        var request = new RunAssuranceChecksRequest(1, "long-check", "a", before.Snapshot.BindingSha256, ["unit"]);
+        await using var monitor = await HumanClosureMonitor.StartAsync(host, state.TaskId, default);
+        var check = service.InvokeAsync("run_assurance_checks", Json(request), monitor.Token);
+        AssuranceResponse response;
+        try
+        {
+            await runner.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            // Exercise the real 30-second task-lock deadline, not a simulated provider heartbeat.
+            await Task.Delay(TimeSpan.FromSeconds(35));
+            Assert.False(monitor.Token.IsCancellationRequested);
+        }
+        finally
+        {
+            runner.Finish.TrySetResult();
+            response = await check.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        Assert.Null(response.Error);
+        Assert.NotNull(response.Receipt);
+        Assert.True((await service.InvokeAsync("run_assurance_checks", Json(request), default)).Replayed);
+        Assert.Equal(1, runner.Calls);
+        var after = await RepairContinuationTests.InspectAsync(service, "a");
+        Assert.Equal(before.CheckBudget!.ConsumedBatches + 1, after.CheckBudget!.ConsumedBatches);
+        Assert.Empty(after.PendingChecks);
+
+        await host.ExecuteAsync(state.TaskId, AILedger.Tests.Core.HumanTaskClosureTests.Confirm(await f.Driver.Bundle.State()), default);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var registration = monitor.Token.Register(() => cancelled.TrySetResult());
+        await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
     [Fact]
     public async Task HumanClosureEndsExistingAssuranceAuthorityWithoutManufacturingAcceptance()
     {

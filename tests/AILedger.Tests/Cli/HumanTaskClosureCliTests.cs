@@ -7,6 +7,7 @@ using AILedger.Core.Domain;
 using AILedger.Core.TaskClosure;
 using AILedger.Tests.Core;
 using AILedger.Tests.Findings;
+using AILedger.Storage;
 
 namespace AILedger.Tests.Cli;
 
@@ -97,6 +98,54 @@ public sealed class HumanTaskClosureCliTests
         await observed.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.True(monitor.Token.IsCancellationRequested);
         await Assert.ThrowsAsync<GovernanceException>(() => HumanClosureMonitor.StartAsync(f.Service(), f.TaskId, default));
+    }
+
+    [Fact]
+    public async Task CallerCancellationInterruptsMonitorWaitingForTaskLock()
+    {
+        using var f = new FindingsFixture();
+        await f.OpenAsync();
+        using var cancellation = new CancellationTokenSource();
+        var monitor = await HumanClosureMonitor.StartAsync(f.Service(), f.TaskId, cancellation.Token);
+        await using var held = await new TaskMutationLock().AcquireAsync(
+            Path.Combine(f.Directory, new TaskWorkspaceLayout().LockFileName), default);
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            await cancellation.CancelAsync();
+            Assert.True(monitor.Token.IsCancellationRequested);
+        }
+        finally { await monitor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AuthoritativeReadFailureStillCancelsExecution(bool governanceFailure)
+    {
+        using var f = new FindingsFixture();
+        await f.OpenAsync();
+        var service = new FailingReadService(await f.StateAsync(), governanceFailure);
+        await using var monitor = await HumanClosureMonitor.StartAsync(service, f.TaskId, default);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var registration = monitor.Token.Register(() => cancelled.TrySetResult());
+        await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(monitor.Token.IsCancellationRequested);
+    }
+
+    private sealed class FailingReadService(GovernedTaskState state, bool governanceFailure) : IGovernedTaskService
+    {
+        private bool _started;
+        public Task<GovernedTaskState?> GetStateAsync(TaskId taskId, CancellationToken cancellationToken)
+        {
+            if (_started) throw governanceFailure ? new GovernanceException("History lost") : new IOException("Read failed");
+            _started = true;
+            return Task.FromResult<GovernedTaskState?>(state);
+        }
+        public Task<CommandOutcome> ExecuteAsync(TaskId taskId, LedgerCommand command, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public IAsyncEnumerable<LedgerEvent> GetHistoryAsync(TaskId taskId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private static string[] Args(FindingsFixture f, string reason) =>
